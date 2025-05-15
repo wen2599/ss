@@ -5,7 +5,7 @@
 // Cloudflare Pages 部署前端时，通常需要配置后端API的绝对路径
 // 在本地开发时，如果后端运行在 3000 端口:
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-                    ? 'http://localhost:3000'
+                    ? 'http://localhost:22439'
                     : 'http://your-serv00-username.serv00.net:YOUR_SERV00_PORT'; // <--- 修改这里为你 Serv00 的后端地址和端口
 const socket = io(BACKEND_URL);
 
