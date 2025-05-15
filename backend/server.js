@@ -5,49 +5,75 @@ const gameLogic = require('./game.js');
 
 const app = express();
 const server = http.createServer(app);
+
+const FRONTEND_URL = 'https://ss.wenxiuxiu.eu.org'; // 定义前端URL
+
 const io = socketIO(server, {
     cors: {
-        origin: "*", // 允许所有来源，生产环境请配置具体域名
+        origin: FRONTEND_URL, // 只允许你的前端域名访问
         methods: ["GET", "POST"]
     }
+    // path: "/socket.io", // 这是默认值，通常不需要显式设置，除非Cloudflare代理了不同的路径
 });
 
-const PORT = process.env.PORT || 22439; // Serv00可能会设置PORT环境变量
+const PORT = process.env.PORT || 22439; // Serv00可能会设置PORT环境变量, 22439是备用
 
 let players = {}; // { socketId: { id: socketId, hand: [], arrangedHand: null, isReady: false, specialHand: null }, ... }
 let gameInProgress = false;
 let deck = [];
-let playerOrder = []; // [socketId1, socketId2]
+let playerOrder = []; // [socketId1, socketId2] - 存储连接的玩家ID顺序
+
+// Function to broadcast player order
+function broadcastPlayerOrder() {
+    io.emit('playerOrderUpdate', playerOrder);
+    console.log("Broadcasted player order:", playerOrder);
+}
 
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
 
-    if (Object.keys(players).length >= 2) {
+    if (playerOrder.length >= 2 && !playerOrder.includes(socket.id)) { // 简单处理，不允许超过2个不同玩家
         socket.emit('gameError', 'Game is full. Please try again later.');
         socket.disconnect();
         return;
     }
 
-    players[socket.id] = { id: socket.id, hand: [], arrangedHand: null, isReady: false, specialHand: null };
-    playerOrder.push(socket.id);
-    socket.emit('playerId', socket.id); // 发送玩家自己的ID
+    if (!players[socket.id]) { // 确保玩家不重复添加
+        players[socket.id] = { id: socket.id, hand: [], fullHandData: [], arrangedHand: null, isReady: false, specialHand: null };
+        if (!playerOrder.includes(socket.id)) {
+            playerOrder.push(socket.id);
+        }
+    }
+    
+    socket.emit('playerId', socket.id);
+    broadcastPlayerOrder(); // Announce new player list
 
-    if (Object.keys(players).length === 2 && !gameInProgress) {
+    if (playerOrder.length === 2 && !gameInProgress) {
         startGame();
     }
 
     socket.on('submitArrangement', (arrangedHandData) => {
+        // ... (submitArrangement 逻辑保持不变) ...
         if (!players[socket.id] || !gameInProgress) return;
 
-        // 将牌的ID转换为完整的牌对象 (从玩家原始手牌中查找)
         const playerOriginalHand = players[socket.id].fullHandData;
+        if (!playerOriginalHand || playerOriginalHand.length === 0) {
+            socket.emit('gameError', 'No hand data found for submission.');
+            return;
+        }
         const arrangedPlayerHand = {
             front: arrangedHandData.front.map(cardId => playerOriginalHand.find(c => c.id === cardId)),
             middle: arrangedHandData.middle.map(cardId => playerOriginalHand.find(c => c.id === cardId)),
             back: arrangedHandData.back.map(cardId => playerOriginalHand.find(c => c.id === cardId))
         };
 
-        // 检查牌数是否正确
+        if (arrangedPlayerHand.front.some(c=>c===undefined) || 
+            arrangedPlayerHand.middle.some(c=>c===undefined) || 
+            arrangedPlayerHand.back.some(c=>c===undefined)) {
+            socket.emit('gameError', 'Invalid cards in arrangement (some cards not found).');
+            return;
+        }
+        
         if (arrangedPlayerHand.front.length !== 3 ||
             arrangedPlayerHand.middle.length !== 5 ||
             arrangedPlayerHand.back.length !== 5) {
@@ -55,24 +81,21 @@ io.on('connection', (socket) => {
             return;
         }
         
-        // 检查是否使用了重复的牌或不属于自己的牌 (简化检查，只检查总数)
         const allArrangedCards = [
             ...arrangedPlayerHand.front, 
             ...arrangedPlayerHand.middle, 
             ...arrangedPlayerHand.back
         ];
         const uniqueCardIds = new Set(allArrangedCards.map(c => c.id));
-        if (uniqueCardIds.size !== 13 || allArrangedCards.some(c => c === undefined)) {
+        if (uniqueCardIds.size !== 13 ) {
             socket.emit('gameError', 'Invalid cards submitted. Cards might be duplicated or not from your hand.');
             return;
         }
 
-
-        // 检查是否是特殊牌型 (优先于普通摆牌)
         const special = gameLogic.checkSpecialHand(playerOriginalHand);
         if (special) {
             players[socket.id].specialHand = special;
-            players[socket.id].arrangedHand = null; // 特殊牌型不需要普通摆牌
+            players[socket.id].arrangedHand = null; 
             console.log(`Player ${socket.id} has special hand: ${special.name}`);
         } else {
              if (!gameLogic.isValidArrangement(arrangedPlayerHand)) {
@@ -90,155 +113,159 @@ io.on('connection', (socket) => {
         checkBothPlayersReady();
     });
 
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
+    socket.on('disconnect', (reason) => {
+        console.log('User disconnected:', socket.id, "Reason:", reason);
         const playerIndex = playerOrder.indexOf(socket.id);
         if (playerIndex > -1) {
             playerOrder.splice(playerIndex, 1);
         }
         delete players[socket.id];
+        broadcastPlayerOrder(); // Announce updated player list
         
-        if (Object.keys(players).length < 2 && gameInProgress) {
+        if (playerOrder.length < 2 && gameInProgress) {
             io.emit('gameError', 'A player disconnected. Game reset.');
-            resetGame();
-        } else if (Object.keys(players).length === 0) {
-            resetGame();
+            resetGame(false); // Don't try to restart immediately if a player leaves mid-game
+        } else if (playerOrder.length === 0) {
+            resetGame(false);
         }
     });
 });
 
 function startGame() {
+    if (playerOrder.length < 2) {
+        console.log("Not enough players to start game.");
+        io.emit('gameState', { message: "Waiting for more players..." });
+        return;
+    }
     console.log("Starting game with players:", playerOrder);
     gameInProgress = true;
     deck = gameLogic.shuffleDeck(gameLogic.createDeck());
     const hands = gameLogic.dealCards(deck, playerOrder.length);
 
     playerOrder.forEach((playerId, index) => {
-        players[playerId].hand = hands[index].map(card => card.id); // 只发送牌的ID
-        players[playerId].fullHandData = hands[index]; // 保存完整的牌数据供服务器使用
-        players[playerId].isReady = false;
-        players[playerId].arrangedHand = null;
-        players[playerId].specialHand = null;
-        io.to(playerId).emit('dealCards', { hand: hands[index] }); // 发送完整的牌信息给客户端
+        if (players[playerId]) { // Make sure player still exists
+            players[playerId].hand = hands[index].map(card => card.id);
+            players[playerId].fullHandData = hands[index]; 
+            players[playerId].isReady = false;
+            players[playerId].arrangedHand = null;
+            players[playerId].specialHand = null;
+            io.to(playerId).emit('dealCards', { hand: hands[index] }); 
+        }
     });
 
     io.emit('gameState', { message: "Game started! Arrange your cards." });
+    broadcastPlayerOrder(); // Ensure opponent ID is updated on clients
 }
 
 function checkBothPlayersReady() {
-    const readyPlayers = playerOrder.filter(id => players[id] && players[id].isReady);
-    if (readyPlayers.length === 2 && gameInProgress) {
-        // 两个玩家都准备好了，开始比较
-        const player1Id = playerOrder[0];
-        const player2Id = playerOrder[1];
+    if (playerOrder.length < 2) return; // Need two players in the order
 
-        const player1 = players[player1Id];
-        const player2 = players[player2Id];
-        
-        let results;
-        let player1FinalHand = player1.arrangedHand;
-        let player2FinalHand = player2.arrangedHand;
-        let player1Special = player1.specialHand;
-        let player2Special = player2.specialHand;
+    const player1Id = playerOrder[0];
+    const player2Id = playerOrder[1];
 
-        // 处理特殊牌型
-        // 规则：特殊牌型 > 普通牌型。如果都有特殊牌型，比较特殊牌型大小（这里简化为先报先赢或按某种预设顺序）
-        // 如果一方特殊，一方普通，特殊方赢。
-        // 如果双方都普通，则按道比牌。
+    // Ensure both players are still connected and in the `players` object
+    if (!players[player1Id] || !players[player2Id]) {
+        console.log("One or more players disconnected before comparison.");
+        // Game might have been reset by disconnect handler, or wait for new players.
+        return;
+    }
 
+    const player1 = players[player1Id];
+    const player2 = players[player2Id];
+
+    if (player1.isReady && player2.isReady && gameInProgress) {
         let gameOutcome = {};
+        // ... (gameOutcome logic from previous server.js, ensure player1Id and player2Id are included)
+        // (Make sure to use player1Id and player2Id consistently from playerOrder)
+        const p1FinalHand = player1.arrangedHand;
+        const p2FinalHand = player2.arrangedHand;
+        const p1Special = player1.specialHand;
+        const p2Special = player2.specialHand;
 
-        if (player1Special && player2Special) {
-            // 双方都有特殊牌型，需要定义比较规则，这里简化：player1的特殊牌型默认赢 (或者按牌型大小)
-            // 实际中，特殊牌型有大小之分，如至尊清龙 > 一条龙
+        if (p1Special && p2Special) {
             gameOutcome = {
-                winner: player1Id,
-                reason: `Both special hands. ${player1Special.name} (P1) vs ${player2Special.name} (P2). P1 wins by default special rule.`,
-                player1Cards: player1.fullHandData, // 显示全部13张
-                player2Cards: player2.fullHandData,
-                player1Special: player1Special.name,
-                player2Special: player2Special.name,
+                winner: player1Id, // Simplified: P1 wins if both special
+                reason: `Both special hands. ${p1Special.name} (P1) vs ${p2Special.name} (P2). P1 wins by default.`,
+                player1Cards: player1.fullHandData, player2Cards: player2.fullHandData,
+                player1Special: p1Special.name, player2Special: p2Special.name,
+                player1Id: player1Id, player2Id: player2Id
             };
-        } else if (player1Special) {
+        } else if (p1Special) {
             gameOutcome = {
-                winner: player1Id,
-                reason: `Player ${player1Id} has special hand: ${player1Special.name}`,
-                player1Cards: player1.fullHandData,
-                player2Cards: player2FinalHand || player2.fullHandData, // 如果对方没摆好，也显示原始牌
-                player1Special: player1Special.name,
+                winner: player1Id, reason: `Player ${player1Id.substring(0,6)} has special: ${p1Special.name}`,
+                player1Cards: player1.fullHandData, player2Cards: p2FinalHand || player2.fullHandData,
+                player1Special: p1Special.name,
+                player1Id: player1Id, player2Id: player2Id
             };
-        } else if (player2Special) {
-            gameOutcome = {
-                winner: player2Id,
-                reason: `Player ${player2Id} has special hand: ${player2Special.name}`,
-                player1Cards: player1FinalHand || player1.fullHandData,
-                player2Cards: player2.fullHandData,
-                player2Special: player2Special.name,
+        } else if (p2Special) {
+             gameOutcome = {
+                winner: player2Id, reason: `Player ${player2Id.substring(0,6)} has special: ${p2Special.name}`,
+                player1Cards: p1FinalHand || player1.fullHandData, player2Cards: player2.fullHandData,
+                player2Special: p2Special.name,
+                player1Id: player1Id, player2Id: player2Id
             };
-        } else if (player1FinalHand && player2FinalHand) {
-            // 双方都普通牌型
-            results = gameLogic.comparePlayerHands(player1FinalHand, player2FinalHand);
+        } else if (p1FinalHand && p2FinalHand) {
+            const results = gameLogic.comparePlayerHands(p1FinalHand, p2FinalHand);
             let winnerId = null;
             if (results.overallWinner === 'player1') winnerId = player1Id;
             if (results.overallWinner === 'player2') winnerId = player2Id;
-            
             gameOutcome = {
-                winner: winnerId,
-                reason: "Normal hand comparison.",
-                details: results.details, // 各道比较结果 1 (P1赢), -1 (P2赢), 0 (平)
-                player1Cards: player1FinalHand,
-                player2Cards: player2FinalHand,
-                player1Score: results.player1Score,
-                player2Score: results.player2Score
+                winner: winnerId, reason: "Normal hand comparison.", details: results.details,
+                player1Cards: p1FinalHand, player2Cards: p2FinalHand,
+                player1Score: results.player1Score, player2Score: results.player2Score,
+                player1Id: player1Id, player2Id: player2Id
             };
         } else {
-             // 有一方未完成摆牌且无特殊牌型，则另一方不战而胜
-            if (!player1FinalHand && !player1Special) {
-                 gameOutcome = { winner: player2Id, reason: `Player ${player1Id} did not complete arrangement.`, player1Cards: player1.fullHandData, player2Cards: player2FinalHand || player2.fullHandData };
-            } else if (!player2FinalHand && !player2Special) {
-                 gameOutcome = { winner: player1Id, reason: `Player ${player2Id} did not complete arrangement.`, player1Cards: player1FinalHand || player1.fullHandData, player2Cards: player2.fullHandData };
-            } else {
-                // 理论上不应该到这里，除非逻辑有误
-                io.emit('gameError', "Error in determining game outcome.");
+            if (!p1FinalHand && !p1Special && (p2FinalHand || p2Special)) {
+                 gameOutcome = { winner: player2Id, reason: `Player ${player1Id.substring(0,6)} did not complete.`, player1Cards: player1.fullHandData, player2Cards: p2FinalHand || p2.fullHandData, player1Id: player1Id, player2Id: player2Id };
+            } else if (!p2FinalHand && !p2Special && (p1FinalHand || p1Special)) {
+                 gameOutcome = { winner: player1Id, reason: `Player ${player2Id.substring(0,6)} did not complete.`, player1Cards: p1FinalHand || player1.fullHandData, player2Cards: player2.fullHandData, player1Id: player1Id, player2Id: player2Id };
+            } else if (!p1FinalHand && !p1Special && !p2FinalHand && !p2Special) {
+                 gameOutcome = { winner: 'draw', reason: `Both players failed to submit valid hands.`, player1Cards: player1.fullHandData, player2Cards: player2.fullHandData, player1Id: player1Id, player2Id: player2Id };
+            }
+             else {
+                io.emit('gameError', "Error determining outcome or one player didn't submit.");
                 resetGameAfterDelay();
                 return;
             }
         }
         
         io.emit('gameResult', gameOutcome);
-        console.log("Game ended. Results:", gameOutcome);
+        console.log("Game ended. Results:", gameOutcome.reason, "Winner:", gameOutcome.winner);
         resetGameAfterDelay();
     }
 }
 
 function resetGameAfterDelay() {
     setTimeout(() => {
-        resetGame();
-        // 如果还有两个玩家，自动开始新一局
-        if (Object.keys(players).length === 2) {
-            startGame();
-        }
-    }, 10000); // 10秒后重置并尝试开始新游戏
+        resetGame(true); // Attempt to restart if players are still there
+    }, 10000); 
 }
 
-
-function resetGame() {
+function resetGame(tryRestart = true) {
     console.log("Resetting game.");
     gameInProgress = false;
     deck = [];
-    // 清理玩家状态，但保留连接的玩家
     for (const playerId in players) {
-        players[playerId].hand = [];
-        players[playerId].fullHandData = [];
-        players[playerId].arrangedHand = null;
-        players[playerId].isReady = false;
-        players[playerId].specialHand = null;
+        if (players[playerId]) {
+            players[playerId].hand = [];
+            players[playerId].fullHandData = [];
+            players[playerId].arrangedHand = null;
+            players[playerId].isReady = false;
+            players[playerId].specialHand = null;
+        }
     }
-    // playerOrder 保持不变，除非有玩家断开连接
     io.emit('gameState', { message: "Game reset. Waiting for players..." });
+    broadcastPlayerOrder();
+
+    if (tryRestart && playerOrder.length === 2) {
+        console.log("Attempting to restart game with current players.");
+        startGame();
+    } else if (tryRestart) {
+        console.log("Not enough players to auto-restart. Waiting for connections.");
+    }
 }
 
-
-server.listen(PORT, '0.0.0.0', () => { // 监听 0.0.0.0 允许外部访问
-    console.log(`Backend server running on port ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => { 
+    console.log(`Backend server running on port ${PORT}, allowed origin: ${FRONTEND_URL}`);
 });
