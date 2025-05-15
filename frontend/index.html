@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>十三水</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <h1>十三水</h1>
+        <div id="status-message">连接中...</div>
+
+        <div id="opponent-area" class="player-area">
+            <h2>对手 (<span id="opponent-id"></span>)</h2>
+            <div class="arranged-hands">
+                <div class="hand-segment">
+                    <h4>头道 (3张)</h4>
+                    <div id="opponent-front" class="card-group"></div>
+                </div>
+                <div class="hand-segment">
+                    <h4>中道 (5张)</h4>
+                    <div id="opponent-middle" class="card-group"></div>
+                </div>
+                <div class="hand-segment">
+                    <h4>尾道 (5张)</h4>
+                    <div id="opponent-back" class="card-group"></div>
+                </div>
+            </div>
+            <div id="opponent-special" class="special-hand-display"></div>
+        </div>
+
+        <hr>
+
+        <div id="player-area" class="player-area">
+            <h2>你 (<span id="my-id"></span>)</h2>
+            <div id="my-hand" class="hand-display">
+                <!-- 玩家的13张牌将在这里显示 -->
+            </div>
+            
+            <h3>你的摆牌区:</h3>
+            <div class="arrangement-zones">
+                <div class="zone" id="zone-front" data-segment="front" data-size="3">
+                    <h4>头道 (3张) <button class="clear-zone-btn" data-zone="front">清空</button></h4>
+                    <div class="card-group droppable"></div>
+                </div>
+                <div class="zone" id="zone-middle" data-segment="middle" data-size="5">
+                    <h4>中道 (5张) <button class="clear-zone-btn" data-zone="middle">清空</button></h4>
+                    <div class="card-group droppable"></div>
+                </div>
+                <div class="zone" id="zone-back" data-segment="back" data-size="5">
+                    <h4>尾道 (5张) <button class="clear-zone-btn" data-zone="back">清空</button></h4>
+                    <div class="card-group droppable"></div>
+                </div>
+            </div>
+            <button id="submit-arrangement-btn" disabled>提交摆牌</button>
+            <div id="my-special" class="special-hand-display"></div>
+        </div>
+        
+        <div id="game-result" class="result-display"></div>
+
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script> <!-- 会由后端提供 -->
+    <script src="script.js"></script>
+</body>
+</html>
