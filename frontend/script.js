@@ -1,26 +1,19 @@
+// frontend/script.js
+
 // --- 连接后端的 WebSocket ---
 
-// 由于前端和（代理后的）后端都在同一个域名 https://ss.wenxiuxiu.eu.org 下
-// Socket.IO 客户端将连接到该域名。
-// Cloudflare 需要配置为将 /socket.io/ 路径的请求代理到 Serv00 上的后端服务。
-const BACKEND_URL = 'https://ss.wenxiuxiu.eu.org'; // 或者直接 const socket = io(); 如果path配置正确
-
-// 如果你的Cloudflare设置是让socket.io在根路径下工作，直接用下面的
-// const socket = io();
-
-// 如果你的Cloudflare设置是让socket.io在特定的子路径下工作，
-// 例如，你将 https://ss.wenxiuxiu.eu.org/my-socket-path/ 代理到Serv00的socket.io
-// 那么你需要像这样指定 path:
-// const socket = io('https://ss.wenxiuxiu.eu.org', {
-//   path: '/my-socket-path/socket.io' // 根据你的Cloudflare Worker/Tunnel配置
-// });
-
-// 假设Cloudflare将 /socket.io/ 标准路径代理到Serv00后端
-const socket = io(BACKEND_URL, {
-    // 如果Cloudflare代理了 /socket.io/ 路径，那么通常不需要特别指定path
-    // path: "/socket.io", // Socket.IO 客户端默认会使用 /socket.io/，如果后端服务器也使用默认路径，则此行可省略。
-                           // 确保 Cloudflare Worker 或 Tunnel 将 https://ss.wenxiuxiu.eu.org/socket.io/ 
-                           // 正确地路由到你 Serv00 后端的 Socket.IO 服务。
+// 目标：所有通信都通过 Cloudflare 代理的 https://ss.wenxiuxiu.eu.org
+// Cloudflare 需要配置将 /socket.io/ 路径（或其他指定路径）的请求代理到你 Serv00 上的后端服务。
+// Socket.IO 客户端默认会连接到提供当前页面的主机的 /socket.io/ 路径。
+// 如果你的 Cloudflare 设置正确地将 https://ss.wenxiuxiu.eu.org/socket.io/ 代理到 Serv00 后端，
+// 那么下面的连接方式是正确的。
+const socket = io('https://ss.wenxiuxiu.eu.org', {
+    // path: "/socket.io",  // 这是 Socket.IO 客户端和服务器的默认路径。
+                           // 如果你的 Cloudflare Worker/Tunnel 将 https://ss.wenxiuxiu.eu.org/socket.io/
+                           // 代理到 Serv00 后端的 /socket.io/ 路径，那么这个设置是正确的，或者可以省略。
+                           // 如果你的 Cloudflare 代理了不同的路径，例如 /my-custom-socket-path/socket.io/
+                           // 那这里就需要设置为 path: "/my-custom-socket-path/socket.io"
+    transports: ['websocket', 'polling'] // 明确指定 transport，websocket 优先
 });
 
 
@@ -56,10 +49,17 @@ let playerOrderFromServer = []; // 用于存储从服务器获取的玩家顺序
 function createCardElement(cardData, isOpponentCard = false, isRevealed = false) {
     const cardEl = document.createElement('div');
     cardEl.classList.add('card');
-    cardEl.dataset.cardId = cardData.id; 
+    if (cardData && cardData.id) { // 确保 cardData 和 cardData.id 存在
+        cardEl.dataset.cardId = cardData.id;
+    } else {
+        // 处理 cardData 或 cardData.id 未定义的情况，例如可以给一个默认的 dataset
+        // console.warn("Card data or ID is undefined, using default for dataset:", cardData);
+        // cardEl.dataset.cardId = `unknown-${Math.random().toString(36).substring(7)}`;
+    }
     
     const img = document.createElement('img');
-    if (isOpponentCard && !isRevealed) {
+    // 如果是对手的牌且未揭示，或者 cardData 无效，则显示背面
+    if ((isOpponentCard && !isRevealed) || !cardData || !cardData.image) {
         img.src = `images/back.png`;
         img.alt = "Card Back";
     } else {
@@ -68,7 +68,8 @@ function createCardElement(cardData, isOpponentCard = false, isRevealed = false)
     }
     cardEl.appendChild(img);
 
-    if (!isOpponentCard) { 
+    // 只有自己的、有效的牌可以点击
+    if (!isOpponentCard && cardData && cardData.id) { 
         cardEl.addEventListener('click', () => handleCardClick(cardEl, cardData));
     }
     return cardEl;
@@ -103,44 +104,54 @@ function renderOpponentCards(arrangement, isRevealed = false) {
     opponentMiddleEl.innerHTML = '';
     opponentBackEl.innerHTML = '';
 
-    function displaySegment(segmentCards, targetEl) {
-        if (!segmentCards) { 
-             const numCards = targetEl.id.includes('front') ? 3 : 5;
-             for (let i = 0; i < numCards ; i++) {
-                const cardEl = createCardElement({id: `back-${targetEl.id}-${i}`, image: 'back.png'}, true, false);
+    function displaySegment(segmentCards, targetEl, numExpectedCards) {
+        targetEl.innerHTML = ''; // 清空目标元素
+        if (!segmentCards || !isRevealed) { 
+             for (let i = 0; i < numExpectedCards ; i++) {
+                // 传入一个模拟的 cardData 对象给 createCardElement，即使是背面
+                const cardEl = createCardElement({ id: `back-${targetEl.id}-${i}`, image: 'back.png' }, true, false);
                 targetEl.appendChild(cardEl);
             }
             return;
         }
+        // 如果有牌，则显示牌面
         segmentCards.forEach(card => {
-            const cardEl = createCardElement(card, true, isRevealed);
+            const cardEl = createCardElement(card, true, true); // 对手的牌，已揭示
             targetEl.appendChild(cardEl);
         });
+        // 如果实际牌数少于预期，用背面牌补齐
+        for (let i = segmentCards.length; i < numExpectedCards; i++) {
+            const cardEl = createCardElement({ id: `back-fill-${targetEl.id}-${i}`, image: 'back.png' }, true, false);
+            targetEl.appendChild(cardEl);
+        }
     }
     
     if (isRevealed && arrangement) { 
-        if (arrangement.front && arrangement.middle && arrangement.back) {
-            displaySegment(arrangement.front, opponentFrontEl);
-            displaySegment(arrangement.middle, opponentMiddleEl);
-            displaySegment(arrangement.back, opponentBackEl);
-        } else if (Array.isArray(arrangement) && arrangement.length === 13) { 
-             let displayedCount = 0;
-             arrangement.forEach(card => {
-                const cardEl = createCardElement(card, true, isRevealed);
-                if (displayedCount < 3) opponentFrontEl.appendChild(cardEl);
-                else if (displayedCount < 8) opponentMiddleEl.appendChild(cardEl);
-                else opponentBackEl.appendChild(cardEl);
+        if (arrangement.front && arrangement.middle && arrangement.back) { // 正常摆好的牌
+            displaySegment(arrangement.front, opponentFrontEl, 3);
+            displaySegment(arrangement.middle, opponentMiddleEl, 5);
+            displaySegment(arrangement.back, opponentBackEl, 5);
+        } else if (Array.isArray(arrangement) && arrangement.length === 13) { // 特殊牌型或未完成摆牌，显示13张
+            let displayedCount = 0;
+            const tempFront = [], tempMiddle = [], tempBack = [];
+            arrangement.forEach(card => {
+                if (displayedCount < 3) tempFront.push(card);
+                else if (displayedCount < 8) tempMiddle.push(card);
+                else tempBack.push(card);
                 displayedCount++;
             });
-        } else { 
-            displaySegment(null, opponentFrontEl);
-            displaySegment(null, opponentMiddleEl);
-            displaySegment(null, opponentBackEl);
+            displaySegment(tempFront, opponentFrontEl, 3);
+            displaySegment(tempMiddle, opponentMiddleEl, 5);
+            displaySegment(tempBack, opponentBackEl, 5);
+        } else { // 结构未知或不完整，全部显示背面
+            displaySegment(null, opponentFrontEl, 3);
+            displaySegment(null, opponentMiddleEl, 5);
+            displaySegment(null, opponentBackEl, 5);
         }
-    } else { 
-        displaySegment(null, opponentFrontEl);
-        displaySegment(null, opponentMiddleEl);
-        displaySegment(null, opponentBackEl);
+    } else { // 默认或未揭示时，全部显示背面
+        displaySegment(null, opponentFrontEl, 3);
+        displaySegment(null, opponentMiddleEl, 5);
+        displaySegment(null, opponentBackEl, 5);
     }
 }
 
@@ -211,7 +222,7 @@ clearZoneBtns.forEach(btn => {
 
 [zoneFrontEl, zoneMiddleEl, zoneBackEl].forEach(zoneDropArea => {
     zoneDropArea.parentElement.addEventListener('click', (event) => {
-        if (event.target.classList.contains('clear-zone-btn')) return;
+        if (event.target.classList.contains('clear-zone-btn') || event.target.closest('.card')) return; // 不处理清空按钮或牌的点击
         const zoneType = zoneDropArea.parentElement.dataset.segment;
         addCardToZone(zoneType);
     });
@@ -232,16 +243,21 @@ function checkArrangementComplete() {
 
 // --- Socket Event Handlers ---
 socket.on('connect', () => {
-    statusMessageEl.textContent = '已连接到服务器！等待其他玩家...';
-    console.log('Connected with id:', socket.id);
+    statusMessageEl.textContent = '已连接！等待其他玩家...';
+    console.log('Socket connected with id:', socket.id);
 });
+
+socket.on('connect_error', (err) => {
+    statusMessageEl.textContent = `连接错误: ${err.message}。请检查网络或刷新。`;
+    console.error('Socket connection error:', err);
+});
+
 
 socket.on('playerId', (id) => {
     myPlayerId = id;
     myIdEl.textContent = id.substring(0,6); 
 });
 
-// Listener for player order updates from server
 socket.on('playerOrderUpdate', (order) => {
     console.log("Received player order update:", order);
     playerOrderFromServer = order;
@@ -250,14 +266,16 @@ socket.on('playerOrderUpdate', (order) => {
 
 
 function updateOpponentIdDisplay() {
-    if (myPlayerId && playerOrderFromServer.length > 1) {
+    if (myPlayerId && playerOrderFromServer.length > 0) { // 改为 > 0，即使只有一个玩家也更新
         const opponent = playerOrderFromServer.find(pId => pId !== myPlayerId);
         if (opponent) {
             opponentIdEl.textContent = opponent.substring(0, 6);
+        } else if (playerOrderFromServer.length === 1 && playerOrderFromServer[0] === myPlayerId) {
+            opponentIdEl.textContent = '等待对手';
         } else {
             opponentIdEl.textContent = 'N/A';
         }
-    } else if (playerOrderFromServer.length <= 1) {
+    } else {
         opponentIdEl.textContent = '等待中';
     }
 }
@@ -275,10 +293,10 @@ socket.on('dealCards', (data) => {
     gameResultEl.innerHTML = ''; 
 
     renderHand(data.hand);
-    renderOpponentCards(null, false); 
+    renderOpponentCards(null, false); // 对手牌默认显示背面
     submitArrangementBtn.disabled = true; 
     submitArrangementBtn.textContent = '提交摆牌';
-    updateOpponentIdDisplay(); // Update opponent display on new deal
+    updateOpponentIdDisplay(); 
 });
 
 socket.on('arrangementAccepted', () => {
@@ -294,18 +312,18 @@ socket.on('gameState', (data) => {
         zoneFrontEl.innerHTML = '';
         zoneMiddleEl.innerHTML = '';
         zoneBackEl.innerHTML = '';
-        opponentFrontEl.innerHTML = '';
+        opponentFrontEl.innerHTML = ''; // 清空对手牌区
         opponentMiddleEl.innerHTML = '';
         opponentBackEl.innerHTML = '';
+        renderOpponentCards(null, false); // 确保对手牌区在重置时显示背面
         mySpecialEl.textContent = '';
         opponentSpecialEl.textContent = '';
         gameResultEl.innerHTML = '';
         submitArrangementBtn.disabled = true;
         submitArrangementBtn.textContent = '提交摆牌';
-        playerOrderFromServer = []; // Reset player order on game reset
+        // playerOrderFromServer = []; // 后端会在reset时发送新的playerOrderUpdate
         updateOpponentIdDisplay();
     }
-    // Opponent ID update is now handled by 'playerOrderUpdate'
 });
 
 
@@ -313,6 +331,8 @@ socket.on('gameResult', (result) => {
     statusMessageEl.textContent = '游戏结束！';
     submitArrangementBtn.disabled = true;
     gameResultEl.innerHTML = ''; 
+
+    console.log("Game result data received:", result);
 
     const amIPlayer1 = myPlayerId === result.player1Id;
 
@@ -331,19 +351,19 @@ socket.on('gameResult', (result) => {
         if (result.player2Special) {
             opponentSpecialText = `对手特殊牌型: ${result.player2Special}`;
         }
+        opponentIdEl.textContent = result.player2Id ? result.player2Id.substring(0,6) : '对手';
     } else { 
         opponentCardsToDisplay = result.player1Cards;
         if (result.player1Special) {
             opponentSpecialText = `对手特殊牌型: ${result.player1Special}`;
         }
+        opponentIdEl.textContent = result.player1Id ? result.player1Id.substring(0,6) : '对手';
     }
     opponentSpecialEl.textContent = opponentSpecialText;
     
-    if (opponentCardsToDisplay) {
-        renderOpponentCards(opponentCardsToDisplay, true); 
-    } else { 
-        renderOpponentCards(null, false);
-    }
+    // 确保即使对方牌数据不完整或为null，也调用renderOpponentCards来显示背面
+    renderOpponentCards(opponentCardsToDisplay || null, true); 
+
 
     const resultDiv = document.createElement('div');
     if (result.reason) {
@@ -399,7 +419,8 @@ socket.on('gameResult', (result) => {
 
 socket.on('gameError', (message) => {
     statusMessageEl.textContent = `错误: ${message}`;
-    alert(`游戏错误: ${message}`);
+    // alert(`游戏错误: ${message}`); // 可以取消注释以弹窗提示
+    console.error("Game Error from server:", message);
 });
 
 socket.on('disconnect', (reason) => {
@@ -416,8 +437,10 @@ submitArrangementBtn.addEventListener('click', () => {
         alert("每道牌的数量不正确！头道3张，中道5张，尾道5张。");
         return;
     }
+    console.log("Submitting arrangement:", arrangedCards);
     socket.emit('submitArrangement', arrangedCards);
 });
 
-renderOpponentCards(null, false);
-updateOpponentIdDisplay(); // Initial call
+// Initial setup
+renderOpponentCards(null, false); // 初始化时显示对手牌背面
+updateOpponentIdDisplay(); 
