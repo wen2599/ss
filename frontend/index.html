@@ -61,7 +61,14 @@
 
     </div>
 
-    <script src="/socket.io/socket.io.js"></script> <!-- 会由后端提供 -->
+    <!--
+        如果Cloudflare将 https://ss.wenxiuxiu.eu.org/socket.io/socket.io.js 路由到后端服务,
+        则可以使用相对路径。
+        否则，仍推荐使用CDN。为了保险起见，我们这里保留CDN方式，除非你确认Cloudflare的代理配置正确。
+    -->
+    <!-- <script src="/socket.io/socket.io.js"></script> -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script> <!-- 保持CDN作为可靠的备选 -->
+
     <script src="script.js"></script>
 </body>
 </html>
