@@ -12,7 +12,7 @@ const io = socketIO(server, {
     }
 });
 
-const PORT = process.env.PORT || 3000; // Serv00可能会设置PORT环境变量
+const PORT = process.env.PORT || 22439; // Serv00可能会设置PORT环境变量
 
 let players = {}; // { socketId: { id: socketId, hand: [], arrangedHand: null, isReady: false, specialHand: null }, ... }
 let gameInProgress = false;
