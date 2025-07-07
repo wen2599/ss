@@ -12,7 +12,6 @@ function App() {
   const [players, setPlayers] = useState([]); // List of players in the room
   const [cardsOnTable, setCardsOnTable] = useState([]); // Cards on the table
   const [bottomCards, setBottomCards] = useState([]); // State for bottom cards
-  const [gameState, setGameState] = useState('waiting'); // State for game phase (waiting, calling_landlord, playing, etc.)
 
 
   const handleCreateRoom = async () => {
@@ -49,8 +48,7 @@ function App() {
         setCurrentPlayerId(playerId); // Set current player ID
         setPlayers(Object.values(gameStateResponse.room.players)); // Update players state
         setCardsOnTable(gameStateResponse.room.discarded_cards); // Update cards on table state
-        setBottomCards(gameStateResponse.room.bottom_cards || []); // Update bottom cards state; 
-        setGameState(gameStateResponse.room.state); // Update game state
+ setBottomCards(gameStateResponse.room.bottom_cards || []); // Update bottom cards state
       }
     } catch (error) {
       console.error('Failed to fetch game state:', error);
@@ -79,27 +77,28 @@ function App() {
 
   // Render game area if a room is joined
   return (
-    <div className="App">
+ <div className="App">
       <h1>斗地主多人游戏</h1>
-      <div className="game-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}> {/* Added flexbox for layout */}
+ <div
+ className="game-container"
+ style={{
+ display: 'flex',
+ flexDirection: 'column',
+ height: '100vh'
+ }}
+ >
         <div className="game-table-area">
-          <GameTable cardsOnTable={cardsOnTable} bottomCards={bottomCards} gameState={gameState} />
-        </div>
-        {/* This div will hold the current player's hand and potentially action buttons */}
+ <GameTable cardsOnTable={cardsOnTable} bottomCards={bottomCards} />
         </div>
         <div className="player-areas"> {/* Container for all player areas */}
           {players.map(player => {
             const isCurrent = player.id === currentPlayerId;
             return (
-            <PlayerArea
-              key={player.id}
-              player={player}
-              isCurrentPlayer={isCurrent}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
+ <PlayerArea key={player.id} player={player} isCurrentPlayer={isCurrent} />
+ );
+ })}
+ </div>
+ </div>
   );
 }
 
