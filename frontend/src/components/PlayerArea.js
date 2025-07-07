@@ -211,4 +211,5 @@ function PlayerArea({ player, isCurrentPlayer }) {
   );
 }
 
-export default PlayerArea;
+// Test comment
+// export default PlayerArea;
