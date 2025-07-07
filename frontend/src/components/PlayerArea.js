@@ -143,6 +143,7 @@ function PlayerArea({ player, isCurrentPlayer }) {
         ? selectedCards.filter(card => card !== cardFilename)
         : [...selectedCards, cardFilename];
     setCurrentPlay(isValidPlay(updatedSelectedCards));
+    console.log("Selected Cards:", updatedSelectedCards, "Current Play:", isValidPlay(updatedSelectedCards)); // Log selection changes and validation
   };
   
    const handleCancelSelection = () => {
@@ -152,13 +153,14 @@ function PlayerArea({ player, isCurrentPlayer }) {
 
   const handlePlayCards = () => {
     // TODO: Implement logic to send the selected cards to the backend
-    // Also, need to pass the last played cards from the GameTable/App state to canBeatLastPlay
-    // if (currentPlay.valid && canBeatLastPlay(currentPlay, lastPlayedCards)) {
-    //   console.log("Valid play:", selectedCards);
-    //   // Send play to backend
-    // } else if (currentPlay.valid && lastPlayedCards === null) { // Can play anything if no last play
-    //   console.log("Valid initial play:", selectedCards);
-    //   // Send play to backend
+    // You need to pass the last played cards from the GameTable/App state to canBeatLastPlay
+    // For now, we'll just log based on currentPlay validity
+    // Assuming `lastPlayedCards` is available in this scope (e.g., passed as a prop)
+    // if (currentPlay.valid && canBeatLastPlay(currentPlay, lastPlayedCards)) { // Example usage, lastPlayedCards is not yet a prop
+    if (currentPlay.valid) { // For now, just check if the play is valid
+      console.log("Valid play:", selectedCards);
+      // TODO: Send play to backend
+      // Clear selected cards after a valid play
     // } else {
     //   console.log("Invalid play or cannot beat last play");
     //   // Provide user feedback
@@ -202,7 +204,7 @@ function PlayerArea({ player, isCurrentPlayer }) {
           {/* Disable '出牌' button if no cards are selected or play is invalid */}
           <button onClick={handlePlayCards} disabled={!currentPlay.valid}>出牌</button> {/* Use currentPlay state */}
           <button onClick={() => console.log("Pass")}>不要</button> {/* Add handler for "Pass" */}
-          <button onClick={() => setSelectedCards([])}>取消选择</button> {/* Add Cancel Selection button */}
+          <button onClick={handleCancelSelection}>取消选择</button> {/* Call handleCancelSelection */}
         </div>
       )}
     </div>
