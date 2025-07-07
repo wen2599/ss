@@ -2,10 +2,10 @@ php
 <?php
 
 // Placeholder for configuration variables
-// Example:
-// define('DB_HOST', 'localhost');
-// define('DB_USER', 'username');
-// define('DB_PASSWORD', 'password');
-// define('DB_NAME', 'database_name');
+
+define('DB_HOST', 'localhost'); // Replace with your database host
+define('DB_USER', 'username'); // Replace with your database username
+define('DB_PASSWORD', 'password'); // Replace with your database password
+define('DB_NAME', 'database_name'); // Replace with your database name
 
 ?>
