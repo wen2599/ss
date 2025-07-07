@@ -1,6 +1,4 @@
-# This workflow builds and signs an Android APK using Capacitor.
-
-name: Android Build
+name: Android CI
 
 on:
   push:
@@ -8,8 +6,7 @@ on:
       - main
 
 jobs:
-  build:
-    # Use runs-on instead of runs on for correct syntax
+  build-android:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,13 +26,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
         run: cd frontend && npm install
 
-      - name: Add Android platform
-        run: cd frontend && npx cap add android
-
-      - name: Build React frontend
+      - name: Build frontend
         run: cd frontend && CI=false NODE_OPTIONS=--openssl-legacy-provider npm run build
 
       - name: Sync Capacitor web assets to Android
@@ -44,13 +38,16 @@ jobs:
       - name: Setup JDK 17
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin' # Or other distribution like 'adopt'
           java-version: '17'
+          distribution: 'temurin'
 
       - name: Build Android release APK
         run: cd android && ./gradlew assembleRelease
 
-      # Add signing step here. You will need to decode your keystore file from secrets and use apksigner.
+      # TODO: Add signing step here. You will need to:
+      # 1. Decode your keystore file from Secrets.
+      # 2. Use apksigner or jarsigner to sign the APK.
+      # 3. Align the signed APK (zipalign).
 
       - name: Upload unsigned APK artifact
         uses: actions/upload-artifact@v4
