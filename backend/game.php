@@ -19,7 +19,7 @@ class Game {
     private $lastPlayerId = null; // Player who played the last cards
 
     public function __construct($roomId) {
-        $this->roomId = $roomId;
+        $this->roomId = $roomId; // Assuming Room ID is passed during game creation
         $this->initializeDeck();
     }
 
@@ -36,28 +36,35 @@ class Game {
     }
 
     private function initializeDeck() {
-        // TODO: Generate a full deck of 54 cards (including Jokers)
-        // Store them as card objects or strings (e.g., ['H_A', 'S_K', 'BJ', 'RJ'])
-        $this->deck = ['placeholder_card_1', 'placeholder_card_2', 'placeholder_card_3']; // Placeholder
-        shuffle($this->deck); // Shuffle the deck
+        $suits = ['spades', 'hearts', 'diamonds', 'clubs'];
+        $values = ['3', '4', '5', '6', '7', '8', '9', '10', 'jack', 'queen', 'king', 'ace', '2']; // Ordered by value
+        $deck = [];
+        foreach ($suits as $suit) {
+            foreach ($values as $value) {
+                $deck[] = $value . '_of_' . $suit . '.svg';
+            }
+        }
+        $deck[] = 'black_joker.svg';
+        $deck[] = 'red_joker.svg';
+
+        shuffle($deck); // Shuffle the deck
+        $this->deck = $deck;
     }
 
     public function dealCards() {
         if ($this->gameState === 'bidding' && count($this->deck) === 54) { // Ensure deck is full before dealing
-            // TODO: Deal 17 cards to each of the 3 players
-            // TODO: Keep 3 cards as landlord's cards
-            // Update player hands
-            // Transition state from bidding to playing once landlord is determined
-        }
-    }
-
-    public function processBid($playerId, $bidValue) {
-        if ($this->gameState === 'bidding' && isset($this->players[$playerId])) {
-            // TODO: Implement bidding logic (0, 1, 2, 3)
-            // Update $this->currentBid
-            // Handle passing (bid 0)
-            // Determine the landlord
-            // Transition state to playing after landlord is determined
+            // Deal 17 cards to each of the 3 players
+            $playerKeys = array_keys($this->players);
+            for ($i = 0; $i < 17; $i++) {
+                foreach ($playerKeys as $key) {
+                    $card = array_shift($this->deck);
+                    $this->players[$key]->addCards([$card]);
+                }
+            }
+            // Keep 3 cards as landlord's cards (these will be added to the landlord's hand later)
+            $this->landlordsCards = $this->deck; // The remaining 3 cards are the landlord's cards
+            $this->deck = []; // Deck is now empty after dealing and setting landlord's cards
+            // Game state will transition to playing after bidding is complete and landlord is set
         }
     }
 
@@ -71,18 +78,20 @@ class Game {
             // Switch turn to the next player
         }
     }
+    
+    public function processBid($playerId, $bidValue) {
+        // TODO: Implement bidding logic (0, 1, 2, 3)
+        // Update $this->currentBid
+        // Handle passing (bid 0)
+        // Determine the landlord
+        // Transition state to playing after landlord is determined
+    }
 
     public function getState() {
         $playerStates = [];
         foreach ($this->players as $playerId => $player) {
             $playerStates[$playerId] = $player->getState();
         }
-        return [
-            'id' => $this->roomId,
-            'state' => $this->gameState,
-            'players' => $playerStates,
-            'discarded_cards' => $this->discardedCards,
-            'current_turn' => $this->currentTurn,
             'landlord_player_id' => $this->landlordPlayerId,
             'current_bid' => $this->currentBid,
             'last_played_cards' => $this->lastPlayedCards,
@@ -90,6 +99,13 @@ class Game {
             // TODO: Add landlord's cards if game started
         ];
     }
+    return [
+        'id' => $this->roomId,
+        'state' => $this->gameState,
+        'players' => $playerStates,
+        'discarded_cards' => $this->discardedCards,
+        'current_turn' => $this->currentTurn,
+    ];
 
     // TODO: Add more game logic methods (e.g., passTurn, checkWinCondition)
 }
@@ -111,7 +127,6 @@ class Player {
     }
 
     public function addCards(array $cards) {
-        $this->hand = array_merge($this->hand, $cards);
         // TODO: Sort the hand
     }
 
@@ -122,10 +137,10 @@ class Player {
             'hand_count' => count($this->hand), // Usually don't show other players' hands
             'score' => $this->score,
             'isLandlord' => $this->isLandlord,
-            // If it's this player's state being sent, include the full hand
-            // 'hand' => $this->hand,
+            'hand' => $this->hand, // For testing, include the full hand for now
         ];
     }
+    
 
     // TODO: Add more player methods (e.g., removeCardsFromHand, setLandlord)
 }

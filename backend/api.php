@@ -12,9 +12,13 @@ session_start();
 // require_once 'game.php';
 // require_once 'utils.php';
 // Simple in-memory storage for rooms (for demonstration purposes)
-$rooms = isset($_SESSION['rooms']) ? $_SESSION['rooms'] : [];
+require_once 'game.php'; // Include the Game class
+require_once 'utils.php'; // Include utility functions
 
 header('Content-Type: application/json');
+
+// Use a consistent way to manage rooms state, e.g., via session
+$rooms = isset($_SESSION['rooms']) ? $_SESSION['rooms'] : [];
 
 // Get the requested API endpoint
 $request_uri = $_SERVER['REQUEST_URI'];
@@ -44,8 +48,6 @@ switch ($api_endpoint) {
             $player_id = uniqid('player_');
             $rooms[$room_id]['players'][$player_id] = ['id' => $player_id, 'name' => 'Creator']; // Add player details
             echo json_encode(['status' => 'success', 'message' => 'Room created and joined', 'room_id' => $room_id, 'player_id' => $player_id]);
-            // Original placeholder:
-            echo json_encode(['status' => 'success', 'message' => 'Room created']);
         } else {
             // Store updated rooms state
             $_SESSION['rooms'] = $rooms;
@@ -66,10 +68,24 @@ switch ($api_endpoint) {
                 if (count($rooms[$room_id]['players']) < 3) {
                     $player_id = uniqid('player_');
                     $rooms[$room_id]['players'][$player_id] = ['id' => $player_id, 'name' => $player_name]; // Add player details
+
+                    // If the room is now full, start the game
+                    if (count($rooms[$room_id]['players']) === 3) {
+                        // Get players data in the format required by the Game class
+                        $gamePlayers = [];
+                        foreach ($rooms[$room_id]['players'] as $p) {
+                            $gamePlayers[$p['id']] = $p; // Use player ID as key
+                        }
+
+                        $game = new Game($room_id, $gamePlayers);
+                        $game->startGame(); // This deals the cards and sets initial state
+
+                        // Update the room state in the $rooms array
+                        $rooms[$room_id] = array_merge($rooms[$room_id], $game->getGameState());
+                        $rooms[$room_id]['state'] = 'playing'; // Set room state to playing
+                    }
+
                     echo json_encode(['status' => 'success', 'message' => 'Joined room', 'room_id' => $room_id, 'player_id' => $player_id]);
-                } else {
-                    http_response_code(400); // Bad Request
-                    echo json_encode(['status' => 'error', 'message' => 'Room is full']);
                 }
             } else {
                 http_response_code(404); // Not Found
@@ -109,8 +125,19 @@ switch ($api_endpoint) {
             $room_id = $_GET['room_id'] ?? null; // Get room_id from query parameter
 
             if ($room_id && isset($rooms[$room_id])) {
-                // Return the complete room state
-                echo json_encode(['status' => 'success', 'room_state' => $rooms[$room_id]]);
+                $roomState = $rooms[$room_id];
+
+                // IMPORTANT: Filter player hands for privacy
+                // Only send the current player's hand, hide other players' hands
+                if (isset($_GET['player_id'])) {
+                     $requestingPlayerId = $_GET['player_id'];
+                     foreach ($roomState['players'] as $playerId => &$playerData) {
+                         if ($playerId !== $requestingPlayerId) {
+                             unset($playerData['hand']); // Remove hand data for other players
+                         }
+                     }
+                }
+                echo json_encode(['status' => 'success', 'room_state' => $roomState]);
             } else {
                 http_response_code(404); // Not Found
                 echo json_encode(['status' => 'error', 'message' => 'Room not found']);
@@ -122,8 +149,6 @@ switch ($api_endpoint) {
             echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
         }
         break;
-        // Store updated rooms state
-        $_SESSION['rooms'] = $rooms;
     // Add more API endpoints here (e.g., /call_landlord, /pass, /game_state)
 
     default:
