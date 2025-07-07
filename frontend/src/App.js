@@ -77,28 +77,29 @@ function App() {
 
   // Render game area if a room is joined
   return (
- <div className="App">
+    <div className="App">
       <h1>斗地主多人游戏</h1>
- <div
- className="game-container"
- style={{
- display: 'flex',
- flexDirection: 'column',
- height: '100vh'
- }}
- >
+      <div
+        className="game-container"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100vh'
+        }}
+      >
         <div className="game-table-area">
- <GameTable cardsOnTable={cardsOnTable} bottomCards={bottomCards} />
+          <GameTable cardsOnTable={cardsOnTable} bottomCards={bottomCards} />
         </div>
         <div className="player-areas"> {/* Container for all player areas */}
           {players.map(player => {
             const isCurrent = player.id === currentPlayerId;
             return (
- <PlayerArea key={player.id} player={player} isCurrentPlayer={isCurrent} />
- );
- })}
- </div>
- </div>
+              <PlayerArea key={player.id} player={player} isCurrentPlayer={isCurrent} />
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 
