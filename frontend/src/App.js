@@ -48,7 +48,7 @@ function App() {
         setCurrentPlayerId(playerId); // Set current player ID
         setPlayers(Object.values(gameStateResponse.room.players)); // Update players state
         setCardsOnTable(gameStateResponse.room.discarded_cards); // Update cards on table state
- setBottomCards(gameStateResponse.room.bottom_cards || []); // Update bottom cards state
+        setBottomCards(gameStateResponse.room.bottom_cards || []); // Update bottom cards state
       }
     } catch (error) {
       console.error('Failed to fetch game state:', error);
