@@ -1,3 +1,4 @@
+# Workflow to build Android APK using Capacitor
 name: Android Build
 
 on:
@@ -10,67 +11,51 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20.x'
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+          cache: 'npm'
 
-    - name: Cache Node.js modules
-      uses: actions/cache@v3
-      with:
-        path: ~/.npm
-        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-node-
+      - name: Cache Node.js modules
+        uses: actions/cache@v3
+        with:
+          path: /home/runner/work/ss/ss/frontend/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
-    - name: Install dependencies
-      run: cd frontend && npm install
+      - name: Install dependencies in frontend
+        run: cd frontend && npm install
 
-    - name: Remove existing android directory
-      run: cd frontend && rm -rf ../android
+      - name: Remove existing Android directory
+        run: cd frontend && rm -rf ../android
 
-    - name: Force reinitialize Capacitor
-      run: cd frontend && npx cap init MyApp com.example.myapp --web-dir build --force
+      - name: Install @capacitor/android and add platform
+        run: cd frontend && npm install @capacitor/android && npx cap add android
 
-    - name: Install @capacitor/android and add platform
-      run: cd frontend && npm install @capacitor/android && npx cap add android
+      - name: Build React frontend
+        run: cd frontend && CI=false NODE_OPTIONS=--openssl-legacy-provider npm run build
 
-    - name: Build React Frontend
-      run: cd frontend && CI=false NODE_OPTIONS=--openssl-legacy-provider npm run build
+      - name: Sync Capacitor web assets to Android
+        run: cd frontend && npx cap sync android
 
-    - name: Sync Capacitor web assets to Android
-      run: cd frontend && npx cap sync android
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-    - name: List files in android directory
-      run: cd frontend && ls -la ../android
+      - name: Build Android Release APK
+        run: cd frontend && ../android/gradlew assembleRelease -p ../android
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
-      with:
-        distribution: 'temurin'
-        java-version: '17'
+      # Signing step would go here
 
-    - name: Build Android Release APK
-      run: cd frontend && ../android/gradlew assembleRelease -p ../android
-
-    # - name: Sign APK # Uncomment and configure for signing
-    #   run: |
-    #     echo "${{ secrets.KEYSTORE_FILE }}" | base64 --decode > ../android/app/keystore.jks
-    #     # Use apksigner from Android SDK build-tools
-    #     # You'll need to figure out the exact path to apksigner in the GitHub Actions environment
-    #     # Example path: $ANDROID_SDK_ROOT/build-tools/YOUR_BUILD_TOOLS_VERSION/apksigner
-    #     # apksigner sign --ks ../android/app/keystore.jks --ks-pass env:KEYSTORE_PASSWORD --ks-key-alias ${{ secrets.KEY_ALIAS }} --key-pass env:KEY_PASSWORD ../android/app/build/outputs/apk/release/app-release-unsigned.apk
-    #     # mv ../android/app/build/outputs/apk/release/app-release-unsigned.apk ../android/app/build/outputs/apk/release/app-release-signed.apk
-    #   env:
-    #     KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-    #     KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-    #     ANDROID_SDK_ROOT: ${{ steps.setup-android.outputs.android-sdk-root }} # Example if using setup-android action
-
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-release-unsigned-apk
-        path: frontend/android/app/build/outputs/apk/release/app-release-unsigned.apk # Update path if signing is enabled
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-unsigned
+          path: /home/runner/work/ss/ss/android/app/build/outputs/apk/release/app-release-unsigned.apk
