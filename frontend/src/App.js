@@ -3,6 +3,7 @@ import './App.css'; // You might need to create/update this CSS file
 import GameTable from './components/GameTable'; // Ensure GameTable can receive bottomCards and gameState
 import PlayerArea from './components/PlayerArea';
 import { createRoom, joinRoom, getRoomState } from './api'; // Import API functions
+// Test modification line
 
 function App() {
   const [inputRoomId, setInputRoomId] = useState(''); // Input field for room ID
