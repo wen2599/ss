@@ -2,7 +2,7 @@ import React from 'react';
 
 function Card({ filename, onClick, isSelected }) {
   const recognizeCardValue = (name) => {
-    const [valueStr, of, suitStr] = name.replace('.svg', '').split('_');
+    const [valueStr, , suitStr] = name.replace('.svg', '').split('_');
 
     // Handle Jokers
     if (valueStr === 'red') return '大王';

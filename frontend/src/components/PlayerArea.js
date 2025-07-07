@@ -144,10 +144,26 @@ function PlayerArea({ player, isCurrentPlayer }) {
         : [...selectedCards, cardFilename];
     setCurrentPlay(isValidPlay(updatedSelectedCards));
   };
-
+  
    const handleCancelSelection = () => {
     setSelectedCards([]); // Clear selected cards
     setCurrentPlay({ valid: false, type: null, value: null, length: 0 }); // Reset play validation
+  };
+
+  const handlePlayCards = () => {
+    // TODO: Implement logic to send the selected cards to the backend
+    // Also, need to pass the last played cards from the GameTable/App state to canBeatLastPlay
+    // if (currentPlay.valid && canBeatLastPlay(currentPlay, lastPlayedCards)) {
+    //   console.log("Valid play:", selectedCards);
+    //   // Send play to backend
+    // } else if (currentPlay.valid && lastPlayedCards === null) { // Can play anything if no last play
+    //   console.log("Valid initial play:", selectedCards);
+    //   // Send play to backend
+    // } else {
+    //   console.log("Invalid play or cannot beat last play");
+    //   // Provide user feedback
+    // }
+    console.log("Attempting to play:", selectedCards);
   };
 
   return (
@@ -184,8 +200,8 @@ function PlayerArea({ player, isCurrentPlayer }) {
           <button disabled={true}>叫地主</button> {/* Disable for now */}
           <button disabled={true}>不叫</button> {/* Disable for now */}
           {/* Disable '出牌' button if no cards are selected or play is invalid */}
-          <button disabled={!currentPlay.valid}>出牌</button> {/* Use currentPlay state */}
-          <button>不要</button>
+          <button onClick={handlePlayCards} disabled={!currentPlay.valid}>出牌</button> {/* Use currentPlay state */}
+          <button onClick={() => console.log("Pass")}>不要</button> {/* Add handler for "Pass" */}
           <button onClick={() => setSelectedCards([])}>取消选择</button> {/* Add Cancel Selection button */}
         </div>
       )}
