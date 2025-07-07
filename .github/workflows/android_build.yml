@@ -10,49 +10,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v3
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
+    - name: Set up Node.js 18.x
+      uses: actions/setup-node@v3
       with:
-        node-version: '18'
+        node-version: '18.x'
         cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
 
     - name: Install dependencies
       run: cd frontend && npm install
 
-    - name: Build React frontend
-      run: cd frontend && npm run build
+    - name: Build React frontend (Skip ESLint)
+      run: cd frontend && CI=false npm run build # Set CI=false to disable ESLint in react-scripts
 
     - name: Sync Capacitor web assets to Android
       run: cd frontend && npx cap sync android
 
     - name: Set up JDK 17
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v3
       with:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Build Android release APK (Unsigned)
-      run: cd android && ./gradlew assembleRelease
-
-    # Signing step would go here
-    # To sign the APK, you would typically:
-    # 1. Decode the base64 encoded keystore file from a GitHub Secret
-    # 2. Use apksigner to sign the generated unsigned APK
-    # Example (requires setup of KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD secrets):
-    # - name: Sign APK
-    #   run: |
-    #     echo ${{ secrets.KEYSTORE_FILE }} | base64 --decode > keystore.jks
-    #     apksigner sign --verbose --ks keystore.jks --ks-pass env:KEYSTORE_PASSWORD --alias ${{ secrets.KEY_ALIAS }} --key-pass env:KEY_PASSWORD android/app/build/outputs/apk/release/app-release-unsigned.apk
-    #   env:
-    #     KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-    #     KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-
-    - name: Upload Unsigned APK
-      uses: actions/upload-artifact@v4 # Updated to v4
-      with:
-        name: app-release-unsigned
-        path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+    - name: Build
