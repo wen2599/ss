@@ -10,6 +10,22 @@
   min-height: 400px; /* Placeholder height */
 }
 
+/* Styles for Game Container Layout */
+.game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1000px; /* Adjust max width as needed */
+  margin: 20px auto;
+}
+
+.game-table-area {
+  width: 80%; /* Adjust width as needed */
+  margin-bottom: 20px;
+}
+
+/* Existing styles for player-hand and card */
 .player-hand {
   display: flex;
   justify-content: center;
@@ -26,4 +42,21 @@
 .card img {
   width: 50px; /* Adjust as needed */
   height: auto;
+}
+
+/* Styles for Bottom Cards */
+.bottom-cards {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+/* Styles for Player Areas Layout */
+.player-areas {
+  display: flex;
+  justify-content: space-around; /* Distribute player areas horizontally */
+  width: 100%;
+}
+
+.player-area {
+  border: 1px solid #eee; /* Basic border for player area */
 }
