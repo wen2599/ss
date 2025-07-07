@@ -1,3 +1,5 @@
+# This workflow builds the Android APK
+
 name: Android Build
 
 on:
@@ -6,7 +8,7 @@ on:
       - main
 
 jobs:
-  build:
+  build_android:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,7 +18,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20.x'
 
       - name: Cache Node.js modules
         uses: actions/cache@v3
@@ -29,8 +31,13 @@ jobs:
       - name: Install dependencies
         run: cd frontend && npm install
 
-      - name: Build React frontend
-        run: cd frontend && CI=false npm run build
+      - name: Build frontend
+        run: cd frontend && CI=false NODE_OPTIONS=--openssl-legacy-provider npm run build
+        env:
+          # Set CI=false to attempt to skip ESLint
+          # Add NODE_OPTIONS for OpenSSL compatibility
+          CI: false
+          NODE_OPTIONS: '--openssl-legacy-provider'
 
       - name: Sync Capacitor web assets
         run: cd frontend && npx cap sync android
@@ -41,16 +48,23 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Build Android release APK
+      - name: Build Android release APK (Unsigned)
         run: cd android && ./gradlew assembleRelease
 
-      # - name: Sign APK # Uncomment and configure for signing
+      # Signing step would go here
+      # Example:
+      # - name: Sign APK
       #   run: |
-      #     # Add your signing commands here
-      #     # Example using apksigner: apksigner sign --ks keystore.jks --ks-key-alias my-alias --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD android/app/build/outputs/apk/release/app-release-unsigned.apk
+      #     echo "${{ secrets.KEYSTORE_FILE }}" | base64 -d > frontend/android/app/keystore.jks
+      #     apksigner sign --ks frontend/android/app/keystore.jks --ks-pass env:KEYSTORE_PASSWORD --ks-key-alias ${{ secrets.KEY_ALIAS }} --key-pass env:KEY_PASSWORD frontend/android/app/build/outputs/apk/release/app-release-unsigned.apk --out frontend/android/app/build/outputs/apk/release/app-release-signed.apk
+      #   env:
+      #     KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      #     KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      #   working-directory: ./frontend
 
-      - name: Upload unsigned APK artifact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-unsigned
-          path: /home/user/ss/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          name: android-release-apk
+          # Change path to app-release-signed.apk if signing step is enabled
+          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
