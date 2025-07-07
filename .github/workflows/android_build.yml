@@ -1,61 +1,68 @@
-# Workflow to build Android APK using Capacitor
+# This workflow builds an Android APK using Capacitor.
+
 name: Android Build
 
 on:
   push:
     branches:
-      - main
+      - main # Trigger on push to the main branch
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-android:
+    runs-on: ubuntu-latest # Run on the latest Ubuntu environment
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v3 # Checkout the project code
 
       - name: Set up Node.js 20.x
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v3 # Set up Node.js version 20.x
         with:
           node-version: '20.x'
-          cache: 'npm'
 
       - name: Cache Node.js modules
-        uses: actions/cache@v3
+        uses: actions/cache@v3 # Cache Node.js modules to speed up builds
         with:
-          path: /home/runner/work/ss/ss/frontend/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          path: frontend/node_modules # Cache node_modules in the frontend directory
+          key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }} # Cache key based on OS, Node version and frontend package-lock.json
           restore-keys: |
             ${{ runner.os }}-node-
+            ${{ runner.os }}-
 
-      - name: Install dependencies in frontend
-        run: cd frontend && npm install
+      - name: Install dependencies
+        run: cd frontend && npm install --legacy-peer-deps # Install dependencies in the frontend directory
 
-      - name: Remove existing Android directory
-        run: cd frontend && rm -rf ../android
+      - name: Remove android directory (if exists)
+        run: cd frontend && rm -rf ../android # Remove the android directory to ensure a clean add
 
-      - name: Install @capacitor/android and add platform
-        run: cd frontend && npm install @capacitor/android && npx cap add android
+      - name: Install @capacitor/android and add android platform
+        run: cd frontend && npm install @capacitor/android && npx cap add android # Install android platform and add it to capacitor
 
-      - name: Build React frontend
-        run: cd frontend && CI=false NODE_OPTIONS=--openssl-legacy-provider npm run build
+      - name: Build React Frontend
+        run: cd frontend && CI=false NODE_OPTIONS=--openssl-legacy-provider npm run build # Build the React frontend
 
       - name: Sync Capacitor web assets to Android
-        run: cd frontend && npx cap sync android
+        run: cd frontend && npx cap sync android # Sync web assets to the Android project
+
+      # - name: List files in ../android (for debugging)
+      #   run: cd frontend && ls -la ../android # List files in ../android directory
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v3 # Set up JDK 17 for Android build
         with:
           distribution: 'temurin'
           java-version: '17'
 
+      # This step builds the unsigned release APK.
+      # To build a signed release APK, you need to configure signing.
       - name: Build Android Release APK
-        run: cd frontend && ../android/gradlew assembleRelease -p ../android
+        run: cd frontend && ../android/gradlew assembleRelease -p ../android # Build the Android release APK
 
-      # Signing step would go here
+      # Signing step would go here if you want a signed APK.
+      # See documentation on how to configure signing with GitHub Secrets.
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload Unsigned APK
+        uses: actions/upload-artifact@v4 # Upload the generated unsigned APK as an artifact
         with:
           name: app-release-unsigned
-          path: /home/runner/work/ss/ss/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          path: frontend/android/app/build/outputs/apk/release/app-release-unsigned.apk # Path to the unsigned APK
