@@ -1,0 +1,29 @@
+.App {
+  text-align: center;
+  font-family: sans-serif;
+}
+
+.game-area {
+  margin-top: 20px;
+  border: 1px solid #ccc;
+  padding: 20px;
+  min-height: 400px; /* Placeholder height */
+}
+
+.player-hand {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.card {
+  margin: 0 5px;
+  border: 1px solid #eee;
+  padding: 5px;
+  text-align: center;
+}
+
+.card img {
+  width: 50px; /* Adjust as needed */
+  height: auto;
+}
