@@ -41,7 +41,7 @@ jobs:
       working-directory: ./frontend/android
 
     - name: Grant execute permission for gradlew
-      run: chmod +x ./frontend/android/gradlew
+      run: chmod +x ./gradlew
       working-directory: ./frontend/android
 
     - name: Print working directory after chmod (debug)
