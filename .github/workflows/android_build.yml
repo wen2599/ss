@@ -31,27 +31,10 @@ jobs:
       run: npx cap sync android
       working-directory: ./frontend
 
-    # 将 chmod 步骤移到 sync 之后，并在其前后添加调试步骤
-    - name: Print working directory before chmod (debug)
-      run: pwd
-      working-directory: ./frontend/android
-
-    - name: List files before chmod (debug)
-      run: ls -al
-      working-directory: ./frontend/android
-
     - name: Grant execute permission for gradlew
       run: chmod +x ./gradlew
       working-directory: ./frontend/android
 
-    - name: Print working directory after chmod (debug)
-      run: pwd
-      working-directory: ./frontend/android
-
-    - name: List files after chmod (debug)
-      run: ls -al
-      working-directory: ./frontend/android
-
     - name: Build Android project
-      run: bash ./gradlew build --info --stacktrace --debug
+      run: bash ./gradlew build
       working-directory: ./frontend/android
