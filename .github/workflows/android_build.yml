@@ -1,4 +1,4 @@
-name: Android Build
+name: Android CI Build
 
 on:
   push:
@@ -10,38 +10,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Node.js 20
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-    - name: Install dependencies
-      run: npm install --legacy-peer-deps
-      working-directory: frontend
+      - name: Install frontend dependencies
+        run: npm install --legacy-peer-deps
+        working-directory: frontend
 
-    - name: Build frontend
-      run: npm run build
-      working-directory: frontend
+      - name: Install TypeScript
+        run: npm install -D typescript
+        working-directory: frontend
 
-    - name: Copy web assets to Android
-      run: npx cap sync android
-      working-directory: frontend
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
 
-    - name: Set up JDK 21
-      uses: actions/setup-java@v3
-      with:
-        distribution: 'temurin'
-        java-version: '21'
+      - name: Copy web assets to Android
+        run: npx cap sync android
+        working-directory: frontend
 
-    - name: Build Android release APK
-      run: ./gradlew assembleRelease
-      working-directory: frontend/android
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
 
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-release
-        path: frontend/android/app/build/outputs/apk/release/app-release.apk
+      - name: Build Android Release APK
+        run: ./gradlew assembleRelease
+        working-directory: frontend/android
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: frontend/android/app/build/outputs/apk/release/app-release.apk
