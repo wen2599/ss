@@ -24,6 +24,14 @@ jobs:
     - name: Grant execute permission for gradlew (fallback)
       run: chmod +x ./frontend/android/gradlew
 
+    - name: Print working directory
+      run: pwd
+      working-directory: ./frontend/android
+
+    - name: List files in working directory
+      run: ls -al
+      working-directory: ./frontend/android
+
     - name: Build Android project
       run: bash ./frontend/android/gradlew build
       working-directory: ./frontend/android
