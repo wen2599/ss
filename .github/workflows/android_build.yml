@@ -25,5 +25,5 @@ jobs:
       run: chmod +x ./frontend/android/gradlew
 
     - name: Build Android project
-      run: ./frontend/android/gradlew build
+      run: bash ./frontend/android/gradlew build
       working-directory: ./frontend/android
