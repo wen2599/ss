@@ -1,4 +1,4 @@
-name: Android CI
+name: Android Build
 
 on:
   push:
@@ -11,36 +11,37 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Node.js 20
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '20'
 
     - name: Install dependencies
-      run: npm install
+      run: npm install --legacy-peer-deps
+      working-directory: frontend
 
     - name: Build frontend
-      run: npm run build --prefix frontend
+      run: npm run build
+      working-directory: frontend
 
     - name: Copy web assets to Android
-      run: npx cap sync android --skip-bundle --prefix frontend
+      run: npx cap sync android
+      working-directory: frontend
 
-    - name: Set up Java 21
+    - name: Set up JDK 21
       uses: actions/setup-java@v3
       with:
         distribution: 'temurin'
         java-version: '21'
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x ./frontend/android/gradlew
-
-    - name: Build Android Release APK
-      run: ./frontend/android/gradlew assembleRelease
+    - name: Build Android release APK
+      run: ./gradlew assembleRelease
+      working-directory: frontend/android
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: android-apk
-        path: frontend/android/app/build/outputs/apk/release/app-release-unsigned.apk
+        name: app-release
+        path: frontend/android/app/build/outputs/apk/release/app-release.apk
