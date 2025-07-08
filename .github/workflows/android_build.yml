@@ -1,7 +1,26 @@
-我明白你想在 `.github/workflows/android_build.yml` 文件中，找到使用 `actions/upload-artifact@v4` 的步骤，然后在 `with` 部分添加 `working-directory: frontend`。
+name: Android CI
 
-但是，你提供的“----- THE CURRENT CODE -----”和“----- END OF THE CURRENT CODE -----”之间没有任何内容。我无法对一个空文件进行修改。
+on:
+  push:
+    branches:
+      - main
 
-请将 `.github/workflows/android_build.yml` 文件的全部内容复制粘贴给我，这样我才能根据你的指示进行修改。
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-请将文件内容放在“----- THE CURRENT CODE -----”和“----- END OF THE CURRENT CODE -----”之间。
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '11'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x ./frontend/android/gradlew
+
+    - name: Build Android project
+      run: ./frontend/android/gradlew build
+      working-directory: ./frontend/android
