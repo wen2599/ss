@@ -36,7 +36,7 @@ jobs:
       run: pwd
       working-directory: ./frontend/android
 
-    - name: List files before chmod (debug)e
+    - name: List files before chmod (debug)
       run: ls -al
       working-directory: ./frontend/android
 
@@ -53,5 +53,5 @@ jobs:
       working-directory: ./frontend/android
 
     - name: Build Android project
-      run: bash ./gradlew build --info
+      run: bash ./gradlew build --info --stacktrace --debug
       working-directory: ./frontend/android
