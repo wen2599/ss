@@ -53,5 +53,5 @@ jobs:
       working-directory: ./frontend/android
 
     - name: Build Android project
-      run: bash ./gradlew build
+      run: bash ./gradlew build --info
       working-directory: ./frontend/android
