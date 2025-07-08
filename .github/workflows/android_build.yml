@@ -12,9 +12,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up gradlew execute permission after checkout
-      run: chmod +x ./frontend/android/gradlew
-
     - name: Set up JDK 17
       uses: actions/setup-java@v3
       with:
@@ -34,15 +31,24 @@ jobs:
       run: npx cap sync android
       working-directory: ./frontend
 
-    - name: Grant execute permission for gradlew (fallback)
-      run: chmod +x ./frontend/android/gradlew
-      working-directory: ./frontend/android
-
-    - name: Print working directory (debug)
+    # 将 chmod 步骤移到 sync 之后，并在其前后添加调试步骤
+    - name: Print working directory before chmod (debug)
       run: pwd
       working-directory: ./frontend/android
 
-    - name: List files in working directory (debug)
+    - name: List files before chmod (debug)
+      run: ls -al
+      working-directory: ./frontend/android
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x ./frontend/android/gradlew
+      working-directory: ./frontend/android
+
+    - name: Print working directory after chmod (debug)
+      run: pwd
+      working-directory: ./frontend/android
+
+    - name: List files after chmod (debug)
       run: ls -al
       working-directory: ./frontend/android
 
