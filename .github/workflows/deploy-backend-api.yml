@@ -12,14 +12,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH key
+      - name: Load SSH key
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          # 在仓库 Settings → Secrets 中添加私钥，名称为 SERV00_KEY
           ssh-private-key: ${{ secrets.SERV00_KEY }}
+
+      # —— 新增：准备远程目录，并修正权限 —— 
+      - name: Ensure remote api directory exists and writable
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }} << 'EOF'
+            TARGET="${{ secrets.SERV00_PATH }}/api"
+            # 1. 创建目录（若已存在无害）
+            mkdir -p "$TARGET"
+            # 2. 将目录归属改为部署用户（假设无需 sudo）
+            chown $USER:$USER "$TARGET"
+            # 3. 赋予用户读写执行（X 代表目录或已有可执行标志的文件）
+            chmod u+rwX "$TARGET"
+          EOF
 
       - name: Rsync backend/api to serv00
         run: |
