@@ -20,8 +20,13 @@ jobs:
       - name: Set up SSH key
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          # 这里的 secret 名称必须和你仓库设置里配置的私钥相同
           ssh-private-key: ${{ secrets.SERV00_KEY }}
+
+      - name: Ensure remote directory exists and is writable
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+            ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }} \
+            "mkdir -p ${{ secrets.SERV00_PATH }}/api && chmod u+rwx ${{ secrets.SERV00_PATH }}/api"
 
       - name: Rsync backend/api to serv00
         run: |
