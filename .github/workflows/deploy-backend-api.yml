@@ -1,20 +1,18 @@
-# 文件路径：.github/workflows/deploy-backend-api.yml
-
-name: Deploy backend/api to serv00
+name: Deploy backend/ to serv00
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'backend/api/**'
+      - 'backend/**'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up SSH key
@@ -22,16 +20,9 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SERV00_KEY }}
 
-      - name: Ensure remote directory exists and is writable
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-            ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }} \
-            "mkdir -p ${{ secrets.SERV00_PATH }}/api && chmod u+rwx ${{ secrets.SERV00_PATH }}/api"
-
-      - name: Rsync backend/api to serv00
+      - name: Rsync backend/ to serv00 (exclude config.php)
         run: |
           rsync -avz --delete \
             --exclude='config.php' \
             -e "ssh -o StrictHostKeyChecking=no" \
-            ./backend/api/ \
-            ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/api/
+            ./backend/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/"
