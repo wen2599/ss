@@ -13,7 +13,7 @@ function sendMessage($chatId, $text, $replyMarkup = null) {
     $url = $GLOBALS['API_URL'] . 'sendMessage';
     $postFields = [
         'chat_id' => $chatId,
-        'text' => $text,
+        'text' => $tex
         'parse_mode' => 'Markdown'
     ];
     if ($replyMarkup) {
