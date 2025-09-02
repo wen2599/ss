@@ -7,8 +7,7 @@ require_once 'config.php'; // 机器人TOKE
 // 1. 配置区
 $BOT_TOKEN = $TELEGRAM_BOT_TOKEN ?? 'YOUR_BOT_TOKEN';
 $API_URL = 'https://api.telegram.org/bot' . $BOT_TOKEN . '/';
-$GAME_URL = $TELEGRAM_GAME_URL ?? 'https://your-game-url.com'; // 可在 config.php 配置
-
+$GAME_URL = $TELEGRAM_GAME_URL ?? 'https://your-game-url.com'; // 可在 config.php 配
 // 2. 工具函数
 function sendMessage($chatId, $text, $replyMarkup = null) {
     $url = $GLOBALS['API_URL'] . 'sendMessage';
