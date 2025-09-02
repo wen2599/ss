@@ -1,7 +1,7 @@
 <?php
 // --- Telegram Bot Webhook Handler with Admin Support ---
 
-require_once 'db.php'; // 数据
+require_once 'db.php'; // 数
 require_once 'config.php'; // 机器人TOKE
 
 // 1. 配置区
