@@ -1,45 +1,29 @@
-name: Deploy backend/ to serv00
+name: Deploy backend/api to serv00
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'backend/**'
+      - 'backend/api/**'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up SSH key
         uses: webfactory/ssh-agent@v0.9.0
         with:
+          # 在仓库 Settings → Secrets 中添加私钥，名称为 SERV00_KEY
           ssh-private-key: ${{ secrets.SERV00_KEY }}
-
-      - name: Show backend directory structure (for debug)
-        run: ls -lR ./backend
-
-      - name: Prepare remote directory and permissions
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-              ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }} << 'EOF'
-            # 确保绝对路径正确
-            TARGET="{{ secrets.SERV00_PATH }}/api"
-            mkdir -p "$TARGET"
-            # 如果不需要 sudo，下面两行可删
-            sudo chown -R ${{ secrets.SERV00_USER }}:${{ secrets.SERV00_USER }} "$TARGET"
-            sudo chmod -R u+rwX "$TARGET"
-          EOF
 
       - name: Rsync backend/api to serv00
         run: |
           rsync -avz --delete \
-            --exclude='config.php' \
             -e "ssh -o StrictHostKeyChecking=no" \
-            --rsync-path="sudo rsync" \
             ./backend/api/ \
             ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/api/
