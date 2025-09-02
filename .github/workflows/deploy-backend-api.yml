@@ -23,12 +23,9 @@ jobs:
       - name: Show backend directory structure (for debug)
         run: ls -lR ./backend
 
-      - name: Rsync backend/api and backend/utils/ to serv00
+      - name: Rsync backend/api to serv00
         run: |
           rsync -avz --delete \
             --exclude='config.php' \
             -e "ssh -o StrictHostKeyChecking=no" \
             ./backend/api/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/api/"
-          rsync -avz --delete \
-            -e "ssh -o StrictHostKeyChecking=no" \
-            ./backend/utils/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/utils/"
