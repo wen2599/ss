@@ -23,9 +23,23 @@ jobs:
       - name: Show backend directory structure (for debug)
         run: ls -lR ./backend
 
+      - name: Prepare remote directory and permissions
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }} << 'EOF'
+            # 确保绝对路径正确
+            TARGET="{{ secrets.SERV00_PATH }}/api"
+            mkdir -p "$TARGET"
+            # 如果不需要 sudo，下面两行可删
+            sudo chown -R ${{ secrets.SERV00_USER }}:${{ secrets.SERV00_USER }} "$TARGET"
+            sudo chmod -R u+rwX "$TARGET"
+          EOF
+
       - name: Rsync backend/api to serv00
         run: |
           rsync -avz --delete \
             --exclude='config.php' \
             -e "ssh -o StrictHostKeyChecking=no" \
-            ./backend/api/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/api/"
+            --rsync-path="sudo rsync" \
+            ./backend/api/ \
+            ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/api/
