@@ -20,7 +20,7 @@ class Game {
 
     public function __construct($roomId) {
         $this->roomId = $roomId; // Assuming Room ID is passed during game creation
-        $this->initializeDeck();
+        $this->deck = shuffle_deck(create_deck());
     }
 
     public function addPlayer(Player $player) {
@@ -33,22 +33,6 @@ class Game {
             return true;
         }
         return false; // Room is full
-    }
-
-    private function initializeDeck() {
-        $suits = ['spades', 'hearts', 'diamonds', 'clubs'];
-        $values = ['3', '4', '5', '6', '7', '8', '9', '10', 'jack', 'queen', 'king', 'ace', '2']; // Ordered by value
-        $deck = [];
-        foreach ($suits as $suit) {
-            foreach ($values as $value) {
-                $deck[] = $value . '_of_' . $suit . '.svg';
-            }
-        }
-        $deck[] = 'black_joker.svg';
-        $deck[] = 'red_joker.svg';
-
-        shuffle($deck); // Shuffle the deck
-        $this->deck = $deck;
     }
 
     public function dealCards() {
@@ -92,6 +76,12 @@ class Game {
         foreach ($this->players as $playerId => $player) {
             $playerStates[$playerId] = $player->getState();
         }
+        return [
+            'id' => $this->roomId,
+            'state' => $this->gameState,
+            'players' => $playerStates,
+            'discarded_cards' => $this->discardedCards,
+            'current_turn' => $this->currentTurn,
             'landlord_player_id' => $this->landlordPlayerId,
             'current_bid' => $this->currentBid,
             'last_played_cards' => $this->lastPlayedCards,
@@ -99,13 +89,6 @@ class Game {
             // TODO: Add landlord's cards if game started
         ];
     }
-    return [
-        'id' => $this->roomId,
-        'state' => $this->gameState,
-        'players' => $playerStates,
-        'discarded_cards' => $this->discardedCards,
-        'current_turn' => $this->currentTurn,
-    ];
 
     // TODO: Add more game logic methods (e.g., passTurn, checkWinCondition)
 }
@@ -144,17 +127,6 @@ class Player {
 
     // TODO: Add more player methods (e.g., removeCardsFromHand, setLandlord)
 }
-
-// TODO: Implement functions for dealing cards, shuffling, validating moves, etc.
-
-// Example function (placeholder):
-/*
-function dealCards($deck, &$players) {
-    // Logic to distribute cards to players
-}
-*/
-
-?>
 
 // TODO: Implement functions for dealing cards, shuffling, validating moves, etc.
 
