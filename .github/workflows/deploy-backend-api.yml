@@ -20,6 +20,9 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SERV00_KEY }}
 
-      - name: Rsync backend/api to serv00
+      - name: Rsync backend/api to serv00 (exclude config.php)
         run: |
-          rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" ./backend/api/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/api/"
+          rsync -avz --delete \
+            --exclude='config.php' \
+            -e "ssh -o StrictHostKeyChecking=no" \
+            ./backend/api/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/api/"
