@@ -169,7 +169,7 @@ if (isset($update["message"])) {
                     $reply = "请联系 @your_support_username";
                     break;
                 default:
-                    $reply = "你好！请使用下方的菜单或输入命令。";
+                    $reply = "请使用下方的菜单或输入命令。";
                     break;
             }
         }
