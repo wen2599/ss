@@ -166,7 +166,7 @@ if (isset($update["message"])) {
                     $reply = "【游戏规则】\n三人斗地主，先出完牌的一方获胜。";
                     break;
                 case '联系客服':
-                    $reply = "请联系 @your_support_username";
+                    $reply = "联系 @your_support_username";
                     break;
                 default:
                     $reply = "请使用下方的菜单或输入命令。";
