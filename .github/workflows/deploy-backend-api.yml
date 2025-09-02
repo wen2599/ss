@@ -20,23 +20,18 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SERV00_KEY }}
 
-      - name: Prepare remote api directory
-        # 注意：这里用 <<EOF（没有单引号），保证下行的 {{…}} 会被 GH Actions 先替换
+      - name: Ensure remote api directory exists and is writable
         run: |
           ssh -o StrictHostKeyChecking=no \
-            ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }} <<EOF
-          # 下面 TARGET 会被替换成： /home/youruser/.../api
-          TARGET="${{ secrets.SERV00_PATH }}/api"
-          mkdir -p "$TARGET"
-          # 只 chown 属主，不指定组
-          chown -R ${{ secrets.SERV00_USER }} "$TARGET"
-          # 给属主读写执行权限
-          chmod -R u+rwX "$TARGET"
-EOF
+            ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }} "\
+mkdir -p '${{ secrets.SERV00_PATH }}/api' && \
+chown -R ${{ secrets.SERV00_USER }}:${{ secrets.SERV00_USER }} '${{ secrets.SERV00_PATH }}/api' && \
+chmod -R u+rwX '${{ secrets.SERV00_PATH }}/api'"
 
       - name: Rsync backend/api to serv00
         run: |
           rsync -avz --delete \
+            --exclude='config.php' \
             -e "ssh -o StrictHostKeyChecking=no" \
             ./backend/api/ \
             ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/api/
