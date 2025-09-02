@@ -1,10 +1,4 @@
-# .github/workflows/deploy-api.yml
-
-# Before running this workflow, make sure you’ve configured these repository secrets:
-#   SERV00_SSH_KEY   – SSH private key for deploy user (wenge9529)
-#   SERV00_USER      – wenge9529
-#   SERV00_HOST      – 9525.ip-ddns.com
-#   SERV00_PATH      – /home/wenge9529/domains/9525.ip-ddns.com/public_html
+# 文件路径：.github/workflows/deploy-backend-api.yml
 
 name: Deploy backend/api to serv00
 
@@ -12,22 +6,24 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'backend/api/**'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up SSH agent
+      - name: Set up SSH key
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.SERV00_SSH_KEY }}
+          # 这里的 secret 名称必须和你仓库设置里配置的私钥相同
+          ssh-private-key: ${{ secrets.SERV00_KEY }}
 
-      - name: Deploy backend/api via rsync
+      - name: Rsync backend/api to serv00
         run: |
           rsync -avz --delete \
             --exclude='config.php' \
