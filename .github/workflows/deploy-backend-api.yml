@@ -15,24 +15,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Load SSH key
+      - name: Set up SSH key
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SERV00_KEY }}
 
-      # —— 新增：准备远程目录，并修正权限 —— 
-      - name: Ensure remote api directory exists and writable
+      - name: Prepare remote api directory
+        # 注意：这里用 <<EOF（没有单引号），保证下行的 {{…}} 会被 GH Actions 先替换
         run: |
           ssh -o StrictHostKeyChecking=no \
-              ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }} << 'EOF'
-            TARGET="${{ secrets.SERV00_PATH }}/api"
-            # 1. 创建目录（若已存在无害）
-            mkdir -p "$TARGET"
-            # 2. 将目录归属改为部署用户（假设无需 sudo）
-            chown $USER:$USER "$TARGET"
-            # 3. 赋予用户读写执行（X 代表目录或已有可执行标志的文件）
-            chmod u+rwX "$TARGET"
-          EOF
+            ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }} <<EOF
+          # 下面 TARGET 会被替换成： /home/youruser/.../api
+          TARGET="${{ secrets.SERV00_PATH }}/api"
+          mkdir -p "$TARGET"
+          # 只 chown 属主，不指定组
+          chown -R ${{ secrets.SERV00_USER }} "$TARGET"
+          # 给属主读写执行权限
+          chmod -R u+rwX "$TARGET"
+EOF
 
       - name: Rsync backend/api to serv00
         run: |
