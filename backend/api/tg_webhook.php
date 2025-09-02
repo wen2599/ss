@@ -1,8 +1,8 @@
 <?php
 // --- Telegram Bot Webhook Handler with Admin Support ---
 
-require_once 'db_connect.php'; // 数据库连接
-require_once __DIR__ . '/../config.php'; // 机器人TOKEN等配置
+require_once 'db.php'; // 数据库连接
+require_once 'config.php'; // 机器人TOKEN等配置
 
 // 1. 配置区
 $BOT_TOKEN = $TELEGRAM_BOT_TOKEN ?? 'YOUR_BOT_TOKEN';
@@ -85,7 +85,7 @@ if (isset($update["message"])) {
     $replyMarkup = isAdmin($conn, $chatId) ? $adminKeyboard : $userKeyboard;
 
     if ($text === '/start') {
-        $reply = "欢迎来到十三张云端游戏机器人！";
+        $reply = "欢迎来到斗地主云端游戏机器人！";
         $replyMarkup = $welcomeInlineKeyboard;
     } else {
         $parts = explode(' ', $text);
@@ -151,7 +151,7 @@ if (isset($update["message"])) {
                 default:
                     // 普通用户命令
                     if ($command === '游戏规则') {
-                        $reply = "【游戏规则】\n十三张/八张，守规则，拼牌技，赢积分。";
+                        $reply = "【游戏规则】\n三人斗地主，先出完牌的一方获胜。";
                     } elseif ($command === '联系客服') {
                         $reply = "请联系 @your_support_username";
                     } else {
@@ -163,7 +163,7 @@ if (isset($update["message"])) {
             // 非管理员
             switch ($command) {
                 case '游戏规则':
-                    $reply = "【游戏规则】\n十三张/八张，守规则，拼牌技，赢积分。";
+                    $reply = "【游戏规则】\n三人斗地主，先出完牌的一方获胜。";
                     break;
                 case '联系客服':
                     $reply = "请联系 @your_support_username";
