@@ -23,10 +23,10 @@ jobs:
       - name: Ensure remote api directory exists and is writable
         run: |
           ssh -o StrictHostKeyChecking=no \
-            ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }} "\
-mkdir -p '${{ secrets.SERV00_PATH }}/api' && \
-chown -R ${{ secrets.SERV00_USER }}:${{ secrets.SERV00_USER }} '${{ secrets.SERV00_PATH }}/api' && \
-chmod -R u+rwX '${{ secrets.SERV00_PATH }}/api'"
+            ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }} \
+            "mkdir -p ${{ secrets.SERV00_PATH }}/api && \
+             chown -R ${{ secrets.SERV00_USER }} ${{ secrets.SERV00_PATH }}/api && \
+             chmod -R u+rwX ${{ secrets.SERV00_PATH }}/api"
 
       - name: Rsync backend/api to serv00
         run: |
