@@ -40,18 +40,7 @@ function sendRequest($url, $postFields) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postFields));
     curl_exec($ch);
-    curl_close($ch);
-}
-
-// 判断是否为管理员
-function isAdmin($conn, $chatId) {
-    $stmt = $conn->prepare("SELECT 1 FROM tg_admins WHERE chat_id = ?");
-    $stmt->bind_param("i", $chatId);
-    $stmt->execute();
-    $isAdmin = $stmt->get_result()->num_rows > 0;
-    $stmt->close();
-    return $isAdmin;
-}
+    curl_close
 
 // --- 自定义键盘 ---
 $adminKeyboard = [
