@@ -50,7 +50,7 @@ jobs:
       - name: Ensure remote directory exists
         run: |
           ssh -o BatchMode=yes "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}" "
-            mkdir -p \"${{ secrets.SERV00_PATH }}\"
+            mkdir -p \"${{ secrets.SERV00_PATH }}/api\"
             echo '目录创建成功或已存在'
           "
 
