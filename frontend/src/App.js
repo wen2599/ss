@@ -12,6 +12,7 @@ function App() {
   const [players, setPlayers] = useState([]); // List of players in the room
   const [cardsOnTable, setCardsOnTable] = useState([]); // Cards on the table
   const [bottomCards, setBottomCards] = useState([]); // State for bottom cards
+  const [gameId, setGameId] = useState(null); // State for game ID
 
 
   const handleCreateRoom = async () => {
@@ -44,11 +45,15 @@ function App() {
     try {
       const gameStateResponse = await getRoomState(roomId, playerId);
       if (gameStateResponse && gameStateResponse.success) {
-        console.log('Game state fetched successfully:', gameStateResponse.room);
+        const room = gameStateResponse.room;
+        console.log('Game state fetched successfully:', room);
         setCurrentPlayerId(playerId); // Set current player ID
-        setPlayers(Object.values(gameStateResponse.room.players)); // Update players state
-        setCardsOnTable(gameStateResponse.room.discarded_cards); // Update cards on table state
-        setBottomCards(gameStateResponse.room.bottom_cards || []); // Update bottom cards state
+        setPlayers(Object.values(room.players)); // Update players state
+        setCardsOnTable(room.discarded_cards); // Update cards on table state
+        setBottomCards(room.bottom_cards || []); // Update bottom cards state
+        if (room.state === 'playing' && room.current_game_id) {
+          setGameId(room.current_game_id);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch game state:', error);
@@ -94,7 +99,14 @@ function App() {
           {players.map(player => {
             const isCurrent = player.id === currentPlayerId;
             return (
-              <PlayerArea key={player.id} player={player} isCurrentPlayer={isCurrent} />
+              <PlayerArea
+                key={player.id}
+                player={player}
+                isCurrentPlayer={isCurrent}
+                gameId={gameId}
+                roomId={currentRoomId}
+                onPlay={fetchGameState}
+              />
             );
           })}
         </div>

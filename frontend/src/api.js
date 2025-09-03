@@ -42,6 +42,23 @@ export const joinRoom = async (roomId) => {
   }
 };
 
+// Function to play cards
+export const playCards = async (gameId, playerId, cards) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/play_cards`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ game_id: gameId, player_id: playerId, cards: cards }),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Error playing cards:', error);
+    throw error;
+  }
+};
+
 // Function to get the current state of a game room
 export const getRoomState = async (roomId, playerId) => {
   try {
