@@ -17,8 +17,7 @@ function sendMessage($chatId,
         'parse_mode' => 'Markdown'
     ];
     if ($replyMarkup) {
-        $postFields['reply_markup'] = json_encode($replyMarkup);
-    }
+        $postFields['reply_markup'] 
     sendRequest($url, $postFields);
 }
 
