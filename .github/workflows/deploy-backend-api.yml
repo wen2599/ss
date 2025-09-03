@@ -40,7 +40,7 @@ jobs:
             echo -e '\n目标目录状态:';
             ls -ld \"${{ secrets.SERV00_PATH }}\" || echo '目录不存在';
             echo -e '\n上级目录权限:';
-            ls -ld \"$(dirname \"${{ secrets.SVO0_PATH }}\")\" || echo '上级目录不存在';
+            ls -ld \"$(dirname \"${{ secrets.SERV00_PATH }}\")\" || echo '上级目录不存在';
             echo -e '\n磁盘使用情况:';
             df -h . | head -2
           "
