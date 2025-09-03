@@ -19,8 +19,7 @@ function sendMessage($chatId,
         $postFields['reply_markup'] 
     sendRequest($url, $postFields);
 }
-    $postFields = [
-        'callback_query_id' => $callbackQueryId,
+    $postFields =
         'text' => $text,
         'show_alert' => true
     ];
