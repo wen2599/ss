@@ -4,6 +4,7 @@
 -- A room is where players gather before starting a game.
 CREATE TABLE `rooms` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `chat_id` varchar(255) DEFAULT NULL UNIQUE, -- Telegram chat ID where the game is active
   `room_code` varchar(255) NOT NULL UNIQUE,
   `state` enum('waiting','playing','finished') NOT NULL DEFAULT 'waiting',
   `current_game_id` int(11) DEFAULT NULL,
@@ -40,7 +41,10 @@ CREATE TABLE `games` (
   `current_bid` int(11) NOT NULL DEFAULT 0, -- The highest bid amount
   `bids_history` json DEFAULT NULL, -- Tracks bids to determine end of bidding
   `last_play_id` int(11) DEFAULT NULL, -- Foreign key to the `plays` table
-  `winner_id` varchar(255) DEFAULT NULL,
+  `last_played_cards` json DEFAULT NULL,
+  `last_player_id` varchar(255) DEFAULT NULL,
+  `winner_id` varchar(255) DEFAULT NULL, -- The player who went out first
+  `winner_side` enum('landlord','peasants') DEFAULT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
