@@ -20,9 +20,6 @@ function sendMessage($chatId,
         $postFields['reply_markup'] 
     sendRequest($url, $postFields);
 }
-
-function answerCallbackQuery($callbackQueryId, $text) {
-    $url = $GLOBALS['API_URL'] . 'answerCallbackQuery';
     $postFields = [
         'callback_query_id' => $callbackQueryId,
         'text' => $text,
