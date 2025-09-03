@@ -22,4 +22,4 @@ jobs:
 
       - name: Rsync backend/api to serv00
         run: |
-          rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" ./backend/api/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/api/"
+          rsync -avz --mkpath --delete -e "ssh -o StrictHostKeyChecking=no" ./backend/api/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/api/"
