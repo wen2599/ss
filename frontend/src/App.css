@@ -1,62 +1,228 @@
+/* Basic App-wide styles */
+body {
+  background-color: #0f3d24; /* Dark green felt color */
+  color: white;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevent scrolling */
+}
+
 .App {
   text-align: center;
-  font-family: sans-serif;
 }
 
-.game-area {
-  margin-top: 20px;
+/* Pre-game room management screen */
+.room-management {
+  margin-top: 20vh;
+}
+.room-management h1 {
+  font-size: 3rem;
+  color: #f0e68c; /* Khaki color for title */
+  text-shadow: 2px 2px 4px #000;
+}
+.room-management input {
+  padding: 10px;
+  margin: 10px;
+  border-radius: 5px;
   border: 1px solid #ccc;
-  padding: 20px;
-  min-height: 400px; /* Placeholder height */
+  font-size: 1rem;
+}
+.room-management button {
+  padding: 10px 20px;
+  margin: 5px;
+  border-radius: 5px;
+  border: none;
+  background-color: #f0e68c;
+  color: #0f3d24;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+.room-management button:hover {
+  background-color: #fffacd;
 }
 
-/* Styles for Game Container Layout */
-.game-container {
+
+/* Main Game Board Layout using CSS Grid */
+.game-board {
+  display: grid;
+  grid-template-columns: 180px 1fr 180px; /* Left/Right players, Center table */
+  grid-template-rows: 150px 1fr 220px; /* Top player, Table, Bottom player */
+  height: 100vh;
+  width: 100vw;
+  box-sizing: border-box;
+  grid-template-areas:
+    ". top ."
+    "left table right"
+    "bottom bottom bottom";
+}
+
+.player-area-top { grid-area: top; }
+.player-area-left { grid-area: left; }
+.player-area-right { grid-area: right; }
+.player-area-bottom { grid-area: bottom; }
+
+.game-table-area {
+  grid-area: table;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%; /* Make it circular/oval */
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.landlord-cards-display {
+  opacity: 0.9;
+}
+.bottom-cards {
+  display: flex;
+}
+.bottom-cards .card {
+  width: 50px;
+  height: 71px;
+  margin: 0 2px;
+  cursor: default;
+}
+.bottom-cards .card:hover { transform: none; }
+
+.discard-pile {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 110px;
+}
+.discard-pile .card {
+  margin: 0 -45px;
+  cursor: default;
+}
+.discard-pile .card:hover { transform: none; }
+.discard-pile p {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+
+/* Individual Player Area Styling */
+.player-area {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%;
-  max-width: 1000px; /* Adjust max width as needed */
-  margin: 20px auto;
+  justify-content: center;
+  padding: 10px;
+  border-radius: 10px;
+  transition: background-color 0.5s;
+}
+.player-info {
+  padding: 5px 10px;
+  background-color: rgba(0,0,0,0.2);
+  border-radius: 15px;
+  margin-bottom: 10px;
+}
+.player-name {
+  font-weight: bold;
+  color: #f0e68c;
+}
+.card-count {
+  margin-left: 10px;
+  padding: 2px 8px;
+  background-color: rgba(0,0,0,0.4);
+  border-radius: 10px;
+  font-size: 0.8rem;
+}
+.current-player-active {
+  background-color: rgba(240, 230, 140, 0.1);
+  box-shadow: 0 0 20px rgba(240, 230, 140, 0.15);
 }
 
-.game-table-area {
-  width: 80%; /* Adjust width as needed */
-  margin-bottom: 20px;
-}
-
-/* Existing styles for player-hand and card */
 .player-hand {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
+  align-items: center;
+  min-height: 140px; /* Reserve space for hand */
+  perspective: 1000px;
 }
 
+/* Card Styling */
 .card {
-  margin: 0 5px;
-  border: 1px solid #eee;
-  padding: 5px;
-  text-align: center;
+  width: 90px; /* Increased size */
+  height: 128px;
+  margin: 0 -60px; /* Adjust overlap */
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  border-radius: 8px;
+}
+.player-hand .card {
+  box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+}
+.player-hand .card:hover {
+  transform: translateY(-20px) scale(1.05);
+  z-index: 100;
+}
+.player-hand .card.selected {
+  transform: translateY(-30px) scale(1.05);
+  z-index: 99;
 }
 
+/* Vertical layouts for side players */
+.player-area-left .player-hand, .player-area-right .player-hand {
+  flex-direction: column;
+  height: 100%;
+  width: 120px;
+}
+.player-area-left .card, .player-area-right .card {
+  margin: -95px 0; /* Vertical overlap */
+}
+.player-area-left .card:hover, .player-area-right .card:hover {
+   transform: translateX(15px) scale(1.05);
+}
+
+.card:hover {
+  transform: translateY(-15px);
+  z-index: 10;
+}
+.card.selected {
+  transform: translateY(-25px);
+}
 .card img {
-  width: 50px; /* Adjust as needed */
-  height: auto;
-}
-
-/* Styles for Bottom Cards */
-.bottom-cards {
-  display: flex;
-  justify-content: center;
-  margin-top: 10px;
-}
-/* Styles for Player Areas Layout */
-.player-areas {
-  display: flex;
-  justify-content: space-around; /* Distribute player areas horizontally */
   width: 100%;
+  height: 100%;
+  border-radius: 5px;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+}
+.card[data-cardname="face-down"] img,
+.card.face-down img {
+  content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="114" viewBox="0 0 80 114"><rect width="80" height="114" rx="5" fill="%235c0000"/><rect x="5" y="5" width="70" height="104" rx="3" fill="none" stroke="%23ffc0c0" stroke-width="2" stroke-dasharray="10 5"/></svg>');
 }
 
-.player-area {
-  border: 1px solid #eee; /* Basic border for player area */
+/* Action Buttons Styling */
+.action-buttons {
+  margin-top: 15px;
+  height: 40px; /* Reserve space */
+}
+.action-buttons button {
+  padding: 8px 15px;
+  margin: 0 5px;
+  border-radius: 20px;
+  border: 1px solid #f0e68c;
+  background-color: transparent;
+  color: #f0e68c;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.action-buttons button:hover {
+  background-color: #f0e68c;
+  color: #0f3d24;
+  transform: scale(1.05);
+}
+.action-buttons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: transparent;
+  color: #f0e68c;
+  transform: none;
 }

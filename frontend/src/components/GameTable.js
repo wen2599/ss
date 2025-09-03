@@ -1,27 +1,32 @@
 import React from 'react';
 import Card from './Card'; // Import the Card component
 
-function GameTable({ cardsOnTable, bottomCards, gameState }) {
-  // TODO: Implement game table display logic
-
+function GameTable({ cardsOnTable, bottomCards }) {
   return (
-    <div className="game-table">
-      <h2>游戏桌面</h2>
-      <div className="discarded-cards">
-        {/* TODO: Display last played cards more prominently */}
-
-        <h3>出牌区域</h3>
-        {cardsOnTable.map((cardFilename, index) => (
-          <Card key={index} filename={cardFilename} />
-        ))}
-        <p>出牌区域</p>
-      </div>
-      <div className="deck">
-        {/* TODO: Display deck placeholder or remaining cards count */}
-        <p>牌堆</p>
+    <div className="game-table-content">
+      <div className="landlord-cards-display">
+        {/* Display bottom cards only if they exist */}
+        {bottomCards && bottomCards.length > 0 && (
+          <div className="bottom-cards">
+            {bottomCards.map((card, index) => (
+              <Card key={index} cardName={card} />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Add other game table elements as needed */}
+      <div className="discard-pile">
+        {/* Display last played cards */}
+        {cardsOnTable && cardsOnTable.length > 0 ? (
+          cardsOnTable.map((card, index) => (
+            <div key={index} data-testid="discard-card">
+              <Card cardName={card} />
+            </div>
+          ))
+        ) : (
+          <p>等待玩家出牌...</p> /* Waiting for player to play */
+        )}
+      </div>
     </div>
   );
 }

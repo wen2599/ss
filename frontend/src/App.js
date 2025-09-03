@@ -80,37 +80,70 @@ function App() {
     );
   }
 
+  // A helper function to find player positions relative to the current player
+  const getPlayerPositions = (players, currentPlayerId) => {
+    const playerPositions = {
+      bottom: null,
+      left: null,
+      right: null,
+      top: null, // Only used in 4-player games, but good to have
+    };
+
+    const currentPlayerIndex = players.findIndex(p => p.id === currentPlayerId);
+    if (currentPlayerIndex === -1) {
+      // If current player not found, just return the first players in order
+      if (players[0]) playerPositions.bottom = players[0];
+      if (players[1]) playerPositions.left = players[1];
+      if (players[2]) playerPositions.right = players[2];
+      return playerPositions;
+    }
+
+    playerPositions.bottom = players[currentPlayerIndex];
+    if (players.length === 3) {
+      playerPositions.left = players[(currentPlayerIndex + 1) % 3];
+      playerPositions.right = players[(currentPlayerIndex + 2) % 3];
+    }
+    // Add logic for 2 or 4 players if needed
+    return playerPositions;
+  };
+
+  const playerPositions = getPlayerPositions(players, currentPlayerId);
+
+
   // Render game area if a room is joined
   return (
-    <div className="App">
-      <h1>斗地主多人游戏</h1>
-      <div
-        className="game-container"
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100vh'
-        }}
-      >
-        <div className="game-table-area">
-          <GameTable cardsOnTable={cardsOnTable} bottomCards={bottomCards} />
+    <div className="game-board">
+      {playerPositions.top && (
+        <div className="player-area-top">
+          <PlayerArea player={playerPositions.top} isCurrentPlayer={false} />
         </div>
-        <div className="player-areas"> {/* Container for all player areas */}
-          {players.map(player => {
-            const isCurrent = player.id === currentPlayerId;
-            return (
-              <PlayerArea
-                key={player.id}
-                player={player}
-                isCurrentPlayer={isCurrent}
-                gameId={gameId}
-                roomId={currentRoomId}
-                onPlay={fetchGameState}
-              />
-            );
-          })}
+      )}
+      {playerPositions.left && (
+        <div className="player-area-left">
+          <PlayerArea player={playerPositions.left} isCurrentPlayer={false} />
         </div>
+      )}
+
+      <div className="game-table-area">
+        <GameTable cardsOnTable={cardsOnTable} bottomCards={bottomCards} />
       </div>
+
+      {playerPositions.right && (
+        <div className="player-area-right">
+          <PlayerArea player={playerPositions.right} isCurrentPlayer={false} />
+        </div>
+      )}
+      {playerPositions.bottom && (
+        <div className="player-area-bottom">
+          <PlayerArea
+             player={playerPositions.bottom}
+             isCurrentPlayer={true} // The bottom player is always the current user
+             gameId={gameId}
+             roomId={currentRoomId}
+             onPlay={fetchGameState}
+          />
+        </div>
+      )}
     </div>
   );
 }

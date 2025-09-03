@@ -1,68 +1,82 @@
 import React, { useState } from 'react';
 import Card from './Card';
-import { playCards } from '../api';
+// import { playCards, passTurn, bid } from '../api'; // We'll need these later
 
-function PlayerArea({ player, isCurrentPlayer, gameId, roomId, onPlay }) {
+function PlayerArea({ player, isCurrentPlayer, gameState }) {
   const [selectedCards, setSelectedCards] = useState([]);
 
-  const handleCardClick = (cardFilename) => {
+  if (!player) {
+    return <div className="player-area" />;
+  }
+
+  const handleCardClick = (cardName) => {
+    // Only the current player can interact with their own cards
     if (!isCurrentPlayer) return;
 
-    if (selectedCards.includes(cardFilename)) {
-      setSelectedCards(selectedCards.filter(card => card !== cardFilename));
-    } else {
-      setSelectedCards([...selectedCards, cardFilename]);
-    }
+    setSelectedCards(prev =>
+      prev.includes(cardName)
+        ? prev.filter(c => c !== cardName)
+        : [...prev, cardName]
+    );
   };
-  
-  const handleCancelSelection = () => {
+
+  const handlePlay = () => {
+    console.log("Play:", selectedCards);
+    // TODO: Call API: playCards(gameId, player.id, selectedCards);
     setSelectedCards([]);
   };
 
-  const handlePlayCards = async () => {
-    if (selectedCards.length === 0) return;
-    if (!gameId) {
-      alert("Game has not started yet.");
-      return;
-    }
-
-    try {
-      const response = await playCards(gameId, player.id, selectedCards);
-      if (response.success) {
-        setSelectedCards([]);
-        onPlay(roomId, player.id); // Refresh game state
-      } else {
-        alert(`Invalid move: ${response.message}`);
-      }
-    } catch (error) {
-      console.error('Failed to play cards:', error);
-      alert('An error occurred while playing cards.');
-    }
+  const handleBid = (amount) => {
+    console.log("Bid:", amount);
+    // TODO: Call API: bid(gameId, player.id, amount);
   };
 
+  const handlePass = () => {
+    console.log("Pass");
+    // TODO: Call API: passTurn(gameId, player.id);
+  };
+
+  // For opponents, we render placeholders based on their card count.
+  // For the current player, we render their actual hand.
+  const handToRender = isCurrentPlayer
+    ? player.hand
+    : Array(player.hand_count || 0).fill('face-down');
+
   return (
-    <div className={`player-area ${player.isLandlord ? 'landlord' : ''} ${player.isCurrentPlayer ? 'current-player-area' : ''}`}>
-      <h3>{player.name} {player.isLandlord && '(地主)'}</h3>
-      <p>Score: {player.score}</p>
+    <div className={`player-area ${isCurrentPlayer ? 'current-player-active' : ''}`}>
+      <div className="player-info">
+        <span className="player-name">{player.name} {player.isLandlord ? '地主' : ''}</span>
+        <span className="card-count">{player.hand_count} 张</span>
+      </div>
 
       <div className="player-hand">
-        {player.hand && player.hand.map((cardFilename, index) => (
+        {handToRender.map((cardName, index) => (
           <Card
             key={index}
-            filename={cardFilename}
-            onClick={() => handleCardClick(cardFilename)}
-            isSelected={selectedCards.includes(cardFilename)}
+            cardName={cardName}
+            onClick={() => handleCardClick(cardName)}
+            isSelected={selectedCards.includes(cardName)}
+            isFaceDown={!isCurrentPlayer}
           />
         ))}
       </div>
 
       {isCurrentPlayer && (
         <div className="action-buttons">
-          <button disabled={true}>叫地主</button>
-          <button disabled={true}>不叫</button>
-          <button onClick={handlePlayCards} disabled={selectedCards.length === 0}>出牌</button>
-          <button onClick={() => console.log("Pass")}>不要</button>
-          <button onClick={handleCancelSelection}>取消选择</button>
+          {gameState === 'bidding' && (
+            <>
+              <button onClick={() => handleBid(1)}>1分</button>
+              <button onClick={() => handleBid(2)}>2分</button>
+              <button onClick={() => handleBid(3)}>3分</button>
+              <button onClick={handlePass}>不叫</button>
+            </>
+          )}
+          {gameState === 'playing' && (
+             <>
+              <button onClick={handlePlay} disabled={selectedCards.length === 0}>出牌</button>
+              <button onClick={handlePass}>不要</button>
+            </>
+          )}
         </div>
       )}
     </div>
