@@ -2,7 +2,7 @@
 // --- Telegram Bot Webhook Handler with Admin Support ---
 
 require_once 'db.php'; // 数
-require_once 'config.php'; // 机器人TO
+require_once 'config.php'; //
 
 // 1. 配置区
 $BOT_TOKEN = $TELEGRAM_BOT_TOKEN ?? 'YOUR_BOT_TOKEN';
