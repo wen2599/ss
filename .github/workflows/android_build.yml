@@ -1,21 +1,25 @@
-name: Android CI & Release
+name: Android CI, Build & Release
 
 on:
   push:
-    # 触发条件：当一个以 'v' 开头的标签被推送时 (例如 v1.0.0, v1.2.3)
+    branches:
+      - main # 触发器1: 推送到 main 分支
     tags:
-      - 'v*'
+      - 'v*' # 触发器2: 推送 v* 格式的标签
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    
+    # 使用 if 条件来判断是哪种触发器
+    # ${{ github.ref_type }} 的值是 'branch' 或 'tag'
+    name: ${{ github.ref_type == 'tag' && 'Release App' || 'Build App' }}
 
     steps:
-    # 1. 检出代码
+    # ... 前面的步骤 (checkout, setup-node, setup-java, npm install, cap sync) 都保持不变 ...
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # 2. 设置 Node.js 环境并启用缓存
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
@@ -23,7 +27,6 @@ jobs:
         cache: 'npm'
         cache-dependency-path: 'frontend/package-lock.json'
 
-    # 3. 设置 Java (JDK) 21 环境并启用 Gradle 缓存
     - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
@@ -31,51 +34,62 @@ jobs:
         java-version: '21'
         cache: 'gradle'
 
-    # 4. 安装前端依赖
     - name: Install dependencies
       run: npm install
       working-directory: ./frontend
 
-    # 5. 同步 Capacitor 项目
     - name: Sync Capacitor project
       run: npx cap sync android
       working-directory: ./frontend
 
-    # 6. 解码并创建签名密钥文件
+    - name: Grant execute permission for gradlew
+      run: chmod +x ./gradlew
+      working-directory: ./frontend/android
+
+    # ================= 签名和构建步骤 =================
+    # 仅在发布标签时才解码密钥
     - name: Decode Keystore
+      if: github.ref_type == 'tag'
       id: decode_keystore
-      # 注意：这里的 KEYSTORE_FILE 对应你 GitHub Secret 的名称
       env:
         KEYSTORE_BASE64: ${{ secrets.KEYSTORE_FILE }}
       run: |
         KEYSTORE_PATH="${{ runner.temp }}/release.jks"
         echo "$KEYSTORE_BASE64" | base64 --decode > $KEYSTORE_PATH
         echo "keystore_path=$KEYSTORE_PATH" >> $GITHUB_OUTPUT
-
-    # 7. 授予 gradlew 执行权限
-    - name: Grant execute permission for gradlew
-      run: chmod +x ./gradlew
-      working-directory: ./frontend/android
-
-    # 8. 构建并签名 Release AAB 文件
-    - name: Build and Sign Release Bundle (AAB)
-      # 运行 bundleRelease 来构建 Google Play 需要的 AAB 格式
-      run: bash ./gradlew bundleRelease -Dorg.gradle.java.home="$JAVA_HOME"
+    
+    # 修改构建命令，以区分 release 和 debug
+    - name: Build Android App
+      run: |
+        if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          echo "Building signed release bundle..."
+          bash ./gradlew bundleRelease -Dorg.gradle.java.home="$JAVA_HOME"
+        else
+          echo "Building debug APK for testing..."
+          bash ./gradlew assembleDebug -Dorg.gradle.java.home="$JAVA_HOME"
+        fi
       working-directory: ./frontend/android
       env:
-        # 将你的 Secrets 映射为环境变量，供 build.gradle 使用
+        # 环境变量仅在 release 构建时需要
         KEYSTORE_PATH: ${{ steps.decode_keystore.outputs.keystore_path }}
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-    # 9. 发布到 GitHub Releases
+    # ================= 上传和发布步骤 =================
+    # 方案一：如果是 main 分支的构建，上传为 Artifact
+    - name: Upload Artifact for Main Branch
+      if: github.ref_type == 'branch' && github.ref_name == 'main'
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug-${{ github.run_number }}
+        path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+
+    # 方案二：如果是标签，发布到 Releases
     - name: Create GitHub Release
+      if: github.ref_type == 'tag'
       uses: softprops/action-gh-release@v2
       with:
-        # 指定要上传的已签名 AAB 文件的路径
         files: frontend/android/app/build/outputs/bundle/release/app-release.aab
-        # 使用 Git 标签作为发布版本号
         tag_name: ${{ github.ref_name }}
-        # 自动生成发布说明
         generate_release_notes: true
