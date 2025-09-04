@@ -22,7 +22,7 @@ jobs:
         cache: 'npm'
         cache-dependency-path: 'frontend/package-lock.json'
 
-    # 3. 设置 Java (JDK) 21 环境 -- 这是解决问题的关键步骤
+    # 3. 设置 Java (JDK) 21 环境 (这一步已经确认是成功的)
     - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
@@ -45,7 +45,7 @@ jobs:
       run: chmod +x ./gradlew
       working-directory: ./frontend/android
 
-    # 7. 构建 Android 项目
+    # 7. 构建 Android 项目 (增加了强制指定 JDK 的参数)
     - name: Build Android project
-      run: bash ./gradlew build
+      run: bash ./gradlew build -Dorg.gradle.java.home="$JAVA_HOME"
       working-directory: ./frontend/android
