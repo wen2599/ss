@@ -9,16 +9,14 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     
-    # 明确授予工作流写入内容的权限，以更新 Release
+    # 授予工作流写入内容的权限，以更新 Release
     permissions:
       contents: write
 
     steps:
-    # 1. 检出代码
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # 2. 设置 Node.js
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
@@ -26,7 +24,6 @@ jobs:
         cache: 'npm'
         cache-dependency-path: 'frontend/package-lock.json'
 
-    # 3. 设置 JDK 21
     - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
@@ -34,17 +31,14 @@ jobs:
         java-version: '21'
         cache: 'gradle'
 
-    # 4. 安装前端依赖
     - name: Install dependencies
       run: npm install
       working-directory: ./frontend
 
-    # 5. 同步 Capacitor 项目
     - name: Sync Capacitor project
       run: npx cap sync android
       working-directory: ./frontend
 
-    # 6. 解码签名密钥
     - name: Decode Keystore
       id: decode_keystore
       env:
@@ -54,12 +48,10 @@ jobs:
         echo "$KEYSTORE_BASE64" | base64 --decode > $KEYSTORE_PATH
         echo "keystore_path=$KEYSTORE_PATH" >> $GITHUB_OUTPUT
 
-    # 7. 授予 gradlew 执行权限
     - name: Grant execute permission for gradlew
       run: chmod +x ./gradlew
       working-directory: ./frontend/android
 
-    # 8. 构建并签名 Release AAB
     - name: Build and Sign Release Bundle (AAB)
       run: bash ./gradlew bundleRelease -Dorg.gradle.java.home="$JAVA_HOME"
       working-directory: ./frontend/android
@@ -69,7 +61,6 @@ jobs:
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-    # 9. 发布到 GitHub Releases
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
