@@ -1,4 +1,4 @@
-name: Android CI & Release
+name: Android CI & Release APK
 
 on:
   push:
@@ -9,7 +9,6 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     
-    # 授予工作流写入内容的权限，以更新 Release
     permissions:
       contents: write
 
@@ -52,8 +51,9 @@ jobs:
       run: chmod +x ./gradlew
       working-directory: ./frontend/android
 
-    - name: Build and Sign Release Bundle (AAB)
-      run: bash ./gradlew bundleRelease -Dorg.gradle.java.home="$JAVA_HOME"
+    # --- 修改点 1: 修改构建命令和步骤名称 ---
+    - name: Build and Sign Release APK
+      run: bash ./gradlew assembleRelease -Dorg.gradle.java.home="$JAVA_HOME"
       working-directory: ./frontend/android
       env:
         KEYSTORE_PATH: ${{ steps.decode_keystore.outputs.keystore_path }}
@@ -61,9 +61,10 @@ jobs:
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
+    # --- 修改点 2: 修改上传文件的路径 ---
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        files: frontend/android/app/build/outputs/bundle/release/app-release.aab
+        files: frontend/android/app/build/outputs/apk/release/app-release.apk
         tag_name: ${{ github.ref_name }}
         generate_release_notes: true
