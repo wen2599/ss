@@ -38,6 +38,16 @@ jobs:
       run: npx cap sync android
       working-directory: ./frontend
 
+    - name: Update Version Info
+      run: |
+        VERSION_NAME=${{ github.ref_name }}
+        VERSION_NAME_NO_V=${VERSION_NAME#v}
+        VERSION_CODE=$(git rev-list --count HEAD)
+        echo "Using Version Name: $VERSION_NAME_NO_V"
+        echo "Using Version Code: $VERSION_CODE"
+        sed -i "s/versionCode [0-9]*/versionCode $VERSION_CODE/" frontend/android/app/build.gradle
+        sed -i "s/versionName \".*\"/versionName \"$VERSION_NAME_NO_V\"/" frontend/android/app/build.gradle
+
     - name: Decode Keystore
       id: decode_keystore
       env:
