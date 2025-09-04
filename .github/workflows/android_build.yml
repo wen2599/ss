@@ -58,12 +58,26 @@ jobs:
         echo "$KEYSTORE_BASE64" | base64 --decode > $KEYSTORE_PATH
         echo "keystore_path=$KEYSTORE_PATH" >> $GITHUB_OUTPUT
     
+    - name: Update Version Info
+      if: github.ref_type == 'tag'
+      run: |
+        VERSION_NAME=${{ github.ref_name }}
+        # 去掉标签的 'v' 前缀
+        VERSION_NAME_NO_V=${VERSION_NAME#v}
+
+        echo "Setting version name to $VERSION_NAME_NO_V"
+        sed -i "s/versionName \".*\"/versionName \"$VERSION_NAME_NO_V\"/" app/build.gradle
+
+        echo "Setting version code to ${{ github.run_number }}"
+        sed -i "s/versionCode .*/versionCode ${{ github.run_number }}/" app/build.gradle
+      working-directory: ./frontend/android
+
     # 修改构建命令，以区分 release 和 debug
     - name: Build Android App
       run: |
         if [[ "${{ github.ref_type }}" == "tag" ]]; then
-          echo "Building signed release bundle..."
-          bash ./gradlew bundleRelease -Dorg.gradle.java.home="$JAVA_HOME"
+          echo "Building signed release APK..."
+          bash ./gradlew assembleRelease -Dorg.gradle.java.home="$JAVA_HOME"
         else
           echo "Building debug APK for testing..."
           bash ./gradlew assembleDebug -Dorg.gradle.java.home="$JAVA_HOME"
@@ -90,6 +104,6 @@ jobs:
       if: github.ref_type == 'tag'
       uses: softprops/action-gh-release@v2
       with:
-        files: frontend/android/app/build/outputs/bundle/release/app-release.aab
+        files: frontend/android/app/build/outputs/apk/release/app-release.apk
         tag_name: ${{ github.ref_name }}
         generate_release_notes: true
