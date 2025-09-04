@@ -1,12 +1,13 @@
-name: Android CI
+name: Android CI & Release
 
 on:
   push:
-    branches:
-      - main
+    # 触发条件：当一个以 'v' 开头的标签被推送时 (例如 v1.0.0, v1.2.3)
+    tags:
+      - 'v*'
 
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
 
     steps:
@@ -14,7 +15,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # 2. 设置 Node.js 环境
+    # 2. 设置 Node.js 环境并启用缓存
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
@@ -22,7 +23,7 @@ jobs:
         cache: 'npm'
         cache-dependency-path: 'frontend/package-lock.json'
 
-    # 3. 设置 Java (JDK) 21 环境 (这一步已经确认是成功的)
+    # 3. 设置 Java (JDK) 21 环境并启用 Gradle 缓存
     - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
@@ -40,12 +41,41 @@ jobs:
       run: npx cap sync android
       working-directory: ./frontend
 
-    # 6. 授予 gradlew 执行权限
+    # 6. 解码并创建签名密钥文件
+    - name: Decode Keystore
+      id: decode_keystore
+      # 注意：这里的 KEYSTORE_FILE 对应你 GitHub Secret 的名称
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_FILE }}
+      run: |
+        KEYSTORE_PATH="${{ runner.temp }}/release.jks"
+        echo "$KEYSTORE_BASE64" | base64 --decode > $KEYSTORE_PATH
+        echo "keystore_path=$KEYSTORE_PATH" >> $GITHUB_OUTPUT
+
+    # 7. 授予 gradlew 执行权限
     - name: Grant execute permission for gradlew
       run: chmod +x ./gradlew
       working-directory: ./frontend/android
 
-    # 7. 构建 Android 项目 (增加了强制指定 JDK 的参数)
-    - name: Build Android project
-      run: bash ./gradlew build -Dorg.gradle.java.home="$JAVA_HOME"
+    # 8. 构建并签名 Release AAB 文件
+    - name: Build and Sign Release Bundle (AAB)
+      # 运行 bundleRelease 来构建 Google Play 需要的 AAB 格式
+      run: bash ./gradlew bundleRelease -Dorg.gradle.java.home="$JAVA_HOME"
       working-directory: ./frontend/android
+      env:
+        # 将你的 Secrets 映射为环境变量，供 build.gradle 使用
+        KEYSTORE_PATH: ${{ steps.decode_keystore.outputs.keystore_path }}
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+    # 9. 发布到 GitHub Releases
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        # 指定要上传的已签名 AAB 文件的路径
+        files: frontend/android/app/build/outputs/bundle/release/app-release.aab
+        # 使用 Git 标签作为发布版本号
+        tag_name: ${{ github.ref_name }}
+        # 自动生成发布说明
+        generate_release_notes: true
