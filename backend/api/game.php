@@ -154,18 +154,6 @@ class Player {
     }
     public function getHand(): array { return $this->hand; }
 
-    public function setHandSegments(array $front, array $middle, array $back): bool {
-        $all_cards = array_merge($front, $middle, $back);
-        if (count($all_cards) !== 13 || count(array_diff($all_cards, $this->hand)) > 0) {
-            return false; // Invalid cards submitted
-        }
-        $this->front_hand = $front;
-        $this->middle_hand = $middle;
-        $this->back_hand = $back;
-        $this->hand_is_set = true;
-        return true;
-    }
-
     public function getState(): array {
         return [
             'id' => $this->id,

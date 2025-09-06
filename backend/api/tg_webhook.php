@@ -151,6 +151,19 @@ if (isset($update["message"])) {
                     break;
                 }
 
+                $player = $game->getPlayer($userId);
+                if (!$player) {
+                    $reply = "你不在这个游戏中。";
+                    break;
+                }
+
+                $currentHand = $player->getHand();
+                $allCards = array_merge($front, $middle, $back);
+                if (count(array_diff($allCards, $currentHand)) > 0 || count($allCards) !== 13) {
+                    $reply = "设置牌型失败，请检查牌是否正确或重复。";
+                    break;
+                }
+
                 $success = $game->setPlayerHand($userId, $front, $middle, $back);
                 if ($success) {
                     save_game_state($game);
@@ -185,6 +198,7 @@ if (isset($update["message"])) {
                 $player = $game->getPlayer($userId);
                 if ($player) {
                     $hand = $player->getHand();
+                    sort_cards($hand);
                     $handStr = implode(' ', $hand);
                     sendMessage($userId, "你的手牌: `$handStr`");
                     $reply = "你的手牌已私信发送。";
@@ -228,22 +242,22 @@ if (isset($update["message"])) {
     $action = $parts[0];
 
     if ($action === 'join_game') {
-        $gameIdToJoin = (int)$parts[1];
+        $roomId = (int)$parts[1];
         $messageId = $callbackQuery["message"]["message_id"];
 
-        $success = add_player_to_game($gameIdToJoin, $userId, $userName);
+        $success = add_player_to_game($roomId, $userId, $userName);
 
         if ($success) {
             answerCallbackQuery($callbackQueryId, "你已成功加入游戏！");
 
-            $playerCount = get_player_count($gameIdToJoin);
+            $playerCount = get_player_count($roomId);
 
             if ($playerCount < 4) {
                 // Update the button with the new player count
-                $newText = "新游戏已创建 (ID: $gameIdToJoin)! 等待玩家加入...";
+                $newText = "新游戏已创建 (ID: $roomId)! 等待玩家加入...";
                 $newMarkup = [
                     'inline_keyboard' => [[
-                        ['text' => "加入游戏 ($playerCount/4)", 'callback_data' => 'join_game:' . $gameIdToJoin]
+                        ['text' => "加入游戏 ($playerCount/4)", 'callback_data' => 'join_game:' . $roomId]
                     ]]
                 ];
                 editMessageText($chatId, $messageId, $newText, $newMarkup);
@@ -251,7 +265,7 @@ if (isset($update["message"])) {
                 // Game is full, let's start it
                 editMessageText($chatId, $messageId, "游戏满员，对局开始！", null);
 
-                $game = load_game_state($gameIdToJoin);
+                $game = load_game_state($roomId);
                 if ($game) {
                      sendMessage($chatId, "发牌完毕！请检查私信手牌并使用 /sethand 命令理牌。");
                 }

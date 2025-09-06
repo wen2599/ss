@@ -15,14 +15,14 @@ function PlayerArea({ player, isCurrentPlayer, roomId, onPlay }) {
     }
   }, [player.hand]);
 
-  const handleCardClick = (cardFilename, sourceHand, handSetter) => {
+  const handleCardClick = (cardFilename) => {
     if (!isCurrentPlayer || player.hand_is_set) return;
 
-    if (selectedCards.includes(cardFilename)) {
-      setSelectedCards(selectedCards.filter(card => card !== cardFilename));
-    } else {
-      setSelectedCards([...selectedCards, cardFilename]);
-    }
+    setSelectedCards(prev =>
+      prev.includes(cardFilename)
+        ? prev.filter(c => c !== cardFilename)
+        : [...prev, cardFilename]
+    );
   };
 
   const assignToHand = (handSetter, currentHand, maxLength) => {
@@ -35,6 +35,12 @@ function PlayerArea({ player, isCurrentPlayer, roomId, onPlay }) {
     setUnassignedCards(newUnassigned);
     setSelectedCards([]);
   };
+
+  const returnToUnassigned = (card, currentHand, handSetter) => {
+      const newHand = currentHand.filter(c => c !== card);
+      handSetter(newHand);
+      setUnassignedCards([...unassignedCards, card]);
+  }
 
   const handleConfirmHand = async () => {
     if (frontHand.length !== 3 || middleHand.length !== 5 || backHand.length !== 5) {
@@ -76,21 +82,21 @@ function PlayerArea({ player, isCurrentPlayer, roomId, onPlay }) {
             <div className="hand-segment">
               <h4>前墩 (3张)</h4>
               <div className="hand-segment-cards">
-                {frontHand.map(c => <Card key={c} filename={c} />)}
+                {frontHand.map(c => <Card key={c} filename={c} onClick={() => returnToUnassigned(c, frontHand, setFrontHand)} />)}
               </div>
               <button onClick={() => assignToHand(setFrontHand, frontHand, 3)}>设置前墩</button>
             </div>
             <div className="hand-segment">
               <h4>中墩 (5张)</h4>
               <div className="hand-segment-cards">
-                {middleHand.map(c => <Card key={c} filename={c} />)}
+                {middleHand.map(c => <Card key={c} filename={c} onClick={() => returnToUnassigned(c, middleHand, setMiddleHand)} />)}
               </div>
               <button onClick={() => assignToHand(setMiddleHand, middleHand, 5)}>设置中墩</button>
             </div>
             <div className="hand-segment">
               <h4>后墩 (5张)</h4>
               <div className="hand-segment-cards">
-                {backHand.map(c => <Card key={c} filename={c} />)}
+                {backHand.map(c => <Card key={c} filename={c} onClick={() => returnToUnassigned(c, backHand, setBackHand)} />)}
               </div>
               <button onClick={() => assignToHand(setBackHand, backHand, 5)}>设置后墩</button>
             </div>
