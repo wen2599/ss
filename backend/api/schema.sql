@@ -63,15 +63,3 @@ CREATE TABLE `plays` (
   PRIMARY KEY (`id`),
   FOREIGN KEY (`game_id`) REFERENCES `games` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- The `users` table for authentication and points management.
-CREATE TABLE `users` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` varchar(4) NOT NULL UNIQUE, -- The public 4-digit ID
-  `phone_number` varchar(20) NOT NULL UNIQUE,
-  `password_hash` varchar(255) NOT NULL,
-  `points` int(11) NOT NULL DEFAULT 1000,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -15,17 +15,12 @@ function App() {
   const [gameId, setGameId] = useState(null); // State for game ID
 
 
-  const handleCreateRoom = async (gameMode) => {
-    console.log(`Creating room with mode: ${gameMode}`);
-    // TODO: In the future, pass gameMode to the backend createRoom function.
+  const handleCreateRoom = async () => {
     const response = await createRoom();
     if (response && response.success) {
       console.log('Room created successfully:', response);
       setCurrentRoomId(response.roomId);
-      // For now, player ID is mocked. This will come from the login system later.
-      const mockPlayerId = 'player_' + Math.random().toString(36).substr(2, 9);
-      setCurrentPlayerId(mockPlayerId);
-      await fetchGameState(response.roomId, mockPlayerId); // Fetch state after creating
+      await fetchGameState(response.roomId, response.playerId); // Fetch state after creating
     } else {
       console.error('Failed to create room:', response);
     }
@@ -69,26 +64,17 @@ function App() {
   if (!currentRoomId) {
     return (
       <div className="App">
-        <h1>游戏大厅</h1>
-        <div className="lobby-container">
-          <div className="lobby-grid">
-            <div className="lobby-item" onClick={() => handleCreateRoom('2_normal')}>
-              <h2>2分普通场</h2>
-              <p>底分: 2</p>
-            </div>
-            <div className="lobby-item" onClick={() => handleCreateRoom('2_double')}>
-              <h2>2分翻倍场</h2>
-              <p>底分: 2 (翻倍)</p>
-            </div>
-            <div className="lobby-item" onClick={() => handleCreateRoom('5_normal')}>
-              <h2>5分普通场</h2>
-              <p>底分: 5</p>
-            </div>
-            <div className="lobby-item" onClick={() => handleCreateRoom('5_double')}>
-              <h2>5分翻倍场</h2>
-              <p>底分: 5 (翻倍)</p>
-            </div>
-          </div>
+        <h1>斗地主多人游戏</h1>
+        <div className="room-management">
+          <h2>房间管理</h2>
+          <input
+            type="text"
+            placeholder="输入房间ID"
+            value={inputRoomId}
+            onChange={(e) => setInputRoomId(e.target.value)}
+          />
+          <button onClick={handleCreateRoom}>创建房间</button>
+          <button onClick={handleJoinRoom}>加入房间</button>
         </div>
       </div>
     );
@@ -109,20 +95,31 @@ function App() {
         <div className="game-table-area">
           <GameTable cardsOnTable={cardsOnTable} bottomCards={bottomCards} />
         </div>
-        <div className="player-areas"> {/* Container for all player areas */}
-          {players.map(player => {
-            const isCurrent = player.id === currentPlayerId;
+        <div className="player-areas-container">
+          {(() => {
+            const currentPlayer = players.find(p => p.id === currentPlayerId);
+            const opponents = players.filter(p => p.id !== currentPlayerId);
+
             return (
-              <PlayerArea
-                key={player.id}
-                player={player}
-                isCurrentPlayer={isCurrent}
-                gameId={gameId}
-                roomId={currentRoomId}
-                onPlay={fetchGameState}
-              />
+              <>
+                {currentPlayer && (
+                  <div className="player-area-bottom">
+                    <PlayerArea player={currentPlayer} isCurrentPlayer={true} gameId={gameId} roomId={currentRoomId} onPlay={fetchGameState} />
+                  </div>
+                )}
+                {opponents[0] && (
+                  <div className="player-area-left">
+                    <PlayerArea player={opponents[0]} isCurrentPlayer={false} gameId={gameId} roomId={currentRoomId} onPlay={fetchGameState} />
+                  </div>
+                )}
+                {opponents[1] && (
+                  <div className="player-area-right">
+                    <PlayerArea player={opponents[1]} isCurrentPlayer={false} gameId={gameId} roomId={currentRoomId} onPlay={fetchGameState} />
+                  </div>
+                )}
+              </>
             );
-          })}
+          })()}
         </div>
       </div>
     </div>
