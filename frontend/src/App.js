@@ -95,20 +95,31 @@ function App() {
         <div className="game-table-area">
           <GameTable cardsOnTable={cardsOnTable} bottomCards={bottomCards} />
         </div>
-        <div className="player-areas"> {/* Container for all player areas */}
-          {players.map(player => {
-            const isCurrent = player.id === currentPlayerId;
+        <div className="player-areas-container">
+          {(() => {
+            const currentPlayer = players.find(p => p.id === currentPlayerId);
+            const opponents = players.filter(p => p.id !== currentPlayerId);
+
             return (
-              <PlayerArea
-                key={player.id}
-                player={player}
-                isCurrentPlayer={isCurrent}
-                gameId={gameId}
-                roomId={currentRoomId}
-                onPlay={fetchGameState}
-              />
+              <>
+                {currentPlayer && (
+                  <div className="player-area-bottom">
+                    <PlayerArea player={currentPlayer} isCurrentPlayer={true} gameId={gameId} roomId={currentRoomId} onPlay={fetchGameState} />
+                  </div>
+                )}
+                {opponents[0] && (
+                  <div className="player-area-left">
+                    <PlayerArea player={opponents[0]} isCurrentPlayer={false} gameId={gameId} roomId={currentRoomId} onPlay={fetchGameState} />
+                  </div>
+                )}
+                {opponents[1] && (
+                  <div className="player-area-right">
+                    <PlayerArea player={opponents[1]} isCurrentPlayer={false} gameId={gameId} roomId={currentRoomId} onPlay={fetchGameState} />
+                  </div>
+                )}
+              </>
             );
-          })}
+          })()}
         </div>
       </div>
     </div>

@@ -24,7 +24,6 @@ require_once __DIR__ . '/api.php'; // Make sure api.php is in the same directory
 require_once __DIR__ . '/game.php'; // Include game logic file (assuming it's needed)
 require_once __DIR__ . '/utils.php'; // Include utility file (assuming it's needed)
 require_once __DIR__ . '/config.php'; // Include config file (assuming it's needed)
-require_once __DIR__ . '/auth.php'; // Include the new auth logic file
 
 // Basic routing based on request path
 $request_uri = explode('/', trim($_SERVER['REQUEST_URI'], '/'));
@@ -42,24 +41,6 @@ switch ($api_endpoint) {
     case 'get_room_state':
         handleGetRoomState();
         break;
-
-    // --- Auth Endpoints ---
-    case 'register':
-        handleRegister();
-        break;
-    case 'login':
-        handleLogin();
-        break;
-    case 'logout':
-        handleLogout();
-        break;
-    case 'search_player':
-        handleSearchPlayer();
-        break;
-    case 'transfer_points':
-        handleTransferPoints();
-        break;
-
     // TODO: Add other API endpoints here (e.g., /play_card, /call_landlord)
     default:
         // Handle invalid endpoint
