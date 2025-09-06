@@ -42,19 +42,25 @@ export const joinRoom = async (roomId) => {
   }
 };
 
-// Function to play cards
-export const playCards = async (gameId, playerId, cards) => {
+// Function to set a player's hand
+export const setHand = async (roomId, playerId, frontHand, middleHand, backHand) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/play_cards`, {
+    const response = await fetch(`${API_BASE_URL}/set_hand`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ game_id: gameId, player_id: playerId, cards: cards }),
+      body: JSON.stringify({
+        room_id: roomId,
+        player_id: playerId,
+        front_hand: frontHand,
+        middle_hand: middleHand,
+        back_hand: backHand
+      }),
     });
     return await response.json();
   } catch (error) {
-    console.error('Error playing cards:', error);
+    console.error('Error setting hand:', error);
     throw error;
   }
 };

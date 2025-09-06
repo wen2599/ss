@@ -1,12 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from './Card';
-import { playCards } from '../api';
+import { setHand } from '../api';
 
-function PlayerArea({ player, isCurrentPlayer, gameId, roomId, onPlay }) {
+function PlayerArea({ player, isCurrentPlayer, roomId, onPlay }) {
+  const [unassignedCards, setUnassignedCards] = useState([]);
   const [selectedCards, setSelectedCards] = useState([]);
+  const [frontHand, setFrontHand] = useState([]);
+  const [middleHand, setMiddleHand] = useState([]);
+  const [backHand, setBackHand] = useState([]);
 
-  const handleCardClick = (cardFilename) => {
-    if (!isCurrentPlayer) return;
+  useEffect(() => {
+    if (player.hand) {
+      setUnassignedCards(player.hand);
+    }
+  }, [player.hand]);
+
+  const handleCardClick = (cardFilename, sourceHand, handSetter) => {
+    if (!isCurrentPlayer || player.hand_is_set) return;
 
     if (selectedCards.includes(cardFilename)) {
       setSelectedCards(selectedCards.filter(card => card !== cardFilename));
@@ -14,55 +24,85 @@ function PlayerArea({ player, isCurrentPlayer, gameId, roomId, onPlay }) {
       setSelectedCards([...selectedCards, cardFilename]);
     }
   };
-  
-  const handleCancelSelection = () => {
+
+  const assignToHand = (handSetter, currentHand, maxLength) => {
+    if (selectedCards.length === 0) return;
+
+    const newHand = [...currentHand, ...selectedCards].slice(0, maxLength);
+    const newUnassigned = unassignedCards.filter(c => !selectedCards.includes(c));
+
+    handSetter(newHand);
+    setUnassignedCards(newUnassigned);
     setSelectedCards([]);
   };
 
-  const handlePlayCards = async () => {
-    if (selectedCards.length === 0) return;
-    if (!gameId) {
-      alert("Game has not started yet.");
+  const handleConfirmHand = async () => {
+    if (frontHand.length !== 3 || middleHand.length !== 5 || backHand.length !== 5) {
+      alert("请将13张牌全部分配到前、中、后墩。");
       return;
     }
 
     try {
-      const response = await playCards(gameId, player.id, selectedCards);
+      const response = await setHand(roomId, player.id, frontHand, middleHand, backHand);
       if (response.success) {
-        setSelectedCards([]);
         onPlay(roomId, player.id); // Refresh game state
       } else {
-        alert(`Invalid move: ${response.message}`);
+        alert(`理牌失败: ${response.message}`);
       }
     } catch (error) {
-      console.error('Failed to play cards:', error);
-      alert('An error occurred while playing cards.');
+      console.error('理牌失败:', error);
+      alert('理牌时发生错误。');
     }
   };
 
   return (
-    <div className={`player-area ${player.isLandlord ? 'landlord' : ''} ${player.isCurrentPlayer ? 'current-player-area' : ''}`}>
-      <h3>{player.name} {player.isLandlord && '(地主)'}</h3>
-      <p>Score: {player.score}</p>
+    <div className={`player-area ${player.isCurrentPlayer ? 'current-player-area' : ''}`}>
+      <h3>{player.name}</h3>
+      <p>牌数: {player.hand_count}</p>
 
-      <div className="player-hand">
-        {player.hand && player.hand.map((cardFilename, index) => (
-          <Card
-            key={index}
-            filename={cardFilename}
-            onClick={() => handleCardClick(cardFilename)}
-            isSelected={selectedCards.includes(cardFilename)}
-          />
-        ))}
-      </div>
-
-      {isCurrentPlayer && (
-        <div className="action-buttons">
-          <button disabled={true}>叫地主</button>
-          <button disabled={true}>不叫</button>
-          <button onClick={handlePlayCards} disabled={selectedCards.length === 0}>出牌</button>
-          <button onClick={() => console.log("Pass")}>不要</button>
-          <button onClick={handleCancelSelection}>取消选择</button>
+      {isCurrentPlayer && !player.hand_is_set && (
+        <>
+          <div className="player-hand">
+            {unassignedCards.map((cardFilename) => (
+              <Card
+                key={cardFilename}
+                filename={cardFilename}
+                onClick={() => handleCardClick(cardFilename)}
+                isSelected={selectedCards.includes(cardFilename)}
+              />
+            ))}
+          </div>
+          <div className="hand-arrangement-area">
+            <div className="hand-segment">
+              <h4>前墩 (3张)</h4>
+              <div className="hand-segment-cards">
+                {frontHand.map(c => <Card key={c} filename={c} />)}
+              </div>
+              <button onClick={() => assignToHand(setFrontHand, frontHand, 3)}>设置前墩</button>
+            </div>
+            <div className="hand-segment">
+              <h4>中墩 (5张)</h4>
+              <div className="hand-segment-cards">
+                {middleHand.map(c => <Card key={c} filename={c} />)}
+              </div>
+              <button onClick={() => assignToHand(setMiddleHand, middleHand, 5)}>设置中墩</button>
+            </div>
+            <div className="hand-segment">
+              <h4>后墩 (5张)</h4>
+              <div className="hand-segment-cards">
+                {backHand.map(c => <Card key={c} filename={c} />)}
+              </div>
+              <button onClick={() => assignToHand(setBackHand, backHand, 5)}>设置后墩</button>
+            </div>
+            <button onClick={handleConfirmHand}>确认牌型</button>
+          </div>
+        </>
+      )}
+      {player.hand_is_set && (
+        <div className="final-hands">
+            <h4>前墩: {player.front_hand.join(' ')}</h4>
+            <h4>中墩: {player.middle_hand.join(' ')}</h4>
+            <h4>后墩: {player.back_hand.join(' ')}</h4>
         </div>
       )}
     </div>

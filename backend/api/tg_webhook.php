@@ -95,18 +95,18 @@ if (isset($update["message"])) {
     $reply = '';
     $replyMarkup = null;
 
-    $activeGameId = get_active_game_id_for_chat($chatId);
+    $activeRoomId = get_active_room_id_for_chat($chatId);
 
     if ($text === '/newgame') {
-        if ($activeGameId) {
+        if ($activeRoomId) {
             $reply = "此聊天中已有一个正在进行的游戏。";
         } else {
-            $newGameId = create_game_and_room($chatId, $userId, $userName);
-            if ($newGameId) {
-                $reply = "新游戏已创建 (ID: $newGameId)! 等待玩家加入...";
+            $newRoomId = create_game_and_room($chatId, $userId, $userName);
+            if ($newRoomId) {
+                $reply = "新游戏已创建 (ID: $newRoomId)! 等待玩家加入...";
                 $replyMarkup = [
                     'inline_keyboard' => [[
-                        ['text' => '加入游戏 (1/3)', 'callback_data' => 'join_game:' . $newGameId]
+                        ['text' => '加入游戏 (1/4)', 'callback_data' => 'join_game:' . $newRoomId]
                     ]]
                 ];
             } else {
@@ -114,10 +114,10 @@ if (isset($update["message"])) {
             }
         }
     } elseif ($text === '/start') {
-         $reply = "欢迎来到斗地主云端游戏机器人！\n使用 /newgame 创建新对局。";
+         $reply = "欢迎来到十三张云端游戏机器人！\n使用 /newgame 创建新对局。";
          $replyMarkup = $userKeyboard;
-    } elseif ($activeGameId) {
-        $game = load_game_state($activeGameId);
+    } elseif ($activeRoomId) {
+        $game = load_game_state($activeRoomId);
         if (!$game) {
             sendMessage($chatId, "错误：找不到当前游戏。");
             exit;
@@ -129,84 +129,55 @@ if (isset($update["message"])) {
         $success = false;
 
         switch ($command) {
-            case '/bid':
-                if ($game->getState()['state'] !== 'bidding') {
-                    $reply = "现在不是叫地主阶段。";
+            case '/sethand':
+                if ($game->getState()['state'] !== 'arranging') {
+                    $reply = "现在不是理牌阶段。";
                     break;
                 }
-                $bidValue = (int)($args ?? -1);
-                if (!in_array($bidValue, [1, 2, 3])) {
-                    $reply = "无效的出价。请出价 1, 2, 或 3。 (/bid 1)";
+                // Expected format: /sethand <3 cards> | <5 cards> | <5 cards>
+                $handParts = explode('|', $args);
+                if (count($handParts) !== 3) {
+                    $reply = "格式错误。请使用: /sethand S2 S3 S4 | S5 S6 S7 S8 S9 | SA SK SQ SJ S10";
                     break;
                 }
 
-                $oldState = $game->getState();
-                $success = $game->processBid($userId, $bidValue);
+                $front = array_filter(array_map('strtoupper', explode(' ', trim($handParts[0]))));
+                $middle = array_filter(array_map('strtoupper', explode(' ', trim($handParts[1]))));
+                $back = array_filter(array_map('strtoupper', explode(' ', trim($handParts[2]))));
 
+
+                if (count($front) !== 3 || count($middle) !== 5 || count($back) !== 5) {
+                    $reply = "牌数错误。前墩3张，中墩5张，底墩5张。";
+                    break;
+                }
+
+                $success = $game->setPlayerHand($userId, $front, $middle, $back);
                 if ($success) {
                     save_game_state($game);
+                    $reply = "玩家 `$userName` 已确认牌型。";
+
                     $newState = $game->getState();
-                    $reply = "玩家 `$userId` 出价 **$bidValue**。";
+                    if ($newState['state'] === 'finished') {
+                        $reply .= "\n\n所有玩家已准备就绪，游戏结束！\n\n**比分结果:**\n";
+                        $player_scores = [];
+                        foreach ($newState['players'] as $p_id => $p_data) {
+                            $player_scores[$p_id] = 0;
+                        }
 
-                    if ($newState['state'] === 'bidding') {
-                        $reply .= "\n\n轮到玩家 `{$newState['current_turn']}` 叫地主。 (/bid 1, 2, 3 或 /pass)";
-                    } elseif ($newState['state'] === 'playing') {
-                        $landlordId = $newState['landlord_player_id'];
-                        $bottomCardsStr = implode(' ', $oldState['landlords_cards']);
-                        $reply .= "\n\n叫地主结束！地主是玩家 `$landlordId`。";
-                        $reply .= "\n底牌是: `$bottomCardsStr` (已加入地主手牌)";
-                        $reply .= "\n\n轮到地主 `$landlordId` 首先出牌。";
-                    } elseif ($newState['state'] === 'misdeal') {
-                        $reply .= "\n\n所有玩家都不叫，本局流局。";
-                    }
-                } else {
-                    $reply = "出价无效 (可能太低或者不是你的回合)。";
-                }
-                break;
+                        foreach($newState['comparison_results'] as $key => $score) {
+                            list($p1_id, $vs, $p2_id) = explode('_', $key);
+                            $player_scores[$p1_id] += $score;
+                            $player_scores[$p2_id] -= $score;
+                        }
 
-            case '/play':
-                $cards = explode(' ', strtoupper($args));
-                $success = $game->playCards($userId, $cards);
-                if ($success) {
-                    save_game_state($game);
-                    $playedCardsStr = implode(' ', $cards);
-                    $reply = "玩家 `$userId` 出牌: `$playedCardsStr`";
-                    if ($game->getState()['state'] === 'finished') {
-                        $landlordId = $game->getState()['landlord_player_id'];
-                        if ($userId === $landlordId) {
-                            $reply .= "\n\n**游戏结束！地主 `$userId` 获胜！**";
-                        } else {
-                            $reply .= "\n\n**游戏结束！农民团队获胜！** (玩家 `$userId` 首先出完牌)";
+                        foreach($player_scores as $p_id => $score) {
+                            $playerName = $newState['players'][$p_id]['name'] ?? $p_id;
+                             $score_str = $score > 0 ? "+".$score : $score;
+                            $reply .= "玩家 `$playerName`: $score_str\n";
                         }
                     }
                 } else {
-                    $reply = "出牌无效！请检查你的牌或规则。";
-                }
-                break;
-
-            case '/pass':
-                if ($game->getState()['state'] === 'bidding') {
-                    $success = $game->processBid($userId, 0); // 0 means pass
-                    if ($success) {
-                        save_game_state($game);
-                        $newState = $game->getState();
-                        $reply = "玩家 `$userId` 选择不叫。";
-                        if ($newState['state'] === 'bidding') {
-                             $reply .= "\n\n轮到玩家 `{$newState['current_turn']}` 叫地主。 (/bid 1, 2, 3 或 /pass)";
-                        } elseif ($newState['state'] === 'misdeal') {
-                            $reply .= "\n\n所有玩家都不叫，本局流局。";
-                        }
-                    } else {
-                        $reply = "现在不能不叫。";
-                    }
-                } else { // Pass during play
-                    $success = $game->passTurn($userId);
-                    if ($success) {
-                        save_game_state($game);
-                        $reply = "玩家 `$userId` 选择 pass。";
-                    } else {
-                        $reply = "现在不能 pass。";
-                    }
+                    $reply = "设置牌型失败，请检查牌是否正确或重复。";
                 }
                 break;
 
@@ -222,22 +193,19 @@ if (isset($update["message"])) {
 
             case '/status':
                 $state = $game->getState();
-                $turnId = $state['current_turn'];
-                $lastPlayStr = !empty($state['last_played_cards']) ? implode(' ', $state['last_played_cards']) : '无';
-                $reply = "轮到玩家 `$turnId` 操作。\n上一手牌: `$lastPlayStr`";
+                $reply = "当前游戏状态: " . $state['state'] . ".";
+                if ($state['state'] === 'arranging') {
+                    $readyPlayers = 0;
+                    foreach ($state['players'] as $p) {
+                        if ($p['hand_is_set']) $readyPlayers++;
+                    }
+                    $reply .= "\n" . $readyPlayers . "/" . count($state['players']) . " 位玩家已准备就绪。";
+                }
                 break;
 
             default:
                 $reply = "未知游戏命令。";
                 break;
-        }
-
-        if ($success) {
-             $newState = $game->getState();
-             if ($newState['state'] === 'playing') {
-                 $nextPlayerId = $newState['current_turn'];
-                 $reply .= "\n\n轮到玩家 `$nextPlayerId`。";
-             }
         }
 
     } else {
@@ -270,12 +238,12 @@ if (isset($update["message"])) {
 
             $playerCount = get_player_count($gameIdToJoin);
 
-            if ($playerCount < 3) {
+            if ($playerCount < 4) {
                 // Update the button with the new player count
                 $newText = "新游戏已创建 (ID: $gameIdToJoin)! 等待玩家加入...";
                 $newMarkup = [
                     'inline_keyboard' => [[
-                        ['text' => "加入游戏 ($playerCount/3)", 'callback_data' => 'join_game:' . $gameIdToJoin]
+                        ['text' => "加入游戏 ($playerCount/4)", 'callback_data' => 'join_game:' . $gameIdToJoin]
                     ]]
                 ];
                 editMessageText($chatId, $messageId, $newText, $newMarkup);
@@ -285,11 +253,7 @@ if (isset($update["message"])) {
 
                 $game = load_game_state($gameIdToJoin);
                 if ($game) {
-                    $state = $game->getState();
-                    $firstBidderId = $state['current_turn'];
-                    // This is tricky, I need the player's name, not just ID.
-                    // For now, just use the ID.
-                    sendMessage($chatId, "发牌完毕！\n请玩家 `$firstBidderId` 开始叫地主。");
+                     sendMessage($chatId, "发牌完毕！请检查私信手牌并使用 /sethand 命令理牌。");
                 }
             }
         } else {

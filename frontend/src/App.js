@@ -11,8 +11,6 @@ function App() {
   const [currentPlayerId, setCurrentPlayerId] = useState(null); // Current player's ID
   const [players, setPlayers] = useState([]); // List of players in the room
   const [cardsOnTable, setCardsOnTable] = useState([]); // Cards on the table
-  const [bottomCards, setBottomCards] = useState([]); // State for bottom cards
-  const [gameId, setGameId] = useState(null); // State for game ID
 
 
   const handleCreateRoom = async () => {
@@ -49,11 +47,7 @@ function App() {
         console.log('Game state fetched successfully:', room);
         setCurrentPlayerId(playerId); // Set current player ID
         setPlayers(Object.values(room.players)); // Update players state
-        setCardsOnTable(room.discarded_cards); // Update cards on table state
-        setBottomCards(room.bottom_cards || []); // Update bottom cards state
-        if (room.state === 'playing' && room.current_game_id) {
-          setGameId(room.current_game_id);
-        }
+        setCardsOnTable(room.comparison_results || []); // Update cards on table state
       }
     } catch (error) {
       console.error('Failed to fetch game state:', error);
@@ -64,7 +58,7 @@ function App() {
   if (!currentRoomId) {
     return (
       <div className="App">
-        <h1>斗地主多人游戏</h1>
+        <h1>十三张</h1>
         <div className="room-management">
           <h2>房间管理</h2>
           <input
@@ -83,7 +77,7 @@ function App() {
   // Render game area if a room is joined
   return (
     <div className="App">
-      <h1>斗地主多人游戏</h1>
+      <h1>十三张</h1>
       <div
         className="game-container"
         style={{
@@ -93,7 +87,7 @@ function App() {
         }}
       >
         <div className="game-table-area">
-          <GameTable cardsOnTable={cardsOnTable} bottomCards={bottomCards} />
+          <GameTable cardsOnTable={cardsOnTable} />
         </div>
         <div className="player-areas-container">
           {(() => {
@@ -104,17 +98,17 @@ function App() {
               <>
                 {currentPlayer && (
                   <div className="player-area-bottom">
-                    <PlayerArea player={currentPlayer} isCurrentPlayer={true} gameId={gameId} roomId={currentRoomId} onPlay={fetchGameState} />
+                    <PlayerArea player={currentPlayer} isCurrentPlayer={true} roomId={currentRoomId} onPlay={fetchGameState} />
                   </div>
                 )}
                 {opponents[0] && (
                   <div className="player-area-left">
-                    <PlayerArea player={opponents[0]} isCurrentPlayer={false} gameId={gameId} roomId={currentRoomId} onPlay={fetchGameState} />
+                    <PlayerArea player={opponents[0]} isCurrentPlayer={false} roomId={currentRoomId} onPlay={fetchGameState} />
                   </div>
                 )}
                 {opponents[1] && (
                   <div className="player-area-right">
-                    <PlayerArea player={opponents[1]} isCurrentPlayer={false} gameId={gameId} roomId={currentRoomId} onPlay={fetchGameState} />
+                    <PlayerArea player={opponents[1]} isCurrentPlayer={false} roomId={currentRoomId} onPlay={fetchGameState} />
                   </div>
                 )}
               </>

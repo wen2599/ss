@@ -4,10 +4,6 @@ function Card({ filename, onClick, isSelected }) {
   const recognizeCardValue = (name) => {
     const [valueStr, , suitStr] = name.replace('.svg', '').split('_');
 
-    // Handle Jokers
-    if (valueStr === 'red') return '大王';
-    if (valueStr === 'black') return '小王';
-
     let value = valueStr.toUpperCase();
     // Map face cards and Ace
     if (value === 'ACE') value = 'A';
@@ -29,9 +25,7 @@ function Card({ filename, onClick, isSelected }) {
 
   // Optional: Add a visual representation of the card value on the card itself
   // This can be useful for debugging and testing
-  const displayValue = filename === 'red_joker.svg' || filename === 'black_joker.svg'
-    ? cardValue // For Jokers, display "大王" or "小王"
-    : `${cardValue[0]}${cardValue[1]}`; // For numbered/face cards, display value and suit (e.g., "A♠", "10♣")
+  const displayValue = `${cardValue[0]}${cardValue[1]}`; // For numbered/face cards, display value and suit (e.g., "A♠", "10♣")
 
   return (
     <div
