@@ -64,7 +64,7 @@ function App() {
   if (!currentRoomId) {
     return (
       <div className="App">
-        <h1>斗地主多人游戏</h1>
+        <h1>十三张</h1>
         <div className="room-management">
           <h2>房间管理</h2>
           <input
@@ -83,7 +83,7 @@ function App() {
   // Render game area if a room is joined
   return (
     <div className="App">
-      <h1>斗地主多人游戏</h1>
+      <h1>十三张</h1>
       <div
         className="game-container"
         style={{
