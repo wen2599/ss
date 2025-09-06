@@ -1,50 +1,59 @@
 import React from 'react';
 
+// Maps the backend's concise card format to the frontend's SVG filenames and display values.
+const cardMap = {
+  S: { suit: 'spades', symbol: '♠' },
+  H: { suit: 'hearts', symbol: '♥' },
+  D: { suit: 'diamonds', symbol: '♦' },
+  C: { suit: 'clubs', symbol: '♣' },
+  A: { value: 'ace', display: 'A' },
+  K: { value: 'king', display: 'K' },
+  Q: { value: 'queen', display: 'Q' },
+  J: { value: 'jack', display: 'J' },
+  T: { value: '10', display: '10' },
+  '9': { value: '9', display: '9' },
+  '8': { value: '8', display: '8' },
+  '7': { value: '7', display: '7' },
+  '6': { value: '6', display: '6' },
+  '5': { value: '5', display: '5' },
+  '4': { value: '4', 'display': '4' },
+  '3': { value: '3', display: '3' },
+  '2': { value: '2', display: '2' },
+};
+
 function Card({ filename, onClick, isSelected }) {
-  const recognizeCardValue = (name) => {
-    const [valueStr, , suitStr] = name.replace('.svg', '').split('_');
+  // The 'filename' prop now contains the concise format, e.g., "SA"
+  const cardString = filename;
 
-    // Handle Jokers
-    if (valueStr === 'red') return '大王';
-    if (valueStr === 'black') return '小王';
+  if (!cardString || cardString.length < 2) {
+    // Hide or show a placeholder for invalid card strings
+    // Old card formats like "black_joker.svg" will also fail this and not be rendered.
+    return null;
+  }
 
-    let value = valueStr.toUpperCase();
-    // Map face cards and Ace
-    if (value === 'ACE') value = 'A';
-    if (value === 'KING') value = 'K';
-    if (value === 'QUEEN') value = 'Q';
-    if (value === 'JACK') value = 'J';
+  const suitChar = cardString.charAt(0).toUpperCase();
+  const rankChar = cardString.charAt(1).toUpperCase();
 
-    let suit = '';
-    // Map suits
-    if (suitStr === 'spades') suit = '♠';
-    if (suitStr === 'hearts') suit = '♥';
-    if (suitStr === 'diamonds') suit = '♦';
-    if (suitStr === 'clubs') suit = '♣';
+  const suitInfo = cardMap[suitChar];
+  const rankInfo = cardMap[rankChar] || cardMap[cardString.charAt(1)]; // Handle 'T' for 10
 
-    return `${value}${suit}`;
-  };
+  if (!suitInfo || !rankInfo) {
+    console.error("Invalid card format passed to Card component:", cardString);
+    return <div className="card error-card">?</div>;
+  }
 
-  const cardValue = recognizeCardValue(filename);
-
-  // Optional: Add a visual representation of the card value on the card itself
-  // This can be useful for debugging and testing
-  const displayValue = filename === 'red_joker.svg' || filename === 'black_joker.svg'
-    ? cardValue // For Jokers, display "大王" or "小王"
-    : `${cardValue[0]}${cardValue[1]}`; // For numbered/face cards, display value and suit (e.g., "A♠", "10♣")
+  const svgFilename = `${rankInfo.value}_of_${suitInfo.suit}.svg`;
+  const displayValue = `${rankInfo.display}${suitInfo.symbol}`;
 
   return (
     <div
-      className={`card ${isSelected ? 'selected-card' : ''}`} // Add 'selected-card' class if isSelected is true
-      onClick={onClick} // Attach the onClick handler
+      className={`card ${isSelected ? 'selected-card' : ''}`}
+      onClick={onClick}
     >
-      <img src={`/cards/${filename}`} alt={cardValue} />
-      {/* Display recognized card value on the card */}
+      <img src={`/cards/${svgFilename}`} alt={displayValue} />
       <div className="card-value-overlay">
         {displayValue}
       </div>
-      {/* Optional: display the recognized card value */}
-      {/* <p>{cardValue}</p> */}
     </div>
   );
 }
