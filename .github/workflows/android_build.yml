@@ -1,9 +1,11 @@
-name: Android CI & Release APK
+name: Android Continuous Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
 
 jobs:
   build-and-release:
@@ -38,6 +40,15 @@ jobs:
       run: npx cap sync android
       working-directory: ./frontend
 
+    - name: Update Version Info
+      run: |
+        VERSION_CODE=$(git rev-list --count HEAD)
+        VERSION_NAME="1.0.${VERSION_CODE}"
+        echo "Setting Version Name to $VERSION_NAME"
+        echo "Setting Version Code to $VERSION_CODE"
+        sed -i "s/versionCode [0-9]*/versionCode $VERSION_CODE/" frontend/android/app/build.gradle
+        sed -i "s/versionName \".*\"/versionName \"$VERSION_NAME\"/" frontend/android/app/build.gradle
+
     - name: Decode Keystore
       id: decode_keystore
       env:
@@ -61,10 +72,11 @@ jobs:
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-    # --- 修改点 2: 修改上传文件的路径 ---
-    - name: Create GitHub Release
+    - name: Create Pre-release
       uses: softprops/action-gh-release@v2
       with:
         files: frontend/android/app/build/outputs/apk/release/app-release.apk
-        tag_name: ${{ github.ref_name }}
-        generate_release_notes: true
+        name: Automated Build #${{ github.run_number }}
+        tag_name: build-${{ github.run_number }}
+        body: "Automated build triggered by commit: ${{ github.sha }}"
+        prerelease: true
