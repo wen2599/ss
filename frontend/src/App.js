@@ -58,6 +58,30 @@ function App() {
     }
   };
 
+  const renderOpponents = (opponents) => {
+    const positions = [];
+    switch (opponents.length) {
+      case 1: // 2-player game
+        positions.push('top');
+        break;
+      case 2: // 3-player game
+        positions.push('left', 'right');
+        break;
+      case 3: // 4-player game
+        positions.push('left', 'top', 'right');
+        break;
+      default:
+        break;
+    }
+
+    return opponents.map((opponent, index) => (
+      <div key={opponent.id} className={`opponent-position-${positions[index]}`}>
+        <PlayerArea player={opponent} />
+      </div>
+    ));
+  };
+
+
   if (!gameState) {
     return (
       <div className="App">
@@ -84,29 +108,9 @@ function App() {
 
   return (
     <div className="App">
-      <h1>十三张 (房间号: {room.id})</h1>
       <div className="game-container">
-        <div className="player-area-top">
-          {opponents[0] && <PlayerArea player={opponents[0]} />}
-          {opponents[2] && <PlayerArea player={opponents[2]} />}
-        </div>
-        <div className="game-middle">
-          <div className="player-area-left">
-            {opponents[1] && <PlayerArea player={opponents[1]} />}
-          </div>
-          <div className="game-table-area">
-            <GameTable game={game} />
-            {room.state === 'waiting' && (
-              <button onClick={handleStartGame} disabled={room.players.length < 2}>
-                开始游戏 ({room.players.length}/4 人)
-              </button>
-            )}
-          </div>
-          <div className="player-area-right">
-            {/* Reserved for 4th opponent, but layout can be tricky.
-                For now, top can have 2 players. */}
-          </div>
-        </div>
+        {renderOpponents(opponents)}
+
         <div className="player-area-bottom">
           {currentPlayer && (
             <PlayerArea
@@ -115,6 +119,15 @@ function App() {
               gameId={game?.id}
               roomId={room.id}
             />
+          )}
+        </div>
+
+        <div className="game-table-area">
+          <GameTable game={game} />
+          {room.state === 'waiting' && (
+            <button onClick={handleStartGame} disabled={room.players.length < 2}>
+              开始游戏 ({room.players.length}/4 人)
+            </button>
           )}
         </div>
       </div>
