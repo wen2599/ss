@@ -2,71 +2,88 @@ name: Android CI & Release APK
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
 
 jobs:
-  build-and-release:
+  tag-release:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    
     permissions:
       contents: write
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Bump version and push tag
+        uses: anothrNick/github-tag-action@1.67.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: true
+          DEFAULT_BUMP: patch
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 'lts/*'
-        cache: 'npm'
-        cache-dependency-path: 'frontend/package-lock.json'
+  build-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '21'
-        cache: 'gradle'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
 
-    - name: Install dependencies
-      run: npm install
-      working-directory: ./frontend
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
 
-    - name: Build Frontend
-      run: npm run build
-      working-directory: ./frontend
+      - name: Install dependencies
+        run: npm install
+        working-directory: ./frontend
 
-    - name: Sync Capacitor project
-      run: npx cap sync android
-      working-directory: ./frontend
+      - name: Build Frontend
+        run: npm run build
+        working-directory: ./frontend
 
-    - name: Decode Keystore
-      id: decode_keystore
-      env:
-        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_FILE }}
-      run: |
-        KEYSTORE_PATH="${{ runner.temp }}/release.jks"
-        echo "$KEYSTORE_BASE64" | base64 --decode > $KEYSTORE_PATH
-        echo "keystore_path=$KEYSTORE_PATH" >> $GITHUB_OUTPUT
+      - name: Sync Capacitor project
+        run: npx cap sync android
+        working-directory: ./frontend
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x ./gradlew
-      working-directory: ./frontend/android
+      - name: Decode Keystore
+        id: decode_keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_FILE }}
+        run: |
+          KEYSTORE_PATH="${{ runner.temp }}/release.jks"
+          echo "$KEYSTORE_BASE64" | base64 --decode > $KEYSTORE_PATH
+          echo "keystore_path=$KEYSTORE_PATH" >> $GITHUB_OUTPUT
 
-    - name: Build Release APK
-      run: ./gradlew assembleRelease
-      working-directory: ./frontend/android
-      env:
-        KEYSTORE_PATH: ${{ steps.decode_keystore.outputs.keystore_path }}
-        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+        working-directory: ./frontend/android
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: frontend/android/app/build/outputs/apk/release/app-release.apk
-        tag_name: ${{ github.ref_name }}
-        generate_release_notes: true
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+        working-directory: ./frontend/android
+        env:
+          KEYSTORE_PATH: ${{ steps.decode_keystore.outputs.keystore_path }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: frontend/android/app/build/outputs/apk/release/app-release.apk
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
