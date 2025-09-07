@@ -30,9 +30,36 @@
   cursor: pointer;
 }
 
-.room-management {
-  margin-top: 50px;
+.room-management, .game-mode-selection {
+  margin: 50px auto;
+  padding: 20px;
+  max-width: 600px;
+  background-color: rgba(0,0,0,0.2);
+  border: 1px solid #c9a477;
+  border-radius: 8px;
 }
+
+.mode-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.mode-buttons button {
+  padding: 20px;
+  font-size: 1.2em;
+  background-color: #c9a477;
+  color: black;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.mode-buttons button:hover {
+  background-color: #e6bf8e;
+}
+
 
 /* --- New Game Layout System --- */
 

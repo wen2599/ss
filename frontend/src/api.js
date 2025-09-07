@@ -40,9 +40,7 @@ export const transferPoints = (recipientId, amount) => request('transfer_points'
 
 
 // --- Game Endpoints ---
-export const createRoom = () => request('create_room', 'POST');
-export const joinRoom = (roomId) => request('join_room', 'POST', { roomId });
-// getRoomState still needs the current player's ID to know which hand to return
+export const matchmake = (game_mode) => request('matchmake', 'POST', { game_mode });
 export const getRoomState = (roomId, playerId) => request(`get_room_state&roomId=${roomId}&playerId=${playerId}`);
 export const startGame = (roomId) => request('start_game', 'POST', { roomId });
 

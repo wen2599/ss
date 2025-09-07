@@ -4,7 +4,7 @@ import GameTable from './components/GameTable';
 import PlayerArea from './components/PlayerArea';
 import Auth from './components/Auth';
 import PointsManager from './components/PointsManager';
-import { createRoom, joinRoom, getRoomState, startGame, checkSession, logout } from './api';
+import { matchmake, getRoomState, startGame, checkSession, logout } from './api';
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -13,7 +13,6 @@ function App() {
 
   const [roomId, setRoomId] = useState(null);
   const [gameState, setGameState] = useState(null);
-  const [inputRoomId, setInputRoomId] = useState('');
 
   // Check session on initial load
   useEffect(() => {
@@ -51,27 +50,18 @@ function App() {
     }
   };
 
-  const handleCreateRoom = async () => {
+  const handleMatchmake = async (gameMode) => {
     if (!currentUser) {
-      alert('请先登录');
+      alert('请先登录再开始游戏');
+      setShowAuthModal(true);
       return;
     }
-    const response = await createRoom();
+    const response = await matchmake(gameMode);
     if (response && response.success) {
       setRoomId(response.roomId);
       fetchGameState(response.roomId, currentUser.id);
-    }
-  };
-
-  const handleJoinRoom = async () => {
-    if (!currentUser) {
-      alert('请先登录');
-      return;
-    }
-    const response = await joinRoom(inputRoomId);
-    if (response && response.success) {
-      setRoomId(response.roomId);
-      fetchGameState(response.roomId, currentUser.id);
+    } else {
+      alert(response.message || '匹配失败');
     }
   };
 
@@ -113,22 +103,19 @@ function App() {
     );
   };
 
-  if (!gameState) {
+  if (!gameState || !roomId) { // Show lobby if not in a room
     return (
       <div className="App">
         {renderHeader()}
         <h1>十三张</h1>
-        <div className="room-management">
-          <h2>房间管理</h2>
-          <button onClick={handleCreateRoom}>创建房间</button>
-          <hr />
-          <input
-            type="text"
-            placeholder="输入房间号"
-            value={inputRoomId}
-            onChange={(e) => setInputRoomId(e.target.value)}
-          />
-          <button onClick={handleJoinRoom}>加入房间</button>
+        <div className="game-mode-selection">
+          <h2>选择游戏模式</h2>
+          <div className="mode-buttons">
+            <button onClick={() => handleMatchmake('normal_2')}>普通2分场</button>
+            <button onClick={() => handleMatchmake('normal_5')}>普通5分场</button>
+            <button onClick={() => handleMatchmake('double_2')}>翻倍2分场</button>
+            <button onClick={() => handleMatchmake('double_5')}>翻倍5分场</button>
+          </div>
         </div>
         {showAuthModal && <Auth onClose={() => setShowAuthModal(false)} onLoginSuccess={(user) => {
           setCurrentUser(user);
@@ -152,7 +139,6 @@ function App() {
                  <PlayerArea player={opponent} />
             </div>
         ))}
-
         <div className="player-area-bottom">
           {currentPlayer && (
             <PlayerArea
@@ -163,7 +149,6 @@ function App() {
             />
           )}
         </div>
-
         <div className="game-table-area">
           <GameTable game={game} />
           {room.state === 'waiting' && (
@@ -177,7 +162,7 @@ function App() {
           setCurrentUser(user);
           setShowAuthModal(false);
       }} />}
-      {showPointsModal && <PointsManager currentUser={currentUser} onClose={() => setShowPointsModal(false)} />}
+      {showPointsModal && <PointsManager currentUser={currentUser} onClose={() => setShowPointsModal(false)} onTransferSuccess={() => checkSession().then(res => res.success && res.isAuthenticated && setCurrentUser(res.user))} />}
     </div>
   );
 }
