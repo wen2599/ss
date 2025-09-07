@@ -1,127 +1,183 @@
-import React, { useState } from 'react';
-import './App.css'; // You might need to create/update this CSS file
-import GameTable from './components/GameTable'; // Ensure GameTable can receive bottomCards and gameState
+import React, { useState, useEffect } from 'react';
+import './App.css';
+import GameTable from './components/GameTable';
 import PlayerArea from './components/PlayerArea';
-import { createRoom, joinRoom, getRoomState } from './api'; // Import API functions
-// Test modification line
+import Auth from './components/Auth';
+import PointsManager from './components/PointsManager';
+import { createRoom, joinRoom, getRoomState, startGame, checkSession, logout } from './api';
 
 function App() {
-  const [inputRoomId, setInputRoomId] = useState(''); // Input field for room ID
-  const [currentRoomId, setCurrentRoomId] = useState(null); // Joined room ID
-  const [currentPlayerId, setCurrentPlayerId] = useState(null); // Current player's ID
-  const [players, setPlayers] = useState([]); // List of players in the room
-  const [cardsOnTable, setCardsOnTable] = useState([]); // Cards on the table
-  const [bottomCards, setBottomCards] = useState([]); // State for bottom cards
-  const [gameId, setGameId] = useState(null); // State for game ID
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showPointsModal, setShowPointsModal] = useState(false);
 
+  const [roomId, setRoomId] = useState(null);
+  const [gameState, setGameState] = useState(null);
+  const [inputRoomId, setInputRoomId] = useState('');
+
+  // Check session on initial load
+  useEffect(() => {
+    const verifySession = async () => {
+      const response = await checkSession();
+      if (response.success && response.isAuthenticated) {
+        setCurrentUser(response.user);
+      }
+    };
+    verifySession();
+  }, []);
+
+  // Polling for game state updates
+  useEffect(() => {
+    if (roomId && currentUser) {
+      const interval = setInterval(() => {
+        fetchGameState(roomId, currentUser.id);
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [roomId, currentUser]);
+
+  const fetchGameState = async (currentRoomId, currentPlayerId) => {
+    try {
+      const response = await getRoomState(currentRoomId, currentPlayerId);
+      if (response.success) {
+        setGameState(response);
+      } else {
+        console.error('Failed to fetch game state:', response?.message);
+        setRoomId(null);
+        setGameState(null);
+      }
+    } catch (error) {
+      console.error('Error fetching game state:', error);
+    }
+  };
 
   const handleCreateRoom = async () => {
+    if (!currentUser) {
+      alert('请先登录');
+      return;
+    }
     const response = await createRoom();
     if (response && response.success) {
-      console.log('Room created successfully:', response);
-      setCurrentRoomId(response.roomId);
-      await fetchGameState(response.roomId, response.playerId); // Fetch state after creating
-    } else {
-      console.error('Failed to create room:', response);
+      setRoomId(response.roomId);
+      fetchGameState(response.roomId, currentUser.id);
     }
   };
 
   const handleJoinRoom = async () => {
-    if (inputRoomId) {
-      const response = await joinRoom(inputRoomId);
-      if (response && response.success) {
-        console.log('Joined room successfully:', response);
-        setCurrentRoomId(response.roomId);
-        await fetchGameState(response.roomId, response.playerId); // Fetch state after joining
-      } else {
-        console.error('Failed to join room:', response);
-      }
-    } else {
-      console.log('Please enter a Room ID to join.');
+    if (!currentUser) {
+      alert('请先登录');
+      return;
+    }
+    const response = await joinRoom(inputRoomId);
+    if (response && response.success) {
+      setRoomId(response.roomId);
+      fetchGameState(response.roomId, currentUser.id);
     }
   };
 
-  const fetchGameState = async (roomId, playerId) => {
-    try {
-      const gameStateResponse = await getRoomState(roomId, playerId);
-      if (gameStateResponse && gameStateResponse.success) {
-        const room = gameStateResponse.room;
-        console.log('Game state fetched successfully:', room);
-        setCurrentPlayerId(playerId); // Set current player ID
-        setPlayers(Object.values(room.players)); // Update players state
-        setCardsOnTable(room.discarded_cards); // Update cards on table state
-        setBottomCards(room.bottom_cards || []); // Update bottom cards state
-        if (room.state === 'playing' && room.current_game_id) {
-          setGameId(room.current_game_id);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch game state:', error);
+  const handleStartGame = async () => {
+    if (roomId) {
+      await startGame(roomId);
+      fetchGameState(roomId, currentUser.id);
     }
   };
 
-  // Conditional rendering based on whether a room is joined
-  if (!currentRoomId) {
+  const handleLogout = async () => {
+    await logout();
+    setCurrentUser(null);
+    setRoomId(null);
+    setGameState(null);
+  };
+
+  const renderHeader = () => {
+    return (
+      <div className="app-header">
+        <div className="auth-section">
+          {currentUser ? (
+            <div>
+              <span>ID: {currentUser.displayId}</span>
+              <span> | </span>
+              <span>积分: {currentUser.points}</span>
+              <button onClick={handleLogout} className="header-button">退出登录</button>
+            </div>
+          ) : (
+            <button onClick={() => setShowAuthModal(true)} className="header-button">注册/登录</button>
+          )}
+        </div>
+        <div className="points-section">
+          {currentUser && (
+            <button onClick={() => setShowPointsModal(true)} className="header-button">积分管理</button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  if (!gameState) {
     return (
       <div className="App">
-        <h1>斗地主多人游戏</h1>
+        {renderHeader()}
+        <h1>十三张</h1>
         <div className="room-management">
           <h2>房间管理</h2>
+          <button onClick={handleCreateRoom}>创建房间</button>
+          <hr />
           <input
             type="text"
-            placeholder="输入房间ID"
+            placeholder="输入房间号"
             value={inputRoomId}
             onChange={(e) => setInputRoomId(e.target.value)}
           />
-          <button onClick={handleCreateRoom}>创建房间</button>
           <button onClick={handleJoinRoom}>加入房间</button>
         </div>
+        {showAuthModal && <Auth onClose={() => setShowAuthModal(false)} onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setShowAuthModal(false);
+        }} />}
+        {showPointsModal && <PointsManager currentUser={currentUser} onClose={() => setShowPointsModal(false)} onTransferSuccess={() => checkSession().then(res => res.success && res.isAuthenticated && setCurrentUser(res.user))} />}
       </div>
     );
   }
 
-  // Render game area if a room is joined
+  const { room, game } = gameState;
+  const currentPlayer = room.players.find(p => p.id === currentUser.id);
+  const opponents = room.players.filter(p => p.id !== currentUser.id);
+
   return (
     <div className="App">
-      <h1>斗地主多人游戏</h1>
-      <div
-        className="game-container"
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100vh'
-        }}
-      >
-        <div className="game-table-area">
-          <GameTable cardsOnTable={cardsOnTable} bottomCards={bottomCards} />
-        </div>
-        <div className="player-areas-container">
-          {(() => {
-            const currentPlayer = players.find(p => p.id === currentPlayerId);
-            const opponents = players.filter(p => p.id !== currentPlayerId);
+       {renderHeader()}
+      <div className="game-container">
+        {opponents.map((opponent, index) => (
+            <div key={opponent.id} className={`opponent-position-${['top', 'left', 'right'][index]}`}>
+                 <PlayerArea player={opponent} />
+            </div>
+        ))}
 
-            return (
-              <>
-                {currentPlayer && (
-                  <div className="player-area-bottom">
-                    <PlayerArea player={currentPlayer} isCurrentPlayer={true} gameId={gameId} roomId={currentRoomId} onPlay={fetchGameState} />
-                  </div>
-                )}
-                {opponents[0] && (
-                  <div className="player-area-left">
-                    <PlayerArea player={opponents[0]} isCurrentPlayer={false} gameId={gameId} roomId={currentRoomId} onPlay={fetchGameState} />
-                  </div>
-                )}
-                {opponents[1] && (
-                  <div className="player-area-right">
-                    <PlayerArea player={opponents[1]} isCurrentPlayer={false} gameId={gameId} roomId={currentRoomId} onPlay={fetchGameState} />
-                  </div>
-                )}
-              </>
-            );
-          })()}
+        <div className="player-area-bottom">
+          {currentPlayer && (
+            <PlayerArea
+              player={currentPlayer}
+              isCurrentPlayer={true}
+              gameId={game?.id}
+              roomId={room.id}
+            />
+          )}
+        </div>
+
+        <div className="game-table-area">
+          <GameTable game={game} />
+          {room.state === 'waiting' && (
+            <button onClick={handleStartGame} disabled={room.players.length < 2}>
+              开始游戏 ({room.players.length}/4 人)
+            </button>
+          )}
         </div>
       </div>
+      {showAuthModal && <Auth onClose={() => setShowAuthModal(false)} onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setShowAuthModal(false);
+      }} />}
+      {showPointsModal && <PointsManager currentUser={currentUser} onClose={() => setShowPointsModal(false)} />}
     </div>
   );
 }

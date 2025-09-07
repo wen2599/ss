@@ -34,6 +34,10 @@ jobs:
       run: npm install
       working-directory: ./frontend
 
+    - name: Build Frontend
+      run: npm run build
+      working-directory: ./frontend
+
     - name: Sync Capacitor project
       run: npx cap sync android
       working-directory: ./frontend
@@ -51,9 +55,8 @@ jobs:
       run: chmod +x ./gradlew
       working-directory: ./frontend/android
 
-    # --- 修改点 1: 修改构建命令和步骤名称 ---
-    - name: Build and Sign Release APK
-      run: bash ./gradlew assembleRelease -Dorg.gradle.java.home="$JAVA_HOME"
+    - name: Build Release APK
+      run: ./gradlew assembleRelease
       working-directory: ./frontend/android
       env:
         KEYSTORE_PATH: ${{ steps.decode_keystore.outputs.keystore_path }}
@@ -61,7 +64,6 @@ jobs:
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-    # --- 修改点 2: 修改上传文件的路径 ---
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
