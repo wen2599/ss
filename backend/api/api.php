@@ -177,7 +177,18 @@ if ($request_method === 'POST') {
                         ];
                     }
 
-                    $player_scores = array_fill_keys(array_keys($all_hands), 0);
+                    // Calculate royalties for each player first
+                    $player_royalties = [];
+                    foreach($all_hands as $pid => $hand) {
+                        if ($hand['isValid']) {
+                            $player_royalties[$pid] = $analyzer->calculate_royalties($hand['front'], $hand['middle'], $hand['back']);
+                        } else {
+                            $player_royalties[$pid] = ['total' => 0, 'front' => 0, 'middle' => 0, 'back' => 0];
+                        }
+                    }
+
+                    // Calculate comparison scores
+                    $player_comparison_scores = array_fill_keys(array_keys($all_hands), 0);
                     $player_ids = array_keys($all_hands);
 
                     for ($i = 0; $i < count($player_ids); $i++) {
@@ -189,7 +200,7 @@ if ($request_method === 'POST') {
 
                             $score_diff = 0;
                             if (!$p1_hand['isValid'] && $p2_hand['isValid']) {
-                                $score_diff = -6; // p1 scooped
+                                $score_diff = -6; // p1 scooped, a common scoring rule
                             } elseif ($p1_hand['isValid'] && !$p2_hand['isValid']) {
                                 $score_diff = 6; // p2 scooped
                             } elseif ($p1_hand['isValid'] && $p2_hand['isValid']) {
@@ -197,20 +208,41 @@ if ($request_method === 'POST') {
                                 $score_diff += $analyzer->compare_hands($p1_hand['middle'], $p2_hand['middle']);
                                 $score_diff += $analyzer->compare_hands($p1_hand['back'], $p2_hand['back']);
                             }
-                            $player_scores[$p1_id] += $score_diff;
-                            $player_scores[$p2_id] -= $score_diff;
+                            $player_comparison_scores[$p1_id] += $score_diff;
+                            $player_comparison_scores[$p2_id] -= $score_diff;
                         }
                     }
 
-                    $stmt_update_score = $db->prepare("UPDATE player_hands SET round_score=? WHERE game_id=? AND player_id=?");
+                    // Combine comparison scores and royalties, and update DB
+                    $stmt_update_hand = $db->prepare("UPDATE player_hands SET round_score=?, score_details=? WHERE game_id=? AND player_id=?");
                     $stmt_update_total_score = $db->prepare("UPDATE room_players SET score = score + ? WHERE user_id = ? AND room_id = (SELECT room_id FROM games WHERE id=?)");
 
-                    foreach($player_scores as $pid => $score) {
-                        $stmt_update_score->bind_param('iis', $score, $game_id, $pid);
-                        $stmt_update_score->execute();
-                        $stmt_update_total_score->bind_param('isi', $score, $pid, $game_id);
+                    foreach($player_comparison_scores as $pid => $comp_score) {
+                        // Each player's royalty score is paid by every other player
+                        $total_royalty_payout = 0;
+                        foreach ($player_ids as $other_pid) {
+                            if ($pid !== $other_pid) {
+                                $total_royalty_payout += ($player_royalties[$pid]['total'] - $player_royalties[$other_pid]['total']);
+                            }
+                        }
+
+                        $final_round_score = $comp_score + $total_royalty_payout;
+
+                        $score_details = json_encode([
+                            'comparison_score' => $comp_score,
+                            'royalty_details' => $player_royalties[$pid],
+                            'total_royalty_payout' => $total_royalty_payout,
+                            'final_score' => $final_round_score
+                        ]);
+
+                        $stmt_update_hand->bind_param('isis', $final_round_score, $score_details, $game_id, $pid);
+                        $stmt_update_hand->execute();
+
+                        $stmt_update_total_score->bind_param('isi', $final_round_score, $pid, $game_id);
                         $stmt_update_total_score->execute();
                     }
+                    $stmt_update_hand->close();
+                    $stmt_update_total_score->close();
 
                     $stmt = $db->prepare("UPDATE games SET game_state='finished' WHERE id=?");
                     $stmt->bind_param('i', $game_id);

@@ -77,6 +77,61 @@ class ThirteenCardAnalyzer {
     const TYPE_FRONT_PAIR = 2;
     const TYPE_FRONT_THREE_OF_A_KIND = 3;
 
+    // Royalty point values
+    const ROYALTY_BACK_FOUR_OF_A_KIND = 4;
+    const ROYALTY_BACK_STRAIGHT_FLUSH = 5;
+    const ROYALTY_MIDDLE_FULL_HOUSE = 2;
+    const ROYALTY_MIDDLE_FOUR_OF_A_KIND = 8;
+    const ROYALTY_MIDDLE_STRAIGHT_FLUSH = 10;
+    const ROYALTY_FRONT_THREE_OF_A_KIND = 3;
+
+    /**
+     * Calculates the total royalty points for a set of three hands.
+     * @param array $front_details Analyzed front hand.
+     * @param array $middle_details Analyzed middle hand.
+     * @param array $back_details Analyzed back hand.
+     * @return array A map of points for each hand and the total.
+     */
+    public static function calculate_royalties(array $front_details, array $middle_details, array $back_details): array {
+        $points = [
+            'front' => 0,
+            'middle' => 0,
+            'back' => 0,
+            'total' => 0
+        ];
+
+        // Front hand royalties
+        if ($front_details['type'] === self::TYPE_FRONT_THREE_OF_A_KIND) {
+            $points['front'] = self::ROYALTY_FRONT_THREE_OF_A_KIND;
+        }
+
+        // Middle hand royalties
+        switch ($middle_details['type']) {
+            case self::TYPE_FULL_HOUSE:
+                $points['middle'] = self::ROYALTY_MIDDLE_FULL_HOUSE;
+                break;
+            case self::TYPE_FOUR_OF_A_KIND:
+                $points['middle'] = self::ROYALTY_MIDDLE_FOUR_OF_A_KIND;
+                break;
+            case self::TYPE_STRAIGHT_FLUSH:
+                $points['middle'] = self::ROYALTY_MIDDLE_STRAIGHT_FLUSH;
+                break;
+        }
+
+        // Back hand royalties
+        switch ($back_details['type']) {
+            case self::TYPE_FOUR_OF_A_KIND:
+                $points['back'] = self::ROYALTY_BACK_FOUR_OF_A_KIND;
+                break;
+            case self::TYPE_STRAIGHT_FLUSH:
+                $points['back'] = self::ROYALTY_BACK_STRAIGHT_FLUSH;
+                break;
+        }
+
+        $points['total'] = $points['front'] + $points['middle'] + $points['back'];
+        return $points;
+    }
+
     /**
      * Analyzes a hand of 3 or 5 cards to determine its type and value.
      * @param array $hand The hand to analyze.
