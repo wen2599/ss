@@ -34,7 +34,7 @@ function PlayerArea({ player, isCurrentPlayer, gameId, roomId }) {
     }
   }, [isCurrentPlayer, player.hand]);
 
-  if (!player) return <div className="player-area-placeholder">Empty Seat</div>;
+  if (!player) return <div className="player-area-placeholder">空位</div>;
 
   const handleSelect = (card, source) => {
     setSelected(prev =>
@@ -46,17 +46,15 @@ function PlayerArea({ player, isCurrentPlayer, gameId, roomId }) {
 
   const moveSelectedTo = (target) => {
     const targetLimit = target === 'front' ? 3 : 5;
-    let targetHand, setTargetHand, sourceHand, setSourceHand;
+    let targetHand, setTargetHand;
 
-    // This logic is simplified. A full implementation would need to know the source of each selected card.
-    // For now, let's assume we are always moving from unassigned.
     if (target === 'front') { [targetHand, setTargetHand] = [frontHand, setFrontHand]; }
     if (target === 'middle') { [targetHand, setTargetHand] = [middleHand, setMiddleHand]; }
     if (target === 'back') { [targetHand, setTargetHand] = [backHand, setBackHand]; }
 
     const cardsToMove = selected.filter(c => unassignedCards.includes(c));
     if (targetHand.length + cardsToMove.length > targetLimit) {
-      alert(`Hand cannot exceed ${targetLimit} cards.`);
+      alert(`此道不能超过 ${targetLimit} 张牌。`);
       return;
     }
 
@@ -80,11 +78,10 @@ function PlayerArea({ player, isCurrentPlayer, gameId, roomId }) {
 
   const handleSubmit = async () => {
     if (frontHand.length !== 3 || middleHand.length !== 5 || backHand.length !== 5) {
-      alert('All hands must be full to submit.');
+      alert('请将所有牌都分配好再提交。');
       return;
     }
     await submitHand(gameId, player.id, frontHand, middleHand, backHand);
-    // After submit, the App's polling will update the view.
   };
 
   const isReadyToSubmit = frontHand.length === 3 && middleHand.length === 5 && backHand.length === 5;
@@ -93,22 +90,22 @@ function PlayerArea({ player, isCurrentPlayer, gameId, roomId }) {
     return (
       <div className="player-area opponent">
         <h3>{player.name}</h3>
-        <p>Score: {player.score}</p>
-        <p>Cards: {player.hand_count || (player.hand ? player.hand.length : 0)}</p>
+        <p>分数: {player.score}</p>
+        <p>牌数: {player.hand_count || (player.hand ? player.hand.length : 0)}</p>
       </div>
     );
   }
 
   return (
     <div className="player-area current-player-area">
-      <h3>{player.name} (You)</h3>
+      <h3>{player.name} (你)</h3>
       <div className="hand-arrangement-ui">
-        <HandSlot name="Back Hand" cards={backHand} onCardClick={(c) => handleSelect(c, 'back')} selectedCards={selected} limit={5} />
-        <HandSlot name="Middle Hand" cards={middleHand} onCardClick={(c) => handleSelect(c, 'middle')} selectedCards={selected} limit={5} />
-        <HandSlot name="Front Hand" cards={frontHand} onCardClick={(c) => handleSelect(c, 'front')} selectedCards={selected} limit={3} />
+        <HandSlot name="尾道" cards={backHand} onCardClick={(c) => handleSelect(c, 'back')} selectedCards={selected} limit={5} />
+        <HandSlot name="中道" cards={middleHand} onCardClick={(c) => handleSelect(c, 'middle')} selectedCards={selected} limit={5} />
+        <HandSlot name="头道" cards={frontHand} onCardClick={(c) => handleSelect(c, 'front')} selectedCards={selected} limit={3} />
 
         <div className="unassigned-cards">
-            <h4>Your Hand</h4>
+            <h4>我的手牌</h4>
             <div className="card-container">
             {unassignedCards.map(card => (
                 <Card
@@ -122,11 +119,11 @@ function PlayerArea({ player, isCurrentPlayer, gameId, roomId }) {
         </div>
 
         <div className="action-buttons">
-            <button onClick={() => moveSelectedTo('front')} disabled={selected.length === 0}>To Front</button>
-            <button onClick={() => moveSelectedTo('middle')} disabled={selected.length === 0}>To Middle</button>
-            <button onClick={() => moveSelectedTo('back')} disabled={selected.length === 0}>To Back</button>
-            <button onClick={returnSelected} disabled={selected.length === 0}>Return to Hand</button>
-            <button onClick={handleSubmit} disabled={!isReadyToSubmit}>Confirm Hand</button>
+            <button onClick={() => moveSelectedTo('front')} disabled={selected.length === 0}>移至头道</button>
+            <button onClick={() => moveSelectedTo('middle')} disabled={selected.length === 0}>移至中道</button>
+            <button onClick={() => moveSelectedTo('back')} disabled={selected.length === 0}>移至尾道</button>
+            <button onClick={returnSelected} disabled={selected.length === 0}>返回手牌</button>
+            <button onClick={handleSubmit} disabled={!isReadyToSubmit}>确认理牌</button>
         </div>
       </div>
     </div>

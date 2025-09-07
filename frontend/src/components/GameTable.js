@@ -9,23 +9,23 @@ const PlayerShowdownHand = ({ handData }) => {
 
   return (
     <div className={`showdown-player-hand ${!isValid ? 'scooped' : ''}`}>
-      <h4>Player {playerId.slice(-4)}</h4>
+      <h4>玩家 {playerId.slice(-4)}</h4>
       {!isValid ? (
-        <p className="scooped-message">SCOOPED! (-6)</p>
+        <p className="scooped-message">打枪! (-6)</p>
       ) : (
         <>
           <div className="hand-row">
-            <span>Back:</span>
+            <span>尾道:</span>
             {back.map(c => <Card key={c} filename={c} />)}
             {royalty_details?.back > 0 && <span className="royalty-badge">+{royalty_details.back}</span>}
           </div>
           <div className="hand-row">
-            <span>Middle:</span>
+            <span>中道:</span>
             {middle.map(c => <Card key={c} filename={c} />)}
             {royalty_details?.middle > 0 && <span className="royalty-badge">+{royalty_details.middle}</span>}
           </div>
           <div className="hand-row">
-            <span>Front:</span>
+            <span>头道:</span>
             {front.map(c => <Card key={c} filename={c} />)}
             {royalty_details?.front > 0 && <span className="royalty-badge">+{royalty_details.front}</span>}
           </div>
@@ -33,12 +33,12 @@ const PlayerShowdownHand = ({ handData }) => {
       )}
       {scores ? (
         <div className="score-details">
-            <p>Comparison: {scores.comparison_score > 0 ? `+${scores.comparison_score}` : scores.comparison_score}</p>
-            <p>Royalties Payout: {scores.total_royalty_payout > 0 ? `+${scores.total_royalty_payout}` : scores.total_royalty_payout}</p>
-            <p><strong>Round Total: {scores.final_score > 0 ? `+${scores.final_score}` : scores.final_score}</strong></p>
+            <p>比牌得分: {scores.comparison_score > 0 ? `+${scores.comparison_score}` : scores.comparison_score}</p>
+            <p>特殊牌型得分: {scores.total_royalty_payout > 0 ? `+${scores.total_royalty_payout}` : scores.total_royalty_payout}</p>
+            <p><strong>本局总分: {scores.final_score > 0 ? `+${scores.final_score}` : scores.final_score}</strong></p>
         </div>
       ) : (
-          <p>Round Score: {handData.roundScore}</p>
+          <p>本局总分: {handData.roundScore}</p>
       )}
     </div>
   );
@@ -48,7 +48,7 @@ function GameTable({ game }) {
   if (!game) {
     return (
       <div className="game-table">
-        <p>Waiting for game to start...</p>
+        <p>等待游戏开始...</p>
       </div>
     );
   }
@@ -60,10 +60,10 @@ function GameTable({ game }) {
         const totalPlayers = game.hands.length;
         return (
           <div>
-            <h2>Setting Hands</h2>
-            <p>Please arrange your 13 cards into a Front, Middle, and Back hand.</p>
-            <p>Make sure your back hand is the strongest, and your front hand is the weakest!</p>
-            <h3>{submittedCount} / {totalPlayers} players ready</h3>
+            <h2>理牌阶段</h2>
+            <p>请将你的13张牌分组成头、中、尾三道。</p>
+            <p>请确保尾道牌型最大，头道牌型最小。</p>
+            <h3>{submittedCount} / {totalPlayers} 位玩家已准备</h3>
           </div>
         );
 
@@ -71,7 +71,7 @@ function GameTable({ game }) {
       case 'finished':
         return (
           <div>
-            <h2>Showdown</h2>
+            <h2>比牌</h2>
             <div className="showdown-area">
               {game.hands.map(handData => (
                 <PlayerShowdownHand key={handData.playerId} handData={handData} />
@@ -81,7 +81,7 @@ function GameTable({ game }) {
         );
 
       default:
-        return <p>Game state: {game.state}</p>;
+        return <p>游戏状态: {game.state}</p>;
     }
   };
 

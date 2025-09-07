@@ -61,18 +61,18 @@ function App() {
   if (!gameState) {
     return (
       <div className="App">
-        <h1>十三张 (Chinese Poker)</h1>
+        <h1>十三张</h1>
         <div className="room-management">
-          <h2>Room Management</h2>
-          <button onClick={handleCreateRoom}>Create Room</button>
+          <h2>房间管理</h2>
+          <button onClick={handleCreateRoom}>创建房间</button>
           <hr />
           <input
             type="text"
-            placeholder="Enter Room ID"
+            placeholder="输入房间号"
             value={inputRoomId}
             onChange={(e) => setInputRoomId(e.target.value)}
           />
-          <button onClick={handleJoinRoom}>Join Room</button>
+          <button onClick={handleJoinRoom}>加入房间</button>
         </div>
       </div>
     );
@@ -84,7 +84,7 @@ function App() {
 
   return (
     <div className="App">
-      <h1>十三张 (Room: {room.id})</h1>
+      <h1>十三张 (房间号: {room.id})</h1>
       <div className="game-container">
         <div className="player-area-top">
           {opponents[0] && <PlayerArea player={opponents[0]} />}
@@ -98,7 +98,7 @@ function App() {
             <GameTable game={game} />
             {room.state === 'waiting' && (
               <button onClick={handleStartGame} disabled={room.players.length < 2}>
-                Start Game ({room.players.length}/4 players)
+                开始游戏 ({room.players.length}/4 人)
               </button>
             )}
           </div>
