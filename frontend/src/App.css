@@ -6,6 +6,30 @@
   min-height: 100vh;
 }
 
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background-color: #1a1a1a;
+  border-bottom: 1px solid #c9a477;
+}
+
+.auth-section, .points-section {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.header-button {
+  background-color: #c9a477;
+  color: black;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
 .room-management {
   margin-top: 50px;
 }

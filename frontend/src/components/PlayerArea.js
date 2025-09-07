@@ -81,7 +81,8 @@ function PlayerArea({ player, isCurrentPlayer, gameId, roomId }) {
       alert('请将所有牌都分配好再提交。');
       return;
     }
-    await submitHand(gameId, player.id, frontHand, middleHand, backHand);
+    // Player ID is now handled by the session on the backend
+    await submitHand(gameId, frontHand, middleHand, backHand);
   };
 
   const isReadyToSubmit = frontHand.length === 3 && middleHand.length === 5 && backHand.length === 5;

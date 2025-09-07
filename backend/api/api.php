@@ -1,11 +1,15 @@
 <?php
-header('Access-Control-Allow-Origin: *'); // Allow all for simplicity, can be restricted later
+header('Access-Control-Allow-Origin: http://localhost:3000'); // Adjust for your frontend URL
+header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit();
 }
+
+session_start();
 
 header('Content-Type: application/json; charset=utf-8');
 error_reporting(E_ALL);
@@ -13,7 +17,6 @@ ini_set('display_errors', 1);
 
 require_once 'db.php';
 require_once 'game.php'; // The new Thirteen game logic
-require_once 'utils.php';
 
 function send_json_error($code, $message, $details = null) {
     http_response_code($code);
@@ -32,7 +35,123 @@ $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
 if ($request_method === 'POST') {
     switch ($endpoint) {
+        case 'register':
+            $phone = $data['phone'] ?? null;
+            $password = $data['password'] ?? null;
+            if (!$phone || !$password) send_json_error(400, '手机号和密码不能为空');
+            if (strlen($password) < 6) send_json_error(400, '密码长度不能少于6位');
+
+            $stmt = $db->prepare("SELECT id FROM users WHERE phone_number = ?");
+            $stmt->bind_param('s', $phone);
+            $stmt->execute();
+            if ($stmt->get_result()->num_rows > 0) send_json_error(409, '该手机号已被注册');
+
+            $password_hash = password_hash($password, PASSWORD_DEFAULT);
+
+            // Generate unique 4-digit ID
+            $display_id = null;
+            do {
+                $display_id = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+                $stmt = $db->prepare("SELECT id FROM users WHERE display_id = ?");
+                $stmt->bind_param('s', $display_id);
+                $stmt->execute();
+            } while ($stmt->get_result()->num_rows > 0);
+
+            $stmt = $db->prepare("INSERT INTO users (display_id, phone_number, password_hash) VALUES (?, ?, ?)");
+            $stmt->bind_param('sss', $display_id, $phone, $password_hash);
+            if ($stmt->execute()) {
+                echo json_encode(['success' => true, 'message' => '注册成功', 'displayId' => $display_id]);
+            } else {
+                send_json_error(500, '注册失败，请稍后再试');
+            }
+            break;
+
+        case 'login':
+            $phone = $data['phone'] ?? null;
+            $password = $data['password'] ?? null;
+            if (!$phone || !$password) send_json_error(400, '手机号和密码不能为空');
+
+            $stmt = $db->prepare("SELECT id, display_id, password_hash, points FROM users WHERE phone_number = ?");
+            $stmt->bind_param('s', $phone);
+            $stmt->execute();
+            $user = $stmt->get_result()->fetch_assoc();
+
+            if ($user && password_verify($password, $user['password_hash'])) {
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['display_id'] = $user['display_id'];
+                $_SESSION['points'] = $user['points'];
+                echo json_encode(['success' => true, 'user' => ['id' => $user['id'], 'displayId' => $user['display_id'], 'points' => $user['points']]]);
+            } else {
+                send_json_error(401, '手机号或密码错误');
+            }
+            break;
+
+        case 'logout':
+            session_destroy();
+            echo json_encode(['success' => true, 'message' => '已成功登出']);
+            break;
+
+        case 'transfer_points':
+            if (!isset($_SESSION['user_id'])) send_json_error(401, '请先登录');
+            $sender_id = $_SESSION['user_id'];
+            $recipient_display_id = $data['recipientId'] ?? null;
+            $amount = (int)($data['amount'] ?? 0);
+
+            if (!$recipient_display_id || $amount <= 0) {
+                send_json_error(400, '无效的接收人ID或金额');
+            }
+
+            $db->begin_transaction();
+            try {
+                // Get sender's points and lock the row
+                $stmt = $db->prepare("SELECT points FROM users WHERE id = ? FOR UPDATE");
+                $stmt->bind_param('i', $sender_id);
+                $stmt->execute();
+                $sender = $stmt->get_result()->fetch_assoc();
+                if (!$sender || $sender['points'] < $amount) {
+                    throw new Exception('积分不足');
+                }
+
+                // Get recipient's id and lock the row
+                $stmt = $db->prepare("SELECT id FROM users WHERE display_id = ? FOR UPDATE");
+                $stmt->bind_param('s', $recipient_display_id);
+                $stmt->execute();
+                $recipient = $stmt->get_result()->fetch_assoc();
+                if (!$recipient) {
+                    throw new Exception('接收人ID不存在');
+                }
+                $recipient_id = $recipient['id'];
+
+                if ($sender_id === $recipient_id) {
+                    throw new Exception('不能给自己赠送积分');
+                }
+
+                // Perform transfer
+                $stmt = $db->prepare("UPDATE users SET points = points - ? WHERE id = ?");
+                $stmt->bind_param('ii', $amount, $sender_id);
+                $stmt->execute();
+
+                $stmt = $db->prepare("UPDATE users SET points = points + ? WHERE id = ?");
+                $stmt->bind_param('ii', $amount, $recipient_id);
+                $stmt->execute();
+
+                $db->commit();
+
+                // Update session with new points total
+                $_SESSION['points'] -= $amount;
+
+                echo json_encode(['success' => true, 'message' => "成功赠送 {$amount} 积分"]);
+
+            } catch (Exception $e) {
+                $db->rollback();
+                send_json_error(400, $e->getMessage());
+            }
+            break;
+
         case 'create_room':
+            if (!isset($_SESSION['user_id'])) send_json_error(401, '请先登录');
+            $user_id = $_SESSION['user_id'];
+
             $room_code = uniqid('room_');
             $created_at = date('Y-m-d H:i:s');
             $stmt = $db->prepare("INSERT INTO rooms (room_code, state, created_at) VALUES (?, 'waiting', ?)");
@@ -40,32 +159,42 @@ if ($request_method === 'POST') {
             if (!$stmt->execute()) send_json_error(500, 'Failed to create room.');
             $room_id = $db->insert_id;
 
-            $player_id = uniqid('player_');
             $seat = 1;
             $stmt = $db->prepare("INSERT INTO room_players (room_id, user_id, seat, joined_at) VALUES (?, ?, ?, NOW())");
-            $stmt->bind_param('isi', $room_id, $player_id, $seat);
+            $stmt->bind_param('iii', $room_id, $user_id, $seat);
             if (!$stmt->execute()) send_json_error(500, 'Failed to add player to room.');
 
-            echo json_encode(['success' => true, 'roomId' => $room_id, 'playerId' => $player_id]);
+            echo json_encode(['success' => true, 'roomId' => $room_id]);
             break;
 
         case 'join_room':
+            if (!isset($_SESSION['user_id'])) send_json_error(401, '请先登录');
+            $user_id = $_SESSION['user_id'];
             $room_id = (int)($data['roomId'] ?? 0);
             if (!$room_id) send_json_error(400, 'Missing roomId');
+
+            // Check if user is already in the room
+            $stmt = $db->prepare("SELECT id FROM room_players WHERE room_id=? AND user_id=?");
+            $stmt->bind_param('ii', $room_id, $user_id);
+            $stmt->execute();
+            if ($stmt->get_result()->num_rows > 0) {
+                // User is already in the room, treat it as a success
+                echo json_encode(['success' => true, 'roomId' => $room_id]);
+                break;
+            }
 
             $stmt = $db->prepare("SELECT COUNT(*) as cnt FROM room_players WHERE room_id=?");
             $stmt->bind_param('i', $room_id);
             $stmt->execute();
             $count = $stmt->get_result()->fetch_assoc()['cnt'];
-            if ($count >= 4) send_json_error(403, 'Room is full.');
+            if ($count >= 4) send_json_error(403, '房间已满');
 
-            $player_id = uniqid('player_');
             $seat = $count + 1;
             $stmt = $db->prepare("INSERT INTO room_players (room_id, user_id, seat, joined_at) VALUES (?, ?, ?, NOW())");
-            $stmt->bind_param('isi', $room_id, $player_id, $seat);
-            if (!$stmt->execute()) send_json_error(500, 'Failed to join room.');
+            $stmt->bind_param('iii', $room_id, $user_id, $seat);
+            if (!$stmt->execute()) send_json_error(500, '加入房间失败');
 
-            echo json_encode(['success' => true, 'roomId' => $room_id, 'playerId' => $player_id]);
+            echo json_encode(['success' => true, 'roomId' => $room_id]);
             break;
 
         case 'start_game':
@@ -109,7 +238,7 @@ if ($request_method === 'POST') {
 
                 $stmt = $db->prepare("INSERT INTO player_hands (game_id, player_id) VALUES (?, ?)");
                 foreach ($players as $player_id) {
-                    $stmt->bind_param('is', $game_id, $player_id);
+                    $stmt->bind_param('is', $game_id, $player_id); // 's' for string player_id
                     $stmt->execute();
                 }
 
@@ -122,13 +251,14 @@ if ($request_method === 'POST') {
             break;
 
         case 'submit_hand':
+            if (!isset($_SESSION['user_id'])) send_json_error(401, '请先登录');
+            $user_id = $_SESSION['user_id'];
             $game_id = (int)($data['gameId'] ?? 0);
-            $player_id = $data['playerId'] ?? null;
             $front = $data['front'] ?? null;
             $middle = $data['middle'] ?? null;
             $back = $data['back'] ?? null;
 
-            if (!$game_id || !$player_id || !$front || !$middle || !$back) {
+            if (!$game_id || !$front || !$middle || !$back) {
                 send_json_error(400, 'Missing required parameters.');
             }
 
@@ -143,11 +273,11 @@ if ($request_method === 'POST') {
                             $analyzer->compare_hands($middle_details, $front_details) >= 0;
 
                 $stmt = $db->prepare("UPDATE player_hands SET is_submitted=1, is_valid=?, front_hand=?, middle_hand=?, back_hand=?, front_hand_details=?, middle_hand_details=?, back_hand_details=? WHERE game_id=? AND player_id=?");
-                $stmt->bind_param('issssssis',
+                $stmt->bind_param('issssssii',
                     $is_valid,
                     json_encode($front), json_encode($middle), json_encode($back),
                     json_encode($front_details), json_encode($middle_details), json_encode($back_details),
-                    $game_id, $player_id
+                    $game_id, $user_id
                 );
                 $stmt->execute();
 
@@ -215,7 +345,7 @@ if ($request_method === 'POST') {
 
                     // Combine comparison scores and royalties, and update DB
                     $stmt_update_hand = $db->prepare("UPDATE player_hands SET round_score=?, score_details=? WHERE game_id=? AND player_id=?");
-                    $stmt_update_total_score = $db->prepare("UPDATE room_players SET score = score + ? WHERE user_id = ? AND room_id = (SELECT room_id FROM games WHERE id=?)");
+                    $stmt_update_total_score = $db->prepare("UPDATE users SET points = points + ? WHERE id = ?");
 
                     foreach($player_comparison_scores as $pid => $comp_score) {
                         // Each player's royalty score is paid by every other player
@@ -238,7 +368,7 @@ if ($request_method === 'POST') {
                         $stmt_update_hand->bind_param('isis', $final_round_score, $score_details, $game_id, $pid);
                         $stmt_update_hand->execute();
 
-                        $stmt_update_total_score->bind_param('isi', $final_round_score, $pid, $game_id);
+                        $stmt_update_total_score->bind_param('ii', $final_round_score, $pid);
                         $stmt_update_total_score->execute();
                     }
                     $stmt_update_hand->close();
@@ -262,6 +392,29 @@ if ($request_method === 'POST') {
     }
 } elseif ($request_method === 'GET') {
     switch ($endpoint) {
+        case 'check_session':
+            if (isset($_SESSION['user_id'])) {
+                echo json_encode(['success' => true, 'isAuthenticated' => true, 'user' => ['id' => $_SESSION['user_id'], 'displayId' => $_SESSION['display_id'], 'points' => $_SESSION['points']]]);
+            } else {
+                echo json_encode(['success' => true, 'isAuthenticated' => false]);
+            }
+            break;
+        case 'find_user':
+            if (!isset($_SESSION['user_id'])) send_json_error(401, '请先登录');
+            $phone = $_GET['phone'] ?? null;
+            if (!$phone) send_json_error(400, '需要提供手机号');
+
+            $stmt = $db->prepare("SELECT display_id FROM users WHERE phone_number = ?");
+            $stmt->bind_param('s', $phone);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($user = $result->fetch_assoc()) {
+                echo json_encode(['success' => true, 'user' => ['displayId' => $user['display_id']]]);
+            } else {
+                send_json_error(404, '未找到该用户');
+            }
+            break;
+
         case 'get_room_state':
             $room_id = (int)($_GET['roomId'] ?? 0);
             $player_id_requesting = $_GET['playerId'] ?? null;
@@ -273,7 +426,7 @@ if ($request_method === 'POST') {
             $room = $stmt->get_result()->fetch_assoc();
             if (!$room) send_json_error(404, 'Room not found');
 
-            $stmt = $db->prepare("SELECT * FROM room_players WHERE room_id=? ORDER BY seat");
+            $stmt = $db->prepare("SELECT rp.*, u.display_id, u.points FROM room_players rp JOIN users u ON rp.user_id = u.id WHERE rp.room_id=? ORDER BY rp.seat");
             $stmt->bind_param('i', $room_id);
             $stmt->execute();
             $players_res = $stmt->get_result();
@@ -281,11 +434,11 @@ if ($request_method === 'POST') {
             while ($row = $players_res->fetch_assoc()) {
                 $p_data = [
                     'id' => $row['user_id'],
-                    'name' => 'Player ' . $row['seat'],
+                    'name' => '玩家 ' . $row['display_id'],
                     'seat' => $row['seat'],
-                    'score' => $row['score'],
+                    'score' => $row['points'], // Now using persistent points
                 ];
-                if ($row['user_id'] === $player_id_requesting && $row['hand_cards']) {
+                if ($row['user_id'] == $player_id_requesting && $row['hand_cards']) {
                     $p_data['hand'] = json_decode($row['hand_cards'], true);
                 }
                 $players[] = $p_data;
