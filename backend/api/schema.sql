@@ -14,6 +14,7 @@ CREATE TABLE `users` (
 -- The `rooms` table holds information about a game lobby.
 CREATE TABLE `rooms` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `game_mode` enum('normal_2','normal_5','double_2','double_5') NOT NULL,
   `room_code` varchar(255) NOT NULL UNIQUE,
   `state` enum('waiting','playing','finished') NOT NULL DEFAULT 'waiting',
   `current_game_id` int(11) DEFAULT NULL,
