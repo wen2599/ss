@@ -65,12 +65,11 @@
 
 .game-container {
   display: grid;
-  grid-template-columns: 250px 1fr 250px; /* Left/Right areas, Center fills remaining */
-  grid-template-rows: 180px 1fr 180px; /* Top/Bottom areas, Middle fills remaining */
+  grid-template-rows: auto 1fr auto; /* Top area for opponents, middle for table, bottom for player */
   grid-template-areas:
-    "left top right"
-    "left middle right"
-    "bottom bottom bottom";
+    "top"
+    "middle"
+    "bottom";
   width: 100%;
   max-width: 1400px;
   height: 95vh;
@@ -86,9 +85,11 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background-color: #0f5c2e;
-  border-radius: 20px;
-  border: 3px solid #c9a477;
+  background-color: #0f5c2e; /* Fallback color */
+  background-image: radial-gradient(circle, #3a8a5f 0%, #0f5c2e 70%);
+  border-radius: 150px; /* Make it oval-shaped */
+  border: 10px solid #8b4513; /* Wooden-like border */
+  box-shadow: 0 0 20px rgba(0,0,0,0.5) inset; /* Inner shadow for depth */
   padding: 20px;
 }
 
@@ -101,6 +102,7 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  min-width: 150px; /* Give player areas a minimum width */
 }
 
 /* --- Player Positioning --- */
@@ -109,15 +111,13 @@
   grid-area: bottom;
 }
 
-/* We will assign a class to each opponent's container div in App.js */
-.opponent-position-top {
+.opponents-area {
   grid-area: top;
-}
-.opponent-position-left {
-  grid-area: left;
-}
-.opponent-position-right {
-  grid-area: right;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 0;
 }
 
 /* --- Card and Hand Styles (from previous implementation, may need tweaks) --- */
@@ -137,11 +137,17 @@
 
 .card {
   margin: 2px;
-  border: 1px solid #eee;
+  border: 1px solid #aaa;
   border-radius: 5px;
   position: relative;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
 }
 
 .card.selected-card {
@@ -207,4 +213,94 @@
 }
 .score-details p {
   margin: 2px 0;
+}
+
+/* --- Action Button Styles --- */
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 15px;
+  flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+}
+
+.action-buttons button {
+  background-color: #c9a477; /* Consistent gold color */
+  color: #1a1a1a; /* Dark text for contrast */
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.action-buttons button:hover:not(:disabled) {
+  background-color: #e6bf8e; /* Lighter gold on hover */
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.action-buttons button:disabled {
+  background-color: #555;
+  color: #999;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* --- Responsive Design for Mobile --- */
+
+@media (max-width: 768px) {
+  .game-container {
+    grid-template-rows: auto 1fr auto; /* Let rows size automatically based on content */
+    height: 100vh; /* Fill the whole screen height */
+    margin: 0;
+    padding: 5px;
+    gap: 5px;
+  }
+
+  .game-table-area {
+    border-radius: 50px; /* Less pronounced oval shape */
+    border-width: 5px;
+    padding: 10px;
+  }
+
+  .opponents-area {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .hand-arrangement-ui {
+    display: flex;
+    flex-direction: column; /* Stack hand slots vertically */
+  }
+
+  .hand-slot .card-container, .unassigned-cards .card-container {
+    flex-wrap: nowrap; /* Prevent wrapping */
+    overflow-x: auto; /* Allow horizontal scrolling */
+    justify-content: flex-start; /* Align cards to the left */
+    padding-bottom: 10px; /* Add some space for the scrollbar */
+  }
+
+  .hand-slot h4, .unassigned-cards h4 {
+    font-size: 0.9em;
+  }
+
+  .App h1 {
+    font-size: 2em; /* Reduce main title size */
+    margin: 15px 0;
+  }
+
+  .card img {
+    width: 40px; /* Make cards smaller */
+  }
+
+  .action-buttons button {
+    padding: 8px 12px;
+    font-size: 0.9em;
+  }
 }

@@ -134,11 +134,11 @@ function App() {
     <div className="App">
        {renderHeader()}
       <div className="game-container">
-        {opponents.map((opponent, index) => (
-            <div key={opponent.id} className={`opponent-position-${['top', 'left', 'right'][index]}`}>
-                 <PlayerArea player={opponent} />
-            </div>
-        ))}
+        <div className="opponents-area">
+          {opponents.map((opponent) => (
+            <PlayerArea key={opponent.id} player={opponent} />
+          ))}
+        </div>
         <div className="player-area-bottom">
           {currentPlayer && (
             <PlayerArea
