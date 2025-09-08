@@ -1,93 +1,103 @@
-name: Android CI & Release APK
+# ==============================================================================
+#  GitHub Action: Build ALL APKs (Debug and Release) on Main Branch Update
+# ==============================================================================
+
+name: Build All APKs (Debug and Release)
 
 on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
 
 jobs:
-  tag-release:
-    if: github.ref == 'refs/heads/main'
+  build-and-release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Bump version and push tag
-        uses: anothrNick/github-tag-action@1.67.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WITH_V: true
-          DEFAULT_BUMP: patch
 
-  build-release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
-      - name: Checkout repository
+      # --- 1. SETUP ---
+      - name: 1. Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
-          cache: 'npm'
-          cache-dependency-path: 'frontend/package-lock.json'
-
-      - name: Set up JDK 21
+      - name: 2. Set up JDK and Node.js
         uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'gradle'
+        with: { java-version: '21', distribution: 'temurin' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm', cache-dependency-path: '**/package-lock.json' }
+      - name: 3. Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Install dependencies
-        run: npm install
-        working-directory: ./frontend
-
-      - name: Build Frontend
-        run: npm run build
-        working-directory: ./frontend
-
-      - name: Sync Capacitor project
-        run: npx cap sync android
-        working-directory: ./frontend
-
-      - name: Decode Keystore
-        id: decode_keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_FILE }}
+      # --- 2. PREPARE ---
+      - name: 4. Install All Dependencies
         run: |
-          KEYSTORE_PATH="${{ runner.temp }}/release.jks"
-          echo "$KEYSTORE_BASE64" | base64 --decode > $KEYSTORE_PATH
-          echo "keystore_path=$KEYSTORE_PATH" >> $GITHUB_OUTPUT
+          npm install
+          cd frontend
+          npm install
+          cd ..
+      - name: 5. Build Frontend Web App
+        run: |
+          cd frontend
+          npm run build
+          cd ..
+      - name: 6. Capacitor Sync
+        run: npx cap sync android
+      - name: 7. Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+      - name: 8. Generate Versioning Info
+        id: versioning
+        run: |
+          echo "version_name=dev-$(date +'%Y%m%d')-${{ github.sha_short }}" >> $GITHUB_OUTPUT
+          echo "version_code=${{ github.run_number }}" >> $GITHUB_OUTPUT
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
-        working-directory: ./frontend/android
+      # --- 3. BUILD DEBUG APK ---
+      - name: 9. Build Debug APK
+        working-directory: ./android
+        run: ./gradlew assembleDebug
 
-      - name: Build Release APK with Stacktrace
-        run: ./gradlew assembleRelease --stacktrace
-        working-directory: ./frontend/android
-        env:
-          KEYSTORE_PATH: ${{ steps.decode_keystore.outputs.keystore_path }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-
-      - name: List Build Output
-        run: ls -R frontend/android/app/build/outputs/
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: 10. Upload Debug APK as Artifact
+        # 将 Debug 包作为 Artifact 上传，它不会出现在 Release 页面
+        uses: actions/upload-artifact@v4
         with:
+          name: 摆牌-Debug-Build-${{ steps.versioning.outputs.version_name }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+
+      # --- 4. BUILD RELEASE APK ---
+      - name: 11. Decode and Place Keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > my-release-key.keystore
+
+      - name: 12. Build Signed Release APK
+        working-directory: ./android
+        run: |
+          ./gradlew assembleRelease \
+            -PappVersionCode=${{ steps.versioning.outputs.version_code }} \
+            -PappVersionName=${{ steps.versioning.outputs.version_name }} \
+            -Pandroid.injected.signing.store.file="${{ github.workspace }}/my-release-key.keystore" \
+            -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
+            -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+
+      - name: 13. Rename Release APK
+        run: mv android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/摆牌-Release-${{ steps.versioning.outputs.version_name }}.apk
+
+      - name: 14. Create GitHub Release with a single APK
+        # [重要] 这里我们只把签名的 Release 包发布到 Release 页面
+        uses: ncipollo/release-action@v1
+        with:
+          tag: release-${{ github.sha }}
+          name: "自动构建 - ${{ github.event.head_commit.message }}"
+          artifacts: "android/app/build/outputs/apk/release/*.apk"
           token: ${{ secrets.GITHUB_TOKEN }}
-          files: frontend/android/app/build/outputs/apk/release/*.apk
-          tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
+          allowUpdates: true
+          prerelease: true
+          body: |
+            这是由 GitHub Actions 自动构建和发布的版本。
+
+            **正式版 (Release APK):**
+            - 包含在此次 Release 的附件中。
+            - 版本名: `${{ steps.versioning.outputs.version_name }}`
+            - 版本代码: `${{ steps.versioning.outputs.version_code }}`
+
+            **测试版 (Debug APK):**
+            - 请在本次 Action 运行记录的 "Artifacts" 中下载。
