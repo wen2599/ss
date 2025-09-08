@@ -6,6 +6,10 @@ import Auth from './components/Auth';
 import PointsManager from './components/PointsManager';
 import { matchmake, getRoomState, startGame, checkSession, logout } from './api';
 
+/**
+ * The main application component.
+ * Manages user authentication, game state, and renders the main UI.
+ */
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -13,6 +17,7 @@ function App() {
 
   const [roomId, setRoomId] = useState(null);
   const [gameState, setGameState] = useState(null);
+  const [stateHash, setStateHash] = useState(null);
 
   // Check session on initial load
   useEffect(() => {
@@ -25,30 +30,66 @@ function App() {
     verifySession();
   }, []);
 
-  // Polling for game state updates
+  /**
+   * Long-polling effect to keep the game state updated.
+   * When a roomId is set, it starts a long-polling loop that
+   * continuously fetches the latest game state from the server.
+   */
   useEffect(() => {
     if (roomId && currentUser) {
-      const interval = setInterval(() => {
-        fetchGameState(roomId, currentUser.id);
-      }, 2000);
-      return () => clearInterval(interval);
+      let active = true;
+
+      const longPoll = async (hash) => {
+        if (!active) return;
+        try {
+          const response = await getRoomState(roomId, hash);
+          if (!active) return;
+
+          if (response.success) {
+            if (!response.no_change) {
+              setGameState(response);
+              setStateHash(response.state_hash);
+              longPoll(response.state_hash); // Continue with the new hash
+            } else {
+              // If no change, just poll again with the same hash
+              longPoll(hash);
+            }
+          } else {
+            console.error('Failed to fetch game state:', response?.message);
+            if (active) {
+                setRoomId(null);
+                setGameState(null);
+            }
+          }
+        } catch (error) {
+          console.error('Error in long-polling:', error);
+          if (active) {
+            // In case of network error, wait a bit before retrying
+            setTimeout(() => longPoll(hash), 5000);
+          }
+        }
+      };
+
+      // Initial fetch
+      const init = async () => {
+          const initialState = await getRoomState(roomId);
+          if (active && initialState.success) {
+              setGameState(initialState);
+              setStateHash(initialState.state_hash);
+              longPoll(initialState.state_hash);
+          } else if (active) {
+              console.error('Failed to get initial state', initialState?.message);
+              setRoomId(null);
+          }
+      };
+
+      init();
+
+      return () => {
+        active = false;
+      };
     }
   }, [roomId, currentUser]);
-
-  const fetchGameState = async (currentRoomId, currentPlayerId) => {
-    try {
-      const response = await getRoomState(currentRoomId, currentPlayerId);
-      if (response.success) {
-        setGameState(response);
-      } else {
-        console.error('Failed to fetch game state:', response?.message);
-        setRoomId(null);
-        setGameState(null);
-      }
-    } catch (error) {
-      console.error('Error fetching game state:', error);
-    }
-  };
 
   const handleMatchmake = async (gameMode) => {
     if (!currentUser) {
@@ -59,7 +100,6 @@ function App() {
     const response = await matchmake(gameMode);
     if (response && response.success) {
       setRoomId(response.roomId);
-      fetchGameState(response.roomId, currentUser.id);
     } else {
       alert(response.message || '匹配失败');
     }
@@ -68,7 +108,7 @@ function App() {
   const handleStartGame = async () => {
     if (roomId) {
       await startGame(roomId);
-      fetchGameState(roomId, currentUser.id);
+      // The long-poll will detect the state change
     }
   };
 
@@ -77,6 +117,7 @@ function App() {
     setCurrentUser(null);
     setRoomId(null);
     setGameState(null);
+    setStateHash(null);
   };
 
   const renderHeader = () => {

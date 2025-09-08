@@ -242,141 +242,190 @@ class ThirteenCardAnalyzer {
     }
 }
 
-// --- Game Classes ---
-
-class Player {
-    private string $id;
-    private string $name;
-    private array $hand = []; // The 13 cards
-
-    public function __construct(string $id, string $name) {
-        $this->id = $id;
-        $this->name = $name;
-    }
-
-    public function getId(): string {
-        return $this->id;
-    }
-
-    public function setHand(array $cards): void {
-        $this->hand = $cards;
-        sort_cards_by_rank($this->hand);
-    }
-
-    public function getHand(): array {
-        return $this->hand;
-    }
-
-    public function getState(): array {
-        return [
-            'id' => $this->id,
-            'name' => $this->name,
-            'hand_count' => count($this->hand),
-        ];
-    }
-}
+// --- Game Class ---
 
 class Game {
-    private string $roomId;
-    private array $players = []; // [playerId => Player]
-    private array $playerIds = [];
-    private string $gameState = 'waiting'; // waiting, dealing, setting_hands, showdown, finished
-    private array $playerHands = []; // Stores submitted hands
-
-    public function __construct(string $roomId) {
-        $this->roomId = $roomId;
-    }
-
-    public function addPlayer(Player $player): bool {
-        if (count($this->players) >= 4) {
-            return false; // Room is full
+    /**
+     * Starts a new game in a room.
+     * @param mysqli $db The database connection.
+     * @param int $room_id The ID of the room.
+     * @return int The ID of the new game.
+     * @throws Exception If the game fails to start.
+     */
+    public static function startGame(mysqli $db, int $room_id): int {
+        $stmt = $db->prepare("SELECT user_id FROM room_players WHERE room_id = ?");
+        $stmt->bind_param('i', $room_id);
+        $stmt->execute();
+        $players_res = $stmt->get_result();
+        $players = [];
+        while($row = $players_res->fetch_assoc()) {
+            $players[] = $row['user_id'];
         }
-        $this->players[$player->getId()] = $player;
-        $this->playerIds[] = $player->getId();
-        return true;
-    }
 
-    public function startGame(): bool {
-        if (count($this->players) < 2) {
-            return false; // Not enough players
+        if (count($players) < 2) {
+            throw new Exception('Not enough players (min 2).');
         }
-        $this->gameState = 'dealing';
+
         $deck = shuffle_deck(create_deck());
-
-        // Deal 13 cards to each player
+        $hands = array_fill_keys($players, []);
         for ($i = 0; $i < 13; $i++) {
-            foreach ($this->playerIds as $playerId) {
-                $card = array_shift($deck);
-                if ($card) {
-                    $this->players[$playerId]->setHand(array_merge($this->players[$playerId]->getHand(), [$card]));
-                }
+            foreach ($players as $player_id) {
+                $hands[$player_id][] = array_pop($deck);
             }
         }
-        $this->gameState = 'setting_hands';
-        return true;
+
+        $stmt = $db->prepare("UPDATE room_players SET hand_cards = ? WHERE room_id = ? AND user_id = ?");
+        foreach ($players as $player_id) {
+            $hand_json = json_encode($hands[$player_id]);
+            $stmt->bind_param('sii', $hand_json, $room_id, $player_id);
+            $stmt->execute();
+        }
+
+        $stmt = $db->prepare("INSERT INTO games (room_id, game_state, created_at) VALUES (?, 'setting_hands', NOW())");
+        $stmt->bind_param('i', $room_id);
+        $stmt->execute();
+        $game_id = $db->insert_id;
+
+        $stmt = $db->prepare("UPDATE rooms SET state = 'playing', current_game_id = ? WHERE id = ?");
+        $stmt->bind_param('ii', $game_id, $room_id);
+        $stmt->execute();
+
+        $stmt = $db->prepare("INSERT INTO player_hands (game_id, player_id) VALUES (?, ?)");
+        foreach ($players as $player_id) {
+            $stmt->bind_param('ii', $game_id, $player_id);
+            $stmt->execute();
+        }
+
+        return $game_id;
     }
 
-    public function submitHand(string $playerId, array $front, array $middle, array $back): bool {
-        if ($this->gameState !== 'setting_hands' || !isset($this->players[$playerId])) {
-            return false;
-        }
+    /**
+     * Submits a player's hand for a game.
+     * @param mysqli $db
+     * @param int $user_id
+     * @param int $game_id
+     * @param array $front
+     * @param array $middle
+     * @param array $back
+     * @return void
+     * @throws Exception
+     */
+    public static function submitHand(mysqli $db, int $user_id, int $game_id, array $front, array $middle, array $back): void {
+        $analyzer = new ThirteenCardAnalyzer();
+        $front_details = $analyzer->analyze_hand($front);
+        $middle_details = $analyzer->analyze_hand($middle);
+        $back_details = $analyzer->analyze_hand($back);
+        $is_valid = $analyzer->compare_hands($back_details, $middle_details) >= 0 && $analyzer->compare_hands($middle_details, $front_details) >= 0;
 
-        // Basic validation
-        if (count($front) !== 3 || count($middle) !== 5 || count($back) !== 5) {
-            return false; // Invalid hand sizes
-        }
-        $combined = array_merge($front, $middle, $back);
-        sort($combined);
-        $playerHand = $this->players[$playerId]->getHand();
-        sort($playerHand);
-        if ($combined !== $playerHand) {
-            return false; // Submitted cards don't match dealt cards
-        }
-
-        // Analyze hands
-        $front_details = ThirteenCardAnalyzer::analyze_hand($front);
-        $middle_details = ThirteenCardAnalyzer::analyze_hand($middle);
-        $back_details = ThirteenCardAnalyzer::analyze_hand($back);
-
-        // Validate hand strengths (Back >= Middle >= Front)
-        $is_valid = ThirteenCardAnalyzer::compare_hands($back_details, $middle_details) >= 0 &&
-                    ThirteenCardAnalyzer::compare_hands($middle_details, $front_details) >= 0;
-
-        $this->playerHands[$playerId] = [
-            'is_submitted' => true,
-            'is_valid' => $is_valid,
-            'front' => ['cards' => $front, 'details' => $front_details],
-            'middle' => ['cards' => $middle, 'details' => $middle_details],
-            'back' => ['cards' => $back, 'details' => $back_details],
-        ];
+        $stmt = $db->prepare("UPDATE player_hands SET is_submitted=1, is_valid=?, front_hand=?, middle_hand=?, back_hand=?, front_hand_details=?, middle_hand_details=?, back_hand_details=? WHERE game_id=? AND player_id=?");
+        $stmt->bind_param('issssssii', $is_valid, json_encode($front), json_encode($middle), json_encode($back), json_encode($front_details), json_encode($middle_details), json_encode($back_details), $game_id, $user_id);
+        $stmt->execute();
 
         // Check if all players have submitted
-        if (count($this->playerHands) === count($this->players)) {
-            $this->enterShowdown();
-        }
+        $stmt = $db->prepare("SELECT COUNT(*) as submitted_count FROM player_hands WHERE game_id=? AND is_submitted=1");
+        $stmt->bind_param('i', $game_id);
+        $stmt->execute();
+        $submitted_count = $stmt->get_result()->fetch_assoc()['submitted_count'];
 
-        return true;
+        $stmt = $db->prepare("SELECT COUNT(*) as total_count FROM player_hands WHERE game_id=?");
+        $stmt->bind_param('i', $game_id);
+        $stmt->execute();
+        $total_count = $stmt->get_result()->fetch_assoc()['total_count'];
+
+        if ($submitted_count === $total_count) {
+            self::calculateAndRecordScores($db, $game_id, $analyzer);
+        }
     }
 
-    private function enterShowdown() {
-        $this->gameState = 'showdown';
-        // TODO: Implement scoring logic here or in a separate method.
-        // This involves comparing each player's hands against every other player.
-    }
+    /**
+     * Calculates and records the scores for a finished game.
+     * @param mysqli $db
+     * @param int $game_id
+     * @param ThirteenCardAnalyzer $analyzer
+     * @return void
+     */
+    private static function calculateAndRecordScores(mysqli $db, int $game_id, ThirteenCardAnalyzer $analyzer): void {
+        $stmt = $db->prepare("SELECT game_mode FROM rooms r JOIN games g ON r.id = g.room_id WHERE g.id = ?");
+        $stmt->bind_param('i', $game_id);
+        $stmt->execute();
+        $game_mode = $stmt->get_result()->fetch_assoc()['game_mode'] ?? 'normal_2';
+        $score_multipliers = ['normal_2' => ['base' => 2, 'double' => 1], 'normal_5' => ['base' => 5, 'double' => 1], 'double_2' => ['base' => 2, 'double' => 2], 'double_5' => ['base' => 5, 'double' => 2]];
+        $multiplier = $score_multipliers[$game_mode];
 
-    public function getState(): array {
-        $playerStates = [];
-        foreach ($this->players as $playerId => $player) {
-            $playerStates[$playerId] = $player->getState();
-            // For the current player, we should also send their actual hand
-            // This requires knowing which player is requesting the state.
+        $stmt = $db->prepare("SELECT * FROM player_hands WHERE game_id=?");
+        $stmt->bind_param('i', $game_id);
+        $stmt->execute();
+        $hands_res = $stmt->get_result();
+        $all_hands = [];
+        while($row = $hands_res->fetch_assoc()) {
+            $all_hands[$row['player_id']] = ['isValid' => (bool)$row['is_valid'], 'front' => json_decode($row['front_hand_details'], true), 'middle' => json_decode($row['middle_hand_details'], true), 'back' => json_decode($row['back_hand_details'], true)];
         }
 
-        return [
-            'id' => $this->roomId,
-            'state' => $this->gameState,
-            'players' => $playerStates,
-            'player_hands' => $this->playerHands, // Contains submitted hands for showdown
-        ];
+        $player_royalties = [];
+        foreach($all_hands as $pid => $hand) {
+            if ($hand['isValid']) {
+                $player_royalties[$pid] = $analyzer->calculate_royalties($hand['front'], $hand['middle'], $hand['back']);
+            } else {
+                $player_royalties[$pid] = ['total' => 0, 'front' => 0, 'middle' => 0, 'back' => 0];
+            }
+        }
+
+        $player_comparison_scores = array_fill_keys(array_keys($all_hands), 0);
+        $player_ids = array_keys($all_hands);
+        for ($i = 0; $i < count($player_ids); $i++) {
+            for ($j = $i + 1; $j < count($player_ids); $j++) {
+                $p1_id = $player_ids[$i];
+                $p2_id = $player_ids[$j];
+                $p1_hand = $all_hands[$p1_id];
+                $p2_hand = $all_hands[$p2_id];
+                $score_diff = 0;
+                if (!$p1_hand['isValid'] && $p2_hand['isValid']) {
+                    $score_diff = -6;
+                } elseif ($p1_hand['isValid'] && !$p2_hand['isValid']) {
+                    $score_diff = 6;
+                } elseif ($p1_hand['isValid'] && $p2_hand['isValid']) {
+                    $score_diff += $analyzer->compare_hands($p1_hand['front'], $p2_hand['front']);
+                    $score_diff += $analyzer->compare_hands($p1_hand['middle'], $p2_hand['middle']);
+                    $score_diff += $analyzer->compare_hands($p1_hand['back'], $p2_hand['back']);
+                }
+                $player_comparison_scores[$p1_id] += $score_diff;
+                $player_comparison_scores[$p2_id] -= $score_diff;
+            }
+        }
+
+        $total_royalty_sum = 0;
+        foreach ($player_royalties as $royalty) {
+            $total_royalty_sum += $royalty['total'];
+        }
+
+        $stmt_update_hand = $db->prepare("UPDATE player_hands SET round_score=?, score_details=? WHERE game_id=? AND player_id=?");
+        $stmt_update_total_score = $db->prepare("UPDATE users SET points = points + ? WHERE id = ?");
+        $num_players = count($player_ids);
+
+        foreach($player_comparison_scores as $pid => $comp_score) {
+            $player_royalty_total = $player_royalties[$pid]['total'];
+            $total_royalty_payout = ($num_players * $player_royalty_total) - $total_royalty_sum;
+
+            $final_round_score = ($comp_score * $multiplier['base'] * $multiplier['double']) + $total_royalty_payout;
+            $score_details = json_encode([
+                'comparison_score' => $comp_score,
+                'base_points' => $multiplier['base'],
+                'double_factor' => $multiplier['double'],
+                'royalty_details' => $player_royalties[$pid],
+                'total_royalty_payout' => $total_royalty_payout,
+                'final_score' => $final_round_score
+            ]);
+
+            $stmt_update_hand->bind_param('isii', $final_round_score, $score_details, $game_id, $pid);
+            $stmt_update_hand->execute();
+            $stmt_update_total_score->bind_param('ii', $final_round_score, $pid);
+            $stmt_update_total_score->execute();
+        }
+        $stmt_update_hand->close();
+        $stmt_update_total_score->close();
+
+        $stmt = $db->prepare("UPDATE games SET game_state='finished' WHERE id=?");
+        $stmt->bind_param('i', $game_id);
+        $stmt->execute();
     }
 }
