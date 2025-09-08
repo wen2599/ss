@@ -1,8 +1,19 @@
+/**
+ * API client for the Thirteen card game.
+ * This module provides functions to interact with the backend API.
+ */
 const API_BASE_URL = 'https://wenxiuxiu.eu.org/api';
 
-// We need to handle credentials (cookies) for session management
+/**
+ * A generic request function to interact with the backend API.
+ * @param {string} endpoint The API endpoint to call.
+ * @param {string} [method='GET'] The HTTP method to use.
+ * @param {object|null} [body=null] The request body for POST requests.
+ * @returns {Promise<object>} The JSON response from the server.
+ */
 async function request(endpoint, method = 'GET', body = null) {
-    const url = `${API_BASE_URL}/api.php?endpoint=${endpoint}`;
+    // Note: The production code uses 'api.php' but for our refactored version, we'll use the new index.php router
+    const url = `${API_BASE_URL}/index.php?endpoint=${endpoint}`;
     const options = {
         method,
         headers: {
@@ -15,12 +26,10 @@ async function request(endpoint, method = 'GET', body = null) {
     }
     try {
         const response = await fetch(url, options);
-        // We can't always expect JSON, especially on errors.
         const text = await response.text();
         try {
             return JSON.parse(text);
         } catch (e) {
-            // If parsing fails, it might be a server error page.
             console.error("Failed to parse JSON:", text);
             return { success: false, message: "Server returned non-JSON response." };
         }
@@ -41,10 +50,15 @@ export const transferPoints = (recipientId, amount) => request('transfer_points'
 
 // --- Game Endpoints ---
 export const matchmake = (game_mode) => request('matchmake', 'POST', { game_mode });
-export const getRoomState = (roomId, playerId) => request(`get_room_state&roomId=${roomId}&playerId=${playerId}`);
+export const getRoomState = (roomId, stateHash) => {
+    let url = `get_room_state&roomId=${roomId}`;
+    if (stateHash) {
+        url += `&lastStateHash=${stateHash}`;
+    }
+    return request(url);
+};
 export const startGame = (roomId) => request('start_game', 'POST', { roomId });
 
-// The backend now gets the player ID from the session for submitHand
 export const submitHand = (gameId, front, middle, back) => {
     return request('submit_hand', 'POST', {
         gameId,
