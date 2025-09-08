@@ -68,11 +68,7 @@ jobs:
         run: |
           ./gradlew assembleRelease -Dorg.gradle.java.home="$JAVA_HOME" \
             -PappVersionCode=${{ steps.versioning.outputs.version_code }} \
-            -PappVersionName=${{ steps.versioning.outputs.version_name }} \
-            -Pandroid.injected.signing.store.file="${{ github.workspace }}/my-release-key.keystore" \
-            -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
-            -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
-            -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+            -PappVersionName=${{ steps.versioning.outputs.version_name }}
 
       - name: 13. Rename Release APK
         working-directory: ./frontend/android/app/build/outputs/apk/release
