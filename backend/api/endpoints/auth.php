@@ -16,22 +16,24 @@ switch ($endpoint) {
         $password = $data['password'] ?? null;
         if (!$phone || !$password) send_json_error(400, '手机号和密码不能为空');
         if (strlen($password) < 6) send_json_error(400, '密码长度不能少于6位');
-        $stmt = $db->prepare("SELECT id FROM users WHERE phone_number = ?");
-        $stmt->bind_param('s', $phone);
-        $stmt->execute();
-        if ($stmt->get_result()->num_rows > 0) send_json_error(409, '该手机号已被注册');
+
+        $stmt = $db->prepare("SELECT COUNT(*) FROM users WHERE phone_number = ?");
+        $stmt->execute([$phone]);
+        if ($stmt->fetchColumn() > 0) {
+            send_json_error(409, '该手机号已被注册');
+        }
+
         $password_hash = password_hash($password, PASSWORD_DEFAULT);
         $display_id = null;
         do {
             $display_id = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
-            $stmt = $db->prepare("SELECT id FROM users WHERE display_id = ?");
-            $stmt->bind_param('s', $display_id);
-            $stmt->execute();
-        } while ($stmt->get_result()->num_rows > 0);
+            $stmt = $db->prepare("SELECT COUNT(*) FROM users WHERE display_id = ?");
+            $stmt->execute([$display_id]);
+        } while ($stmt->fetchColumn() > 0);
+
         $default_points = 1000;
         $stmt = $db->prepare("INSERT INTO users (display_id, phone_number, password_hash, points) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param('sssi', $display_id, $phone, $password_hash, $default_points);
-        if ($stmt->execute()) {
+        if ($stmt->execute([$display_id, $phone, $password_hash, $default_points])) {
             echo json_encode(['success' => true, 'message' => '注册成功', 'displayId' => $display_id]);
         } else {
             send_json_error(500, '注册失败，请稍后再试');
@@ -46,10 +48,11 @@ switch ($endpoint) {
         $phone = $data['phone'] ?? null;
         $password = $data['password'] ?? null;
         if (!$phone || !$password) send_json_error(400, '手机号和密码不能为空');
+
         $stmt = $db->prepare("SELECT id, display_id, password_hash, points FROM users WHERE phone_number = ?");
-        $stmt->bind_param('s', $phone);
-        $stmt->execute();
-        $user = $stmt->get_result()->fetch_assoc();
+        $stmt->execute([$phone]);
+        $user = $stmt->fetch();
+
         if ($user && password_verify($password, $user['password_hash'])) {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['display_id'] = $user['display_id'];

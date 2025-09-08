@@ -247,20 +247,15 @@ class ThirteenCardAnalyzer {
 class Game {
     /**
      * Starts a new game in a room.
-     * @param mysqli $db The database connection.
+     * @param PDO $db The database connection.
      * @param int $room_id The ID of the room.
      * @return int The ID of the new game.
      * @throws Exception If the game fails to start.
      */
-    public static function startGame(mysqli $db, int $room_id): int {
+    public static function startGame(PDO $db, int $room_id): int {
         $stmt = $db->prepare("SELECT user_id FROM room_players WHERE room_id = ?");
-        $stmt->bind_param('i', $room_id);
-        $stmt->execute();
-        $players_res = $stmt->get_result();
-        $players = [];
-        while($row = $players_res->fetch_assoc()) {
-            $players[] = $row['user_id'];
-        }
+        $stmt->execute([$room_id]);
+        $players = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
 
         if (count($players) < 2) {
             throw new Exception('Not enough players (min 2).');
@@ -277,31 +272,27 @@ class Game {
         $stmt = $db->prepare("UPDATE room_players SET hand_cards = ? WHERE room_id = ? AND user_id = ?");
         foreach ($players as $player_id) {
             $hand_json = json_encode($hands[$player_id]);
-            $stmt->bind_param('sii', $hand_json, $room_id, $player_id);
-            $stmt->execute();
+            $stmt->execute([$hand_json, $room_id, $player_id]);
         }
 
-        $stmt = $db->prepare("INSERT INTO games (room_id, game_state, created_at) VALUES (?, 'setting_hands', NOW())");
-        $stmt->bind_param('i', $room_id);
-        $stmt->execute();
-        $game_id = $db->insert_id;
+        $stmt = $db->prepare("INSERT INTO games (room_id, game_state, created_at) VALUES (?, 'setting_hands', (datetime('now','localtime')))");
+        $stmt->execute([$room_id]);
+        $game_id = $db->lastInsertId();
 
         $stmt = $db->prepare("UPDATE rooms SET state = 'playing', current_game_id = ? WHERE id = ?");
-        $stmt->bind_param('ii', $game_id, $room_id);
-        $stmt->execute();
+        $stmt->execute([$game_id, $room_id]);
 
         $stmt = $db->prepare("INSERT INTO player_hands (game_id, player_id) VALUES (?, ?)");
         foreach ($players as $player_id) {
-            $stmt->bind_param('ii', $game_id, $player_id);
-            $stmt->execute();
+            $stmt->execute([$game_id, $player_id]);
         }
 
-        return $game_id;
+        return (int)$game_id;
     }
 
     /**
      * Submits a player's hand for a game.
-     * @param mysqli $db
+     * @param PDO $db
      * @param int $user_id
      * @param int $game_id
      * @param array $front
@@ -310,7 +301,7 @@ class Game {
      * @return void
      * @throws Exception
      */
-    public static function submitHand(mysqli $db, int $user_id, int $game_id, array $front, array $middle, array $back): void {
+    public static function submitHand(PDO $db, int $user_id, int $game_id, array $front, array $middle, array $back): void {
         $analyzer = new ThirteenCardAnalyzer();
         $front_details = $analyzer->analyze_hand($front);
         $middle_details = $analyzer->analyze_hand($middle);
@@ -318,19 +309,15 @@ class Game {
         $is_valid = $analyzer->compare_hands($back_details, $middle_details) >= 0 && $analyzer->compare_hands($middle_details, $front_details) >= 0;
 
         $stmt = $db->prepare("UPDATE player_hands SET is_submitted=1, is_valid=?, front_hand=?, middle_hand=?, back_hand=?, front_hand_details=?, middle_hand_details=?, back_hand_details=? WHERE game_id=? AND player_id=?");
-        $stmt->bind_param('issssssii', $is_valid, json_encode($front), json_encode($middle), json_encode($back), json_encode($front_details), json_encode($middle_details), json_encode($back_details), $game_id, $user_id);
-        $stmt->execute();
+        $stmt->execute([$is_valid, json_encode($front), json_encode($middle), json_encode($back), json_encode($front_details), json_encode($middle_details), json_encode($back_details), $game_id, $user_id]);
 
-        // Check if all players have submitted
-        $stmt = $db->prepare("SELECT COUNT(*) as submitted_count FROM player_hands WHERE game_id=? AND is_submitted=1");
-        $stmt->bind_param('i', $game_id);
-        $stmt->execute();
-        $submitted_count = $stmt->get_result()->fetch_assoc()['submitted_count'];
+        $stmt = $db->prepare("SELECT COUNT(*) FROM player_hands WHERE game_id=? AND is_submitted=1");
+        $stmt->execute([$game_id]);
+        $submitted_count = $stmt->fetchColumn();
 
-        $stmt = $db->prepare("SELECT COUNT(*) as total_count FROM player_hands WHERE game_id=?");
-        $stmt->bind_param('i', $game_id);
-        $stmt->execute();
-        $total_count = $stmt->get_result()->fetch_assoc()['total_count'];
+        $stmt = $db->prepare("SELECT COUNT(*) FROM player_hands WHERE game_id=?");
+        $stmt->execute([$game_id]);
+        $total_count = $stmt->fetchColumn();
 
         if ($submitted_count === $total_count) {
             self::calculateAndRecordScores($db, $game_id, $analyzer);
@@ -339,26 +326,25 @@ class Game {
 
     /**
      * Calculates and records the scores for a finished game.
-     * @param mysqli $db
+     * @param PDO $db
      * @param int $game_id
      * @param ThirteenCardAnalyzer $analyzer
      * @return void
      */
-    private static function calculateAndRecordScores(mysqli $db, int $game_id, ThirteenCardAnalyzer $analyzer): void {
+    private static function calculateAndRecordScores(PDO $db, int $game_id, ThirteenCardAnalyzer $analyzer): void {
         $stmt = $db->prepare("SELECT game_mode FROM rooms r JOIN games g ON r.id = g.room_id WHERE g.id = ?");
-        $stmt->bind_param('i', $game_id);
-        $stmt->execute();
-        $game_mode = $stmt->get_result()->fetch_assoc()['game_mode'] ?? 'normal_2';
+        $stmt->execute([$game_id]);
+        $game_mode = $stmt->fetchColumn() ?? 'normal_2';
         $score_multipliers = ['normal_2' => ['base' => 2, 'double' => 1], 'normal_5' => ['base' => 5, 'double' => 1], 'double_2' => ['base' => 2, 'double' => 2], 'double_5' => ['base' => 5, 'double' => 2]];
         $multiplier = $score_multipliers[$game_mode];
 
         $stmt = $db->prepare("SELECT * FROM player_hands WHERE game_id=?");
-        $stmt->bind_param('i', $game_id);
-        $stmt->execute();
-        $hands_res = $stmt->get_result();
+        $stmt->execute([$game_id]);
+        $hands_res = $stmt->fetchAll();
+
         $all_hands = [];
-        while($row = $hands_res->fetch_assoc()) {
-            $all_hands[$row['player_id']] = ['isValid' => (bool)$row['is_valid'], 'front' => json_decode($row['front_hand_details'], true), 'middle' => json_decode($row['middle_hand_details'], true), 'back' => json_decode($row['back_hand_details'], true)];
+        foreach ($hands_res as $row) {
+             $all_hands[$row['player_id']] = ['isValid' => (bool)$row['is_valid'], 'front' => json_decode($row['front_hand_details'], true), 'middle' => json_decode($row['middle_hand_details'], true), 'back' => json_decode($row['back_hand_details'], true)];
         }
 
         $player_royalties = [];
@@ -416,16 +402,11 @@ class Game {
                 'final_score' => $final_round_score
             ]);
 
-            $stmt_update_hand->bind_param('isii', $final_round_score, $score_details, $game_id, $pid);
-            $stmt_update_hand->execute();
-            $stmt_update_total_score->bind_param('ii', $final_round_score, $pid);
-            $stmt_update_total_score->execute();
+            $stmt_update_hand->execute([$final_round_score, $score_details, $game_id, $pid]);
+            $stmt_update_total_score->execute([$final_round_score, $pid]);
         }
-        $stmt_update_hand->close();
-        $stmt_update_total_score->close();
 
         $stmt = $db->prepare("UPDATE games SET game_state='finished' WHERE id=?");
-        $stmt->bind_param('i', $game_id);
-        $stmt->execute();
+        $stmt->execute([$game_id]);
     }
 }

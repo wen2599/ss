@@ -1,11 +1,11 @@
 {
-  "name": "斗地主多人游戏",
-  "short_name": "斗地主",
+  "short_name": "十三张",
+  "name": "十三张",
+  "description": "一个简单的十三张多人游戏应用",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
-  "description": "一个简单的斗地主多人游戏应用",
   "icons": [
     {
       "src": "logo192.png",
