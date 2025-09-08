@@ -52,8 +52,9 @@ if ($request_method === 'POST') {
                 $stmt->bind_param('s', $display_id);
                 $stmt->execute();
             } while ($stmt->get_result()->num_rows > 0);
-            $stmt = $db->prepare("INSERT INTO users (display_id, phone_number, password_hash) VALUES (?, ?, ?)");
-            $stmt->bind_param('sss', $display_id, $phone, $password_hash);
+            $default_points = 1000;
+            $stmt = $db->prepare("INSERT INTO users (display_id, phone_number, password_hash, points) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param('sssi', $display_id, $phone, $password_hash, $default_points);
             if ($stmt->execute()) {
                 echo json_encode(['success' => true, 'message' => '注册成功', 'displayId' => $display_id]);
             } else {
