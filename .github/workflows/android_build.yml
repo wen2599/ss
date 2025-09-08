@@ -72,14 +72,17 @@ jobs:
         run: chmod +x ./gradlew
         working-directory: ./frontend/android
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease
+      - name: Build Release APK with Stacktrace
+        run: ./gradlew assembleRelease --stacktrace
         working-directory: ./frontend/android
         env:
           KEYSTORE_PATH: ${{ steps.decode_keystore.outputs.keystore_path }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: List Build Output
+        run: ls -R frontend/android/app/build/outputs/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
