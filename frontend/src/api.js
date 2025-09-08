@@ -2,7 +2,7 @@
  * API client for the Thirteen card game.
  * This module provides functions to interact with the backend API.
  */
-const API_BASE_URL = 'https://wenxiuxiu.eu.org/api';
+const API_BASE_URL = '/api';
 
 /**
  * A generic request function to interact with the backend API.
