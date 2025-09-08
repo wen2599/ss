@@ -1,21 +1,57 @@
 <?php
 require_once 'config.php';
 
+/**
+ * Establishes a connection to the SQLite database and returns the PDO object.
+ *
+ * This function uses a static variable to ensure that the database connection is
+ * established only once per request. If the database file does not exist,
+ * it will be created and initialized with the schema from `schema.sql`.
+ *
+ * @return PDO The PDO database connection object.
+ */
 function get_db() {
     static $db = null;
     if ($db === null) {
-        $db = new mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
-        if ($db->connect_errno) {
-            // Since this function can be called from index.php where send_json_error is defined,
-            // we can use it for a graceful JSON error response.
-            // Note: This creates a dependency on the calling script's context.
+        try {
+            $db_path = DB_PATH;
+            $needs_init = !file_exists($db_path);
+
+            // Create a new PDO connection to the SQLite database.
+            // This will create the file if it doesn't exist.
+            $db = new PDO('sqlite:' . $db_path);
+
+            // Set PDO attributes. We want it to throw exceptions on errors.
+            $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+
+            // Enable foreign key constraints, as it's off by default in SQLite.
+            $db->exec('PRAGMA foreign_keys = ON;');
+
+            if ($needs_init) {
+                // The database file did not exist, so we need to initialize the schema.
+                $schema_sql = file_get_contents(__DIR__ . '/schema.sql');
+                if ($schema_sql === false) {
+                    throw new Exception("Could not read schema.sql file.");
+                }
+                // Execute the entire schema SQL script.
+                $db->exec($schema_sql);
+            }
+        } catch (PDOException $e) {
+            // Handle PDO exceptions (e.g., connection errors) gracefully.
             if (function_exists('send_json_error')) {
-                send_json_error(500, 'Database connection failed', $db->connect_error);
+                send_json_error(500, 'Database operation failed', $e->getMessage());
             } else {
-                die('DB Error: ' . $db->connect_error);
+                die('DB Error: ' . $e->getMessage());
+            }
+        } catch (Exception $e) {
+            // Handle other exceptions (e.g., file read error).
+            if (function_exists('send_json_error')) {
+                send_json_error(500, 'Database initialization failed', $e->getMessage());
+            } else {
+                die('DB Init Error: ' . $e->getMessage());
             }
         }
-        $db->set_charset('utf8mb4');
     }
     return $db;
 }

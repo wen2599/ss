@@ -1,18 +1,18 @@
 <?php
-// backend/config.php
+// backend/api/config.php
 
-// --- 数据库配置 ---
-define('DB_HOST', 'localhost');
-define('DB_USER', 'YOUR_DB_USER');
-define('DB_PASSWORD', 'YOUR_DB_PASS');
-define('DB_NAME', 'YOUR_DB_NAME');
+/**
+ * Application Configuration
+ */
 
-// --- Telegram Bot 配置 ---
+// --- Database Configuration ---
+// Defines the path to the SQLite database file.
+// This file will be automatically created in the same directory as this script.
+define('DB_PATH', __DIR__ . '/thirteen_game.db');
+
+// --- Telegram Bot Configuration (Optional) ---
+// These are not used in the current application logic but are kept for potential future use.
 define('TELEGRAM_BOT_TOKEN', 'YOUR_BOT_TOKEN');
 define('TELEGRAM_BOT_ID', 'YOUR_BOT_ID');
 
-// --- 其它可扩展配置 ---
-// $ADMIN_USER_IDS = [123456789, ...]; // 可选: 管理员TG chat_id数组
-
-// --- END OF FILE backend/config.php ---
 ?>
