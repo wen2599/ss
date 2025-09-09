@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import './Auth.css';
-import { register, login } from '../api';
+import { register, login as apiLogin } from '../api';
+import { useAppContext } from '../contexts/AppContext';
 
 function Auth({ onClose, onLoginSuccess }) {
+  const { login } = useAppContext();
   const [isLoginView, setIsLoginView] = useState(true);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -13,14 +15,15 @@ function Auth({ onClose, onLoginSuccess }) {
     setMessage('');
     let response;
     if (isLoginView) {
-      response = await login(phone, password);
+      response = await apiLogin(phone, password);
     } else {
       response = await register(phone, password);
     }
 
     if (response.success) {
       if (isLoginView) {
-        onLoginSuccess(response.user);
+        login(response.user);
+        onLoginSuccess();
       } else {
         setMessage(`注册成功！您的ID是 ${response.displayId}。请登录。`);
         setIsLoginView(true);

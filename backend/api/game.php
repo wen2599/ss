@@ -302,15 +302,44 @@ class Game {
      * @throws Exception
      */
     public static function submitHand(PDO $db, int $user_id, int $game_id, array $front, array $middle, array $back): void {
+        // 1. Verify that the submitted cards match the cards dealt to the player.
+        $stmt = $db->prepare("SELECT r.id FROM rooms r JOIN games g ON r.id = g.room_id WHERE g.id = ?");
+        $stmt->execute([$game_id]);
+        $room_id = $stmt->fetchColumn();
+        if (!$room_id) throw new Exception("Invalid game ID.");
+
+        $stmt = $db->prepare("SELECT hand_cards FROM room_players WHERE room_id = ? AND user_id = ?");
+        $stmt->execute([$room_id, $user_id]);
+        $dealt_cards_json = $stmt->fetchColumn();
+        if (!$dealt_cards_json) throw new Exception("Could not retrieve dealt hand for player.");
+
+        $dealt_cards = json_decode($dealt_cards_json, true);
+        if (json_last_error() !== JSON_ERROR_NONE) throw new Exception("Error decoding dealt hand.");
+
+        $submitted_cards = array_merge($front, $middle, $back);
+        if (count($dealt_cards) !== count($submitted_cards)) throw new Exception("Incorrect number of cards submitted.");
+
+        sort($dealt_cards);
+        sort($submitted_cards);
+        if ($dealt_cards !== $submitted_cards) {
+            throw new Exception("Submitted cards do not match dealt cards.");
+        }
+
+        // 2. Analyze the hand and check for validity (front < middle < back).
         $analyzer = new ThirteenCardAnalyzer();
         $front_details = $analyzer->analyze_hand($front);
         $middle_details = $analyzer->analyze_hand($middle);
         $back_details = $analyzer->analyze_hand($back);
+        if (!$front_details || !$middle_details || !$back_details) {
+            throw new Exception("Invalid hand structure submitted.");
+        }
         $is_valid = $analyzer->compare_hands($back_details, $middle_details) >= 0 && $analyzer->compare_hands($middle_details, $front_details) >= 0;
 
+        // 3. Store the submitted hand details in the database.
         $stmt = $db->prepare("UPDATE player_hands SET is_submitted=1, is_valid=?, front_hand=?, middle_hand=?, back_hand=?, front_hand_details=?, middle_hand_details=?, back_hand_details=? WHERE game_id=? AND player_id=?");
         $stmt->execute([$is_valid, json_encode($front), json_encode($middle), json_encode($back), json_encode($front_details), json_encode($middle_details), json_encode($back_details), $game_id, $user_id]);
 
+        // 4. Check if all players have submitted their hands to proceed to scoring.
         $stmt = $db->prepare("SELECT COUNT(*) FROM player_hands WHERE game_id=? AND is_submitted=1");
         $stmt->execute([$game_id]);
         $submitted_count = $stmt->fetchColumn();
@@ -340,15 +369,29 @@ class Game {
 
         $stmt = $db->prepare("SELECT * FROM player_hands WHERE game_id=?");
         $stmt->execute([$game_id]);
-        $hands_res = $stmt->fetchAll();
+        $hands_res = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $all_hands = [];
+        $all_player_hands = [];
         foreach ($hands_res as $row) {
-             $all_hands[$row['player_id']] = ['isValid' => (bool)$row['is_valid'], 'front' => json_decode($row['front_hand_details'], true), 'middle' => json_decode($row['middle_hand_details'], true), 'back' => json_decode($row['back_hand_details'], true)];
+            $player_id = $row['player_id'];
+            $front_details = json_decode($row['front_hand_details'], true);
+            $middle_details = json_decode($row['middle_hand_details'], true);
+            $back_details = json_decode($row['back_hand_details'], true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception("Failed to decode hand details for player {$player_id}.");
+            }
+
+            $all_player_hands[$player_id] = [
+                'isValid' => (bool)$row['is_valid'],
+                'front' => $front_details,
+                'middle' => $middle_details,
+                'back' => $back_details
+            ];
         }
 
         $player_royalties = [];
-        foreach($all_hands as $pid => $hand) {
+        foreach($all_player_hands as $pid => $hand) {
             if ($hand['isValid']) {
                 $player_royalties[$pid] = $analyzer->calculate_royalties($hand['front'], $hand['middle'], $hand['back']);
             } else {
@@ -356,54 +399,65 @@ class Game {
             }
         }
 
-        $player_comparison_scores = array_fill_keys(array_keys($all_hands), 0);
-        $player_ids = array_keys($all_hands);
+        $player_comparison_scores = array_fill_keys(array_keys($all_player_hands), 0);
+        $player_ids = array_keys($all_player_hands);
         for ($i = 0; $i < count($player_ids); $i++) {
             for ($j = $i + 1; $j < count($player_ids); $j++) {
                 $p1_id = $player_ids[$i];
                 $p2_id = $player_ids[$j];
-                $p1_hand = $all_hands[$p1_id];
-                $p2_hand = $all_hands[$p2_id];
-                $score_diff = 0;
+                $p1_hand = $all_player_hands[$p1_id];
+                $p2_hand = $all_player_hands[$p2_id];
+                $comparison_score_diff = 0;
+                // A player with an invalid hand automatically loses to a player with a valid hand.
+                // This is often scored as losing all three hands, plus a penalty. Here, 6 points.
                 if (!$p1_hand['isValid'] && $p2_hand['isValid']) {
-                    $score_diff = -6;
+                    $comparison_score_diff = -6;
                 } elseif ($p1_hand['isValid'] && !$p2_hand['isValid']) {
-                    $score_diff = 6;
+                    $comparison_score_diff = 6;
                 } elseif ($p1_hand['isValid'] && $p2_hand['isValid']) {
-                    $score_diff += $analyzer->compare_hands($p1_hand['front'], $p2_hand['front']);
-                    $score_diff += $analyzer->compare_hands($p1_hand['middle'], $p2_hand['middle']);
-                    $score_diff += $analyzer->compare_hands($p1_hand['back'], $p2_hand['back']);
+                    // Both hands are valid, compare each segment.
+                    $comparison_score_diff += $analyzer->compare_hands($p1_hand['front'], $p2_hand['front']);
+                    $comparison_score_diff += $analyzer->compare_hands($p1_hand['middle'], $p2_hand['middle']);
+                    $comparison_score_diff += $analyzer->compare_hands($p1_hand['back'], $p2_hand['back']);
                 }
-                $player_comparison_scores[$p1_id] += $score_diff;
-                $player_comparison_scores[$p2_id] -= $score_diff;
+                $player_comparison_scores[$p1_id] += $comparison_score_diff;
+                $player_comparison_scores[$p2_id] -= $comparison_score_diff;
             }
         }
 
-        $total_royalty_sum = 0;
+        // Calculate the total royalty points awarded in the round.
+        $total_royalty_points_in_round = 0;
         foreach ($player_royalties as $royalty) {
-            $total_royalty_sum += $royalty['total'];
+            $total_royalty_points_in_round += $royalty['total'];
         }
 
         $stmt_update_hand = $db->prepare("UPDATE player_hands SET round_score=?, score_details=? WHERE game_id=? AND player_id=?");
-        $stmt_update_total_score = $db->prepare("UPDATE users SET points = points + ? WHERE id = ?");
+        $stmt_update_user_points = $db->prepare("UPDATE users SET points = points + ? WHERE id = ?");
         $num_players = count($player_ids);
 
-        foreach($player_comparison_scores as $pid => $comp_score) {
+        foreach($player_comparison_scores as $pid => $comparison_score) {
             $player_royalty_total = $player_royalties[$pid]['total'];
-            $total_royalty_payout = ($num_players * $player_royalty_total) - $total_royalty_sum;
 
-            $final_round_score = ($comp_score * $multiplier['base'] * $multiplier['double']) + $total_royalty_payout;
+            // The royalty payout for a player is calculated against all other players.
+            // A player's net royalty payout is their own royalty total multiplied by the number of opponents,
+            // minus the sum of all other players' royalty totals.
+            // Formula: (player_royalty * (num_players - 1)) - (total_royalty_sum - player_royalty)
+            // This simplifies to: (player_royalty * num_players) - total_royalty_sum
+            $net_royalty_payout = ($num_players * $player_royalty_total) - $total_royalty_points_in_round;
+
+            // The final score combines the comparison score (factoring in multipliers) and the net royalty payout.
+            $final_round_score = ($comparison_score * $multiplier['base'] * $multiplier['double']) + $net_royalty_payout;
             $score_details = json_encode([
-                'comparison_score' => $comp_score,
+                'comparison_score' => $comparison_score,
                 'base_points' => $multiplier['base'],
                 'double_factor' => $multiplier['double'],
                 'royalty_details' => $player_royalties[$pid],
-                'total_royalty_payout' => $total_royalty_payout,
+                'net_royalty_payout' => $net_royalty_payout,
                 'final_score' => $final_round_score
             ]);
 
             $stmt_update_hand->execute([$final_round_score, $score_details, $game_id, $pid]);
-            $stmt_update_total_score->execute([$final_round_score, $pid]);
+            $stmt_update_user_points->execute([$final_round_score, $pid]);
         }
 
         $stmt = $db->prepare("UPDATE games SET game_state='finished' WHERE id=?");

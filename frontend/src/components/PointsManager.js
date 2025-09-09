@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import './PointsManager.css';
 import { findUser, transferPoints } from '../api';
+import { useAppContext } from '../contexts/AppContext';
 
-function PointsManager({ currentUser, onClose, onTransferSuccess }) {
+function PointsManager({ onClose }) {
+  const { currentUser, updateUser } = useAppContext();
   const [searchPhone, setSearchPhone] = useState('');
   const [searchResult, setSearchResult] = useState(null);
   const [message, setMessage] = useState('');
@@ -40,7 +42,7 @@ function PointsManager({ currentUser, onClose, onTransferSuccess }) {
         setRecipientId('');
         setAmount('');
         // Notify App.js to refresh the user's points
-        onTransferSuccess();
+        updateUser();
     } else {
         setMessage(response.message || '赠送失败');
     }

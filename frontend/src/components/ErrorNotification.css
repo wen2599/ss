@@ -1,0 +1,26 @@
+.error-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 15px;
+  border: 1px solid #f5c6cb;
+  border-radius: 5px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+}
+
+.error-notification p {
+  margin: 0;
+  margin-right: 15px;
+}
+
+.error-notification button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #721c24;
+}
