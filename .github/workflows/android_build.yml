@@ -30,7 +30,7 @@ jobs:
 
       # --- 2. PREPARE ---
       - name: 4. Install Frontend Dependencies
-        run: npm ci
+        run: npm install
         working-directory: ./frontend
       - name: 5. Build Frontend Web App
         run: npm run build
