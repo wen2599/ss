@@ -51,11 +51,12 @@ export default {
         method: request.method,
         headers: newHeaders,
         redirect: 'follow',
+        duplex: 'half', // Required for streaming request body
       };
 
       // 仅 GET/HEAD 没有 body，其它带 body
       if (request.method !== 'GET' && request.method !== 'HEAD') {
-        init.body = await request.clone().arrayBuffer();
+        init.body = request.body;
       }
 
       let backendResp;
