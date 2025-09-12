@@ -171,7 +171,8 @@ class ThirteenCardAnalyzer {
             // Ace-low straight (A-2-3-4-5) check
             if ($ranks === [2, 3, 4, 5, 14]) {
                 $is_straight = true;
-                $primary_rank = 5; // Highest card in an A-5 straight is 5
+                // In an A-5 straight, the 5 is considered the high card for ranking purposes
+                $primary_rank = 5;
             } elseif ($ranks[4] - $ranks[0] === 4) {
                 $is_straight = true;
                 $primary_rank = $ranks[4];
@@ -253,41 +254,50 @@ class Game {
      * @throws Exception If the game fails to start.
      */
     public static function startGame(PDO $db, int $room_id): int {
-        $stmt = $db->prepare("SELECT user_id FROM room_players WHERE room_id = ?");
-        $stmt->execute([$room_id]);
-        $players = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+        try {
+            $db->beginTransaction();
 
-        if (count($players) < 2) {
-            throw new Exception('Not enough players (min 2).');
-        }
+            $stmt = $db->prepare("SELECT user_id FROM room_players WHERE room_id = ?");
+            $stmt->execute([$room_id]);
+            $players = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
 
-        $deck = shuffle_deck(create_deck());
-        $hands = array_fill_keys($players, []);
-        for ($i = 0; $i < 13; $i++) {
-            foreach ($players as $player_id) {
-                $hands[$player_id][] = array_pop($deck);
+            if (count($players) < 2) {
+                throw new Exception('Not enough players (min 2).');
             }
+
+            $deck = shuffle_deck(create_deck());
+            $hands = array_fill_keys($players, []);
+            for ($i = 0; $i < 13; $i++) {
+                foreach ($players as $player_id) {
+                    $hands[$player_id][] = array_pop($deck);
+                }
+            }
+
+            $stmt = $db->prepare("UPDATE room_players SET hand_cards = ? WHERE room_id = ? AND user_id = ?");
+            foreach ($players as $player_id) {
+                $hand_json = json_encode($hands[$player_id]);
+                $stmt->execute([$hand_json, $room_id, $player_id]);
+            }
+
+            $stmt = $db->prepare("INSERT INTO games (room_id, game_state, created_at) VALUES (?, 'setting_hands', (datetime('now','localtime')))");
+            $stmt->execute([$room_id]);
+            $game_id = $db->lastInsertId();
+
+            $stmt = $db->prepare("UPDATE rooms SET state = 'playing', current_game_id = ? WHERE id = ?");
+            $stmt->execute([$game_id, $room_id]);
+
+            $stmt = $db->prepare("INSERT INTO player_hands (game_id, player_id) VALUES (?, ?)");
+            foreach ($players as $player_id) {
+                $stmt->execute([$game_id, $player_id]);
+            }
+
+            $db->commit();
+
+            return (int)$game_id;
+        } catch (Exception $e) {
+            $db->rollBack();
+            throw $e; // Re-throw the exception after rolling back
         }
-
-        $stmt = $db->prepare("UPDATE room_players SET hand_cards = ? WHERE room_id = ? AND user_id = ?");
-        foreach ($players as $player_id) {
-            $hand_json = json_encode($hands[$player_id]);
-            $stmt->execute([$hand_json, $room_id, $player_id]);
-        }
-
-        $stmt = $db->prepare("INSERT INTO games (room_id, game_state, created_at) VALUES (?, 'setting_hands', (datetime('now','localtime')))");
-        $stmt->execute([$room_id]);
-        $game_id = $db->lastInsertId();
-
-        $stmt = $db->prepare("UPDATE rooms SET state = 'playing', current_game_id = ? WHERE id = ?");
-        $stmt->execute([$game_id, $room_id]);
-
-        $stmt = $db->prepare("INSERT INTO player_hands (game_id, player_id) VALUES (?, ?)");
-        foreach ($players as $player_id) {
-            $stmt->execute([$game_id, $player_id]);
-        }
-
-        return (int)$game_id;
     }
 
     /**
@@ -339,17 +349,37 @@ class Game {
         $stmt = $db->prepare("UPDATE player_hands SET is_submitted=1, is_valid=?, front_hand=?, middle_hand=?, back_hand=?, front_hand_details=?, middle_hand_details=?, back_hand_details=? WHERE game_id=? AND player_id=?");
         $stmt->execute([$is_valid, json_encode($front), json_encode($middle), json_encode($back), json_encode($front_details), json_encode($middle_details), json_encode($back_details), $game_id, $user_id]);
 
-        // 4. Check if all players have submitted their hands to proceed to scoring.
-        $stmt = $db->prepare("SELECT COUNT(*) FROM player_hands WHERE game_id=? AND is_submitted=1");
-        $stmt->execute([$game_id]);
-        $submitted_count = $stmt->fetchColumn();
+        // 4. Atomically check if all players have submitted and then score the game.
+        try {
+            $db->beginTransaction();
 
-        $stmt = $db->prepare("SELECT COUNT(*) FROM player_hands WHERE game_id=?");
-        $stmt->execute([$game_id]);
-        $total_count = $stmt->fetchColumn();
+            // Lock the game row to prevent race conditions
+            $stmt = $db->prepare("SELECT game_state FROM games WHERE id = ? FOR UPDATE");
+            $stmt->execute([$game_id]);
+            $current_game_state = $stmt->fetchColumn();
 
-        if ($submitted_count === $total_count) {
-            self::calculateAndRecordScores($db, $game_id, $analyzer);
+            if ($current_game_state !== 'setting_hands') {
+                // Game is already being scored or is finished.
+                $db->rollBack();
+                return;
+            }
+
+            $stmt = $db->prepare("SELECT COUNT(*) FROM player_hands WHERE game_id = ? AND is_submitted = 1");
+            $stmt->execute([$game_id]);
+            $submitted_count = $stmt->fetchColumn();
+
+            $stmt = $db->prepare("SELECT COUNT(*) FROM player_hands WHERE game_id = ?");
+            $stmt->execute([$game_id]);
+            $total_count = $stmt->fetchColumn();
+
+            if ($submitted_count === $total_count) {
+                self::calculateAndRecordScores($db, $game_id, $analyzer);
+            }
+
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollBack();
+            throw $e; // Re-throw the exception after rolling back
         }
     }
 
@@ -361,6 +391,11 @@ class Game {
      * @return void
      */
     private static function calculateAndRecordScores(PDO $db, int $game_id, ThirteenCardAnalyzer $analyzer): void {
+        // This function should be called within a transaction.
+        // Mark the game as 'scoring' to prevent race conditions.
+        $stmt = $db->prepare("UPDATE games SET game_state='scoring' WHERE id=?");
+        $stmt->execute([$game_id]);
+
         $stmt = $db->prepare("SELECT game_mode FROM rooms r JOIN games g ON r.id = g.room_id WHERE g.id = ?");
         $stmt->execute([$game_id]);
         $game_mode = $stmt->fetchColumn() ?? 'normal_2';
