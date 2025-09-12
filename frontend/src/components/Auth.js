@@ -1,78 +1,60 @@
 import React, { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import './Auth.css';
-import { register, login as apiLogin } from '../api';
-import { useAppContext } from '../contexts/AppContext';
 
-function Auth({ onClose, onLoginSuccess }) {
-  const { login } = useAppContext();
-  const [isLoginView, setIsLoginView] = useState(true);
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
+const Auth = ({ onClose, onLoginSuccess }) => {
+    const [isLogin, setIsLogin] = useState(true);
+    const [phone, setPhone] = useState('');
+    const [password, setPassword] = useState('');
+    const { login, register, error, clearError } = useAuth();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMessage('');
-    let response;
-    if (isLoginView) {
-      response = await apiLogin(phone, password);
-    } else {
-      response = await register(phone, password);
-    }
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        clearError();
+        const response = isLogin ? await login(phone, password) : await register(phone, password);
+        if (response.success) {
+            onLoginSuccess();
+            onClose();
+        }
+    };
 
-    if (response.success) {
-      if (isLoginView) {
-        login(response.user);
-        onLoginSuccess();
-      } else {
-        setMessage(`注册成功！您的ID是 ${response.displayId}。请登录。`);
-        setIsLoginView(true);
-      }
-    } else {
-      setMessage(response.message || '操作失败');
-    }
-  };
-
-  return (
-    <div className="auth-modal-overlay" onClick={onClose}>
-      <div className="auth-modal-content" onClick={(e) => e.stopPropagation()}>
-        <button className="close-button" onClick={onClose}>X</button>
-        <h2>{isLoginView ? '登录' : '注册'}</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="phone">手机号</label>
-            <input
-              type="text"
-              id="phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="password">密码</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <button type="submit" className="submit-button">
-            {isLoginView ? '登录' : '注册'}
-          </button>
-        </form>
-        {message && <p className="message">{message}</p>}
-        <p className="toggle-view">
-          {isLoginView ? '还没有账户？' : '已有账户？'}
-          <button onClick={() => setIsLoginView(!isLoginView)}>
-            {isLoginView ? '点此注册' : '点此登录'}
-          </button>
-        </p>
-      </div>
-    </div>
-  );
-}
+    return (
+        <div className="modal-backdrop">
+            <div className="modal-content">
+                <h2>{isLogin ? '登录' : '注册'}</h2>
+                <button onClick={onClose} className="close-button">&times;</button>
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label htmlFor="phone">手机号</label>
+                        <input
+                            type="text"
+                            id="phone"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            required
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="password">密码</label>
+                        <input
+                            type="password"
+                            id="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                        />
+                    </div>
+                    {error && <p className="error-message">{error}</p>}
+                    <button type="submit" className="submit-button">
+                        {isLogin ? '登录' : '注册'}
+                    </button>
+                </form>
+                <p className="toggle-auth" onClick={() => setIsLogin(!isLogin)}>
+                    {isLogin ? '还没有账户？点击注册' : '已有账户？点击登录'}
+                </p>
+            </div>
+        </div>
+    );
+};
 
 export default Auth;

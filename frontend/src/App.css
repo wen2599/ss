@@ -40,12 +40,20 @@
 }
 
 .room-management, .game-mode-selection {
-  margin: 50px auto;
+  margin: 20px auto;
   padding: 20px;
   max-width: 600px;
   background-color: rgba(0,0,0,0.2);
   border: 1px solid #c9a477;
   border-radius: 8px;
+}
+
+.lobby-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 20px auto;
 }
 
 .mode-buttons {
@@ -78,11 +86,12 @@
 
 .game-container {
   display: grid;
-  grid-template-rows: auto 1fr auto; /* Top area for opponents, middle for table, bottom for player */
+  grid-template-columns: 3fr 1fr; /* Add a column for the chat */
+  grid-template-rows: auto 1fr auto;
   grid-template-areas:
-    "top"
-    "middle"
-    "bottom";
+    "top chat"
+    "middle chat"
+    "bottom chat";
   width: 100vw;
   height: 100vh;
   padding: 10px;
@@ -102,6 +111,15 @@
   border: 10px solid #8b4513; /* Wooden-like border */
   box-shadow: 0 0 20px rgba(0,0,0,0.5) inset; /* Inner shadow for depth */
   padding: 20px;
+}
+
+.chat-area {
+  grid-area: chat;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
 }
 
 .player-area {

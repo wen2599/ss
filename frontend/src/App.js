@@ -5,24 +5,21 @@ import PlayerArea from './components/PlayerArea';
 import Auth from './components/Auth';
 import PointsManager from './components/PointsManager';
 import ErrorNotification from './components/ErrorNotification';
-import { useAppContext } from './contexts/AppContext';
+import Chat from './components/Chat';
+import FriendsList from './components/FriendsList';
+import Leaderboard from './components/Leaderboard';
+import { useAuth } from './contexts/AuthContext';
+import { useRoom } from './contexts/RoomContext';
+import { useError } from './contexts/ErrorContext';
 
 /**
  * The main application component.
- * Renders the UI based on the state from AppContext.
+ * Renders the UI based on the state from the contexts.
  */
 function App() {
-  const {
-    currentUser,
-    roomId,
-    gameState,
-    error,
-    clearError,
-    logout,
-    matchmake,
-    startGame,
-    updateUser
-  } = useAppContext();
+  const { currentUser, logout, updateUser } = useAuth();
+  const { roomId, gameState, matchmake, startGame } = useRoom();
+  const { error, clearError } = useError();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showPointsModal, setShowPointsModal] = useState(false);
@@ -70,6 +67,10 @@ function App() {
           <button onClick={() => handleMatchmake('double_5')}>翻倍5分场</button>
         </div>
       </div>
+      <div className="lobby-features">
+        {currentUser && <FriendsList />}
+        <Leaderboard />
+      </div>
     </div>
   );
 
@@ -104,6 +105,9 @@ function App() {
                 开始游戏 ({room.players.length}/4 人)
               </button>
             )}
+          </div>
+          <div className="chat-area">
+            <Chat roomId={room.id} />
           </div>
         </div>
       </div>

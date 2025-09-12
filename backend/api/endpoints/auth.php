@@ -26,7 +26,8 @@ switch ($endpoint) {
         $password_hash = password_hash($password, PASSWORD_DEFAULT);
         $display_id = null;
         do {
-            $display_id = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+            // Use a cryptographically secure random number generator
+            $display_id = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
             $stmt = $db->prepare("SELECT COUNT(*) FROM users WHERE display_id = ?");
             $stmt->execute([$display_id]);
         } while ($stmt->fetchColumn() > 0);
