@@ -18,7 +18,7 @@ import { useError } from './contexts/ErrorContext';
  */
 function App() {
   const { currentUser, logout, updateUser } = useAuth();
-  const { roomId, gameState, matchmake, startGame } = useRoom();
+  const { roomId, gameState, matchmake, startGame, leaveRoom } = useRoom();
   const { error, clearError } = useError();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -32,6 +32,11 @@ function App() {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    leaveRoom();
+  };
+
   const renderHeader = () => (
     <div className="app-header">
       <div className="auth-section">
@@ -40,7 +45,7 @@ function App() {
             <span>ID: {currentUser.displayId}</span>
             <span> | </span>
             <span>积分: {currentUser.points}</span>
-            <button onClick={logout} className="header-button">退出登录</button>
+            <button onClick={handleLogout} className="header-button">退出登录</button>
           </div>
         ) : (
           <button onClick={() => setShowAuthModal(true)} className="header-button">注册/登录</button>
