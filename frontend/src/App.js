@@ -60,21 +60,25 @@ function App() {
   );
 
   const renderLobby = () => (
-    <div className="App">
+    <div className="App lobby-background">
       {renderHeader()}
-      <h1>十三张</h1>
-      <div className="game-mode-selection">
-        <h2>选择游戏模式</h2>
-        <div className="mode-buttons">
-          <button onClick={() => handleMatchmake('normal_2')}>普通2分场</button>
-          <button onClick={() => handleMatchmake('normal_5')}>普通5分场</button>
-          <button onClick={() => handleMatchmake('double_2')}>翻倍2分场</button>
-          <button onClick={() => handleMatchmake('double_5')}>翻倍5分场</button>
+      <div className="lobby-container">
+        <div className="lobby-main-content">
+          <h1>十三张</h1>
+          <div className="game-mode-selection">
+            <h2>选择游戏模式</h2>
+            <div className="mode-buttons">
+              <button onClick={() => handleMatchmake('normal_2')}>普通2分场</button>
+              <button onClick={() => handleMatchmake('normal_5')}>普通5分场</button>
+              <button onClick={() => handleMatchmake('double_2')}>翻倍2分场</button>
+              <button onClick={() => handleMatchmake('double_5')}>翻倍5分场</button>
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="lobby-features">
-        {currentUser && <FriendsList />}
-        <Leaderboard />
+        <div className="lobby-sidebar">
+          {currentUser && <FriendsList />}
+          <Leaderboard />
+        </div>
       </div>
     </div>
   );
