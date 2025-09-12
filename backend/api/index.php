@@ -58,6 +58,9 @@ $auth_endpoints = ['register', 'login', 'logout', 'check_session'];
 $user_endpoints = ['find_user', 'transfer_points'];
 $room_endpoints = ['matchmake', 'get_room_state'];
 $game_endpoints = ['start_game', 'submit_hand'];
+$chat_endpoints = ['send_message', 'get_messages'];
+$friend_endpoints = ['add_friend', 'accept_friend', 'get_friends'];
+$leaderboard_endpoints = ['get_leaderboard'];
 
 if (in_array($endpoint, $auth_endpoints)) {
     require_once 'endpoints/auth.php';
@@ -67,6 +70,12 @@ if (in_array($endpoint, $auth_endpoints)) {
     require_once 'endpoints/room.php';
 } elseif (in_array($endpoint, $game_endpoints)) {
     require_once 'endpoints/game.php';
+} elseif (in_array($endpoint, $chat_endpoints)) {
+    require_once 'endpoints/chat.php';
+} elseif (in_array($endpoint, $friend_endpoints)) {
+    require_once 'endpoints/friends.php';
+} elseif (in_array($endpoint, $leaderboard_endpoints)) {
+    require_once 'endpoints/leaderboard.php';
 } else {
     send_json_error(404, 'Endpoint not found');
 }

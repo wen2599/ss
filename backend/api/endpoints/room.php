@@ -5,18 +5,14 @@
  * - /get_room_state
  */
 
-/**
- * Fetches the complete state of a room from the database for the get_room_state endpoint.
- * @param PDO $db The database connection.
- * @param int $room_id The ID of the room.
- * @return array|null The complete room state, or null if not found.
- */
-function get_full_room_state(PDO $db, int $room_id): ?array {
+function get_room_details(PDO $db, int $room_id): ?array {
     $stmt = $db->prepare("SELECT * FROM rooms WHERE id=?");
     $stmt->execute([$room_id]);
     $room = $stmt->fetch();
-    if (!$room) return null;
+    return $room ?: null;
+}
 
+function get_room_players(PDO $db, int $room_id): array {
     $stmt = $db->prepare("SELECT rp.*, u.display_id, u.points FROM room_players rp JOIN users u ON rp.user_id = u.id WHERE rp.room_id=? ORDER BY rp.seat");
     $stmt->execute([$room_id]);
     $players_res = $stmt->fetchAll();
@@ -28,35 +24,47 @@ function get_full_room_state(PDO $db, int $room_id): ?array {
         }
         $players[] = $p_data;
     }
+    return $players;
+}
 
+function get_game_state(PDO $db, int $game_id, string $game_state_string): array {
+    $stmt = $db->prepare("SELECT * FROM games WHERE id=?");
+    $stmt->execute([$game_id]);
+    $game = $stmt->fetch();
+    if (!$game) return [];
+
+    $response_game = ['id' => $game['id'], 'state' => $game['game_state']];
+    $stmt = $db->prepare("SELECT * FROM player_hands WHERE game_id=?");
+    $stmt->execute([$game_id]);
+    $hands_res = $stmt->fetchAll();
+    $player_hands = [];
+    foreach($hands_res as $row) {
+        $hand_data = ['playerId' => $row['player_id'], 'isSubmitted' => (bool)$row['is_submitted']];
+        if ($game['game_state'] === 'showdown' || $game['game_state'] === 'finished') {
+            $hand_data['isValid'] = (bool)$row['is_valid'];
+            $hand_data['front'] = json_decode($row['front_hand'], true);
+            $hand_data['middle'] = json_decode($row['middle_hand'], true);
+            $hand_data['back'] = json_decode($row['back_hand'], true);
+            $hand_data['scores'] = json_decode($row['score_details'], true);
+            $hand_data['roundScore'] = $row['round_score'];
+        }
+        $player_hands[] = $hand_data;
+    }
+    $response_game['hands'] = $player_hands;
+    return $response_game;
+}
+
+function get_full_room_state(PDO $db, int $room_id): ?array {
+    $room = get_room_details($db, $room_id);
+    if (!$room) return null;
+
+    $players = get_room_players($db, $room_id);
     $response = ['success' => true, 'room' => ['id' => $room['id'], 'state' => $room['state'], 'players' => $players, 'game_mode' => $room['game_mode']]];
 
     if ($room['state'] === 'playing' && $room['current_game_id']) {
-        $game_id = $room['current_game_id'];
-        $stmt = $db->prepare("SELECT * FROM games WHERE id=?");
-        $stmt->execute([$game_id]);
-        $game = $stmt->fetch();
-        if ($game) {
-            $response['game'] = ['id' => $game['id'], 'state' => $game['game_state']];
-            $stmt = $db->prepare("SELECT * FROM player_hands WHERE game_id=?");
-            $stmt->execute([$game_id]);
-            $hands_res = $stmt->fetchAll();
-            $player_hands = [];
-            foreach($hands_res as $row) {
-                $hand_data = ['playerId' => $row['player_id'], 'isSubmitted' => (bool)$row['is_submitted']];
-                if ($game['game_state'] === 'showdown' || $game['game_state'] === 'finished') {
-                    $hand_data['isValid'] = (bool)$row['is_valid'];
-                    $hand_data['front'] = json_decode($row['front_hand'], true);
-                    $hand_data['middle'] = json_decode($row['middle_hand'], true);
-                    $hand_data['back'] = json_decode($row['back_hand'], true);
-                    $hand_data['scores'] = json_decode($row['score_details'], true);
-                    $hand_data['roundScore'] = $row['round_score'];
-                }
-                $player_hands[] = $hand_data;
-            }
-            $response['game']['hands'] = $player_hands;
-        }
+        $response['game'] = get_game_state($db, $room['current_game_id'], $room['state']);
     }
+
     return $response;
 }
 

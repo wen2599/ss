@@ -42,6 +42,18 @@ CREATE TABLE `room_players` (
   FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 );
 
+-- The `friends` table stores the friendship relationships between users.
+CREATE TABLE `friends` (
+  `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+  `user_id` INTEGER NOT NULL,
+  `friend_id` INTEGER NOT NULL,
+  `status` TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'blocked')),
+  `created_at` TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  UNIQUE (`user_id`, `friend_id`),
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`friend_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+);
+
 -- The `games` table stores the state of a single round of Thirteen.
 CREATE TABLE `games` (
   `id` INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,4 +90,15 @@ CREATE TABLE `player_hands` (
   UNIQUE (`game_id`, `player_id`),
   FOREIGN KEY (`game_id`) REFERENCES `games` (`id`) ON DELETE CASCADE,
   FOREIGN KEY (`player_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+);
+
+-- The `chat_messages` table stores chat messages for each room.
+CREATE TABLE `chat_messages` (
+  `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+  `room_id` INTEGER NOT NULL,
+  `user_id` INTEGER NOT NULL,
+  `message` TEXT NOT NULL,
+  `created_at` TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 );

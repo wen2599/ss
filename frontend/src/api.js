@@ -67,3 +67,15 @@ export const submitHand = (gameId, front, middle, back) => {
         back
     });
 };
+
+// --- Chat Endpoints ---
+export const getMessages = (roomId) => request(`get_messages&roomId=${roomId}`);
+export const sendMessage = (roomId, message) => request('send_message', 'POST', { roomId, message });
+
+// --- Friends Endpoints ---
+export const getFriends = () => request('get_friends');
+export const addFriend = (friendId) => request('add_friend', 'POST', { friendId });
+export const acceptFriend = (friendId) => request('accept_friend', 'POST', { friendId });
+
+// --- Leaderboard Endpoints ---
+export const getLeaderboard = () => request('get_leaderboard');

@@ -39,18 +39,17 @@ function get_db() {
             }
         } catch (PDOException $e) {
             // Handle PDO exceptions (e.g., connection errors) gracefully.
-            if (function_exists('send_json_error')) {
-                send_json_error(500, 'Database operation failed', $e->getMessage());
-            } else {
-                die('DB Error: ' . $e->getMessage());
-            }
+            // If send_json_error is not available, the script will halt with a generic error.
+            // This is a fallback for critical, early-stage failures.
+            http_response_code(500);
+            error_log('DB Error: ' . $e->getMessage());
+            exit(json_encode(['success' => false, 'message' => 'A critical database error occurred.']));
+
         } catch (Exception $e) {
             // Handle other exceptions (e.g., file read error).
-            if (function_exists('send_json_error')) {
-                send_json_error(500, 'Database initialization failed', $e->getMessage());
-            } else {
-                die('DB Init Error: ' . $e->getMessage());
-            }
+            http_response_code(500);
+            error_log('DB Init Error: ' . $e->getMessage());
+            exit(json_encode(['success' => false, 'message' => 'A critical initialization error occurred.']));
         }
     }
     return $db;

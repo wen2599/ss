@@ -1,0 +1,32 @@
+.friends-list-container {
+    padding: 20px;
+    background-color: rgba(0,0,0,0.2);
+    border: 1px solid #c9a477;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.friends-list {
+    margin-top: 10px;
+}
+
+.friend-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #c9a477;
+}
+
+.friend-item:last-child {
+    border-bottom: none;
+}
+
+.friend-item button {
+    background-color: #c9a477;
+    color: black;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
