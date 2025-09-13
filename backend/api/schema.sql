@@ -1,4 +1,4 @@
--- SQLite schema for the Thirteen (十三张) game with User Authentication
+-- SQLite schema for the Mark Six Lottery System with User Authentication
 
 -- The `users` table stores persistent player accounts.
 CREATE TABLE `users` (
@@ -10,36 +10,38 @@ CREATE TABLE `users` (
   `created_at` TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
--- The `rooms` table holds information about a game lobby.
-CREATE TABLE `rooms` (
+-- The `lottery_draws` table holds information about each lottery draw.
+CREATE TABLE `lottery_draws` (
   `id` INTEGER PRIMARY KEY AUTOINCREMENT,
-  `game_mode` TEXT NOT NULL CHECK(game_mode IN ('normal_2','normal_5','double_2','double_5')),
-  `room_code` TEXT NOT NULL UNIQUE,
-  `state` TEXT NOT NULL DEFAULT 'waiting' CHECK(state IN ('waiting','playing','finished')),
-  `current_game_id` INTEGER DEFAULT NULL,
-  `created_at` TEXT NOT NULL,
+  `draw_number` TEXT NOT NULL UNIQUE,
+  `draw_date` TEXT NOT NULL,
+  `winning_numbers` TEXT, -- Storing JSON array of numbers
+  `status` TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'closed', 'settled')),
+  `created_at` TEXT NOT NULL DEFAULT (datetime('now','localtime')),
   `updated_at` TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
--- Trigger to automatically update `updated_at` timestamp on `rooms` table update.
-CREATE TRIGGER `rooms_updated_at`
-AFTER UPDATE ON `rooms`
+-- Trigger to automatically update `updated_at` timestamp on `lottery_draws` table update.
+CREATE TRIGGER `lottery_draws_updated_at`
+AFTER UPDATE ON `lottery_draws`
 FOR EACH ROW
 BEGIN
-  UPDATE `rooms` SET `updated_at` = (datetime('now','localtime')) WHERE `id` = OLD.id;
+  UPDATE `lottery_draws` SET `updated_at` = (datetime('now','localtime')) WHERE `id` = OLD.id;
 END;
 
--- The `room_players` table links users to rooms for the duration of a game session.
-CREATE TABLE `room_players` (
+-- The `bets` table stores the bets placed by users on a specific draw.
+CREATE TABLE `bets` (
   `id` INTEGER PRIMARY KEY AUTOINCREMENT,
-  `room_id` INTEGER NOT NULL,
-  `user_id` INTEGER NOT NULL, -- Foreign key to the users table
-  `seat` INTEGER NOT NULL,
-  `hand_cards` TEXT DEFAULT NULL, -- Storing JSON as TEXT
-  `joined_at` TEXT NOT NULL,
-  UNIQUE (`room_id`, `user_id`),
-  FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  `user_id` INTEGER NOT NULL,
+  `draw_id` INTEGER NOT NULL,
+  `bet_type` TEXT NOT NULL, -- e.g., 'single', 'multiple', 'box'
+  `bet_numbers` TEXT NOT NULL, -- Storing JSON array of numbers
+  `bet_amount` INTEGER NOT NULL,
+  `winnings` INTEGER DEFAULT 0,
+  `status` TEXT NOT NULL DEFAULT 'placed' CHECK(status IN ('placed', 'settled', 'lost', 'won')),
+  `created_at` TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`draw_id`) REFERENCES `lottery_draws` (`id`) ON DELETE CASCADE
 );
 
 -- The `friends` table stores the friendship relationships between users.
@@ -54,51 +56,5 @@ CREATE TABLE `friends` (
   FOREIGN KEY (`friend_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 );
 
--- The `games` table stores the state of a single round of Thirteen.
-CREATE TABLE `games` (
-  `id` INTEGER PRIMARY KEY AUTOINCREMENT,
-  `room_id` INTEGER NOT NULL,
-  `game_state` TEXT NOT NULL DEFAULT 'dealing' CHECK(game_state IN ('dealing','setting_hands','showdown','finished')),
-  `created_at` TEXT NOT NULL,
-  `updated_at` TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-  FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE
-);
-
--- Trigger to automatically update `updated_at` timestamp on `games` table update.
-CREATE TRIGGER `games_updated_at`
-AFTER UPDATE ON `games`
-FOR EACH ROW
-BEGIN
-  UPDATE `games` SET `updated_at` = (datetime('now','localtime')) WHERE `id` = OLD.id;
-END;
-
--- The `player_hands` table stores the arranged hands for each player in a specific game.
-CREATE TABLE `player_hands` (
-  `id` INTEGER PRIMARY KEY AUTOINCREMENT,
-  `game_id` INTEGER NOT NULL,
-  `player_id` INTEGER NOT NULL, -- Corresponds to user_id in users table
-  `is_submitted` INTEGER NOT NULL DEFAULT 0, -- Using INTEGER for boolean
-  `is_valid` INTEGER DEFAULT NULL, -- Using INTEGER for boolean
-  `front_hand` TEXT DEFAULT NULL, -- Storing JSON as TEXT
-  `middle_hand` TEXT DEFAULT NULL,
-  `back_hand` TEXT DEFAULT NULL,
-  `front_hand_details` TEXT DEFAULT NULL,
-  `middle_hand_details` TEXT DEFAULT NULL,
-  `back_hand_details` TEXT DEFAULT NULL,
-  `score_details` TEXT DEFAULT NULL,
-  `round_score` INTEGER NOT NULL DEFAULT 0,
-  UNIQUE (`game_id`, `player_id`),
-  FOREIGN KEY (`game_id`) REFERENCES `games` (`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`player_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-);
-
 -- The `chat_messages` table stores chat messages for each room.
-CREATE TABLE `chat_messages` (
-  `id` INTEGER PRIMARY KEY AUTOINCREMENT,
-  `room_id` INTEGER NOT NULL,
-  `user_id` INTEGER NOT NULL,
-  `message` TEXT NOT NULL,
-  `created_at` TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-  FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-);
+-- The `chat_messages` table has been removed as it was part of the old game system.
