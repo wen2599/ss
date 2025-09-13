@@ -1,6 +1,6 @@
 <?php
 /**
- * Main API entry point and router for the Thirteen card game.
+ * Main API entry point and router for the application.
  *
  * This script handles incoming API requests, sets up the environment,
  * and routes the request to the appropriate endpoint handler.
@@ -37,7 +37,6 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 require_once 'db.php';
-require_once 'game.php';
 
 function send_json_error($code, $message, $details = null) {
     http_response_code($code);
@@ -56,9 +55,9 @@ $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
 $auth_endpoints = ['register', 'login', 'logout', 'check_session'];
 $user_endpoints = ['find_user', 'transfer_points'];
-$room_endpoints = ['matchmake', 'get_room_state'];
-$game_endpoints = ['start_game', 'submit_hand'];
-$chat_endpoints = ['send_message', 'get_messages'];
+$draw_endpoints = ['get_draws', 'create_draw'];
+$bet_endpoints = ['place_bet', 'get_user_bets'];
+$settlement_endpoints = ['settle_draw'];
 $friend_endpoints = ['add_friend', 'accept_friend', 'get_friends'];
 $leaderboard_endpoints = ['get_leaderboard'];
 
@@ -66,12 +65,12 @@ if (in_array($endpoint, $auth_endpoints)) {
     require_once 'endpoints/auth.php';
 } elseif (in_array($endpoint, $user_endpoints)) {
     require_once 'endpoints/user.php';
-} elseif (in_array($endpoint, $room_endpoints)) {
-    require_once 'endpoints/room.php';
-} elseif (in_array($endpoint, $game_endpoints)) {
-    require_once 'endpoints/game.php';
-} elseif (in_array($endpoint, $chat_endpoints)) {
-    require_once 'endpoints/chat.php';
+} elseif (in_array($endpoint, $draw_endpoints)) {
+    require_once 'endpoints/draws.php';
+} elseif (in_array($endpoint, $bet_endpoints)) {
+    require_once 'endpoints/bets.php';
+} elseif (in_array($endpoint, $settlement_endpoints)) {
+    require_once 'endpoints/settlements.php';
 } elseif (in_array($endpoint, $friend_endpoints)) {
     require_once 'endpoints/friends.php';
 } elseif (in_array($endpoint, $leaderboard_endpoints)) {
