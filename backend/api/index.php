@@ -32,46 +32,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 session_start();
 
+header('Content-Type: application/json; charset=utf-8');
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 require_once 'db.php';
-require_once 'Router.php';
-require_once 'Request.php';
-require_once 'Response.php';
+
+function send_json_error($code, $message, $details = null) {
+    http_response_code($code);
+    $response = ['success' => false, 'message' => $message];
+    if ($details) {
+        $response['details'] = $details;
+    }
+    echo json_encode($response);
+    exit();
+}
 
 $db = get_db();
-$request = new Request();
-$router = new Router();
+$endpoint = $_GET['endpoint'] ?? '';
+$request_method = $_SERVER['REQUEST_METHOD'];
+$data = json_decode(file_get_contents('php://input'), true) ?? [];
 
-// --- Auth Endpoints ---
-$router->add_route('POST', 'register', 'endpoints/auth.php');
-$router->add_route('POST', 'login', 'endpoints/auth.php');
-$router->add_route('POST', 'logout', 'endpoints/auth.php');
-$router->add_route('GET', 'check_session', 'endpoints/auth.php');
+$auth_endpoints = ['register', 'login', 'logout', 'check_session'];
+$user_endpoints = ['find_user', 'transfer_points'];
+$draw_endpoints = ['get_draws', 'create_draw'];
+$bet_endpoints = ['place_bet', 'get_user_bets'];
+$settlement_endpoints = ['settle_draw'];
+$friend_endpoints = ['add_friend', 'accept_friend', 'get_friends'];
+$leaderboard_endpoints = ['get_leaderboard'];
 
-// --- User Endpoints ---
-$router->add_route('GET', 'find_user', 'endpoints/user.php');
-$router->add_route('POST', 'transfer_points', 'endpoints/user.php');
-
-// --- Draw Endpoints ---
-$router->add_route('GET', 'get_draws', 'endpoints/draws.php');
-$router->add_route('POST', 'create_draw', 'endpoints/draws.php');
-
-// --- Bet Endpoints ---
-$router->add_route('POST', 'place_bet', 'endpoints/bets.php');
-$router->add_route('GET', 'get_user_bets', 'endpoints/bets.php');
-
-// --- Settlement Endpoints ---
-$router->add_route('POST', 'settle_draw', 'endpoints/settlements.php');
-
-// --- Friends Endpoints ---
-$router->add_route('POST', 'add_friend', 'endpoints/friends.php');
-$router->add_route('POST', 'accept_friend', 'endpoints/friends.php');
-$router->add_route('GET', 'get_friends', 'endpoints/friends.php');
-
-// --- Leaderboard Endpoints ---
-$router->add_route('GET', 'get_leaderboard', 'endpoints/leaderboard.php');
-
-
-$router->dispatch($request->method, $request->endpoint);
+if (in_array($endpoint, $auth_endpoints)) {
+    require_once 'endpoints/auth.php';
+} elseif (in_array($endpoint, $user_endpoints)) {
+    require_once 'endpoints/user.php';
+} elseif (in_array($endpoint, $draw_endpoints)) {
+    require_once 'endpoints/draws.php';
+} elseif (in_array($endpoint, $bet_endpoints)) {
+    require_once 'endpoints/bets.php';
+} elseif (in_array($endpoint, $settlement_endpoints)) {
+    require_once 'endpoints/settlements.php';
+} elseif (in_array($endpoint, $friend_endpoints)) {
+    require_once 'endpoints/friends.php';
+} elseif (in_array($endpoint, $leaderboard_endpoints)) {
+    require_once 'endpoints/leaderboard.php';
+} else {
+    send_json_error(404, 'Endpoint not found');
+}

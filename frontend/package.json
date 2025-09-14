@@ -22,8 +22,7 @@
     "dev": "vite",
     "start": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "test": "vite test"
+    "preview": "vite preview"
   },
   "browserslist": {
     "production": [
