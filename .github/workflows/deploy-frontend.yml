@@ -36,4 +36,4 @@ jobs:
 
       - name: Deploy to serv00
         run: |
-          rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" ./frontend/dist/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/"
+          rsync -avz --delete --exclude '/api' -e "ssh -o StrictHostKeyChecking=no" ./frontend/dist/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/"
