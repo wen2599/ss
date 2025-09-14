@@ -29,9 +29,7 @@ function App() {
       <div className="auth-section">
         {currentUser ? (
           <div>
-            <span>ID: {currentUser.displayId}</span>
-            <span> | </span>
-            <span>积分: {currentUser.points}</span>
+            <span>ID: {currentUser.displayId} | 积分: {currentUser.points}</span>
             <button onClick={handleLogout} className="header-button">退出登录</button>
           </div>
         ) : (

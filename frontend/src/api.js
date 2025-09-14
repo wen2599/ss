@@ -48,30 +48,6 @@ export const findUser = (phone) => request(`find_user&phone=${phone}`);
 export const transferPoints = (recipientId, amount) => request('transfer_points', 'POST', { recipientId, amount });
 
 
-// --- Game Endpoints ---
-export const matchmake = (game_mode) => request('matchmake', 'POST', { game_mode });
-export const getRoomState = (roomId, stateHash) => {
-    let url = `get_room_state&roomId=${roomId}`;
-    if (stateHash) {
-        url += `&lastStateHash=${stateHash}`;
-    }
-    return request(url);
-};
-export const startGame = (roomId) => request('start_game', 'POST', { roomId });
-
-export const submitHand = (gameId, front, middle, back) => {
-    return request('submit_hand', 'POST', {
-        gameId,
-        front,
-        middle,
-        back
-    });
-};
-
-// --- Chat Endpoints ---
-export const getMessages = (roomId) => request(`get_messages&roomId=${roomId}`);
-export const sendMessage = (roomId, message) => request('send_message', 'POST', { roomId, message });
-
 // --- Friends Endpoints ---
 export const getFriends = () => request('get_friends');
 export const addFriend = (friendId) => request('add_friend', 'POST', { friendId });
