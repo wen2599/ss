@@ -1,54 +1,42 @@
 // frontend/src/pages/Home.tsx
-import React, { useState, useEffect } from 'react';
-import { getLatestDraw } from '../api';
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import AuthForm from '../components/AuthForm';
+import UserProfile from '../components/UserProfile';
 import BettingPanel from '../components/BettingPanel';
+// The draw results can be re-added inside AppContent later if needed.
 
-interface DrawData {
-  period: string;
-  winning_numbers: string;
-  draw_time: string;
-}
+const AppContent: React.FC = () => {
+  // This component holds the main application view for a logged-in user.
+  return (
+    <>
+      <UserProfile />
+      <h2 style={{ textAlign: 'center' }}>Betting Panel</h2>
+      <BettingPanel />
+    </>
+  );
+};
 
 const Home: React.FC = () => {
-  const [latestDraw, setLatestDraw] = useState<DrawData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const fetchDraw = async () => {
-      try {
-        setLoading(true);
-        const response = await getLatestDraw();
-        if (response.data.success) {
-          setLatestDraw(response.data.data);
-        } else {
-          setError(response.data.message);
-        }
-      } catch (err) {
-        setError('无法连接到服务器');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDraw();
-  }, []);
+  const { isAuthenticated, isLoading } = useAuth();
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
 
   return (
-    <div>
-      <h1>六合彩模拟投注</h1>
-      <h2>最新开奖结果</h2>
-      {loading && <p>加载中...</p>}
-      {error && <p style={{ color: 'red' }}>错误: {error}</p>}
-      {latestDraw && (
+    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+      <h1 style={{ textAlign: 'center' }}>六合彩模拟投注</h1>
+
+      {isLoading ? (
+        <p style={{ textAlign: 'center' }}>Loading Application...</p>
+      ) : isAuthenticated ? (
+        <AppContent />
+      ) : (
         <div>
-          <p><strong>期号:</strong> {latestDraw.period}</p>
-          <p><strong>开奖号码:</strong> {latestDraw.winning_numbers}</p>
-          <p><strong>时间:</strong> {latestDraw.draw_time}</p>
+          <AuthForm
+            isRegister={isRegisterMode}
+            onSwitchMode={() => setIsRegisterMode(!isRegisterMode)}
+          />
         </div>
       )}
-      {/* 在这里添加投注面板等其他组件 */}
-      <BettingPanel />
     </div>
   );
 };
