@@ -93,7 +93,7 @@ function getAdminState($conn, $chatId) {
 
 // --- Admin Keyboard Menus ---
 $adminKeyboard = [
-    'keyboard' => [[['text' => 'Find Player'], ['text' => 'Points List']], [['text' => 'Cancel']]],
+    'keyboard' => [[['text' => '查找玩家'], ['text' => '积分列表']], [['text' => '取消']]],
     'resize_keyboard' => true
 ];
 
@@ -126,9 +126,9 @@ if (!$chatId) exit();
 
 if (!isAdmin($conn, $chatId)) {
     if ($isCallback) {
-        answerCallbackQuery($callbackQueryId, "Sorry, you do not have permission.", true);
+        answerCallbackQuery($callbackQueryId, "抱歉，没有权限。", true);
     } else {
-        sendMessage($chatId, "You are not authorized to use this bot.");
+        sendMessage($chatId, "您好！");
     }
     exit();
 }
@@ -143,9 +143,9 @@ if (!$isCallback) {
                 $stmt->bind_param("ii", $newAdminId, $newAdminId);
                 $stmt->execute();
                 $stmt->close();
-                sendMessage($chatId, "✅ Admin `$newAdminId` has been added.");
+                sendMessage($chatId, "✅ 管理员 `$newAdminId` 已添加。");
             } else {
-                sendMessage($chatId, "❌ Invalid ID. Usage: /addadmin [user_id]");
+                sendMessage($chatId, "❌ 无效的ID。用法: /addadmin [user_id]");
             }
             exit();
         }
@@ -153,17 +153,30 @@ if (!$isCallback) {
 
     $adminState = getAdminState($conn, $chatId);
 
-    if ($text === '/start' || $text === 'Cancel') {
+    if ($text === '/start' || $text === '取消') {
         setAdminState($conn, $chatId, null);
-        $welcomeMessage = "Welcome back, Admin! Please choose an action.";
+        $welcomeMessage = "欢迎回来，管理员！请选择一个操作。";
         if (isSuperAdmin($chatId)) {
-            $welcomeMessage .= "\n\nYou are a Super Admin. You can use:\n`/addadmin [user_id]`\n`/removeadmin [user_id]`\n`/listadmins`";
+            $welcomeMessage .= "\n\n您是超级管理员。您可以使用以下命令管理其他管理员：\n`/addadmin [user_id]`\n`/removeadmin [user_id]`\n`/listadmins`";
         }
         sendMessage($chatId, $welcomeMessage, $adminKeyboard);
         exit();
     }
 
-    // ... (rest of message handling logic from user's code, adapted for the new structure and with bug fixes)
+    switch ($text) {
+        case '查找玩家':
+            setAdminState($conn, $chatId, 'awaiting_phone_number');
+            sendMessage($chatId, "请输入您要查找的玩家手机号：");
+            break;
+        case '积分列表':
+            $result = $conn->query("SELECT phone, points FROM users WHERE points > 0 ORDER BY points DESC LIMIT 50");
+            $reply = "积分排行榜 (Top 50):\n---------------------\n";
+            while($row = $result->fetch_assoc()) {
+                $reply .= "手机: `{$row['phone']}` - 积分: *{$row['points']}*\n";
+            }
+            sendMessage($chatId, $reply, $adminKeyboard);
+            break;
+    }
 
 } else { // Is a callback query
     $parts = explode('_', $data, 3);
@@ -178,20 +191,19 @@ if (!$isCallback) {
                 $stmt->bind_param("i", $userId);
                 $stmt->execute();
                 if ($stmt->affected_rows > 0) {
-                    sendMessage($chatId, "Player with ID `{$userId}` has been deleted.");
-                    answerCallbackQuery($callbackQueryId, "Player deleted");
+                    sendMessage($chatId, "已成功删除ID为 `{$userId}` 的玩家。");
+                    answerCallbackQuery($callbackQueryId, "玩家已删除");
                 } else {
-                    sendMessage($chatId, "Deletion failed. Player with ID `{$userId}` not found.");
-                    answerCallbackQuery($callbackQueryId, "Deletion failed", true);
+                    sendMessage($chatId, "删除失败，未找到ID为 `{$userId}` 的玩家。");
+                    answerCallbackQuery($callbackQueryId, "删除失败", true);
                 }
                 $stmt->close();
             }
             break;
         case 'cancel_del':
-             sendMessage($chatId, "Operation cancelled.");
+             sendMessage($chatId, "操作已取消。");
              answerCallbackQuery($callbackQueryId);
              break;
-        // ... (rest of callback handling)
     }
 }
 
