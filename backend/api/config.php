@@ -6,9 +6,11 @@
  */
 
 // --- Database Configuration ---
-// Defines the path to the SQLite database file.
-// This file will be automatically created in the same directory as this script.
-define('DB_PATH', __DIR__ . '/thirteen_game.db');
+// Defines the connection details for the MySQL database.
+define('DB_HOST', 'your_database_host');
+define('DB_NAME', 'your_database_name');
+define('DB_USER', 'your_database_user');
+define('DB_PASS', 'your_database_password');
 
 // --- Telegram Bot Configuration (Optional) ---
 // These are not used in the current application logic but are kept for potential future use.
