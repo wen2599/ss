@@ -15,3 +15,20 @@ export const getLatestDraw = () => {
 export const placeBet = (numbers: number[]) => {
   return apiClient.post('/api/place_bet.php', { numbers });
 };
+
+// --- Auth API ---
+export const register = (credentials: object) => {
+    return apiClient.post('/api/register.php', credentials);
+};
+
+export const login = (credentials: object) => {
+    return apiClient.post('/api/login.php', credentials);
+};
+
+export const logout = () => {
+    return apiClient.post('/api/logout.php');
+};
+
+export const checkSession = () => {
+    return apiClient.get('/api/check_session.php');
+};
