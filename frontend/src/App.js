@@ -6,7 +6,6 @@ import ErrorNotification from './components/ErrorNotification';
 import FriendsList from './components/FriendsList';
 import Leaderboard from './components/Leaderboard';
 import LotteryDraw from './components/LotteryDraw';
-import BettingSlip from './components/BettingSlip';
 import BetHistory from './components/BetHistory';
 import { useAuth } from './contexts/AuthContext';
 import { useError } from './contexts/ErrorContext';
@@ -55,7 +54,6 @@ function App() {
       <div className="main-content">
         <div className="top-section">
           <LotteryDraw />
-          {currentUser && <BettingSlip />}
         </div>
         <div className="bottom-section">
           {currentUser && <BetHistory />}

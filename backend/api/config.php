@@ -15,4 +15,8 @@ define('DB_PATH', __DIR__ . '/thirteen_game.db');
 define('TELEGRAM_BOT_TOKEN', 'YOUR_BOT_TOKEN');
 define('TELEGRAM_BOT_ID', 'YOUR_BOT_ID');
 
+// --- Game Logic Configuration ---
+// Payout multiplier for winning bets.
+define('PAYOUT_MULTIPLIER', 40);
+
 ?>
