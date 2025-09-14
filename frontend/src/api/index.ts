@@ -12,4 +12,6 @@ export const getLatestDraw = () => {
   return apiClient.get('/api/get_latest_draw.php');
 };
 
-// ... 其他 API 请求函数
+export const placeBet = (numbers: number[]) => {
+  return apiClient.post('/api/place_bet.php', { numbers });
+};

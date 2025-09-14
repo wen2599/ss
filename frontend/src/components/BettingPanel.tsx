@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
+import { placeBet } from '../api';
 
 const BettingPanel: React.FC = () => {
   const [selectedNumbers, setSelectedNumbers] = useState<number[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
   const numbers = Array.from({ length: 49 }, (_, i) => i + 1);
 
   const handleNumberClick = (num: number) => {
+    setSuccess('');
+    setError('');
     if (selectedNumbers.includes(num)) {
       setSelectedNumbers(selectedNumbers.filter(n => n !== num));
     } else {
@@ -16,6 +23,31 @@ const BettingPanel: React.FC = () => {
 
   const handleClear = () => {
     setSelectedNumbers([]);
+    setSuccess('');
+    setError('');
+  };
+
+  const handleSubmit = async () => {
+    if (selectedNumbers.length !== 6) {
+      setError('请选择6个号码。');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const response = await placeBet(selectedNumbers);
+      if (response.data.success) {
+        setSuccess(response.data.message);
+        setSelectedNumbers([]);
+      } else {
+        setError(response.data.message);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || '下注失败，请稍后再试。');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -44,8 +76,16 @@ const BettingPanel: React.FC = () => {
       </div>
       <div style={{ marginTop: '10px' }}>
         <button onClick={handleClear}>清除</button>
-        <button style={{ marginLeft: '10px' }} disabled>提交投注</button>
+        <button
+          style={{ marginLeft: '10px' }}
+          onClick={handleSubmit}
+          disabled={selectedNumbers.length !== 6 || loading}
+        >
+          {loading ? '提交中...' : '提交投注'}
+        </button>
       </div>
+      {error && <p style={{ color: 'red', marginTop: '10px' }}>错误: {error}</p>}
+      {success && <p style={{ color: 'green', marginTop: '10px' }}>成功: {success}</p>}
     </div>
   );
 };
