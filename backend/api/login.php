@@ -34,7 +34,7 @@ if (!$conn) {
 
 try {
     // --- Fetch user from database ---
-    $stmt = $conn->prepare("SELECT id, username, password_hash FROM users WHERE username = ?");
+    $stmt = $conn->prepare("SELECT id, username, password_hash, phone, points FROM users WHERE username = ?");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -45,13 +45,17 @@ try {
         session_regenerate_id(true);
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
+        $_SESSION['phone'] = $user['phone'];
+        $_SESSION['points'] = $user['points'];
 
         echo json_encode([
             'success' => true,
             'message' => 'Login successful.',
             'user' => [
                 'id' => $user['id'],
-                'username' => $user['username']
+                'username' => $user['username'],
+                'phone' => $user['phone'],
+                'points' => $user['points']
             ]
         ]);
     } else {

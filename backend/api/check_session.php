@@ -19,7 +19,9 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['username'])) {
         'loggedIn' => true,
         'user' => [
             'id' => $_SESSION['user_id'],
-            'username' => $_SESSION['username']
+            'username' => $_SESSION['username'],
+            'phone' => $_SESSION['phone'] ?? null,
+            'points' => $_SESSION['points'] ?? 0
         ]
     ]);
 } else {

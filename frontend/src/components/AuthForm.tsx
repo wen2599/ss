@@ -9,6 +9,7 @@ interface AuthFormProps {
 const AuthForm: React.FC<AuthFormProps> = ({ isRegister = false, onSwitchMode }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const { login, register } = useAuth();
@@ -19,11 +20,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ isRegister = false, onSwitchMode })
     setMessage('');
     try {
       if (isRegister) {
-        await register({ username, password });
+        await register({ username, password, phone });
         setMessage('Registration successful! Please switch to login.');
       } else {
         await login({ username, password });
-        // On successful login, the AuthProvider will change state and re-render the app
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred.');
@@ -45,6 +45,19 @@ const AuthForm: React.FC<AuthFormProps> = ({ isRegister = false, onSwitchMode })
             style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
           />
         </div>
+        {isRegister && (
+          <div style={{ marginBottom: '15px' }}>
+            <label htmlFor="phone" style={{ display: 'block', marginBottom: '5px' }}>Phone Number</label>
+            <input
+              id="phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+              style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
+            />
+          </div>
+        )}
         <div style={{ marginBottom: '15px' }}>
           <label htmlFor="password" style={{ display: 'block', marginBottom: '5px' }}>Password</label>
           <input

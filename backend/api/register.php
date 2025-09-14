@@ -8,10 +8,11 @@ header('Content-Type: application/json');
 $data = json_decode(file_get_contents('php://input'), true);
 $username = $data['username'] ?? '';
 $password = $data['password'] ?? '';
+$phone = $data['phone'] ?? '';
 
-if (empty($username) || empty($password)) {
+if (empty($username) || empty($password) || empty($phone)) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Username and password are required.']);
+    echo json_encode(['success' => false, 'message' => 'Username, password, and phone number are required.']);
     exit;
 }
 if (!preg_match('/^[a-zA-Z0-9_]{3,20}$/', $username)) {
@@ -24,6 +25,11 @@ if (strlen($password) < 8) {
     echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters long.']);
     exit;
 }
+if (!preg_match('/^[0-9]{10,15}$/', $phone)) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Invalid phone number format.']);
+    exit;
+}
 
 $conn = db_connect();
 if (!$conn) {
@@ -33,14 +39,14 @@ if (!$conn) {
 }
 
 try {
-    // --- Check if username already exists ---
-    $stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
-    $stmt->bind_param("s", $username);
+    // --- Check if username or phone already exists ---
+    $stmt = $conn->prepare("SELECT id FROM users WHERE username = ? OR phone = ?");
+    $stmt->bind_param("ss", $username, $phone);
     $stmt->execute();
     $stmt->store_result();
     if ($stmt->num_rows > 0) {
         http_response_code(409); // 409 Conflict
-        echo json_encode(['success' => false, 'message' => 'Username already taken.']);
+        echo json_encode(['success' => false, 'message' => 'Username or phone number already taken.']);
         $stmt->close();
         $conn->close();
         exit;
@@ -50,8 +56,8 @@ try {
     // --- Hash Password and Insert User ---
     $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
-    $stmt = $conn->prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)");
-    $stmt->bind_param("ss", $username, $password_hash);
+    $stmt = $conn->prepare("INSERT INTO users (username, password_hash, phone) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $username, $password_hash, $phone);
     $stmt->execute();
 
     echo json_encode(['success' => true, 'message' => 'Registration successful.']);
