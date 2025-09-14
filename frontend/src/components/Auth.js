@@ -11,10 +11,12 @@ const Auth = ({ onClose, onLoginSuccess }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         clearError();
-        const response = isLogin ? await login(phone, password) : await register(phone, password);
-        if (response.success) {
+        try {
+            isLogin ? await login(phone, password) : await register(phone, password);
             onLoginSuccess();
             onClose();
+        } catch (error) {
+            // Error is already set in the AuthContext
         }
     };
 
