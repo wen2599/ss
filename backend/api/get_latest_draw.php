@@ -1,19 +1,19 @@
 <?php
 // backend/api/get_latest_draw.php
 require_once 'config.php';
+require_once 'db_connect.php'; // Use the new connector
 header('Content-Type: application/json');
 
-try {
-    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-    $options = [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-    ];
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+$conn = db_connect();
+if (!$conn) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
+    exit;
+}
 
-    $stmt = $pdo->query("SELECT period, winning_numbers, draw_time FROM draws ORDER BY draw_time DESC LIMIT 1");
-    $latest_draw = $stmt->fetch(PDO::FETCH_ASSOC);
+try {
+    $result = $conn->query("SELECT period, winning_numbers, draw_time FROM draws ORDER BY draw_time DESC LIMIT 1");
+    $latest_draw = $result->fetch_assoc();
 
     if ($latest_draw) {
         echo json_encode(['success' => true, 'data' => $latest_draw]);
@@ -21,8 +21,10 @@ try {
         echo json_encode(['success' => false, 'message' => 'No draw data found.']);
     }
 
-} catch (PDOException $e) {
+} catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => 'Database query failed.']);
 }
+
+$conn->close();
 ?>

@@ -53,7 +53,32 @@ try {
     ) ENGINE=InnoDB;";
     $pdo->exec($sql_telegram_messages);
 
-    echo "Database initialized successfully. Tables 'draws', 'bets', and 'telegram_messages' are ready for MySQL.";
+    // SQL to create users table for MySQL
+    $sql_users = "CREATE TABLE IF NOT EXISTS users (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        username VARCHAR(255) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        phone VARCHAR(255) NULL UNIQUE,
+        points INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB;";
+    $pdo->exec($sql_users);
+
+    // SQL to create tg_admins table
+    $sql_tg_admins = "CREATE TABLE IF NOT EXISTS tg_admins (
+        chat_id BIGINT PRIMARY KEY
+    ) ENGINE=InnoDB;";
+    $pdo->exec($sql_tg_admins);
+
+    // SQL to create tg_admin_states table
+    $sql_tg_admin_states = "CREATE TABLE IF NOT EXISTS tg_admin_states (
+        chat_id BIGINT PRIMARY KEY,
+        state VARCHAR(255) NULL,
+        state_data TEXT NULL
+    ) ENGINE=InnoDB;";
+    $pdo->exec($sql_tg_admin_states);
+
+    echo "Database initialized successfully. All tables are ready for MySQL.";
 
 } catch (PDOException $e) {
     // It's better not to expose detailed error messages in production

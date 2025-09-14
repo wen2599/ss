@@ -1,7 +1,20 @@
 <?php
 // backend/api/place_bet.php
 require_once 'config.php';
+require_once 'db_connect.php';
 header('Content-Type: application/json');
+
+// Start session to access logged-in user data
+session_set_cookie_params(['samesite' => 'None', 'secure' => true]);
+session_start();
+
+// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401); // Unauthorized
+    echo json_encode(['success' => false, 'message' => 'You must be logged in to place a bet.']);
+    exit;
+}
+$user_id = $_SESSION['user_id'];
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -10,7 +23,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = json_decode(file_get_contents('php://input'), true);
-
 if (json_last_error() !== JSON_ERROR_NONE) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid JSON.']);
@@ -25,7 +37,6 @@ if (!$numbers || !is_array($numbers) || count($numbers) !== 6) {
     echo json_encode(['success' => false, 'message' => 'You must select exactly 6 numbers.']);
     exit;
 }
-
 foreach ($numbers as $num) {
     if (!is_int($num) || $num < 1 || $num > 49) {
         http_response_code(400);
@@ -34,43 +45,40 @@ foreach ($numbers as $num) {
     }
 }
 
-try {
-    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-    $options = [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-    ];
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+$conn = db_connect();
+if (!$conn) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
+    exit;
+}
 
+try {
     // Get the latest draw period
-    $stmt = $pdo->query("SELECT period FROM draws ORDER BY draw_time DESC LIMIT 1");
-    $latest_draw = $stmt->fetch(PDO::FETCH_ASSOC);
+    $result = $conn->query("SELECT period FROM draws ORDER BY draw_time DESC LIMIT 1");
+    $latest_draw = $result->fetch_assoc();
 
     if (!$latest_draw) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'No active draw period found.']);
+        $conn->close();
         exit;
     }
     $period = $latest_draw['period'];
 
-    // For now, use a hardcoded user_id
-    $user_id = 'user123';
+    // Use the logged-in user's ID
     $numbers_str = implode(',', $numbers);
 
-    $sql = "INSERT INTO bets (user_id, numbers, period) VALUES (:user_id, :numbers, :period)";
-    $stmt = $pdo->prepare($sql);
-
-    $stmt->bindParam(':user_id', $user_id);
-    $stmt->bindParam(':numbers', $numbers_str);
-    $stmt->bindParam(':period', $period);
-
+    $stmt = $conn->prepare("INSERT INTO bets (user_id, numbers, period) VALUES (?, ?, ?)");
+    $stmt->bind_param("iss", $user_id, $numbers_str, $period); // user_id is now an integer
     $stmt->execute();
 
     echo json_encode(['success' => true, 'message' => 'Bet placed successfully!']);
+    $stmt->close();
 
-} catch (PDOException $e) {
+} catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => 'Database query failed.']);
 }
+
+$conn->close();
 ?>

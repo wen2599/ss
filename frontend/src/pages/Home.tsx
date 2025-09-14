@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { getLatestDraw } from '../api';
 import BettingPanel from '../components/BettingPanel';
-import MessageList from '../components/MessageList';
 
 interface DrawData {
   period: string;
@@ -50,7 +49,6 @@ const Home: React.FC = () => {
       )}
       {/* 在这里添加投注面板等其他组件 */}
       <BettingPanel />
-      <MessageList />
     </div>
   );
 };
