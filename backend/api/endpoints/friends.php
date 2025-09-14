@@ -8,68 +8,68 @@
 switch ($endpoint) {
     case 'add_friend':
         if ($request_method !== 'POST') {
-            Response::send_json_error(405, 'Method Not Allowed');
+            send_json_error(405, 'Method Not Allowed');
             break;
         }
         if (!isset($_SESSION['user_id'])) {
-            Response::send_json_error(401, '请先登录');
+            send_json_error(401, '请先登录');
             break;
         }
         $user_id = $_SESSION['user_id'];
         $friend_id = (int)($data['friendId'] ?? 0);
 
         if (!$friend_id) {
-            Response::send_json_error(400, 'Missing friendId.');
+            send_json_error(400, 'Missing friendId.');
             break;
         }
 
         if ($user_id === $friend_id) {
-            Response::send_json_error(400, 'You cannot add yourself as a friend.');
+            send_json_error(400, 'You cannot add yourself as a friend.');
             break;
         }
 
         try {
             $stmt = $db->prepare("INSERT INTO friends (user_id, friend_id) VALUES (?, ?)");
             $stmt->execute([$user_id, $friend_id]);
-            Response::send_json(['success' => true, 'message' => 'Friend request sent.']);
+            echo json_encode(['success' => true, 'message' => 'Friend request sent.']);
         } catch (Exception $e) {
-            Response::send_json_error(500, 'Failed to send friend request: ' . $e->getMessage());
+            send_json_error(500, 'Failed to send friend request: ' . $e->getMessage());
         }
         break;
 
     case 'accept_friend':
         if ($request_method !== 'POST') {
-            Response::send_json_error(405, 'Method Not Allowed');
+            send_json_error(405, 'Method Not Allowed');
             break;
         }
         if (!isset($_SESSION['user_id'])) {
-            Response::send_json_error(401, '请先登录');
+            send_json_error(401, '请先登录');
             break;
         }
         $user_id = $_SESSION['user_id'];
         $friend_id = (int)($data['friendId'] ?? 0);
 
         if (!$friend_id) {
-            Response::send_json_error(400, 'Missing friendId.');
+            send_json_error(400, 'Missing friendId.');
             break;
         }
 
         try {
             $stmt = $db->prepare("UPDATE friends SET status = 'accepted' WHERE user_id = ? AND friend_id = ?");
             $stmt->execute([$friend_id, $user_id]);
-            Response::send_json(['success' => true, 'message' => 'Friend request accepted.']);
+            echo json_encode(['success' => true, 'message' => 'Friend request accepted.']);
         } catch (Exception $e) {
-            Response::send_json_error(500, 'Failed to accept friend request: ' . $e->getMessage());
+            send_json_error(500, 'Failed to accept friend request: ' . $e->getMessage());
         }
         break;
 
     case 'get_friends':
         if ($request_method !== 'GET') {
-            Response::send_json_error(405, 'Method Not Allowed');
+            send_json_error(405, 'Method Not Allowed');
             break;
         }
         if (!isset($_SESSION['user_id'])) {
-            Response::send_json_error(401, '请先登录');
+            send_json_error(401, '请先登录');
             break;
         }
         $user_id = $_SESSION['user_id'];
@@ -78,9 +78,9 @@ switch ($endpoint) {
             $stmt = $db->prepare("SELECT u.id, u.display_id, f.status FROM users u JOIN friends f ON u.id = f.friend_id WHERE f.user_id = ?");
             $stmt->execute([$user_id]);
             $friends = $stmt->fetchAll();
-            Response::send_json(['success' => true, 'friends' => $friends]);
+            echo json_encode(['success' => true, 'friends' => $friends]);
         } catch (Exception $e) {
-            Response::send_json_error(500, 'Failed to get friends: ' . $e->getMessage());
+            send_json_error(500, 'Failed to get friends: ' . $e->getMessage());
         }
         break;
 }

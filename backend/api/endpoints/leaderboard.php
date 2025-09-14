@@ -6,7 +6,7 @@
 switch ($endpoint) {
     case 'get_leaderboard':
         if ($request_method !== 'GET') {
-            Response::send_json_error(405, 'Method Not Allowed');
+            send_json_error(405, 'Method Not Allowed');
             break;
         }
 
@@ -14,9 +14,9 @@ switch ($endpoint) {
             $stmt = $db->prepare("SELECT display_id, points FROM users ORDER BY points DESC LIMIT 10");
             $stmt->execute();
             $leaderboard = $stmt->fetchAll();
-            Response::send_json(['success' => true, 'leaderboard' => $leaderboard]);
+            echo json_encode(['success' => true, 'leaderboard' => $leaderboard]);
         } catch (Exception $e) {
-            Response::send_json_error(500, 'Failed to get leaderboard: ' . $e->getMessage());
+            send_json_error(500, 'Failed to get leaderboard: ' . $e->getMessage());
         }
         break;
 }

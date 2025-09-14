@@ -10,12 +10,12 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const verifySession = async () => {
             try {
-                const data = await checkSession();
-                if (data.isAuthenticated) {
-                    setCurrentUser(data.user);
+                const response = await checkSession();
+                if (response.success && response.isAuthenticated) {
+                    setCurrentUser(response.user);
                 }
             } catch (err) {
-                setError(err.message);
+                setError("无法连接到服务器，请稍后重试。");
             }
         };
         verifySession();
@@ -23,24 +23,34 @@ export const AuthProvider = ({ children }) => {
 
     const login = useCallback(async (phone, password) => {
         try {
-            const data = await apiLogin(phone, password);
-            setCurrentUser(data.user);
-            setError(null);
-            return data;
+            const response = await apiLogin(phone, password);
+            if (response.success) {
+                setCurrentUser(response.user);
+                setError(null);
+                return response;
+            } else {
+                setError(response.message);
+                return response;
+            }
         } catch (err) {
-            setError(err.message);
-            throw err;
+            setError('登录请求失败，请检查网络连接。');
+            return { success: false, message: '登录请求失败，请检查网络连接。' };
         }
     }, []);
 
     const register = useCallback(async (phone, password) => {
         try {
-            const data = await apiRegister(phone, password);
-            setError(null);
-            return data;
+            const response = await apiRegister(phone, password);
+            if (response.success) {
+                setError(null);
+                return response;
+            } else {
+                setError(response.message);
+                return response;
+            }
         } catch (err) {
-            setError(err.message);
-            throw err;
+            setError('注册请求失败，请检查网络连接。');
+            return { success: false, message: '注册请求失败，请检查网络连接。' };
         }
     }, []);
 
