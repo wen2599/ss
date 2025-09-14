@@ -58,3 +58,10 @@ CREATE TABLE `friends` (
 
 -- The `chat_messages` table stores chat messages for each room.
 -- The `chat_messages` table has been removed as it was part of the old game system.
+
+-- The `bot_settings` table stores persistent key-value settings for the Telegram bot,
+-- such as the last processed update_id.
+CREATE TABLE `bot_settings` (
+  `key` TEXT PRIMARY KEY,
+  `value` TEXT
+);
