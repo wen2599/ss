@@ -16,6 +16,7 @@ define('DB_PASS', 'your_database_password');
 // These are not used in the current application logic but are kept for potential future use.
 define('TELEGRAM_BOT_TOKEN', 'YOUR_BOT_TOKEN');
 define('TELEGRAM_CHANNEL_ID', 'YOUR_CHANNEL_ID');
+define('TELEGRAM_SUPER_ADMIN_ID', 1878794912); // Replace with your own Telegram User ID
 
 // --- Game Logic Configuration ---
 // Payout multiplier for winning bets.
