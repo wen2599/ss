@@ -24,19 +24,22 @@ async function request(endpoint, method = 'GET', body = null) {
     if (body) {
         options.body = JSON.stringify(body);
     }
+
+    const response = await fetch(url, options);
+    const text = await response.text();
+    let data;
     try {
-        const response = await fetch(url, options);
-        const text = await response.text();
-        try {
-            return JSON.parse(text);
-        } catch (e) {
-            console.error("Failed to parse JSON:", text);
-            return { success: false, message: "Server returned non-JSON response." };
-        }
-    } catch (error) {
-        console.error(`API request failed to endpoint: ${endpoint}`, error);
-        return { success: false, message: error.message };
+        data = JSON.parse(text);
+    } catch (e) {
+        console.error("Failed to parse JSON:", text);
+        throw new Error("Server returned non-JSON response.");
     }
+
+    if (!data.success) {
+        throw new Error(data.message || 'An unknown error occurred.');
+    }
+
+    return data;
 }
 
 // --- Auth Endpoints ---
