@@ -16,6 +16,6 @@ export const placeBet = (numbers: number[]) => {
   return apiClient.post('/api/place_bet.php', { numbers });
 };
 
-export const getChannelInfo = () => {
-  return apiClient.get('/api/get_channel_info.php');
+export const getMessages = () => {
+  return apiClient.get('/api/get_messages.php');
 };
