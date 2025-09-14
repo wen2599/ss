@@ -13,7 +13,7 @@ define('DB_PATH', __DIR__ . '/thirteen_game.db');
 // --- Telegram Bot Configuration (Optional) ---
 // These are not used in the current application logic but are kept for potential future use.
 define('TELEGRAM_BOT_TOKEN', 'YOUR_BOT_TOKEN');
-define('TELEGRAM_BOT_ID', 'YOUR_BOT_ID');
+define('TELEGRAM_CHANNEL_ID', 'YOUR_CHANNEL_ID');
 
 // --- Game Logic Configuration ---
 // Payout multiplier for winning bets.
