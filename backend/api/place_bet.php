@@ -35,8 +35,13 @@ foreach ($numbers as $num) {
 }
 
 try {
-    $pdo = new PDO('sqlite:' . DB_PATH);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+    $options = [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES   => false,
+    ];
+    $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
 
     // Get the latest draw period
     $stmt = $pdo->query("SELECT period FROM draws ORDER BY draw_time DESC LIMIT 1");

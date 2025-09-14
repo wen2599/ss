@@ -3,16 +3,23 @@
 require_once 'config.php';
 
 try {
-    $pdo = new PDO('sqlite:' . DB_PATH);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // Establish connection to MySQL
+    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+    $options = [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES   => false,
+    ];
+    $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
 
-    // Create draws table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS draws (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        period TEXT NOT NULL UNIQUE,
-        winning_numbers TEXT NOT NULL,
+    // SQL to create draws table for MySQL
+    $sql_draws = "CREATE TABLE IF NOT EXISTS draws (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        period VARCHAR(255) NOT NULL UNIQUE,
+        winning_numbers VARCHAR(255) NOT NULL,
         draw_time DATETIME NOT NULL
-    )");
+    ) ENGINE=InnoDB;";
+    $pdo->exec($sql_draws);
 
     // Check if there is any data in draws table
     $stmt = $pdo->query("SELECT COUNT(*) FROM draws");
@@ -25,19 +32,24 @@ try {
         ");
     }
 
-    // Create bets table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS bets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT NOT NULL,
-        numbers TEXT NOT NULL,
-        period TEXT NOT NULL,
-        bet_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    // SQL to create bets table for MySQL
+    $sql_bets = "CREATE TABLE IF NOT EXISTS bets (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id VARCHAR(255) NOT NULL,
+        numbers VARCHAR(255) NOT NULL,
+        period VARCHAR(255) NOT NULL,
+        bet_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (period) REFERENCES draws (period)
-    )");
+    ) ENGINE=InnoDB;";
+    $pdo->exec($sql_bets);
 
-    echo "Database initialized successfully. Tables 'draws' and 'bets' are ready.";
+    echo "Database initialized successfully. Tables 'draws' and 'bets' are ready for MySQL.";
 
 } catch (PDOException $e) {
-    die("Database initialization failed: " . $e->getMessage());
+    // It's better not to expose detailed error messages in production
+    // For debugging, you can uncomment the line below
+    // die("Database initialization failed: " . $e->getMessage());
+    http_response_code(500);
+    die("Database initialization failed. Please check the server logs.");
 }
 ?>
