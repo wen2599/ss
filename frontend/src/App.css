@@ -1,0 +1,51 @@
+.App {
+  text-align: left;
+}
+
+.history-container h1 {
+  font-size: 2rem;
+  color: #1d3557;
+  border-bottom: 2px solid #457b9d;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.draw-item {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.3s ease;
+}
+
+.draw-item:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.draw-item h3 {
+  margin: 0 0 0.5rem 0;
+  color: #4a4a4a;
+}
+
+.draw-item p {
+  margin: 0 0 1rem 0;
+  color: #7a7a7a;
+  font-size: 0.9rem;
+}
+
+.draw-numbers {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.draw-numbers span {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.draw-numbers .special-number {
+  color: #e63946; /* A nice red for the special number */
+}
