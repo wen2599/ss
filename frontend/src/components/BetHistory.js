@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import request from '../api';
+import { getUserBets } from '../api';
 import { useError } from '../contexts/ErrorContext';
 
 function BetHistory() {
@@ -10,8 +10,12 @@ function BetHistory() {
   useEffect(() => {
     const fetchBets = async () => {
       try {
-        const response = await request('get_user_bets');
-        setBets(response.bets);
+        const response = await getUserBets();
+        if (response.success) {
+          setBets(response.bets);
+        } else {
+          setError(response.message);
+        }
       } catch (err) {
         setError(err.message);
       } finally {
