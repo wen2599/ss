@@ -77,5 +77,11 @@ export const getFriends = () => request('get_friends');
 export const addFriend = (friendId) => request('add_friend', 'POST', { friendId });
 export const acceptFriend = (friendId) => request('accept_friend', 'POST', { friendId });
 
+// --- Draw Endpoints ---
+export const getDraws = () => request('get_draws');
+
+// --- Bet Endpoints ---
+export const getUserBets = () => request('get_user_bets');
+
 // --- Leaderboard Endpoints ---
 export const getLeaderboard = () => request('get_leaderboard');

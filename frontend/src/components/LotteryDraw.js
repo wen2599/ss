@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import request from '../api';
+import { getDraws } from '../api';
 
 function LotteryDraw() {
   const [draws, setDraws] = useState([]);
@@ -9,8 +9,12 @@ function LotteryDraw() {
   useEffect(() => {
     const fetchDraws = async () => {
       try {
-        const response = await request('get_draws');
-        setDraws(response.draws);
+        const response = await getDraws();
+        if (response.success) {
+            setDraws(response.draws);
+        } else {
+            setError(response.message);
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -19,7 +23,7 @@ function LotteryDraw() {
     };
 
     fetchDraws();
-  }, []);
+  }, [setError]);
 
   if (loading) return <div>Loading draws...</div>;
   if (error) return <div>Error: {error}</div>;
