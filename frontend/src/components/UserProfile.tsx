@@ -9,9 +9,14 @@ const UserProfile: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: '10px', border: '1px solid #ccc', marginTop: '20px', backgroundColor: '#f9f9f9' }}>
-      <span>Welcome, <strong>{user.username}</strong>!</span>
-      <button onClick={logout} style={{ float: 'right' }}>
+    <div style={{ padding: '10px', border: '1px solid #ccc', marginTop: '20px', backgroundColor: '#f9f9f9', overflow: 'hidden' }}>
+      <div style={{ float: 'left' }}>
+        <p style={{ margin: 0 }}>Welcome, <strong>{user.username}</strong></p>
+        <p style={{ margin: '5px 0 0 0', color: '#555' }}>
+          Phone: {user.phone} | Points: {user.points}
+        </p>
+      </div>
+      <button onClick={logout} style={{ float: 'right', padding: '8px 12px' }}>
         Logout
       </button>
     </div>
