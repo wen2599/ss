@@ -38,7 +38,9 @@ body {
   border-radius: 8px;
   padding: 20px;
   flex: 1;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .text-area {
