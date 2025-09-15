@@ -2,7 +2,22 @@
 // backend/api/register.php
 require_once 'config.php';
 require_once 'db_connect.php';
+
 header('Content-Type: application/json');
+// Handle CORS preflight request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    header('Access-Control-Allow-Origin: *'); // Or specify your frontend origin
+    header('Access-Control-Allow-Methods: POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
+    exit;
+}
+
+// Ensure the request method is POST
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['success' => false, 'message' => 'Only POST method is allowed.']);
+    exit;
+}
 
 // --- Input Validation ---
 $data = json_decode(file_get_contents('php://input'), true);
