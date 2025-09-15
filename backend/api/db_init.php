@@ -15,9 +15,11 @@ try {
     // SQL to create draws table for MySQL
     $sql_draws = "CREATE TABLE IF NOT EXISTS draws (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        period VARCHAR(255) NOT NULL UNIQUE,
+        period VARCHAR(255) NOT NULL,
         winning_numbers VARCHAR(255) NOT NULL,
-        draw_time DATETIME NOT NULL
+        draw_time DATETIME NOT NULL,
+        lottery_type VARCHAR(255) NOT NULL,
+        UNIQUE KEY (period, lottery_type)
     ) ENGINE=InnoDB;";
     $pdo->exec($sql_draws);
 
@@ -27,8 +29,10 @@ try {
 
     if ($count == 0) {
         // Insert some dummy data if table is empty
-        $pdo->exec("INSERT INTO draws (period, winning_numbers, draw_time) VALUES
-            ('2024001', '01,02,03,04,05,06', '2024-01-01 21:30:00')
+        $pdo->exec("INSERT INTO draws (period, winning_numbers, draw_time, lottery_type) VALUES
+            ('2024001', '01,02,03,04,05,06', '2024-01-01 21:30:00', 'Xin Ao'),
+            ('2024001', '07,08,09,10,11,12', '2024-01-01 21:30:00', 'Lao Ao'),
+            ('2024001', '13,14,15,16,17,18', '2024-01-01 21:30:00', 'Gang Cai')
         ");
     }
 
