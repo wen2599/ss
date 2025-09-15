@@ -22,4 +22,7 @@ define('TELEGRAM_SUPER_ADMIN_ID', 1878794912); // Replace with your own Telegram
 // Payout multiplier for winning bets.
 define('PAYOUT_MULTIPLIER', 40);
 
+// --- Worker Configuration ---
+define('WORKER_SECRET', 'your_worker_secret');
+
 ?>

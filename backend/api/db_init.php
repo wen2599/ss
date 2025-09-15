@@ -15,9 +15,11 @@ try {
     // SQL to create draws table for MySQL
     $sql_draws = "CREATE TABLE IF NOT EXISTS draws (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        period VARCHAR(255) NOT NULL UNIQUE,
+        period VARCHAR(255) NOT NULL,
         winning_numbers VARCHAR(255) NOT NULL,
-        draw_time DATETIME NOT NULL
+        draw_time DATETIME NOT NULL,
+        lottery_type VARCHAR(255) NOT NULL,
+        UNIQUE KEY (period, lottery_type)
     ) ENGINE=InnoDB;";
     $pdo->exec($sql_draws);
 
@@ -27,31 +29,12 @@ try {
 
     if ($count == 0) {
         // Insert some dummy data if table is empty
-        $pdo->exec("INSERT INTO draws (period, winning_numbers, draw_time) VALUES
-            ('2024001', '01,02,03,04,05,06', '2024-01-01 21:30:00')
+        $pdo->exec("INSERT INTO draws (period, winning_numbers, draw_time, lottery_type) VALUES
+            ('2024001', '01,02,03,04,05,06', '2024-01-01 21:30:00', 'Xin Ao'),
+            ('2024001', '07,08,09,10,11,12', '2024-01-01 21:30:00', 'Lao Ao'),
+            ('2024001', '13,14,15,16,17,18', '2024-01-01 21:30:00', 'Gang Cai')
         ");
     }
-
-    // SQL to create bets table for MySQL
-    $sql_bets = "CREATE TABLE IF NOT EXISTS bets (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        user_id VARCHAR(255) NOT NULL,
-        numbers VARCHAR(255) NOT NULL,
-        period VARCHAR(255) NOT NULL,
-        bet_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (period) REFERENCES draws (period)
-    ) ENGINE=InnoDB;";
-    $pdo->exec($sql_bets);
-
-    // SQL to create telegram_messages table for MySQL
-    $sql_telegram_messages = "CREATE TABLE IF NOT EXISTS telegram_messages (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        message_id BIGINT NOT NULL UNIQUE,
-        chat_id BIGINT NOT NULL,
-        message_json JSON NOT NULL,
-        received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB;";
-    $pdo->exec($sql_telegram_messages);
 
     // SQL to create users table for MySQL
     $sql_users = "CREATE TABLE IF NOT EXISTS users (
@@ -63,6 +46,20 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB;";
     $pdo->exec($sql_users);
+
+    // SQL to create bets table for MySQL
+    $sql_bets = "CREATE TABLE IF NOT EXISTS bets (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id INT NOT NULL,
+        numbers VARCHAR(255) NOT NULL,
+        period VARCHAR(255) NOT NULL,
+        bet_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        lottery_type VARCHAR(255) NOT NULL,
+        settled TINYINT(1) NOT NULL DEFAULT 0,
+        winnings DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    ) ENGINE=InnoDB;";
+    $pdo->exec($sql_bets);
 
     // SQL to create tg_admins table
     $sql_tg_admins = "CREATE TABLE IF NOT EXISTS tg_admins (

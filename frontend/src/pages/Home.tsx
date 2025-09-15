@@ -1,70 +1,74 @@
 // frontend/src/pages/Home.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import AuthForm from '../components/AuthForm';
+import UserProfile from '../components/UserProfile';
+import BettingPanel from '../components/BettingPanel';
 import LotteryBanner from '../components/LotteryBanner';
+import { getLatestDraw } from '../api';
 
-const dummyDraws = {
-  '新澳': { lottery_type: '新澳', winning_numbers: '01,02,03,04,05,06' },
-  '老澳': { lottery_type: '老澳', winning_numbers: '07,08,09,10,11,12' },
-  '港彩': { lottery_type: '港彩', winning_numbers: '13,14,15,16,17,18' },
-};
+interface Lottery {
+  lottery_type: string;
+  winning_numbers: string;
+}
 
-const Home: React.FC = () => {
-  const [betText, setBetText] = useState('');
-  const [resultText, setResultText] = useState('');
+const AppContent: React.FC = () => {
+  const [draws, setDraws] = useState<Record<string, Lottery> | null>(null);
 
-  const handleSettle = () => {
-    const lines = betText.split('\n');
-    let results = '';
-
-    lines.forEach(line => {
-      const parts = line.split(' ');
-      if (parts.length < 2) return;
-
-      const lotteryType = parts[0];
-      const betNumbers = parts.slice(1);
-      const draw = dummyDraws[lotteryType as keyof typeof dummyDraws];
-
-      if (draw) {
-        const winningNumbers = draw.winning_numbers.split(',');
-        const matchedNumbers = betNumbers.filter(num => winningNumbers.includes(num));
-        const winnings = matchedNumbers.length * 10; // Simple placeholder logic
-        results += `${line} -> 匹配: ${matchedNumbers.length}, 奖金: ${winnings}\n`;
+  useEffect(() => {
+    const fetchDraws = async () => {
+      try {
+        const response = await getLatestDraw();
+        if (response.data.success) {
+          setDraws(response.data.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch latest draws", error);
       }
-    });
-
-    setResultText(results);
-  };
+    };
+    fetchDraws();
+  }, []);
 
   return (
-    <div className="container">
-      <h1 className="title">六合彩结算</h1>
+    <>
       <div className="banner-container">
-        {Object.values(dummyDraws).map((lottery) => (
+        {draws && Object.values(draws).map((lottery) => (
           <LotteryBanner key={lottery.lottery_type} lottery={lottery} />
         ))}
       </div>
-      <div>
-        <textarea
-          className="text-area"
-          placeholder="在这里输入投注内容..."
-          value={betText}
-          onChange={(e) => setBetText(e.target.value)}
-        />
+      <UserProfile />
+      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <Link to="/bet-history">
+          <button className="button">投注历史</button>
+        </Link>
       </div>
-      <div>
-        <textarea
-          className="text-area"
-          placeholder="结算结果将显示在这里..."
-          value={resultText}
-          readOnly
-        />
-        <button className="button" onClick={() => navigator.clipboard.writeText(resultText)}>
-          复制结果
-        </button>
-        <button className="button" onClick={handleSettle} style={{ marginLeft: '10px' }}>
-          结算
-        </button>
-      </div>
+      <h2 style={{ textAlign: 'center' }}>Betting Panel</h2>
+      <BettingPanel />
+    </>
+  );
+};
+
+const Home: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+
+  return (
+    <div className="container">
+      <h1 className="title">六合彩模拟投注</h1>
+
+      {isLoading ? (
+        <p style={{ textAlign: 'center' }}>Loading Application...</p>
+      ) : isAuthenticated ? (
+        <AppContent />
+      ) : (
+        <div>
+          <AuthForm
+            isRegister={isRegisterMode}
+            onSwitchMode={() => setIsRegisterMode(!isRegisterMode)}
+          />
+        </div>
+      )}
     </div>
   );
 };
