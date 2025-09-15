@@ -1,79 +1,70 @@
 // frontend/src/pages/Home.tsx
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import AuthForm from '../components/AuthForm';
-import UserProfile from '../components/UserProfile';
-import BettingPanel from '../components/BettingPanel';
+import React, { useState } from 'react';
 import LotteryBanner from '../components/LotteryBanner';
-import { getLatestDraw } from '../api';
 
-interface Lottery {
-  lottery_type: string;
-  period: string;
-  winning_numbers: string;
-  draw_time: string;
-}
-
-const AppContent: React.FC = () => {
-  const [draws, setDraws] = useState<Record<string, Lottery> | null>(null);
-
-  useEffect(() => {
-    const fetchDraws = async () => {
-      try {
-        const response = await getLatestDraw();
-        if (response.data.success) {
-          setDraws(response.data.data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch latest draws", error);
-      }
-    };
-    fetchDraws();
-  }, []);
-
-  // This component holds the main application view for a logged-in user.
-  return (
-    <>
-      {draws && (
-        <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '20px' }}>
-          {Object.values(draws).map((lottery) => (
-            <LotteryBanner key={lottery.lottery_type} lottery={lottery} />
-          ))}
-        </div>
-      )}
-      <UserProfile />
-      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-        <Link to="/settlement">
-          <button>Go to Settlement</button>
-        </Link>
-      </div>
-      <h2 style={{ textAlign: 'center' }}>Betting Panel</h2>
-      <BettingPanel />
-    </>
-  );
+const dummyDraws = {
+  '新澳': { lottery_type: '新澳', period: '2024001', winning_numbers: '01,02,03,04,05,06', draw_time: '2024-01-01 21:30:00' },
+  '老澳': { lottery_type: '老澳', period: '2024001', winning_numbers: '07,08,09,10,11,12', draw_time: '2024-01-01 21:30:00' },
+  '港彩': { lottery_type: '港彩', period: '2024001', winning_numbers: '13,14,15,16,17,18', draw_time: '2024-01-01 21:30:00' },
 };
 
 const Home: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [betText, setBetText] = useState('');
+  const [resultText, setResultText] = useState('');
+
+  const handleSettle = () => {
+    const lines = betText.split('\n');
+    let results = '';
+
+    lines.forEach(line => {
+      const parts = line.split(' ');
+      if (parts.length < 2) return;
+
+      const lotteryType = parts[0];
+      const betNumbers = parts.slice(1);
+      const draw = dummyDraws[lotteryType as keyof typeof dummyDraws];
+
+      if (draw) {
+        const winningNumbers = draw.winning_numbers.split(',');
+        const matchedNumbers = betNumbers.filter(num => winningNumbers.includes(num));
+        const winnings = matchedNumbers.length * 10; // Simple placeholder logic
+        results += `${line} -> 匹配: ${matchedNumbers.length}, 奖金: ${winnings}\n`;
+      }
+    });
+
+    setResultText(results);
+  };
 
   return (
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <h1 style={{ textAlign: 'center' }}>六合彩模拟投注</h1>
-
-      {isLoading ? (
-        <p style={{ textAlign: 'center' }}>Loading Application...</p>
-      ) : isAuthenticated ? (
-        <AppContent />
-      ) : (
-        <div>
-          <AuthForm
-            isRegister={isRegisterMode}
-            onSwitchMode={() => setIsRegisterMode(!isRegisterMode)}
-          />
-        </div>
-      )}
+      <h1 style={{ textAlign: 'center' }}>六合彩结算</h1>
+      <div className="banner-container">
+        {Object.values(dummyDraws).map((lottery) => (
+          <LotteryBanner key={lottery.lottery_type} lottery={lottery} />
+        ))}
+      </div>
+      <div>
+        <textarea
+          style={{ width: '100%', height: '200px', marginBottom: '10px' }}
+          placeholder="在这里输入投注内容..."
+          value={betText}
+          onChange={(e) => setBetText(e.target.value)}
+        />
+      </div>
+      <div>
+        <textarea
+          style={{ width: '100%', height: '200px', marginBottom: '10px' }}
+          placeholder="结算结果将显示在这里..."
+          value={resultText}
+          readOnly
+        />
+        <button onClick={() => navigator.clipboard.writeText(resultText)}>
+          复制结果
+        </button>
+        <button onClick={handleSettle} style={{ marginLeft: '10px' }}>
+          结算
+        </button>
+      </div>
     </div>
   );
 };

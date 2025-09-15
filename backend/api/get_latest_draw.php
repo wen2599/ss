@@ -12,23 +12,11 @@ if (!$conn) {
 }
 
 try {
-    $sql = "
-        SELECT d.period, d.winning_numbers, d.draw_time, d.lottery_type
-        FROM draws d
-        INNER JOIN (
-            SELECT lottery_type, MAX(draw_time) AS max_draw_time
-            FROM draws
-            GROUP BY lottery_type
-        ) AS latest_draws ON d.lottery_type = latest_draws.lottery_type AND d.draw_time = latest_draws.max_draw_time
-    ";
-    $result = $conn->query($sql);
-    $latest_draws = [];
-    while($row = $result->fetch_assoc()) {
-        $latest_draws[$row['lottery_type']] = $row;
-    }
+    $result = $conn->query("SELECT period, winning_numbers, draw_time FROM draws ORDER BY draw_time DESC LIMIT 1");
+    $latest_draw = $result->fetch_assoc();
 
-    if (!empty($latest_draws)) {
-        echo json_encode(['success' => true, 'data' => $latest_draws]);
+    if ($latest_draw) {
+        echo json_encode(['success' => true, 'data' => $latest_draw]);
     } else {
         echo json_encode(['success' => false, 'message' => 'No draw data found.']);
     }
