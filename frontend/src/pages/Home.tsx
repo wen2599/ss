@@ -36,8 +36,8 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <h1 style={{ textAlign: 'center' }}>六合彩结算</h1>
+    <div className="container">
+      <h1 className="title">六合彩结算</h1>
       <div className="banner-container">
         {Object.values(dummyDraws).map((lottery) => (
           <LotteryBanner key={lottery.lottery_type} lottery={lottery} />
@@ -45,7 +45,7 @@ const Home: React.FC = () => {
       </div>
       <div>
         <textarea
-          style={{ width: '100%', height: '200px', marginBottom: '10px' }}
+          className="text-area"
           placeholder="在这里输入投注内容..."
           value={betText}
           onChange={(e) => setBetText(e.target.value)}
@@ -53,15 +53,15 @@ const Home: React.FC = () => {
       </div>
       <div>
         <textarea
-          style={{ width: '100%', height: '200px', marginBottom: '10px' }}
+          className="text-area"
           placeholder="结算结果将显示在这里..."
           value={resultText}
           readOnly
         />
-        <button onClick={() => navigator.clipboard.writeText(resultText)}>
+        <button className="button" onClick={() => navigator.clipboard.writeText(resultText)}>
           复制结果
         </button>
-        <button onClick={handleSettle} style={{ marginLeft: '10px' }}>
+        <button className="button" onClick={handleSettle} style={{ marginLeft: '10px' }}>
           结算
         </button>
       </div>
