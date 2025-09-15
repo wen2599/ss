@@ -7,10 +7,10 @@
 
 // --- Database Configuration ---
 // Defines the connection details for the MySQL database.
-define('DB_HOST', 'your_database_host');
-define('DB_NAME', 'your_database_name');
-define('DB_USER', 'your_database_user');
-define('DB_PASS', 'your_database_password');
+define('DB_HOST', '127.0.0.1');
+define('DB_NAME', 'lottery_db');
+define('DB_USER', 'lottery_user');
+define('DB_PASS', 'password');
 
 // --- Telegram Bot Configuration (Optional) ---
 // These are not used in the current application logic but are kept for potential future use.
