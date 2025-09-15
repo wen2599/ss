@@ -30,6 +30,7 @@ if (json_last_error() !== JSON_ERROR_NONE) {
 }
 
 $numbers = $data['numbers'] ?? null;
+$lottery_type = $data['lottery_type'] ?? null;
 
 // --- Validation ---
 if (!$numbers || !is_array($numbers) || count($numbers) !== 6) {
@@ -45,6 +46,12 @@ foreach ($numbers as $num) {
     }
 }
 
+if (empty($lottery_type)) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Lottery type is required.']);
+    exit;
+}
+
 $conn = db_connect();
 if (!$conn) {
     http_response_code(500);
@@ -53,13 +60,16 @@ if (!$conn) {
 }
 
 try {
-    // Get the latest draw period
-    $result = $conn->query("SELECT period FROM draws ORDER BY draw_time DESC LIMIT 1");
+    // Get the latest draw period for the specified lottery type
+    $stmt = $conn->prepare("SELECT period FROM draws WHERE lottery_type = ? ORDER BY draw_time DESC LIMIT 1");
+    $stmt->bind_param("s", $lottery_type);
+    $stmt->execute();
+    $result = $stmt->get_result();
     $latest_draw = $result->fetch_assoc();
 
     if (!$latest_draw) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'No active draw period found.']);
+        echo json_encode(['success' => false, 'message' => 'No active draw period found for this lottery type.']);
         $conn->close();
         exit;
     }
@@ -68,8 +78,8 @@ try {
     // Use the logged-in user's ID
     $numbers_str = implode(',', $numbers);
 
-    $stmt = $conn->prepare("INSERT INTO bets (user_id, numbers, period) VALUES (?, ?, ?)");
-    $stmt->bind_param("iss", $user_id, $numbers_str, $period); // user_id is now an integer
+    $stmt = $conn->prepare("INSERT INTO bets (user_id, numbers, period, lottery_type) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("isss", $user_id, $numbers_str, $period, $lottery_type);
     $stmt->execute();
 
     echo json_encode(['success' => true, 'message' => 'Bet placed successfully!']);
