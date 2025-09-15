@@ -3,9 +3,9 @@ import React, { useState } from 'react';
 import LotteryBanner from '../components/LotteryBanner';
 
 const dummyDraws = {
-  'Xin Ao': { lottery_type: 'Xin Ao', period: '2024001', winning_numbers: '01,02,03,04,05,06', draw_time: '2024-01-01 21:30:00' },
-  'Lao Ao': { lottery_type: 'Lao Ao', period: '2024001', winning_numbers: '07,08,09,10,11,12', draw_time: '2024-01-01 21:30:00' },
-  'Gang Cai': { lottery_type: 'Gang Cai', period: '2024001', winning_numbers: '13,14,15,16,17,18', draw_time: '2024-01-01 21:30:00' },
+  '新澳': { lottery_type: '新澳', period: '2024001', winning_numbers: '01,02,03,04,05,06', draw_time: '2024-01-01 21:30:00' },
+  '老澳': { lottery_type: '老澳', period: '2024001', winning_numbers: '07,08,09,10,11,12', draw_time: '2024-01-01 21:30:00' },
+  '港彩': { lottery_type: '港彩', period: '2024001', winning_numbers: '13,14,15,16,17,18', draw_time: '2024-01-01 21:30:00' },
 };
 
 const Home: React.FC = () => {
@@ -28,7 +28,7 @@ const Home: React.FC = () => {
         const winningNumbers = draw.winning_numbers.split(',');
         const matchedNumbers = betNumbers.filter(num => winningNumbers.includes(num));
         const winnings = matchedNumbers.length * 10; // Simple placeholder logic
-        results += `${line} -> Matched: ${matchedNumbers.length}, Winnings: ${winnings}\n`;
+        results += `${line} -> 匹配: ${matchedNumbers.length}, 奖金: ${winnings}\n`;
       }
     });
 
@@ -38,7 +38,7 @@ const Home: React.FC = () => {
   return (
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
       <h1 style={{ textAlign: 'center' }}>六合彩结算</h1>
-      <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '20px' }}>
+      <div className="banner-container">
         {Object.values(dummyDraws).map((lottery) => (
           <LotteryBanner key={lottery.lottery_type} lottery={lottery} />
         ))}
