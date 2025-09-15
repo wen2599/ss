@@ -93,7 +93,13 @@ function getAdminState($conn, $chatId) {
 
 // --- Admin Keyboard Menus ---
 $adminKeyboard = [
-    'keyboard' => [[['text' => '查找玩家'], ['text' => '积分列表']], [['text' => '取消']]],
+    'keyboard' => [
+        [['text' => '查找玩家'], ['text' => '积分列表']],
+        [['text' => '/listusers']],
+        [['text' => '设置积分'], ['text' => '重设密码']],
+        [['text' => '封禁用户'], ['text' => '解封用户']],
+        [['text' => '取消']]
+    ],
     'resize_keyboard' => true
 ];
 
@@ -151,7 +157,116 @@ if (!$isCallback) {
         }
     }
 
+    if (strpos($text, '/setpoints') === 0) {
+        $parts = explode(' ', $text, 3);
+        if (count($parts) < 3) {
+            sendMessage($chatId, "❌ 用法: /setpoints <phone_or_username> <points>");
+            exit();
+        }
+        $identifier = $parts[1];
+        $points = $parts[2];
+
+        if (!is_numeric($points)) {
+            sendMessage($chatId, "❌ 积分必须是数字。");
+            exit();
+        }
+
+        $stmt = $conn->prepare("UPDATE users SET points = ? WHERE username = ? OR phone = ?");
+        $stmt->bind_param("dss", $points, $identifier, $identifier);
+        $stmt->execute();
+
+        if ($stmt->affected_rows > 0) {
+            sendMessage($chatId, "✅ 成功将 `{$identifier}` 的积分设置为 `{$points}`。");
+        } else {
+            sendMessage($chatId, "❌ 未找到用户 `{$identifier}`。");
+        }
+        $stmt->close();
+        exit();
+    }
+
     $adminState = getAdminState($conn, $chatId);
+
+    if (strpos($text, '/ban') === 0) {
+        $parts = explode(' ', $text, 2);
+        if (count($parts) < 2) {
+            sendMessage($chatId, "❌ 用法: /ban <phone_or_username>");
+            exit();
+        }
+        $identifier = $parts[1];
+
+        $stmt = $conn->prepare("UPDATE users SET is_banned = 1 WHERE username = ? OR phone = ?");
+        $stmt->bind_param("ss", $identifier, $identifier);
+        $stmt->execute();
+
+        if ($stmt->affected_rows > 0) {
+            sendMessage($chatId, "✅ 用户 `{$identifier}` 已被封禁。");
+        } else {
+            sendMessage($chatId, "❌ 未找到用户 `{$identifier}`。");
+        }
+        $stmt->close();
+        exit();
+    }
+
+    if (strpos($text, '/unban') === 0) {
+        $parts = explode(' ', $text, 2);
+        if (count($parts) < 2) {
+            sendMessage($chatId, "❌ 用法: /unban <phone_or_username>");
+            exit();
+        }
+        $identifier = $parts[1];
+
+        $stmt = $conn->prepare("UPDATE users SET is_banned = 0 WHERE username = ? OR phone = ?");
+        $stmt->bind_param("ss", $identifier, $identifier);
+        $stmt->execute();
+
+        if ($stmt->affected_rows > 0) {
+            sendMessage($chatId, "✅ 用户 `{$identifier}` 已被解封。");
+        } else {
+            sendMessage($chatId, "❌ 未找到用户 `{$identifier}`。");
+        }
+        $stmt->close();
+        exit();
+    }
+
+    if (strpos($text, '/resetpassword') === 0) {
+        $parts = explode(' ', $text, 3);
+        if (count($parts) < 3) {
+            sendMessage($chatId, "❌ 用法: /resetpassword <phone_or_username> <new_password>");
+            exit();
+        }
+        $identifier = $parts[1];
+        $newPassword = $parts[2];
+
+        if (strlen($newPassword) < 8) {
+            sendMessage($chatId, "❌ 密码必须至少8个字符。");
+            exit();
+        }
+
+        $password_hash = password_hash($newPassword, PASSWORD_DEFAULT);
+
+        $stmt = $conn->prepare("UPDATE users SET password_hash = ? WHERE username = ? OR phone = ?");
+        $stmt->bind_param("sss", $password_hash, $identifier, $identifier);
+        $stmt->execute();
+
+        if ($stmt->affected_rows > 0) {
+            sendMessage($chatId, "✅ 成功重置用户 `{$identifier}` 的密码。");
+        } else {
+            sendMessage($chatId, "❌ 未找到用户 `{$identifier}`。");
+        }
+        $stmt->close();
+        exit();
+    }
+
+    if ($text === '/listusers') {
+        $result = $conn->query("SELECT id, username, phone, points, is_banned FROM users ORDER BY id ASC");
+        $reply = "用户列表:\n---------------------\n";
+        while($row = $result->fetch_assoc()) {
+            $banned_status = $row['is_banned'] ? ' (Banned)' : '';
+            $reply .= "ID: `{$row['id']}`\nUsername: `{$row['username']}`\nPhone: `{$row['phone']}`\nPoints: *{$row['points']}*{$banned_status}\n---------------------\n";
+        }
+        sendMessage($chatId, $reply);
+        exit();
+    }
 
     if ($text === '/start' || $text === '取消') {
         setAdminState($conn, $chatId, null);
@@ -175,6 +290,18 @@ if (!$isCallback) {
                 $reply .= "手机: `{$row['phone']}` - 积分: *{$row['points']}*\n";
             }
             sendMessage($chatId, $reply, $adminKeyboard);
+            break;
+        case '设置积分':
+            sendMessage($chatId, "请使用以下格式输入命令:\n`/setpoints <phone_or_username> <points>`");
+            break;
+        case '重设密码':
+            sendMessage($chatId, "请使用以下格式输入命令:\n`/resetpassword <phone_or_username> <new_password>`");
+            break;
+        case '封禁用户':
+            sendMessage($chatId, "请使用以下格式输入命令:\n`/ban <phone_or_username>`");
+            break;
+        case '解封用户':
+            sendMessage($chatId, "请使用以下格式输入命令:\n`/unban <phone_or_username>`");
             break;
     }
 
