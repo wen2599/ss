@@ -3,9 +3,9 @@ import React, { useState } from 'react';
 import LotteryBanner from '../components/LotteryBanner';
 
 const dummyDraws = {
-  '新澳': { lottery_type: '新澳', period: '2024001', winning_numbers: '01,02,03,04,05,06', draw_time: '2024-01-01 21:30:00' },
-  '老澳': { lottery_type: '老澳', period: '2024001', winning_numbers: '07,08,09,10,11,12', draw_time: '2024-01-01 21:30:00' },
-  '港彩': { lottery_type: '港彩', period: '2024001', winning_numbers: '13,14,15,16,17,18', draw_time: '2024-01-01 21:30:00' },
+  '新澳': { lottery_type: '新澳', winning_numbers: '01,02,03,04,05,06' },
+  '老澳': { lottery_type: '老澳', winning_numbers: '07,08,09,10,11,12' },
+  '港彩': { lottery_type: '港彩', winning_numbers: '13,14,15,16,17,18' },
 };
 
 const Home: React.FC = () => {
