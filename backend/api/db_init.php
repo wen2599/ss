@@ -64,7 +64,6 @@ try {
         password_hash VARCHAR(255) NOT NULL,
         phone VARCHAR(255) NULL UNIQUE,
         points INT NOT NULL DEFAULT 0,
-        is_banned TINYINT(1) NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB;";
     $pdo->exec($sql_users);

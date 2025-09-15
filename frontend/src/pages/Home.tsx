@@ -1,5 +1,6 @@
 // frontend/src/pages/Home.tsx
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthForm from '../components/AuthForm';
 import UserProfile from '../components/UserProfile';
@@ -42,6 +43,11 @@ const AppContent: React.FC = () => {
         </div>
       )}
       <UserProfile />
+      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <Link to="/settlement">
+          <button>Go to Settlement</button>
+        </Link>
+      </div>
       <h2 style={{ textAlign: 'center' }}>Betting Panel</h2>
       <BettingPanel />
     </>

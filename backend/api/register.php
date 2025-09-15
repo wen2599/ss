@@ -1,7 +1,5 @@
 <?php
 // backend/api/register.php
-error_log("Request method: " . $_SERVER['REQUEST_METHOD']);
-error_log("Request headers: " . json_encode(getallheaders()));
 require_once 'config.php';
 require_once 'db_connect.php';
 
