@@ -6,11 +6,8 @@
  */
 
 // --- Database Configuration ---
-// Defines the connection details for the MySQL database.
-define('DB_HOST', 'mysql12.serv00.com');
-define('DB_NAME', 'm1030');
-define('DB_USER', 'm1030');
-define('DB_PASS', 'Wenx*');
+// Database credentials are now loaded from the environment.
+// See .env.example and database.php for more details.
 
 // --- Telegram Bot Configuration (Optional) ---
 // These are not used in the current application logic but are kept for potential future use.

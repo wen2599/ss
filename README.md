@@ -27,18 +27,29 @@ This project requires a three-part deployment: the database, the backend, and th
 2.  Use the `backend/api/schema.sql` file to create the initial `chat_logs` table.
 3.  Use the `backend/api/schema_v2.sql` file to create the `users` table and update the `chat_logs` table for user association.
 
-### Step 2: Deploy the Backend
+### Step 2: Configure and Deploy the Backend
 
-1.  Copy the entire contents of the `backend/` directory to your PHP-enabled web server (e.g., the one at `https://wenge.cloudns.ch`).
-2.  Ensure the server path is configured so the API is accessible at `/api/` (e.g., `https://wenge.cloudns.ch/api/api.php`). This typically means placing the contents of `backend/api/` into your server's `/api/` directory.
-3.  Update the database credentials in `api/config.php`.
-4.  **Important:** The backend `api.php` script expects a secret key from the email worker. You must choose a strong, random secret and replace the placeholder `'A_VERY_SECRET_KEY'` in both `api.php` and `frontend/functions/_worker.js`.
+1.  **Configure Environment Variables:** The backend now uses a `.env` file to handle sensitive configurations like database credentials.
+    *   In the `backend/api/` directory, you will find a file named `.env.example`.
+    *   Create a copy of this file and rename it to `.env`.
+    *   Open the `.env` file and fill in your database connection details (`DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`).
+    *   **Security Note:** The `.env` file should never be committed to your Git repository. It is included in `.gitignore` to prevent this.
+
+2.  **Deploy the Backend Files:**
+    *   Copy the entire contents of the `backend/` directory (including your new `.env` file) to your PHP-enabled web server (e.g., `https://wenge.cloudns.ch`).
+    *   Ensure the server path is configured so the API is accessible at `/api/` (e.g., `https://wenge.cloudns.ch/api/api.php`). This typically means placing the contents of `backend/api/` into your server's `/api/` directory.
+
+3.  **Configure the Worker Secret:**
+    *   The backend `api.php` script expects a secret key from the email worker. You must choose a strong, random secret and replace the placeholder `'A_VERY_SECRET_KEY'` in both `api.php` and `frontend/public/_worker.js`.
+
+4.  **Production Environment:**
+    *   For production, it is highly recommended to set environment variables directly on your server instead of using a `.env` file. This is more secure. The method for setting server-level environment variables depends on your hosting provider (e.g., using cPanel, Plesk, or command-line exports).
 
 ### Step 3: Deploy the Frontend and Worker
 
 This is done seamlessly using Cloudflare Pages.
 
-1.  **Push to Git:** Ensure all the latest code, including `frontend/functions/_worker.js`, is in your Git repository.
+1.  **Push to Git:** Ensure all the latest code, including `frontend/public/_worker.js`, is in your Git repository.
 2.  **Create Pages Project:** In Cloudflare, create a new Pages project and connect it to your Git repository.
 3.  **Configure Build:**
     *   **Framework preset:** `Vite`
