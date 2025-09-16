@@ -26,7 +26,7 @@ const RegisterPage = () => {
     };
 
     return (
-        <div className="auth-page">
+        <div className="card auth-page">
             <h2>Register</h2>
             <form onSubmit={handleSubmit}>
                 <div className="form-group">

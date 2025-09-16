@@ -31,7 +31,7 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="auth-page">
+        <div className="card auth-page">
             <h2>Login</h2>
             <form onSubmit={handleSubmit}>
                 <div className="form-group">

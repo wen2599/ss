@@ -8,7 +8,7 @@ const HomePage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [storedLogs, setStoredLogs] = useState([]);
-    const { user, logout } = useAuth();
+    const { user } = useAuth(); // We only need the user, logout is now in App.jsx
 
     const UPLOAD_API_URL = "/api/api.php";
     const GET_LOGS_API_URL = "/api/get_logs.php";
@@ -91,23 +91,17 @@ const HomePage = () => {
 
     return (
         <>
-            <header>
-                <h1>聊天记录表单生成器</h1>
-                <div>
-                    <span>Welcome, {user.email}</span>
-                    <button onClick={logout}>Logout</button>
-                </div>
-            </header>
             <div className="card">
                 <h2>上传新记录</h2>
                 <p>选择你的聊天记录文件（例如，WhatsApp导出的TXT文件），然后点击上传进行解析。</p>
                 <input type="file" onChange={handleFileChange} accept=".txt,.json" />
                 <button onClick={handleUpload} disabled={loading}>{loading ? '处理中...' : '上传并解析'}</button>
             </div>
+
             <div className="card">
                 <h2>已存记录</h2>
                 {storedLogs.length > 0 ? (
-                    <ul>
+                    <ul className="stored-logs-list">
                         {storedLogs.map((log) => (
                             <li key={log.id}>
                                 <span>{log.filename} - {new Date(log.created_at).toLocaleString()}</span>
@@ -117,7 +111,9 @@ const HomePage = () => {
                     </ul>
                 ) : (<p>数据库中没有已存记录。</p>)}
             </div>
-            {error && <p style={{ color: 'red' }}>错误: {error}</p>}
+
+            {error && <p className="error">{error}</p>}
+
             {backendResponse && (
                 <div className="card">
                     <h2>解析结果:</h2>
