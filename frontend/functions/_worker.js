@@ -62,10 +62,37 @@ export default {
 
   // --- 2. Email Handler ---
   async email(message, env, ctx) {
-    // Corrected backend path for the upload API
+    // API endpoints hosted on the backend server
+    const VERIFY_USER_URL = "https://wenge.cloudns.ch/api/is_user_registered.php";
     const UPLOAD_API_URL = "https://wenge.cloudns.ch/api/api.php";
-    const formData = new FormData();
+    const WORKER_SECRET = "A_VERY_SECRET_KEY"; // This should ideally be a secret environment variable in a real app
 
+    // --- 1. Extract Sender Email ---
+    const senderEmail = message.from;
+    if (!senderEmail) {
+        console.error("Email received with no 'From' address.");
+        return; // Stop processing
+    }
+
+    // --- 2. Verify if Sender is a Registered User ---
+    try {
+        const verificationUrl = `${VERIFY_USER_URL}?worker_secret=${WORKER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
+        const verificationResponse = await fetch(verificationUrl);
+        const verificationData = await verificationResponse.json();
+
+        if (!verificationResponse.ok || !verificationData.success || !verificationData.is_registered) {
+            console.log(`Email from unregistered user '${senderEmail}' was rejected.`);
+            return; // Stop processing if user is not registered
+        }
+    } catch (error) {
+        console.error("Failed to verify user email:", error);
+        return; // Stop processing on error
+    }
+
+    console.log(`Email from registered user '${senderEmail}' accepted. Proceeding to upload.`);
+
+    // --- 3. Process and Upload Email Content ---
+    const formData = new FormData();
     const rawEmail = await streamToString(message.raw);
     const textBodyMatch = rawEmail.match(/Content-Type: text\/plain;[\s\S]*?\r\n\r\n([\s\S]*)/);
 
@@ -76,21 +103,25 @@ export default {
 
     const blob = new Blob([chatContent], { type: 'text/plain' });
     const filename = `email-${message.headers.get("message-id") || new Date().toISOString()}.txt`;
+
+    // Append all required fields for the backend API
     formData.append('chat_file', blob, filename);
+    formData.append('worker_secret', WORKER_SECRET);
+    formData.append('user_email', senderEmail);
 
     try {
-      const response = await fetch(UPLOAD_API_URL, {
+      const uploadResponse = await fetch(UPLOAD_API_URL, {
         method: 'POST',
         body: formData,
       });
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Backend error from email handler: ${response.status} ${response.statusText}`, errorText);
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error(`Backend upload error: ${uploadResponse.status} ${uploadResponse.statusText}`, errorText);
       } else {
-        console.log(`Successfully processed email and sent to backend. Filename: ${filename}`);
+        console.log(`Successfully uploaded chat log for user ${senderEmail}.`);
       }
     } catch (error) {
-      console.error("Failed to fetch backend API from email handler:", error);
+      console.error("Failed to fetch upload API:", error);
     }
   },
 };

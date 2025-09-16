@@ -1,63 +1,60 @@
 # Chat Log Form Generator & Email Processor
 
-This project is a web application that allows users to parse chat logs into a structured form. It has two main functionalities:
-1.  **File Upload:** Users can upload a chat log file (e.g., from WhatsApp) to have it parsed and displayed in a table.
-2.  **Email Processing:** Users can email chat logs to a configured domain email address. The system will automatically process the email, parse the chat log, and store it in a database.
+This project is a full-stack web application that allows registered users to parse chat logs into a structured form. It features a complete user authentication system and supports two methods for processing chat logs: direct file upload and automated email processing.
 
-The application is composed of three main parts: a PHP backend, a React frontend, and a Cloudflare Worker for proxying and email processing.
+## Core Features
 
-## Architecture Overview
+-   **User Authentication:** Secure user registration and login system. Only registered users can access the application.
+-   **File Upload:** Logged-in users can upload a chat log file (e.g., from WhatsApp) to have it parsed and displayed.
+-   **Email Processing:** The system can be configured with a domain email address. It will only process emails sent from registered user emails, automatically parsing the chat log within and adding it to that user's account.
+-   **Data Storage:** All parsed chat logs are associated with a user account and stored in a MySQL database.
 
--   **Frontend:** A React application built with Vite. It allows users to upload files and view stored chat logs. It is located in the `frontend/` directory.
--   **Backend:** A PHP application that handles chat log parsing and database interaction. It is located in the `backend/` directory.
+## Architecture
+
+-   **Frontend:** A React single-page application built with Vite. It handles all user interface elements, including login/registration forms, file uploads, and displaying stored logs. It is located in the `frontend/` directory.
+-   **Backend:** A PHP application that provides a RESTful API for user management, chat log parsing, and database interaction. It is located in the `backend/` directory.
 -   **Cloudflare Worker (`_worker.js`):** A single, unified worker that is deployed with the frontend on Cloudflare Pages. It has two roles:
     1.  **API Proxy:** It intercepts all requests from the frontend to `/api/*` and securely forwards them to the PHP backend. This solves all CORS issues for both web and native app (APK) builds.
-    2.  **Email Handler:** It is configured to receive emails, extract the chat log from the email body, and send it to the backend's upload API to be parsed and stored.
+    2.  **Email Handler:** It is configured to receive emails, validates that the sender is a registered user by calling a backend verification endpoint, and then forwards the email content to the backend's upload API to be parsed and stored.
 
 ## Deployment Instructions
 
-This project requires a three-part deployment: the backend, the database, and the frontend with the integrated worker.
+This project requires a three-part deployment: the database, the backend, and the integrated frontend/worker.
 
-### Step 1: Deploy the Backend
+### Step 1: Set Up the Database
+
+1.  On your MySQL server, create a new database.
+2.  Use the `backend/api/schema.sql` file to create the initial `chat_logs` table.
+3.  Use the `backend/api/schema_v2.sql` file to create the `users` table and update the `chat_logs` table for user association.
+
+### Step 2: Deploy the Backend
 
 1.  Copy the entire contents of the `backend/` directory to your PHP-enabled web server (e.g., the one at `https://wenge.cloudns.ch`).
-2.  Ensure the server path is configured correctly. Based on your input, the final API endpoints should be accessible at `https://wenge.cloudns.ch/api/api.php` and `https://wenge.cloudns.ch/api/get_logs.php`. This means you should likely place the contents of the `backend/api` directory into the `/api` directory on your web server's root.
-3.  Ensure the `uploads/` directory inside your API directory is writable by the web server.
-4.  Update the database credentials in `api/config.php` to match your database server.
+2.  Ensure the server path is configured so the API is accessible at `/api/` (e.g., `https://wenge.cloudns.ch/api/api.php`). This typically means placing the contents of `backend/api/` into your server's `/api/` directory.
+3.  Update the database credentials in `api/config.php`.
+4.  **Important:** The backend `api.php` script expects a secret key from the email worker. You must choose a strong, random secret and replace the placeholder `'A_VERY_SECRET_KEY'` in both `api.php` and `frontend/functions/_worker.js`.
 
-### Step 2: Set Up the Database
+### Step 3: Deploy the Frontend and Worker
 
-1.  On your MySQL database server, create a new database (e.g., `m1030`).
-2.  Use the `backend/api/schema.sql` file to create the necessary `chat_logs` table. You can do this by importing the `.sql` file using a tool like phpMyAdmin or by running the SQL command directly on your database.
+This is done seamlessly using Cloudflare Pages.
 
-### Step 3: Deploy the Frontend and Worker with Cloudflare Pages
-
-The frontend and the worker are designed to be deployed together seamlessly using Cloudflare Pages.
-
-1.  **Prepare your Git Repository:** Ensure all the latest code, including the `frontend/functions/_worker.js` file, is pushed to your Git repository (e.g., on GitHub).
-
-2.  **Create a Cloudflare Pages Project:**
-    *   Log in to your Cloudflare dashboard.
-    *   Go to **Workers & Pages** > **Create application** > **Pages** > **Connect to Git**.
-    *   Select your repository.
-
-3.  **Configure the Build & Deployment:**
-    *   In the "Build settings" section, provide the following configuration:
-        *   **Project name:** Choose a name (e.g., `chat-log-parser`).
-        *   **Framework preset:** `Vite`
-        *   **Build command:** `npm run build`
-        *   **Build output directory:** `build`
-        *   **Root directory:** `frontend`
-    *   Click **Save and Deploy**. Cloudflare will now build your frontend and deploy it along with the `_worker.js` function. Your application will be available at the domain provided by Pages (e.g., `https://ss.wenxiuxiu.eu.org`).
+1.  **Push to Git:** Ensure all the latest code, including `frontend/functions/_worker.js`, is in your Git repository.
+2.  **Create Pages Project:** In Cloudflare, create a new Pages project and connect it to your Git repository.
+3.  **Configure Build:**
+    *   **Framework preset:** `Vite`
+    *   **Build command:** `npm run build`
+    *   **Build output directory:** `build`
+    *   **Root directory:** `frontend`
+4.  **Deploy:** Save and Deploy. Cloudflare will build and deploy your site and worker.
 
 ### Step 4: Configure Email Routing
 
 1.  In your Cloudflare dashboard, go to **Email** > **Email Routing**.
-2.  Ensure your domain's MX records are configured to use Cloudflare.
-3.  Go to the **Routes** tab and click **Create address**.
-4.  **Custom address:** Enter the username you want (e.g., `chat`).
-5.  **Action:** Select **Send to a Worker**.
-6.  **Worker:** Select the Pages project you just deployed (e.g., `chat-log-parser`).
-7.  Click **Save**.
+2.  Follow the steps to set up your domain's MX records.
+3.  Create a new route:
+    *   **Custom address:** Enter the email username (e.g., `chat`).
+    *   **Action:** Select **Send to a Worker**.
+    *   **Worker:** Select the Pages project you just deployed.
+4.  Click **Save**.
 
-After completing these steps, your entire application should be live and fully functional.
+Your application is now fully deployed and functional.
