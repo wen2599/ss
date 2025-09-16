@@ -1,11 +1,11 @@
-name: Deploy backend/api to serv00
+name: Deploy Backend to serv00
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'backend/api/**'
+      - 'backend/**'
 
 jobs:
   deploy:
@@ -20,6 +20,6 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SERV00_KEY }}
 
-      - name: Rsync backend/api to serv00
+      - name: Rsync backend directory to serv00
         run: |
-          rsync -avz --mkpath --delete --exclude 'config.php' -e "ssh -o StrictHostKeyChecking=no" ./backend/api/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/api/"
+          rsync -avz --mkpath --delete --exclude 'api/config.php' --exclude 'api/.env' -e "ssh -o StrictHostKeyChecking=no" ./backend/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/"
