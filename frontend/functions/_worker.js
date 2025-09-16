@@ -1,0 +1,111 @@
+/**
+ * Cloudflare Pages Function - Unified Worker
+ *
+ * This single worker handles two distinct functions:
+ * 1. API Proxy: It proxies all fetch requests from the frontend starting with `/api/`
+ *    to the backend PHP server, solving all CORS issues.
+ * 2. Email Handler: It receives emails forwarded from Cloudflare Email Routing,
+ *    extracts the chat log, and POSTs it to the backend for parsing and storage.
+ */
+export default {
+  // --- 1. API Proxy Handler ---
+  async fetch(request, env, ctx) {
+    // The actual backend server's hostname
+    const backendHost = 'https://wenge.cloudns.ch';
+    const url = new URL(request.url);
+
+    if (url.pathname.startsWith('/api/')) {
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+            'Access-Control-Max-Age': '86400',
+          },
+        });
+      }
+
+      // Construct the backend URL.
+      // The path is forwarded directly (e.g., /api/get_logs.php -> https://wenge.cloudns.ch/api/get_logs.php)
+      const backendUrl = `${backendHost}${url.pathname}${url.search}`;
+
+      const newHeaders = new Headers(request.headers);
+      newHeaders.set('Host', new URL(backendHost).hostname);
+
+      const backendRequest = new Request(backendUrl, {
+        method: request.method,
+        headers: newHeaders,
+        body: request.body,
+        redirect: 'follow',
+      });
+
+      try {
+        const backendResponse = await fetch(backendRequest);
+        const respHeaders = new Headers(backendResponse.headers);
+        respHeaders.set('Access-Control-Allow-Origin', '*');
+        return new Response(backendResponse.body, {
+          status: backendResponse.status,
+          statusText: backendResponse.statusText,
+          headers: respHeaders,
+        });
+      } catch (error) {
+        console.error('Error proxying to backend:', error.message);
+        return new Response('API backend unavailable.', { status: 502 });
+      }
+    }
+
+    // For all other paths, serve static assets from Pages.
+    return env.ASSETS.fetch(request);
+  },
+
+  // --- 2. Email Handler ---
+  async email(message, env, ctx) {
+    // Corrected backend path for the upload API
+    const UPLOAD_API_URL = "https://wenge.cloudns.ch/api/api.php";
+    const formData = new FormData();
+
+    const rawEmail = await streamToString(message.raw);
+    const textBodyMatch = rawEmail.match(/Content-Type: text\/plain;[\s\S]*?\r\n\r\n([\s\S]*)/);
+
+    let chatContent = "Email did not contain a recognizable text part.";
+    if (textBodyMatch && textBodyMatch[1]) {
+      chatContent = textBodyMatch[1];
+    }
+
+    const blob = new Blob([chatContent], { type: 'text/plain' });
+    const filename = `email-${message.headers.get("message-id") || new Date().toISOString()}.txt`;
+    formData.append('chat_file', blob, filename);
+
+    try {
+      const response = await fetch(UPLOAD_API_URL, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Backend error from email handler: ${response.status} ${response.statusText}`, errorText);
+      } else {
+        console.log(`Successfully processed email and sent to backend. Filename: ${filename}`);
+      }
+    } catch (error) {
+      console.error("Failed to fetch backend API from email handler:", error);
+    }
+  },
+};
+
+// Helper function to convert a readable stream to a string
+async function streamToString(stream) {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let result = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    result += decoder.decode(value, { stream: true });
+  }
+  return result;
+}

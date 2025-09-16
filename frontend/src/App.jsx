@@ -8,8 +8,8 @@ function App() {
   const [error, setError] = useState(null);
   const [storedLogs, setStoredLogs] = useState([]);
 
-  const UPLOAD_API_URL = "https://wenge.cloudns.ch/backend/api/api.php";
-  const GET_LOGS_API_URL = "https://wenge.cloudns.ch/backend/api/get_logs.php";
+  const UPLOAD_API_URL = "/api/api.php";
+  const GET_LOGS_API_URL = "/api/get_logs.php";
 
   const fetchStoredLogs = async () => {
     try {
