@@ -19,12 +19,11 @@ const LoginPage = () => {
         try {
             const response = await axios.post('/api/login.php', { email, password }, { withCredentials: true });
             if (response.data.success) {
-                // Call the login function from context to update global state
                 login(response.data.user);
-                navigate('/'); // Navigate to the main page on success
+                navigate('/');
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+            setError(err.response?.data?.message || '登录失败，请检查您的凭证。');
         } finally {
             setLoading(false);
         }
@@ -32,10 +31,10 @@ const LoginPage = () => {
 
     return (
         <div className="card auth-page">
-            <h2>Login</h2>
+            <h2>用户登录</h2>
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                    <label htmlFor="email">Email</label>
+                    <label htmlFor="email">邮箱</label>
                     <input
                         type="email"
                         id="email"
@@ -45,7 +44,7 @@ const LoginPage = () => {
                     />
                 </div>
                 <div className="form-group">
-                    <label htmlFor="password">Password</label>
+                    <label htmlFor="password">密码</label>
                     <input
                         type="password"
                         id="password"
@@ -56,11 +55,11 @@ const LoginPage = () => {
                 </div>
                 {error && <p className="error">{error}</p>}
                 <button type="submit" disabled={loading}>
-                    {loading ? 'Logging in...' : 'Login'}
+                    {loading ? '登录中...' : '登录'}
                 </button>
             </form>
             <p>
-                Don't have an account? <Link to="/register">Register here</Link>
+                还没有账户？ <Link to="/register">点击这里注册</Link>
             </p>
         </div>
     );
