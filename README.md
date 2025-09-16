@@ -23,9 +23,13 @@ This project requires a three-part deployment: the database, the backend, and th
 
 ### Step 1: Set Up the Database
 
-1.  On your MySQL server, create a new database.
-2.  Use the `backend/api/schema.sql` file to create the initial `chat_logs` table.
-3.  Use the `backend/api/schema_v2.sql` file to create the `users` table and update the `chat_logs` table for user association.
+1.  **Create an empty database:** On your MySQL server, create a new, empty database for the application.
+2.  **Configure credentials:** In the `backend/api/` directory, copy the `.env.example` file to `.env` and fill in the connection details for the database you just created.
+3.  **Run the migration script:** From your terminal, at the root of the project, run the following command:
+    ```bash
+    php backend/migrate.php
+    ```
+    This script will automatically create all the necessary tables (`users`, `chat_logs`, etc.) in your database. If you add new migration files in the future, you can simply run this command again to apply the new changes.
 
 ### Step 2: Configure and Deploy the Backend
 
