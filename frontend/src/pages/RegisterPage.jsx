@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const RegisterPage = () => {
     const [email, setEmail] = useState('');
@@ -16,10 +16,10 @@ const RegisterPage = () => {
 
         try {
             await axios.post('/api/register.php', { email, password });
-            // On successful registration, navigate to the login page
+            alert('注册成功！现在您可以登录了。');
             navigate('/login');
         } catch (err) {
-            setError(err.response?.data?.message || 'Registration failed. Please try again.');
+            setError(err.response?.data?.message || '注册失败，请重试。');
         } finally {
             setLoading(false);
         }
@@ -27,10 +27,10 @@ const RegisterPage = () => {
 
     return (
         <div className="card auth-page">
-            <h2>Register</h2>
+            <h2>用户注册</h2>
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                    <label htmlFor="email">Email</label>
+                    <label htmlFor="email">邮箱</label>
                     <input
                         type="email"
                         id="email"
@@ -40,7 +40,7 @@ const RegisterPage = () => {
                     />
                 </div>
                 <div className="form-group">
-                    <label htmlFor="password">Password</label>
+                    <label htmlFor="password">密码 (最少8位)</label>
                     <input
                         type="password"
                         id="password"
@@ -52,9 +52,12 @@ const RegisterPage = () => {
                 </div>
                 {error && <p className="error">{error}</p>}
                 <button type="submit" disabled={loading}>
-                    {loading ? 'Registering...' : 'Register'}
+                    {loading ? '注册中...' : '注册'}
                 </button>
             </form>
+            <p>
+                已有账户？ <Link to="/login">返回登录</Link>
+            </p>
         </div>
     );
 };
