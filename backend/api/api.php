@@ -22,6 +22,30 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+// === 数据库和应用初始化 ===
+require_once __DIR__ . '/database.php';
+
+// 创建数据库连接
+$pdo = getDbConnection();
+
+// 函数：保存聊天记录到数据库
+function saveChatLog(PDO $pdo, string $filename, array $parsedData) {
+    $sql = "INSERT INTO chat_logs (filename, parsed_data) VALUES (:filename, :parsed_data)";
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':filename' => $filename,
+            ':parsed_data' => json_encode($parsedData)
+        ]);
+    } catch (PDOException $e) {
+        // 在真实应用中应该记录错误
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to save chat log to database.']);
+        exit();
+    }
+}
+
+
 // === 设置响应内容类型为 JSON ===
 header('Content-Type: application/json');
 
@@ -107,6 +131,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($currentMessage) {
                     $parsedData[] = $currentMessage;
                 }
+            }
+
+            // 如果解析成功，保存到数据库
+            if (!empty($parsedData)) {
+                saveChatLog($pdo, $fileName, $parsedData);
             }
 
             // 删除临时上传的文件 (可选，取决于你是否需要保留)
