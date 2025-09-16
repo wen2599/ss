@@ -7,9 +7,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // 后端 API 地址，请替换为你在 serv00 上部署的实际地址
-  // 例如: "https://your-serv00-domain.com/api.php"
-  const BACKEND_API_URL = "https://your_serv00_domain.com/api.php"; // <--- **重要：请替换为你的后端实际域名**
+  const BACKEND_API_URL = "https://wenge.cloudns.ch/backend/api/api.php";
 
   const handleFileChange = (event) => {
     setSelectedFile(event.target.files[0]);
