@@ -17,6 +17,31 @@ This project is a full-stack web application that allows registered users to par
     1.  **API Proxy:** It intercepts all requests from the frontend to `/api/*` and securely forwards them to the PHP backend. This solves all CORS issues for both web and native app (APK) builds.
     2.  **Email Handler:** It is configured to receive emails, validates that the sender is a registered user by calling a backend verification endpoint, and then forwards the email content to the backend's upload API to be parsed and stored.
 
+## Telegram Bot Administration
+
+The application includes a Telegram bot with administrative features. These features are restricted to the Super Admin user defined by the `TELEGRAM_SUPER_ADMIN_ID` in `config.php`.
+
+### Setting Up the Webhook
+
+To receive commands, you must register the `tg_webhook.php` script with Telegram. You only need to do this once. Open the following URL in your browser, replacing `<YOUR_BOT_TOKEN>` and `<YOUR_WEBHOOK_URL>` with your actual values:
+
+`https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=<YOUR_WEBHOOK_URL>`
+
+For example:
+`https://api.telegram.org/bot7279950407:AAGo/setWebhook?url=https://wenge.cloudns.ch/api/tg_webhook.php`
+
+You should see a success message from Telegram.
+
+### Available Commands
+
+-   `/start`
+    -   Displays a welcome message and lists available commands.
+-   `/listusers`
+    -   Lists all registered users in the database with their ID, email, and creation date.
+-   `/deleteuser <email>`
+    -   Deletes a user from the database based on their email address.
+    -   **Usage:** `/deleteuser user@example.com`
+
 ## Deployment Instructions
 
 This project requires a three-part deployment: the database, the backend, and the integrated frontend/worker.
