@@ -1,54 +1,77 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import './App.css'; // Import the new stylesheet
+import AdminPage from './pages/AdminPage';
+import LoginModal from './components/LoginModal';
+import RegisterModal from './components/RegisterModal';
+import './App.css';
 
-// A wrapper for protected routes
+// A wrapper for standard protected routes
 const ProtectedRoute = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
     if (loading) return <div>正在加载应用状态...</div>;
-    if (!isAuthenticated) return <Navigate to="/login" replace />;
+    if (!isAuthenticated) return <Navigate to="/" replace />; // In V2, non-authed users see the homepage, but can't do much
+    return children;
+};
+
+// A wrapper for super admin routes
+const SuperAdminRoute = ({ children }) => {
+    const { isAuthenticated, user, loading } = useAuth();
+    if (loading) return <div>正在加载应用状态...</div>;
+    if (!isAuthenticated || !user.is_superadmin) {
+        return <Navigate to="/" replace />; // Redirect non-admins to home
+    }
     return children;
 };
 
 function App() {
-    const { isAuthenticated, user, logout } = useAuth();
+    const { isAuthenticated, user, login, logout } = useAuth();
+    const [showLoginModal, setShowLoginModal] = useState(false);
+    const [showRegisterModal, setShowRegisterModal] = useState(false);
+
+    const handleLoginSuccess = (userData) => {
+        login(userData);
+        setShowLoginModal(false);
+    };
+
+    const handleRegisterSuccess = (userData) => {
+        login(userData); // Log in the new user automatically
+        setShowRegisterModal(false);
+    };
 
     return (
         <div className="App">
+            {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} onLoginSuccess={handleLoginSuccess} />}
+            {showRegisterModal && <RegisterModal onClose={() => setShowRegisterModal(false)} onRegisterSuccess={handleRegisterSuccess} />}
+
             <header className="App-header">
-                <h1>聊天记录解析器</h1>
-                <nav>
-                    <ul>
-                        {!isAuthenticated ? (
-                            <>
-                                <li><Link to="/login">登录</Link></li>
-                                <li><Link to="/register">注册</Link></li>
-                            </>
-                        ) : (
-                            <>
-                                <li><span>欢迎您, {user.email}</span></li>
-                                <li><button onClick={logout}>退出</button></li>
-                            </>
-                        )}
-                    </ul>
-                </nav>
+                <div className="header-left">
+                    {!isAuthenticated ? (
+                        <>
+                            <button onClick={() => setShowLoginModal(true)}>登录</button>
+                            <button onClick={() => setShowRegisterModal(true)} style={{marginLeft: '10px'}}>注册</button>
+                        </>
+                    ) : (
+                        <button onClick={logout}>退出</button>
+                    )}
+                </div>
+                <h1>六合彩投注系统</h1>
+                <div className="header-right">
+                    <button className="placeholder-btn">文本模板</button>
+                </div>
             </header>
             <main>
                 <Routes>
+                    <Route path="/" element={<HomePage />} />
                     <Route
-                        path="/"
+                        path="/admin"
                         element={
-                            <ProtectedRoute>
-                                <HomePage />
-                            </ProtectedRoute>
+                            <SuperAdminRoute>
+                                <AdminPage />
+                            </SuperAdminRoute>
                         }
                     />
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<RegisterPage />} />
                     <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
             </main>

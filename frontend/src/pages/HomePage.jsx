@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import DrawBanner from '../components/DrawBanner'; // Import the new component
 
 const HomePage = () => {
     const { user } = useAuth();
@@ -15,9 +16,11 @@ const HomePage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [uploadSuccess, setUploadSuccess] = useState('');
+    const [latestDraws, setLatestDraws] = useState(null); // New state for draw results
 
     const UPLOAD_API_URL = "/api/api.php";
     const GET_BETS_API_URL = "/api/get_bets.php";
+    const GET_DRAWS_API_URL = "/api/get_latest_draws.php";
 
     const fetchStoredBets = async () => {
         try {
@@ -31,9 +34,22 @@ const HomePage = () => {
         }
     };
 
+    const fetchLatestDraws = async () => {
+        try {
+            const response = await axios.get(GET_DRAWS_API_URL);
+            if (response.data.success) {
+                setLatestDraws(response.data.data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch latest draws:', err);
+            // Non-critical error, so we don't set a visible error message
+        }
+    };
+
     useEffect(() => {
         if (user) {
             fetchStoredBets();
+            fetchLatestDraws();
         }
     }, [user]);
 
@@ -114,6 +130,13 @@ const HomePage = () => {
 
     return (
         <>
+            <div className="card">
+                <h2>最新开奖</h2>
+                <DrawBanner title="新澳门六合彩" drawData={latestDraws?.['新澳门六合彩']} />
+                <DrawBanner title="香港六合彩" drawData={latestDraws?.['香港六合彩']} />
+                <DrawBanner title="老澳21.30" drawData={latestDraws?.['老澳21.30']} />
+            </div>
+
             <div className="card">
                 <h2>提交新投注</h2>
                 <div className="form-group">
