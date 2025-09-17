@@ -5,9 +5,13 @@
 require_once __DIR__ . '/config.php';
 
 /**
- * Sends a message to a specific Telegram chat.
+ * Sends a message to a specific Telegram chat, optionally with a custom keyboard.
+ *
+ * @param int      $chat_id The ID of the chat to send the message to.
+ * @param string   $text    The message text to send.
+ * @param array|null $keyboard Optional. A 2D array defining the keyboard layout.
  */
-function sendMessage(int $chat_id, string $text): void {
+function sendMessage(int $chat_id, string $text, ?array $keyboard = null): void {
     $bot_token = TELEGRAM_BOT_TOKEN;
     if (empty($bot_token) || $bot_token === 'YOUR_TELEGRAM_BOT_TOKEN') {
         error_log("Telegram Bot Token is not configured.");
@@ -15,7 +19,20 @@ function sendMessage(int $chat_id, string $text): void {
     }
 
     $url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
-    $post_fields = ['chat_id' => $chat_id, 'text' => $text, 'parse_mode' => 'HTML'];
+    $post_fields = [
+        'chat_id' => $chat_id,
+        'text'    => $text,
+        'parse_mode' => 'HTML'
+    ];
+
+    if ($keyboard) {
+        $reply_markup = [
+            'keyboard' => $keyboard,
+            'resize_keyboard' => true,
+            'one_time_keyboard' => false // Keep the keyboard open
+        ];
+        $post_fields['reply_markup'] = json_encode($reply_markup);
+    }
 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
@@ -73,9 +90,13 @@ if (strpos($text, '/') === 0) {
     try {
         $pdo = getDbConnection();
 
+        $keyboard = null; // Initialize keyboard as null
         switch ($command) {
             case '/start':
-                $response_text = "欢迎您，管理员！可用命令：\n/listusers\n/deleteuser <code>&lt;邮箱&gt;</code>";
+                $response_text = "欢迎您，管理员！请使用下面的键盘或直接输入命令。";
+                $keyboard = [
+                    ['/listusers']
+                ];
                 break;
 
             case '/listusers':
@@ -114,7 +135,7 @@ if (strpos($text, '/') === 0) {
                 break;
         }
 
-        sendMessage($chat_id, $response_text);
+        sendMessage($chat_id, $response_text, $keyboard);
 
     } catch (Exception $e) {
         error_log("Bot command failed: " . $e->getMessage());
