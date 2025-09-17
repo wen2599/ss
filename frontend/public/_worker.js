@@ -11,7 +11,7 @@ export default {
   // --- 1. API Proxy Handler ---
   async fetch(request, env, ctx) {
     // The actual backend server's hostname, including the custom port
-    const backendHost = 'https://wenge.cloudns.ch:10758';
+    const backendHost = 'https://wenge.cloudns.ch';
     const url = new URL(request.url);
 
     if (url.pathname.startsWith('/api/')) {
