@@ -3,152 +3,164 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
 const HomePage = () => {
+    const { user } = useAuth();
+
+    // State for the upload form
     const [selectedFile, setSelectedFile] = useState(null);
-    const [backendResponse, setBackendResponse] = useState(null);
+    const [issueNumber, setIssueNumber] = useState('');
+
+    // State for API responses and data display
+    const [storedBets, setStoredBets] = useState([]);
+    const [selectedBet, setSelectedBet] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [storedLogs, setStoredLogs] = useState([]);
-    const { user } = useAuth(); // We only need the user, logout is now in App.jsx
+    const [error, setError] = useState('');
+    const [uploadSuccess, setUploadSuccess] = useState('');
 
     const UPLOAD_API_URL = "/api/api.php";
-    const GET_LOGS_API_URL = "/api/get_logs.php";
+    const GET_BETS_API_URL = "/api/get_bets.php";
 
-    const fetchStoredLogs = async () => {
+    const fetchStoredBets = async () => {
         try {
-            const response = await axios.get(GET_LOGS_API_URL, { withCredentials: true });
+            const response = await axios.get(GET_BETS_API_URL, { withCredentials: true });
             if (response.data.success) {
-                setStoredLogs(response.data.data);
+                setStoredBets(response.data.data);
             }
         } catch (err) {
-            console.error('Failed to fetch stored logs:', err);
-            setError('Failed to fetch stored logs. You may need to log in again.');
+            console.error('Failed to fetch stored bets:', err);
+            setError('无法获取历史投注记录。');
         }
     };
 
     useEffect(() => {
         if (user) {
-            fetchStoredLogs();
+            fetchStoredBets();
         }
     }, [user]);
 
     const handleFileChange = (event) => {
         setSelectedFile(event.target.files[0]);
-        setBackendResponse(null);
-        setError(null);
     };
 
     const handleUpload = async () => {
         if (!selectedFile) {
-            alert('请先选择一个聊天记录文件！');
+            alert('请选择一个投注文件！');
+            return;
+        }
+        if (!issueNumber) {
+            alert('请输入期号！');
             return;
         }
         setLoading(true);
-        setError(null);
-        setBackendResponse(null);
+        setError('');
+        setUploadSuccess('');
+        setSelectedBet(null);
+
         const formData = new FormData();
-        formData.append('chat_file', selectedFile);
+        formData.append('bet_file', selectedFile);
+        formData.append('issue_number', issueNumber);
+
         try {
             const response = await axios.post(UPLOAD_API_URL, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 withCredentials: true,
             });
-            setBackendResponse(response.data);
-            fetchStoredLogs();
+            setUploadSuccess(response.data.message);
+            // After successful upload, refresh the list of bets
+            fetchStoredBets();
         } catch (err) {
-            setError('上传或解析失败。' + (err.response?.data?.message || err.message));
+            setError('上传失败: ' + (err.response?.data?.message || err.message));
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSelectLog = (log) => {
-        setBackendResponse({
-            success: true,
-            message: '从数据库加载记录成功。',
-            fileName: log.filename,
-            parsedData: log.parsed_data,
-            rawContent: `Log recorded at: ${log.created_at}`
-        });
-        setError(null);
-    };
-
-    const renderResult = (result) => {
-        if (!result || !result.data || result.data.length === 0) {
-            return <p>没有可显示的数据。</p>;
+    const renderSettlementDetails = (bet) => {
+        if (bet.status !== 'settled' || !bet.settlement_data) {
+            return <p>状态: 未结算</p>;
         }
 
-        // Case 1: It's a structured chat log
-        if (result.type === 'chat') {
-            const headers = Object.keys(result.data[0]);
-            return (
-                <table>
-                    <thead>
-                        <tr>{headers.map((h) => <th key={h}>{h}</th>)}</tr>
-                    </thead>
-                    <tbody>
-                        {result.data.map((row, i) => (
-                            <tr key={i}>{headers.map((h) => <td key={h}>{row[h]}</td>)}</tr>
-                        ))}
-                    </tbody>
-                </table>
-            );
-        }
+        const { total_payout, details } = bet.settlement_data;
 
-        // Case 2: It's plain text
-        if (result.type === 'text') {
-            return (
-                <table>
-                    <thead>
-                        <tr><th>Content</th></tr>
-                    </thead>
-                    <tbody>
-                        {result.data.map((row, i) => (
-                            <tr key={i}><td><pre>{row.content}</pre></td></tr>
-                        ))}
-                    </tbody>
-                </table>
-            );
-        }
-
-        // Fallback for unknown types or malformed data
-        return <pre>{JSON.stringify(result.data, null, 2)}</pre>;
+        return (
+            <div>
+                <h4>结算结果 (Settlement)</h4>
+                <p><strong>状态: 已结算</strong></p>
+                <p><strong>总赔付: {total_payout.toFixed(2)}</strong></p>
+                {details && details.length > 0 && (
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>玩法</th>
+                                <th>内容</th>
+                                <th>金额</th>
+                                <th>赔付</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {details.map((win, index) => (
+                                <tr key={index}>
+                                    <td>{win.bet.display_name}</td>
+                                    <td>{win.bet.type === 'special' ? win.bet.number : win.bet.name}</td>
+                                    <td>{win.bet.amount}</td>
+                                    <td>{win.payout.toFixed(2)}</td>
+                                tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+        );
     };
 
     return (
         <>
             <div className="card">
-                <h2>上传新记录</h2>
-                <p>选择你的聊天记录文件（例如，WhatsApp导出的TXT文件），然后点击上传进行解析。</p>
-                <input type="file" onChange={handleFileChange} accept=".txt,.json" />
-                <button onClick={handleUpload} disabled={loading}>{loading ? '处理中...' : '上传并解析'}</button>
+                <h2>提交新投注</h2>
+                <div className="form-group">
+                    <label htmlFor="issueNumber">期号 (Issue Number)</label>
+                    <input
+                        type="text"
+                        id="issueNumber"
+                        value={issueNumber}
+                        onChange={(e) => setIssueNumber(e.target.value)}
+                        placeholder="例如: 2025101"
+                    />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="betFile">投注文件 (Bet File)</label>
+                    <input type="file" id="betFile" onChange={handleFileChange} accept=".txt" />
+                </div>
+                <button onClick={handleUpload} disabled={loading}>
+                    {loading ? '上传中...' : '上传投注'}
+                </button>
+                {uploadSuccess && <p style={{ color: 'green' }}>{uploadSuccess}</p>}
             </div>
 
             <div className="card">
-                <h2>已存记录</h2>
-                {storedLogs.length > 0 ? (
+                <h2>历史投注记录</h2>
+                {storedBets.length > 0 ? (
                     <ul className="stored-logs-list">
-                        {storedLogs.map((log) => (
-                            <li key={log.id}>
-                                <span>{log.filename} - {new Date(log.created_at).toLocaleString()}</span>
-                                <button onClick={() => handleSelectLog(log)}>查看</button>
+                        {storedBets.map((bet) => (
+                            <li key={bet.id}>
+                                <span>期号: {bet.issue_number} - 状态: {bet.status}</span>
+                                <span>{new Date(bet.created_at).toLocaleString()}</span>
+                                <button onClick={() => setSelectedBet(bet)}>查看详情</button>
                             </li>
                         ))}
                     </ul>
-                ) : (<p>数据库中没有已存记录。</p>)}
+                ) : (<p>没有历史投注记录。</p>)}
             </div>
 
             {error && <p className="error">{error}</p>}
 
-            {backendResponse && (
+            {selectedBet && (
                 <div className="card">
-                    <h2>解析结果:</h2>
-                    {backendResponse.parsedData ? renderResult(backendResponse.parsedData) : <p>无法渲染结果。</p>}
-                    {backendResponse.rawContent && (
-                        <>
-                            <h3>原始聊天记录 (部分):</h3>
-                            <textarea readOnly value={backendResponse.rawContent.substring(0, 1000) + (backendResponse.rawContent.length > 1000 ? '...' : '')}></textarea>
-                        </>
-                    )}
+                    <h2>投注详情: #{selectedBet.id}</h2>
+                    <div className="form-group">
+                        <label>原始投注内容</label>
+                        <textarea readOnly value={selectedBet.original_content} rows="10" style={{width: '100%'}}></textarea>
+                    </div>
+                    {renderSettlementDetails(selectedBet)}
                 </div>
             )}
         </>
