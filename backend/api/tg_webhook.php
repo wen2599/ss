@@ -1,7 +1,4 @@
 <?php
-// Diagnostic logging: Check if the script is being executed at all.
-file_put_contents('webhook_test.log', 'Webhook was executed at ' . date('Y-m-d H:i:s') . "\n", FILE_APPEND);
-
 // backend/api/tg_webhook.php
 // This webhook is dual-purpose:
 // 1. It parses winning number announcements from a specific channel.

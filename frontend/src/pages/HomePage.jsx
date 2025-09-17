@@ -130,54 +130,48 @@ const HomePage = () => {
 
     return (
         <>
-            <div className="main-grid">
-                <div className="grid-col-1">
-                    <div className="card">
-                        <h2>最新开奖</h2>
-                        <DrawBanner title="新澳门六合彩" drawData={latestDraws?.['新澳门六合彩']} />
-                        <DrawBanner title="香港六合彩" drawData={latestDraws?.['香港六合彩']} />
-                        <DrawBanner title="老澳21.30" drawData={latestDraws?.['老澳21.30']} />
-                    </div>
-                </div>
+            <div className="card">
+                <h2>最新开奖</h2>
+                <DrawBanner title="新澳门六合彩" drawData={latestDraws?.['新澳门六合彩']} />
+                <DrawBanner title="香港六合彩" drawData={latestDraws?.['香港六合彩']} />
+                <DrawBanner title="老澳21.30" drawData={latestDraws?.['老澳21.30']} />
+            </div>
 
-                <div className="grid-col-2">
-                    <div className="card">
-                        <h2>提交新投注</h2>
-                        <div className="form-group">
-                            <label htmlFor="issueNumber">期号 (Issue Number)</label>
-                            <input
-                                type="text"
-                                id="issueNumber"
-                                value={issueNumber}
-                                onChange={(e) => setIssueNumber(e.target.value)}
-                                placeholder="例如: 2025101"
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="betFile">投注文件 (Bet File)</label>
-                            <input type="file" id="betFile" onChange={handleFileChange} accept=".txt" />
-                        </div>
-                        <button onClick={handleUpload} disabled={loading}>
-                            {loading ? '上传中...' : '上传投注'}
-                        </button>
-                        {uploadSuccess && <p style={{ color: 'green' }}>{uploadSuccess}</p>}
-                    </div>
-
-                    <div className="card">
-                        <h2>历史投注记录</h2>
-                        {storedBets.length > 0 ? (
-                            <ul className="stored-logs-list">
-                                {storedBets.map((bet) => (
-                                    <li key={bet.id}>
-                                        <span>期号: {bet.issue_number} - 状态: {bet.status}</span>
-                                        <span>{new Date(bet.created_at).toLocaleString()}</span>
-                                        <button onClick={() => setSelectedBet(bet)}>查看详情</button>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (<p>没有历史投注记录。</p>)}
-                    </div>
+            <div className="card">
+                <h2>提交新投注</h2>
+                <div className="form-group">
+                    <label htmlFor="issueNumber">期号 (Issue Number)</label>
+                    <input
+                        type="text"
+                        id="issueNumber"
+                        value={issueNumber}
+                        onChange={(e) => setIssueNumber(e.target.value)}
+                        placeholder="例如: 2025101"
+                    />
                 </div>
+                <div className="form-group">
+                    <label htmlFor="betFile">投注文件 (Bet File)</label>
+                    <input type="file" id="betFile" onChange={handleFileChange} accept=".txt" />
+                </div>
+                <button onClick={handleUpload} disabled={loading}>
+                    {loading ? '上传中...' : '上传投注'}
+                </button>
+                {uploadSuccess && <p style={{ color: 'green' }}>{uploadSuccess}</p>}
+            </div>
+
+            <div className="card">
+                <h2>历史投注记录</h2>
+                {storedBets.length > 0 ? (
+                    <ul className="stored-logs-list">
+                        {storedBets.map((bet) => (
+                            <li key={bet.id}>
+                                <span>期号: {bet.issue_number} - 状态: {bet.status}</span>
+                                <span>{new Date(bet.created_at).toLocaleString()}</span>
+                                <button onClick={() => setSelectedBet(bet)}>查看详情</button>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (<p>没有历史投注记录。</p>)}
             </div>
 
             {error && <p className="error">{error}</p>}
