@@ -1,91 +1,134 @@
-/* === Main App Container & Layout === */
-.app-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
+/* === Main App Layout & Navigation === */
+.App {
+  text-align: center;
 }
 
-/* === Card Component Styling === */
+.App-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 2rem;
+}
+
+.App-header h1 {
+  font-size: 1.5rem;
+  margin: 0;
+  text-align: center;
+}
+
+/* New styles for header layout */
+.header-left, .header-right {
+  flex: 1;
+}
+.header-right {
+  display: flex;
+  justify-content: flex-end;
+}
+.header-left {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.placeholder-btn {
+    background-color: transparent;
+    border: 1px solid #6c757d;
+    color: #6c757d;
+    cursor: not-allowed;
+}
+
+.placeholder-btn:hover {
+    background-color: transparent;
+}
+
+/* === Card Component === */
 .card {
   background-color: var(--card-background);
-  border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
   margin-bottom: 2rem;
-  width: 100%;
-  max-width: 800px;
-  box-shadow: 0 0 15px rgba(0, 255, 0, 0.1);
-  transition: all 0.3s ease;
+  text-align: left;
 }
 
-.card:hover {
-  border-color: var(--primary-glow);
-  box-shadow: 0 0 25px rgba(0, 255, 0, 0.3);
-}
-
-/* === Form Elements Styling === */
+/* === Forms & Buttons === */
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  font-weight: bold;
-  color: var(--primary-glow);
+  font-weight: 600;
 }
 
-input[type="text"],
-input[type="password"],
 input[type="email"],
-input[type="file"],
-textarea {
+input[type="password"],
+input[type="file"] {
   width: 100%;
-  background-color: var(--input-background);
-  border: 1px solid var(--border-color);
-  color: var(--text-color);
   padding: 0.75rem;
-  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
   box-sizing: border-box;
-  transition: all 0.2s ease-in-out;
+  transition: border-color 0.2s ease-in-out;
 }
 
-input:focus,
-textarea:focus {
+input[type="email"]:focus,
+input[type="password"]:focus {
   outline: none;
-  border-color: var(--primary-glow);
-  box-shadow: 0 0 10px var(--primary-glow);
+  border-color: var(--primary-color);
 }
 
-/* === Button Styling === */
 button {
-  background-color: var(--button-bg);
-  color: var(--primary-glow);
-  border: 1px solid var(--primary-glow);
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
   padding: 0.75rem 1.5rem;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-weight: bold;
-  transition: all 0.2s ease-in-out;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  font-weight: 600;
+  transition: background-color 0.2s ease-in-out;
+  margin: 0.5rem 0;
 }
 
-button:hover:not(:disabled) {
-  background-color: var(--primary-glow);
-  color: var(--background-color);
-  box-shadow: 0 0 15px var(--primary-glow);
+button:hover {
+  background-color: var(--primary-color-hover);
 }
 
 button:disabled {
-  opacity: 0.5;
+  background-color: #a0c7ff;
   cursor: not-allowed;
-  border-color: var(--border-color);
-  color: var(--text-color);
 }
 
-/* === List & Table Styling === */
+/* === Data Table === */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+th, td {
+  border: 1px solid var(--border-color);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+tbody tr:nth-child(odd) {
+  background-color: #f8f9fa;
+}
+
+/* === Other Components === */
+.error {
+  color: #dc3545;
+  margin-top: 1rem;
+}
+
 .stored-logs-list {
   list-style: none;
   padding: 0;
@@ -95,54 +138,10 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color);
-  transition: background-color 0.2s ease;
-}
-
-.stored-logs-list li:hover {
-  background-color: rgba(0, 255, 0, 0.05);
-}
-
-.stored-logs-list li span {
-  flex-grow: 1;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
-}
-
-th, td {
   padding: 0.75rem;
-  text-align: left;
   border-bottom: 1px solid var(--border-color);
 }
 
-th {
-  color: var(--primary-glow);
-}
-
-/* === Error & Success Messages === */
-.error {
-  color: #ff4d4d;
-  background-color: rgba(255, 77, 77, 0.1);
-  border: 1px solid #ff4d4d;
-  padding: 1rem;
-  border-radius: 6px;
-}
-
-/* === New Grid Layout for HomePage === */
-.main-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2rem;
-}
-
-/* On wider screens, switch to a two-column layout */
-@media (min-width: 992px) {
-  .main-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+.stored-logs-list li:last-child {
+  border-bottom: none;
 }
