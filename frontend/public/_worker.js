@@ -62,9 +62,9 @@ export default {
 
   // --- 2. Email Handler ---
   async email(message, env, ctx) {
-    // API endpoints hosted on the backend server
-    const VERIFY_USER_URL = "https://wenge.cloudns.ch/api/is_user_registered.php";
-    const UPLOAD_API_URL = "https://wenge.cloudns.ch/api/api.php";
+    // API endpoints. These point to the public frontend domain to leverage the API proxy.
+    const VERIFY_USER_URL = "https://ss.wenxiuxiu.eu.org/api/is_user_registered.php";
+    const UPLOAD_API_URL = "https://ss.wenxiuxiu.eu.org/api/api.php";
     const WORKER_SECRET = "A_VERY_SECRET_KEY"; // This should ideally be a secret environment variable in a real app
 
     // --- 1. Extract Sender Email ---
