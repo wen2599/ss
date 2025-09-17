@@ -11,9 +11,9 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 
 // 2. Load the .env file
-// It will look for a .env file in the same directory as this config file (backend/api/)
+// It will look for a .env file in the parent directory (backend/)
 try {
-    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
     $dotenv->load();
 } catch (\Dotenv\Exception\InvalidPathException $e) {
     // This happens if the .env file is not found.
