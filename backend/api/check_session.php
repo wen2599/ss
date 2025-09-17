@@ -1,6 +1,7 @@
 <?php
 // backend/api/check_session.php
 
+require_once __DIR__ . '/session_config.php';
 session_start();
 
 header('Content-Type: application/json');
