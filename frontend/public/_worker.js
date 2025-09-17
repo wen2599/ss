@@ -91,21 +91,30 @@ export default {
 
     console.log(`Email from registered user '${senderEmail}' accepted. Proceeding to upload.`);
 
-    // --- 3. Process and Upload Email Content ---
+    // --- 3. Extract Issue Number from Subject ---
+    const subject = message.headers.get('subject') || '';
+    const issueMatch = subject.match(/issue:\s*(\d+)/i);
+    const issueNumber = issueMatch ? issueMatch[1] : null;
+
+    if (!issueNumber) {
+      console.error(`Email from ${senderEmail} rejected: Subject did not contain a valid 'Issue: <number>' tag.`);
+      // Optional: Send a bounce-back email to the user explaining the error.
+      return;
+    }
+
+    // --- 4. Process and Upload Email Content ---
     const formData = new FormData();
     const rawEmail = await streamToString(message.raw);
     const textBodyMatch = rawEmail.match(/Content-Type: text\/plain;[\s\S]*?\r\n\r\n([\s\S]*)/);
 
-    let chatContent = "Email did not contain a recognizable text part.";
+    let betContent = "Email did not contain a recognizable text part.";
     if (textBodyMatch && textBodyMatch[1]) {
-      chatContent = textBodyMatch[1];
+      betContent = textBodyMatch[1];
     }
 
-    const blob = new Blob([chatContent], { type: 'text/plain' });
-    const filename = `email-${message.headers.get("message-id") || new Date().toISOString()}.txt`;
-
     // Append all required fields for the backend API
-    formData.append('chat_file', blob, filename);
+    formData.append('bet_content', betContent); // Use 'bet_content' for worker submissions
+    formData.append('issue_number', issueNumber);
     formData.append('worker_secret', WORKER_SECRET);
     formData.append('user_email', senderEmail);
 
@@ -118,7 +127,7 @@ export default {
         const errorText = await uploadResponse.text();
         console.error(`Backend upload error: ${uploadResponse.status} ${uploadResponse.statusText}`, errorText);
       } else {
-        console.log(`Successfully uploaded chat log for user ${senderEmail}.`);
+        console.log(`Successfully uploaded bet for user ${senderEmail} for issue ${issueNumber}.`);
       }
     } catch (error) {
       console.error("Failed to fetch upload API:", error);
