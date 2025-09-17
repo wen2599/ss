@@ -1,25 +1,21 @@
 <?php
 // backend/api/database.php
 
-// Include the .env loader and load the .env file from the same directory
-require_once __DIR__ . '/dotenv.php';
-loadDotEnv(__DIR__ . '/.env');
-
-// The config file is still included for other settings, but no longer for DB credentials
+// The config file now contains all necessary credentials and settings.
 require_once __DIR__ . '/config.php';
 
 function getDbConnection() {
-    // Retrieve database credentials from environment variables
-    $host = getenv('DB_HOST');
-    $db   = getenv('DB_NAME');
-    $user = getenv('DB_USER');
-    $pass = getenv('DB_PASS'); // Note: A password can be empty, so we don't check it for existence here.
+    // Retrieve database credentials from constants defined in config.php
+    $host = defined('DB_HOST') ? DB_HOST : null;
+    $db   = defined('DB_NAME') ? DB_NAME : null;
+    $user = defined('DB_USER') ? DB_USER : null;
+    $pass = defined('DB_PASS') ? DB_PASS : null;
     $charset = 'utf8mb4';
 
-    // Check if all required environment variables are set
-    if ($host === false || $db === false || $user === false || $pass === false) {
+    // Check if all required constants are defined
+    if (is_null($host) || is_null($db) || is_null($user) || is_null($pass)) {
         http_response_code(500);
-        error_log('Database configuration is incomplete. One or more DB environment variables are not set.');
+        error_log('Database configuration is incomplete. One or more DB constants are not defined in config.php.');
         echo json_encode(['success' => false, 'message' => 'Server configuration error: Database connection details are missing.']);
         exit();
     }
@@ -35,10 +31,8 @@ function getDbConnection() {
         $pdo = new PDO($dsn, $user, $pass, $options);
         return $pdo;
     } catch (\PDOException $e) {
-        // In a real application, you would log this error instead of echoing it.
         error_log('Database Connection Error: ' . $e->getMessage());
 
-        // For this project, we'll send a generic error response to the client.
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Database connection failed. Please check the server logs for details.']);
         exit();
