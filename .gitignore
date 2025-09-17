@@ -26,3 +26,7 @@ logs
 # IDE files
 .idea/
 .vscode/
+
+# Project-specific ignores for backend
+/backend/vendor/
+/backend/.env
