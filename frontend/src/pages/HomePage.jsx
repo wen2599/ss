@@ -72,21 +72,46 @@ const HomePage = () => {
         setError(null);
     };
 
-    const renderTable = (data) => {
-        if (!data || data.length === 0) return <p>没有可显示的数据。</p>;
-        const headers = Object.keys(data[0]);
-        return (
-            <table>
-                <thead>
-                    <tr>{headers.map((h) => <th key={h}>{h}</th>)}</tr>
-                </thead>
-                <tbody>
-                    {data.map((row, i) => (
-                        <tr key={i}>{headers.map((h) => <td key={h}>{row[h]}</td>)}</tr>
-                    ))}
-                </tbody>
-            </table>
-        );
+    const renderResult = (result) => {
+        if (!result || !result.data || result.data.length === 0) {
+            return <p>没有可显示的数据。</p>;
+        }
+
+        // Case 1: It's a structured chat log
+        if (result.type === 'chat') {
+            const headers = Object.keys(result.data[0]);
+            return (
+                <table>
+                    <thead>
+                        <tr>{headers.map((h) => <th key={h}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                        {result.data.map((row, i) => (
+                            <tr key={i}>{headers.map((h) => <td key={h}>{row[h]}</td>)}</tr>
+                        ))}
+                    </tbody>
+                </table>
+            );
+        }
+
+        // Case 2: It's plain text
+        if (result.type === 'text') {
+            return (
+                <table>
+                    <thead>
+                        <tr><th>Content</th></tr>
+                    </thead>
+                    <tbody>
+                        {result.data.map((row, i) => (
+                            <tr key={i}><td><pre>{row.content}</pre></td></tr>
+                        ))}
+                    </tbody>
+                </table>
+            );
+        }
+
+        // Fallback for unknown types or malformed data
+        return <pre>{JSON.stringify(result.data, null, 2)}</pre>;
     };
 
     return (
@@ -117,7 +142,7 @@ const HomePage = () => {
             {backendResponse && (
                 <div className="card">
                     <h2>解析结果:</h2>
-                    {backendResponse.parsedData && Array.isArray(backendResponse.parsedData) ? renderTable(backendResponse.parsedData) : <pre>{JSON.stringify(backendResponse, null, 2)}</pre>}
+                    {backendResponse.parsedData ? renderResult(backendResponse.parsedData) : <p>无法渲染结果。</p>}
                     {backendResponse.rawContent && (
                         <>
                             <h3>原始聊天记录 (部分):</h3>

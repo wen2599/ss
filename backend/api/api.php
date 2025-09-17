@@ -7,6 +7,7 @@
 
 session_start();
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/parser.php'; // Include the new parser
 
 // --- Authentication and User ID Determination ---
 $user_id = null;
@@ -68,37 +69,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // (File validation can be added here if needed)
 
         $fileContent = file_get_contents($fileTmpName);
+        $rawContentPreview = mb_substr($fileContent, 0, 1000, 'UTF-8');
 
-        $parsedData = [];
-        $rawContentPreview = '';
-        if ($fileContent) {
-            $rawContentPreview = mb_substr($fileContent, 0, 1000, 'UTF-8');
-            $lines = explode("\n", $fileContent);
-            $currentMessage = null;
-            foreach ($lines as $line) {
-                $line = trim($line);
-                if (empty($line)) continue;
-                $pattern = '/^\[(\d{1,4}[-\/\.]\d{1,2}[-\/\.]\d{1,4}),?\s+(\d{1,2}:\d{1,2}(?::\d{1,2})?\s*(?:AM|PM)?)\]\s+([^:]+):\s+(.*)$/U';
-                if (preg_match($pattern, $line, $matches)) {
-                    if ($currentMessage) $parsedData[] = $currentMessage;
-                    $currentMessage = ['Date' => trim($matches[1]), 'Time' => trim($matches[2]), 'Sender' => trim($matches[3]), 'Message' => trim($matches[4])];
-                } else if ($currentMessage) {
-                    $currentMessage['Message'] .= "\n" . $line;
-                }
-            }
-            if ($currentMessage) $parsedData[] = $currentMessage;
-        }
+        // Use the new parsing function, which returns a structured array
+        $parsedResult = parseChatLog($fileContent);
 
-        if (!empty($parsedData)) {
-            saveChatLog($pdo, $user_id, $fileName, $parsedData);
+        // Only save if the parser found some data to save.
+        if (!empty($parsedResult['data'])) {
+            saveChatLog($pdo, $user_id, $fileName, $parsedResult);
         }
 
         $response = [
             'success' => true,
             'message' => 'File uploaded and parsed successfully.',
             'fileName' => $fileName,
-            'rawContent' => $rawContentPreview,
-            'parsedData' => $parsedData
+            'rawContent' => $rawContentPreview, // Preview is kept for the response
+            'parsedData' => $parsedResult // Return the full structure
         ];
 
     } else {
