@@ -3,18 +3,44 @@
 
 /**
  * Application Configuration
+ *
+ * This file loads environment variables from a .env file and defines them as constants.
  */
 
-// --- Database Configuration ---
-define('DB_HOST', 'mysql12.serv00.com');
-define('DB_NAME', 'm10300_sj');
-define('DB_USER', 'm10300_yh');
-define('DB_PASS', 'Wenxiu1234*');
+// 1. Require the Composer autoloader
+require_once __DIR__ . '/../vendor/autoload.php';
 
+// 2. Load the .env file
+// It will look for a .env file in the same directory as this config file (backend/api/)
+try {
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+    $dotenv->load();
+} catch (\Dotenv\Exception\InvalidPathException $e) {
+    // This happens if the .env file is not found.
+    // We will handle this gracefully below.
+    // In a web context, you might want to return a 503 Service Unavailable error.
+    die("Error: Could not find the .env file. Please copy .env.example to .env and fill in your credentials.");
+}
+
+
+// 3. Define a helper function to get required env variables
+function get_required_env($key) {
+    if (!isset($_ENV[$key])) {
+        die("Error: Required environment variable '{$key}' is not set in your .env file.");
+    }
+    return $_ENV[$key];
+}
+
+// 4. Define constants from environment variables
+// --- Database Configuration ---
+define('DB_HOST', get_required_env('DB_HOST'));
+define('DB_NAME', get_required_env('DB_NAME'));
+define('DB_USER', get_required_env('DB_USER'));
+define('DB_PASS', get_required_env('DB_PASS'));
 
 // --- Telegram Bot Configuration ---
-define('TELEGRAM_BOT_TOKEN', '7279950407:AAGo');
-define('TELEGRAM_CHANNEL_ID', '-1002652392716');
-define('TELEGRAM_SUPER_ADMIN_ID', 1878794912);
+define('TELEGRAM_BOT_TOKEN', get_required_env('TELEGRAM_BOT_TOKEN'));
+define('TELEGRAM_CHANNEL_ID', get_required_env('TELEGRAM_CHANNEL_ID'));
+define('TELEGRAM_SUPER_ADMIN_ID', get_required_env('TELEGRAM_SUPER_ADMIN_ID'));
 
 ?>
