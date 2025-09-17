@@ -14,7 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Start the session
+// Configure and start the session
+require_once __DIR__ . '/session_config.php';
 session_start();
 
 $response = ['success' => false, 'message' => 'An unknown error occurred.'];
