@@ -1,113 +1,65 @@
 <?php
-// backend/api/api.php
+header('Content-Type: application/json');
 
-// This script handles chat log uploads from two sources:
-// 1. Logged-in users via the frontend (authenticated by PHP session).
-// 2. The Cloudflare email worker (authenticated by a shared secret).
-
-session_start();
-require_once __DIR__ . '/database.php';
-
-// --- Authentication and User ID Determination ---
-$user_id = null;
-
-// Case 1: Authenticated via Session (from frontend)
-if (isset($_SESSION['user_id'])) {
-    $user_id = $_SESSION['user_id'];
-}
-// Case 2: Authenticated via Worker
-// The worker MUST send 'worker_secret' and 'user_email' as POST fields along with the file.
-else if (isset($_POST['worker_secret']) && $_POST['worker_secret'] === 'A_VERY_SECRET_KEY' && isset($_POST['user_email'])) {
-    $pdo_for_user = getDbConnection();
-    $stmt = $pdo_for_user->prepare("SELECT id FROM users WHERE email = :email");
-    $stmt->execute([':email' => $_POST['user_email']]);
-    $user = $stmt->fetch();
-    if ($user) {
-        $user_id = $user['id'];
-    }
-}
-
-// If no user_id could be determined, deny access.
-if ($user_id === null) {
-    http_response_code(401); // Unauthorized
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'message' => 'Authentication failed.']);
+// 检查请求方法是否为 POST
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405); // Method Not Allowed
+    echo json_encode(['status' => 'error', 'message' => 'Only POST requests are allowed.']);
     exit();
 }
 
+// 检查是否有上传的文件
+if (empty($_FILES['chat_file'])) {
+    http_response_code(400); // Bad Request
+    echo json_encode(['status' => 'error', 'message' => 'No file uploaded with key "chat_file".']);
+    exit();
+}
 
-// --- Script Main Logic ---
+$file = $_FILES['chat_file'];
 
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-$pdo = getDbConnection();
+// 检查文件上传是否有错误
+if ($file['error'] !== UPLOAD_ERR_OK) {
+    http_response_code(500); // Internal Server Error
+    echo json_encode(['status' => 'error', 'message' => 'File upload error: ' . $file['error']]);
+    exit();
+}
 
-function saveChatLog(PDO $pdo, int $user_id, string $filename, array $parsedData) {
-    $sql = "INSERT INTO chat_logs (user_id, filename, parsed_data) VALUES (:user_id, :filename, :parsed_data)";
-    try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([':user_id' => $user_id, ':filename' => $filename, ':parsed_data' => json_encode($parsedData)]);
-    } catch (PDOException $e) {
+// 获取文件信息
+$fileName = basename($file['name']); // 获取原始文件名
+$tmpFilePath = $file['tmp_name'];   // 临时存储路径
+$fileSize = $file['size'];         // 文件大小
+$fileType = $file['type'];         // 文件类型
+
+// 定义存储文件的目录 (使用绝对路径)
+$uploadDir = '/usr/home/wenge95222/domains/wenge.cloudns.ch/public_html/uploads/';
+
+// 确保上传目录存在
+if (!is_dir($uploadDir)) {
+    // 尝试递归创建目录，并设置宽松的权限
+    if (!mkdir($uploadDir, 0777, true)) {
         http_response_code(500);
-        header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Failed to save chat log.', 'error' => $e->getMessage()]);
+        echo json_encode(['status' => 'error', 'message' => 'Failed to create upload directory. Check permissions.']);
         exit();
     }
 }
 
-header('Content-Type: application/json');
-$response = ['success' => false, 'message' => 'Unknown error.'];
+$destinationPath = $uploadDir . $fileName;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_FILES['chat_file']) && $_FILES['chat_file']['error'] === UPLOAD_ERR_OK) {
-
-        $file = $_FILES['chat_file'];
-        $fileName = $file['name'];
-        $fileTmpName = $file['tmp_name'];
-
-        // (File validation can be added here if needed)
-
-        $fileContent = file_get_contents($fileTmpName);
-
-        $parsedData = [];
-        $rawContentPreview = '';
-        if ($fileContent) {
-            $rawContentPreview = mb_substr($fileContent, 0, 1000, 'UTF-8');
-            $lines = explode("\n", $fileContent);
-            $currentMessage = null;
-            foreach ($lines as $line) {
-                $line = trim($line);
-                if (empty($line)) continue;
-                $pattern = '/^\[(\d{1,4}[-\/\.]\d{1,2}[-\/\.]\d{1,4}),?\s+(\d{1,2}:\d{1,2}(?::\d{1,2})?\s*(?:AM|PM)?)\]\s+([^:]+):\s+(.*)$/U';
-                if (preg_match($pattern, $line, $matches)) {
-                    if ($currentMessage) $parsedData[] = $currentMessage;
-                    $currentMessage = ['Date' => trim($matches[1]), 'Time' => trim($matches[2]), 'Sender' => trim($matches[3]), 'Message' => trim($matches[4])];
-                } else if ($currentMessage) {
-                    $currentMessage['Message'] .= "\n" . $line;
-                }
-            }
-            if ($currentMessage) $parsedData[] = $currentMessage;
-        }
-
-        if (!empty($parsedData)) {
-            saveChatLog($pdo, $user_id, $fileName, $parsedData);
-        }
-
-        $response = [
-            'success' => true,
-            'message' => 'File uploaded and parsed successfully.',
-            'fileName' => $fileName,
-            'rawContent' => $rawContentPreview,
-            'parsedData' => $parsedData
-        ];
-
-    } else {
-        $response['message'] = 'No file uploaded or an upload error occurred. Code: ' . ($_FILES['chat_file']['error'] ?? 'Unknown');
-    }
+// 移动上传的文件到目标目录
+if (move_uploaded_file($tmpFilePath, $destinationPath)) {
+    // 文件成功上传
+    http_response_code(200); // OK
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'File uploaded successfully!',
+        'filename' => $fileName,
+        'size' => $fileSize,
+        'path' => $destinationPath
+    ]);
 } else {
-    $response['message'] = 'Only POST requests are accepted.';
-    http_response_code(405);
+    // 文件移动失败
+    http_response_code(500); // Internal Server Error
+    echo json_encode(['status' => 'error', 'message' => 'Failed to move uploaded file. Check directory permissions.']);
 }
 
-echo json_encode($response);
 ?>
