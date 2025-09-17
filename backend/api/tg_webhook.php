@@ -1,145 +1,110 @@
 <?php
 // backend/api/tg_webhook.php
+// This webhook receives updates from Telegram.
+// It's designed to parse winning number announcements from a specific channel.
 
-// Include the main configuration file
+require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/config.php';
 
-/**
- * Sends a message to a specific Telegram chat, optionally with a custom keyboard.
- *
- * @param int      $chat_id The ID of the chat to send the message to.
- * @param string   $text    The message text to send.
- * @param array|null $keyboard Optional. A 2D array defining the keyboard layout.
- */
-function sendMessage(int $chat_id, string $text, ?array $keyboard = null): void {
-    $bot_token = TELEGRAM_BOT_TOKEN;
-    if (empty($bot_token) || $bot_token === 'YOUR_TELEGRAM_BOT_TOKEN') {
-        error_log("Telegram Bot Token is not configured.");
-        return;
-    }
-
-    $url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
-    $post_fields = [
-        'chat_id' => $chat_id,
-        'text'    => $text,
-        'parse_mode' => 'HTML'
+// --- Helper Functions ---
+function parse_lottery_result($text) {
+    $lottery_data = [
+        'lottery_name' => null,
+        'issue_number' => null,
+        'winning_numbers' => null,
     ];
 
-    if ($keyboard) {
-        $reply_markup = [
-            'keyboard' => $keyboard,
-            'resize_keyboard' => true,
-            'one_time_keyboard' => false // Keep the keyboard open
-        ];
-        $post_fields['reply_markup'] = json_encode($reply_markup);
+    // Regex for the different lottery formats
+    $patterns = [
+        '新澳门六合彩' => '/新澳门六合彩第:(\d+)期开奖结果:\s*([\d\s]+)\s*([\p{Han}\s]+)\s*([🔴🟢🔵\s]+)/u',
+        '香港六合彩' => '/香港六合彩第:(\d+)期开奖结果:\s*([\d\s]+)\s*([\p{Han}\s]+)\s*([🔴🟢🔵\s]+)/u',
+        '老澳21.30' => '/老澳21\.30第:(\d+)\s*期开奖结果:\s*([\d\s]+)\s*([\p{Han}\s]+)\s*([🔴🟢🔵\s]+)/u',
+    ];
+
+    foreach ($patterns as $name => $pattern) {
+        if (preg_match($pattern, $text, $matches)) {
+            $lottery_data['lottery_name'] = $name;
+            $lottery_data['issue_number'] = $matches[1];
+
+            $numbers = preg_split('/\s+/', trim($matches[2]), -1, PREG_SPLIT_NO_EMPTY);
+            $zodiacs = preg_split('/\s+/', trim($matches[3]), -1, PREG_SPLIT_NO_EMPTY);
+
+            // Convert emoji to text
+            $color_emojis = preg_split('/\s+/', trim($matches[4]), -1, PREG_SPLIT_NO_EMPTY);
+            $color_map = ['🔴' => 'red', '🟢' => 'green', '🔵' => 'blue'];
+            $colors = array_map(fn($emoji) => $color_map[$emoji] ?? 'unknown', $color_emojis);
+
+            if (count($numbers) === 7 && count($zodiacs) === 7 && count($colors) === 7) {
+                $lottery_data['winning_numbers'] = [
+                    'numbers' => array_map('intval', $numbers),
+                    'zodiacs' => $zodiacs,
+                    'colors' => $colors,
+                    'special_number' => (int)end($numbers),
+                ];
+            }
+            break; // Found a match, no need to check other patterns
+        }
     }
 
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    // Force IPv4 resolution, which can help in some network environments.
-    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-    curl_setopt($ch, CURLOPT_POST, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post_fields));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-
-    $response = curl_exec($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    if (curl_errno($ch) || $http_code !== 200) {
-        // Log errors if sending fails, but don't output to user
-        error_log("Failed to send message to Telegram. HTTP Code: {$http_code}. Response: {$response}");
-    }
-    curl_close($ch);
+    return $lottery_data;
 }
 
-// Immediately acknowledge the request to Telegram to prevent timeouts
-http_response_code(200);
-echo json_encode(['status' => 'ok']);
-if (function_exists('fastcgi_finish_request')) {
-    fastcgi_finish_request();
-}
 
-// Get the raw POST data from the webhook
+// --- Main Webhook Logic ---
 $update_json = file_get_contents('php://input');
 $update = json_decode($update_json, true);
 
-if (!$update || !isset($update['message']['text'])) {
-    exit();
+if (!$update) {
+    exit(); // Not a valid update
 }
 
-$message = $update['message'];
-$chat_id = $message['chat']['id'];
-$user_id = $message['from']['id'];
-$text = trim($message['text']);
+// We are only interested in messages from our specific channel
+if (isset($update['message']['chat']['id']) && $update['message']['chat']['id'] == TELEGRAM_CHANNEL_ID) {
+    $message_text = $update['message']['text'] ?? '';
 
-// --- Security Check: Only allow the Super Admin ---
-$super_admin_id = defined('TELEGRAM_SUPER_ADMIN_ID') ? TELEGRAM_SUPER_ADMIN_ID : 0;
-if ($user_id != $super_admin_id) {
-    sendMessage($chat_id, "<b>权限不足。</b> 您无权使用此机器人。");
-    exit();
-}
+    $result = parse_lottery_result($message_text);
 
-// --- Command Processing ---
-if (strpos($text, '/') === 0) {
-    $parts = explode(' ', $text, 2);
-    $command = $parts[0];
-    $argument = trim($parts[1] ?? '');
+    if ($result['lottery_name'] && $result['issue_number'] && $result['winning_numbers']) {
+        try {
+            $pdo = getDbConnection();
+            $sql = "INSERT INTO lottery_draws (lottery_name, issue_number, winning_numbers) VALUES (:lottery_name, :issue_number, :winning_numbers)
+                    ON DUPLICATE KEY UPDATE winning_numbers = VALUES(winning_numbers)";
 
-    require_once __DIR__ . '/database.php';
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':lottery_name' => $result['lottery_name'],
+                ':issue_number' => $result['issue_number'],
+                ':winning_numbers' => json_encode($result['winning_numbers']),
+            ]);
 
-    try {
-        $pdo = getDbConnection();
+            // Now that the draw is saved, trigger the settlement script
+            // Using include is simple and effective for this architecture.
+            // Pass the context to the settlement script.
+            $settlement_context = [
+                'pdo' => $pdo,
+                'lottery_name' => $result['lottery_name'],
+                'issue_number' => $result['issue_number'],
+                'winning_numbers' => $result['winning_numbers'],
+            ];
 
-        $keyboard = null; // Initialize keyboard as null
-        switch ($command) {
-            case '/start':
-                $response_text = "欢迎您，管理员！请使用下面的键盘或直接输入命令。";
-                $keyboard = [
-                    ['/listusers']
-                ];
-                break;
+            // We will create this file in the next step
+            include __DIR__ . '/settle_bets.php';
 
-            case '/listusers':
-                $stmt = $pdo->query("SELECT id, email, created_at FROM users ORDER BY id ASC");
-                $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                if (empty($users)) {
-                    $response_text = "数据库中未找到用户。";
-                } else {
-                    $response_text = "<b>用户列表 (" . count($users) . "):</b>\n\n";
-                    foreach ($users as $user) {
-                        $response_text .= "<b>ID:</b> " . htmlspecialchars($user['id']) . "\n";
-                        $response_text .= "<b>邮箱:</b> <code>" . htmlspecialchars($user['email']) . "</code>\n";
-                        $response_text .= "<b>创建时间:</b> " . htmlspecialchars($user['created_at']) . "\n\n";
-                    }
-                }
-                break;
+            // Optional: Log success to a file for debugging
+            file_put_contents('tg_webhook.log', "Successfully processed issue {$result['issue_number']} and triggered settlement.\n", FILE_APPEND);
 
-            case '/deleteuser':
-                if (empty($argument) || !filter_var($argument, FILTER_VALIDATE_EMAIL)) {
-                    $response_text = "请输入有效的用户邮箱以删除。\n用法: <code>/deleteuser user@example.com</code>";
-                } else {
-                    $email_to_delete = $argument;
-                    $stmt = $pdo->prepare("DELETE FROM users WHERE email = :email");
-                    $stmt->execute([':email' => $email_to_delete]);
-
-                    if ($stmt->rowCount() > 0) {
-                        $response_text = "✅ 成功删除用户: <code>" . htmlspecialchars($email_to_delete) . "</code>";
-                    } else {
-                        $response_text = "⚠️ 未找到用户: <code>" . htmlspecialchars($email_to_delete) . "</code>";
-                    }
-                }
-                break;
-
-            default:
-                $response_text = "未知命令: " . htmlspecialchars($command);
-                break;
+        } catch (Exception $e) {
+            // Log any errors
+            file_put_contents('tg_webhook_error.log', "Error: " . $e->getMessage() . "\n", FILE_APPEND);
         }
-
-        sendMessage($chat_id, $response_text, $keyboard);
-
-    } catch (Exception $e) {
-        error_log("Bot command failed: " . $e->getMessage());
-        sendMessage($chat_id, "<b>错误:</b> 处理您的命令时发生内部错误。");
     }
 }
+
+// Note: The original bot commands for /listusers etc. have been removed
+// as the primary purpose of this webhook is now to ingest lottery results.
+// They can be added back in if needed.
+
+// Respond to Telegram to acknowledge receipt
+http_response_code(200);
+echo json_encode(['status' => 'ok']);
 ?>

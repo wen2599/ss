@@ -1,5 +1,5 @@
 <?php
-// backend/api/get_logs.php
+// backend/api/get_bets.php
 
 session_start();
 
@@ -10,12 +10,6 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// === 错误报告设置 ===
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-// === 设置响应内容类型为 JSON ===
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/database.php';
@@ -27,22 +21,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $pdo = getDbConnection();
         $user_id = $_SESSION['user_id'];
 
-        $stmt = $pdo->prepare("SELECT id, filename, parsed_data, created_at FROM chat_logs WHERE user_id = :user_id ORDER BY created_at DESC");
+        // Fetch bets for the logged-in user
+        $stmt = $pdo->prepare("SELECT * FROM bets WHERE user_id = :user_id ORDER BY created_at DESC");
         $stmt->execute([':user_id' => $user_id]);
-        $logs = $stmt->fetchAll();
+        $bets = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // The parsed_data is stored as a JSON string, so we need to decode it
-        foreach ($logs as &$log) {
-            $log['parsed_data'] = json_decode($log['parsed_data']);
+        // The bet_data and settlement_data are stored as JSON strings, so we need to decode them
+        foreach ($bets as &$bet) {
+            if (isset($bet['bet_data'])) {
+                $bet['bet_data'] = json_decode($bet['bet_data']);
+            }
+            if (isset($bet['settlement_data'])) {
+                $bet['settlement_data'] = json_decode($bet['settlement_data']);
+            }
         }
 
         $response = [
             'success' => true,
-            'data' => $logs
+            'data' => $bets
         ];
 
     } catch (PDOException $e) {
-        $response['message'] = 'Failed to retrieve logs from the database.';
+        $response['message'] = 'Failed to retrieve bets from the database.';
         http_response_code(500);
     }
 } else {

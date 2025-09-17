@@ -1,23 +1,28 @@
 <?php
 // backend/api/api.php
-
-// This script handles chat log uploads from two sources:
-// 1. Logged-in users via the frontend (authenticated by PHP session).
-// 2. The Cloudflare email worker (authenticated by a shared secret).
+// Handles bet submissions from file uploads and the email worker.
 
 session_start();
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 require_once __DIR__ . '/database.php';
-require_once __DIR__ . '/parser.php'; // Include the new parser
+require_once __DIR__ . '/parser.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/email_helper.php'; // Include the new email helper
+
+header('Content-Type: application/json');
+$response = ['success' => false, 'message' => 'An unknown error occurred.'];
 
 // --- Authentication and User ID Determination ---
 $user_id = null;
+$is_from_worker = false;
 
 // Case 1: Authenticated via Session (from frontend)
 if (isset($_SESSION['user_id'])) {
     $user_id = $_SESSION['user_id'];
 }
 // Case 2: Authenticated via Worker
-// The worker MUST send 'worker_secret' and 'user_email' as POST fields along with the file.
 else if (isset($_POST['worker_secret']) && $_POST['worker_secret'] === 'A_VERY_SECRET_KEY' && isset($_POST['user_email'])) {
     $pdo_for_user = getDbConnection();
     $stmt = $pdo_for_user->prepare("SELECT id FROM users WHERE email = :email");
@@ -25,74 +30,91 @@ else if (isset($_POST['worker_secret']) && $_POST['worker_secret'] === 'A_VERY_S
     $user = $stmt->fetch();
     if ($user) {
         $user_id = $user['id'];
+        $is_from_worker = true;
     }
 }
 
-// If no user_id could be determined, deny access.
 if ($user_id === null) {
     http_response_code(401); // Unauthorized
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'message' => 'Authentication failed.']);
+    $response['message'] = 'Authentication failed.';
+    echo json_encode($response);
     exit();
 }
 
-
-// --- Script Main Logic ---
-
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-$pdo = getDbConnection();
-
-function saveChatLog(PDO $pdo, int $user_id, string $filename, array $parsedData) {
-    $sql = "INSERT INTO chat_logs (user_id, filename, parsed_data) VALUES (:user_id, :filename, :parsed_data)";
-    try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([':user_id' => $user_id, ':filename' => $filename, ':parsed_data' => json_encode($parsedData)]);
-    } catch (PDOException $e) {
-        http_response_code(500);
-        header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Failed to save chat log.', 'error' => $e->getMessage()]);
-        exit();
-    }
+// --- Main Logic ---
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405); // Method Not Allowed
+    $response['message'] = 'Only POST requests are accepted.';
+    echo json_encode($response);
+    exit();
 }
 
-header('Content-Type: application/json');
-$response = ['success' => false, 'message' => 'Unknown error.'];
+try {
+    $pdo = getDbConnection();
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_FILES['chat_file']) && $_FILES['chat_file']['error'] === UPLOAD_ERR_OK) {
+    // Determine content and issue number
+    $betContent = '';
+    $issue_number = null;
+    $original_filename = 'N/A';
 
-        $file = $_FILES['chat_file'];
-        $fileName = $file['name'];
-        $fileTmpName = $file['tmp_name'];
-
-        // (File validation can be added here if needed)
-
-        $fileContent = file_get_contents($fileTmpName);
-        $rawContentPreview = mb_substr($fileContent, 0, 1000, 'UTF-8');
-
-        // Use the new parsing function, which returns a structured array
-        $parsedResult = parseChatLog($fileContent);
-
-        // Only save if the parser found some data to save.
-        if (!empty($parsedResult['data'])) {
-            saveChatLog($pdo, $user_id, $fileName, $parsedResult);
+    if (isset($_FILES['bet_file'])) { // From frontend upload
+        if ($_FILES['bet_file']['error'] !== UPLOAD_ERR_OK) {
+            throw new Exception('File upload error code: ' . $_FILES['bet_file']['error']);
         }
+        $betContent = file_get_contents($_FILES['bet_file']['tmp_name']);
+        $issue_number = $_POST['issue_number'] ?? null;
+        $original_filename = $_FILES['bet_file']['name'];
 
-        $response = [
-            'success' => true,
-            'message' => 'File uploaded and parsed successfully.',
-            'fileName' => $fileName,
-            'rawContent' => $rawContentPreview, // Preview is kept for the response
-            'parsedData' => $parsedResult // Return the full structure
-        ];
-
-    } else {
-        $response['message'] = 'No file uploaded or an upload error occurred. Code: ' . ($_FILES['chat_file']['error'] ?? 'Unknown');
+    } else if ($is_from_worker) { // From email worker
+        // We'll define the worker to send 'bet_content' and 'issue_number'
+        $betContent = $_POST['bet_content'] ?? '';
+        $issue_number = $_POST['issue_number'] ?? null;
+        $original_filename = 'Email Bet from ' . $_POST['user_email'];
     }
-} else {
-    $response['message'] = 'Only POST requests are accepted.';
-    http_response_code(405);
+
+    if (empty($betContent)) {
+        throw new Exception('No betting content provided.');
+    }
+    if (empty($issue_number)) {
+        throw new Exception('Issue number is required.');
+    }
+
+    // Use the new parser
+    $parsed_bets = parseBets($betContent, $pdo);
+
+    if (empty($parsed_bets)) {
+        throw new Exception('Could not parse any bets from the provided content.');
+    }
+
+    // Save the bet to the database
+    $sql = "INSERT INTO bets (user_id, issue_number, original_content, bet_data, status) VALUES (:user_id, :issue_number, :original_content, :bet_data, 'unsettled')";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        ':user_id' => $user_id,
+        ':issue_number' => $issue_number,
+        ':original_content' => $betContent,
+        ':bet_data' => json_encode($parsed_bets)
+    ]);
+
+    // If the bet came from the email worker, send a confirmation email
+    if ($is_from_worker) {
+        $recipient_email = $_POST['user_email'];
+        $subject = "投注确认 (期号: {$issue_number})";
+        $body = "我们已经收到您的投注内容，详情如下：\n\n" . $betContent;
+        send_confirmation_email($recipient_email, $subject, $body);
+    }
+
+    $response = [
+        'success' => true,
+        'message' => 'Bet submitted successfully.',
+        'fileName' => $original_filename,
+        'issueNumber' => $issue_number,
+        'parsedBets' => $parsed_bets
+    ];
+
+} catch (Exception $e) {
+    http_response_code(400); // Bad Request
+    $response['message'] = 'Failed to process bet: ' . $e->getMessage();
 }
 
 echo json_encode($response);

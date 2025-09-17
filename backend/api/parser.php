@@ -2,71 +2,79 @@
 // backend/api/parser.php
 
 /**
- * Parses the text content of a file, detecting whether it's a structured
- * chat log or generic plain text.
+ * Parses a string containing lottery bet information based on rules defined in the database.
  *
- * @param string $fileContent The raw text content from the file.
- * @return array A structured array indicating the type of content and the parsed data.
- *               Example for chat: ['type' => 'chat', 'data' => [[...]]]
- *               Example for text: ['type' => 'text', 'data' => [['content' => '...']]]
+ * @param string $inputText The raw text input containing bets.
+ * @param PDO $pdo A connected PDO instance.
+ * @return array An array of parsed bet objects.
  */
-function parseChatLog(string $fileContent): array {
-    $trimmedContent = trim($fileContent);
-    if (empty($trimmedContent)) {
-        return ['type' => 'text', 'data' => []];
+function parseBets(string $inputText, PDO $pdo): array
+{
+    // 1. Fetch rules from the database
+    // This is essential for mapping Zodiacs and Colors to numbers.
+    // The Admin UI (to be built) will populate these rules.
+    $stmt = $pdo->query("SELECT rule_key, rule_value FROM lottery_rules");
+    $rules_raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rules = [];
+    foreach ($rules_raw as $row) {
+        $rules[$row['rule_key']] = json_decode($row['rule_value'], true);
     }
+    $zodiac_mappings = $rules['zodiac_mappings'] ?? [];
+    $color_mappings = $rules['color_mappings'] ?? [];
 
-    $lines = explode("\n", $trimmedContent);
+    // 2. Process the input string
+    $bets = [];
+    // Split bets by spaces, commas, or semicolons for flexibility
+    $bet_chunks = preg_split('/[\s,;]+/', $inputText, -1, PREG_SPLIT_NO_EMPTY);
 
-    // Heuristic: Check if the first non-empty line looks like a chat message.
-    $firstLine = '';
-    foreach ($lines as $line) {
-        if (trim($line) !== '') {
-            $firstLine = trim($line);
-            break;
+    foreach ($bet_chunks as $chunk) {
+        // Pattern for Special Number bets, e.g., "特15x100" or "特15 100"
+        if (preg_match('/^特(\d+)[\sx*](\d+)$/u', $chunk, $matches)) {
+            $bets[] = [
+                'type' => 'special',
+                'number' => $matches[1],
+                'amount' => (int)$matches[2],
+                'display_name' => '特码'
+            ];
+            continue;
         }
-    }
 
-    $chatPattern = '/^\[(\d{1,4}[-\/\.]\d{1,2}[-\/\.]\d{1,4}),?\s+(\d{1,2}:\d{1,2}(?::\d{1,2})?\s*(?:AM|PM)?)\]\s+([^:]+):\s+(.*)$/U';
+        // Pattern for "each number" bets, e.g., "鸡狗猴各数50"
+        if (preg_match('/^([\p{Han}]+)各数(\d+)$/u', $chunk, $matches)) {
+            $items_str = $matches[1];
+            $amount = (int)$matches[2];
+            $items = preg_split('//u', $items_str, -1, PREG_SPLIT_NO_EMPTY);
 
-    if (preg_match($chatPattern, $firstLine)) {
-        // --- Looks like a CHAT LOG ---
-        $parsedData = [];
-        $currentMessage = null;
-
-        foreach ($lines as $line) {
-            $line = rtrim($line); // Keep leading whitespace for multiline messages but trim trailing.
-            if (empty($line) && $currentMessage === null) continue;
-
-            if (preg_match($chatPattern, $line, $matches)) {
-                if ($currentMessage) {
-                    $parsedData[] = $currentMessage;
+            foreach ($items as $item) {
+                if (isset($zodiac_mappings[$item])) {
+                    $bets[] = [
+                        'type' => 'zodiac',
+                        'name' => $item,
+                        'numbers' => $zodiac_mappings[$item],
+                        'amount' => $amount,
+                        'display_name' => '生肖'
+                    ];
                 }
-                $currentMessage = [
-                    'Date' => trim($matches[1]),
-                    'Time' => trim($matches[2]),
-                    'Sender' => trim($matches[3]),
-                    'Message' => trim($matches[4])
-                ];
-            } else if ($currentMessage) {
-                $currentMessage['Message'] .= "\n" . $line;
             }
+            continue;
         }
 
-        if ($currentMessage) {
-            $parsedData[] = $currentMessage;
+        // Pattern for "each wave/color" bets, e.g., "红波各10"
+        if (preg_match('/^([\p{Han}]+波)各(\d+)$/u', $chunk, $matches)) {
+            $item = $matches[1];
+            $amount = (int)$matches[2];
+            if (isset($color_mappings[$item])) {
+                $bets[] = [
+                    'type' => 'color',
+                    'name' => $item,
+                    'numbers' => $color_mappings[$item],
+                    'amount' => $amount,
+                    'display_name' => '波色'
+                ];
+            }
+            continue;
         }
-
-        return ['type' => 'chat', 'data' => $parsedData];
-    } else {
-        // --- Looks like PLAIN TEXT ---
-        $textData = [];
-        // Use original lines before trimming everything
-        $originalLines = explode("\n", $fileContent);
-        foreach ($originalLines as $line) {
-            $textData[] = ['content' => rtrim($line)];
-        }
-        return ['type' => 'text', 'data' => $textData];
     }
+
+    return $bets;
 }
-?>
