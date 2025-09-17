@@ -1,8 +1,6 @@
 <?php
 // backend/api/tg_webhook.php
 
-error_log("--- tg_webhook.php execution started ---");
-
 // Include the main configuration file
 require_once __DIR__ . '/config.php';
 
@@ -10,10 +8,9 @@ require_once __DIR__ . '/config.php';
  * Sends a message to a specific Telegram chat.
  */
 function sendMessage(int $chat_id, string $text): void {
-    error_log("Attempting to send message to chat_id: {$chat_id}");
     $bot_token = TELEGRAM_BOT_TOKEN;
     if (empty($bot_token) || $bot_token === 'YOUR_TELEGRAM_BOT_TOKEN') {
-        error_log("DEBUG: Telegram Bot Token is not configured. Cannot send message.");
+        error_log("Telegram Bot Token is not configured.");
         return;
     }
 
@@ -22,6 +19,8 @@ function sendMessage(int $chat_id, string $text): void {
 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
+    // Force IPv4 resolution, which can help in some network environments.
+    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post_fields));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -29,19 +28,14 @@ function sendMessage(int $chat_id, string $text): void {
 
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curl_error = curl_error($ch);
-    curl_close($ch);
-
-    if ($curl_error) {
-        error_log("DEBUG: cURL error while sending message: " . $curl_error);
-    } elseif ($http_code !== 200) {
-        error_log("DEBUG: Failed to send message to Telegram. HTTP Code: {$http_code}. Response: {$response}");
-    } else {
-        error_log("DEBUG: Message sent successfully to chat_id: {$chat_id}.");
+    if (curl_errno($ch) || $http_code !== 200) {
+        // Log errors if sending fails, but don't output to user
+        error_log("Failed to send message to Telegram. HTTP Code: {$http_code}. Response: {$response}");
     }
+    curl_close($ch);
 }
 
-// Immediately acknowledge the request to Telegram
+// Immediately acknowledge the request to Telegram to prevent timeouts
 http_response_code(200);
 echo json_encode(['status' => 'ok']);
 if (function_exists('fastcgi_finish_request')) {
@@ -50,11 +44,9 @@ if (function_exists('fastcgi_finish_request')) {
 
 // Get the raw POST data from the webhook
 $update_json = file_get_contents('php://input');
-error_log("DEBUG: Received raw update: " . $update_json);
 $update = json_decode($update_json, true);
 
 if (!$update || !isset($update['message']['text'])) {
-    error_log("DEBUG: Invalid or non-text message update received. Exiting.");
     exit();
 }
 
@@ -62,35 +54,29 @@ $message = $update['message'];
 $chat_id = $message['chat']['id'];
 $user_id = $message['from']['id'];
 $text = trim($message['text']);
-error_log("DEBUG: Parsed message from user_id: {$user_id} in chat_id: {$chat_id}. Text: {$text}");
 
-// Security Check
+// --- Security Check: Only allow the Super Admin ---
 $super_admin_id = defined('TELEGRAM_SUPER_ADMIN_ID') ? TELEGRAM_SUPER_ADMIN_ID : 0;
-error_log("DEBUG: Super Admin ID from config is: {$super_admin_id}");
-
 if ($user_id != $super_admin_id) {
-    error_log("DEBUG: Unauthorized access attempt by user ID: {$user_id}. Sending permission denied message.");
     sendMessage($chat_id, "<b>Permission Denied.</b> You are not authorized to use this bot.");
     exit();
 }
-error_log("DEBUG: User is authorized as Super Admin.");
 
-// Command Processing
+// --- Command Processing ---
 if (strpos($text, '/') === 0) {
     $parts = explode(' ', $text, 2);
     $command = $parts[0];
     $argument = trim($parts[1] ?? '');
-    error_log("DEBUG: Processing command '{$command}' with argument '{$argument}'.");
 
     require_once __DIR__ . '/database.php';
 
     try {
         $pdo = getDbConnection();
-        error_log("DEBUG: Database connection successful.");
 
         switch ($command) {
             case '/start':
-                $response_text = "Welcome, Admin! Available commands:\n/listusers\n/deleteuser <email>";
+                // Fixed: Used HTML entity `&lt;` and `&gt;` to prevent parsing errors.
+                $response_text = "Welcome, Admin! Available commands:\n/listusers\n/deleteuser <code>&lt;email&gt;</code>";
                 break;
 
             case '/listusers':
@@ -129,13 +115,11 @@ if (strpos($text, '/') === 0) {
                 break;
         }
 
-        error_log("DEBUG: Preparing to send response for command '{$command}'.");
         sendMessage($chat_id, $response_text);
 
     } catch (Exception $e) {
-        error_log("FATAL: Bot command failed with exception: " . $e->getMessage());
+        error_log("Bot command failed: " . $e->getMessage());
         sendMessage($chat_id, "<b>Error:</b> An internal error occurred while processing your command.");
     }
 }
-error_log("--- tg_webhook.php execution finished ---");
 ?>
