@@ -103,7 +103,7 @@ const HomePage = () => {
                                     <td>{win.bet.type === 'special' ? win.bet.number : win.bet.name}</td>
                                     <td>{win.bet.amount}</td>
                                     <td>{win.payout.toFixed(2)}</td>
-                                tr>
+                                </tr>
                             ))}
                         </tbody>
                     </table>

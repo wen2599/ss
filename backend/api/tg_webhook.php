@@ -88,10 +88,10 @@ if (isset($update['message']['chat']['id']) && $update['message']['chat']['id'] 
             ];
 
             // We will create this file in the next step
-            // include __DIR__ . '/settle_bets.php';
+            include __DIR__ . '/settle_bets.php';
 
             // Optional: Log success to a file for debugging
-            file_put_contents('tg_webhook.log', "Successfully processed issue {$result['issue_number']}\n", FILE_APPEND);
+            file_put_contents('tg_webhook.log', "Successfully processed issue {$result['issue_number']} and triggered settlement.\n", FILE_APPEND);
 
         } catch (Exception $e) {
             // Log any errors

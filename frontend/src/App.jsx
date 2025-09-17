@@ -4,10 +4,9 @@ import { useAuth } from './context/AuthContext';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import AdminPage from './pages/AdminPage'; // Import the new AdminPage
-import './App.css';
+import './App.css'; // Import the new stylesheet
 
-// A wrapper for standard protected routes
+// A wrapper for protected routes
 const ProtectedRoute = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
     if (loading) return <div>正在加载应用状态...</div>;
@@ -15,24 +14,13 @@ const ProtectedRoute = ({ children }) => {
     return children;
 };
 
-// A wrapper for super admin routes
-const SuperAdminRoute = ({ children }) => {
-    const { isAuthenticated, user, loading } = useAuth();
-    if (loading) return <div>正在加载应用状态...</div>;
-    if (!isAuthenticated || !user.is_superadmin) {
-        return <Navigate to="/" replace />; // Redirect non-admins to home
-    }
-    return children;
-};
-
-
 function App() {
     const { isAuthenticated, user, logout } = useAuth();
 
     return (
         <div className="App">
             <header className="App-header">
-                <h1>六合彩投注系统</h1>
+                <h1>聊天记录解析器</h1>
                 <nav>
                     <ul>
                         {!isAuthenticated ? (
@@ -42,7 +30,6 @@ function App() {
                             </>
                         ) : (
                             <>
-                                {user?.is_superadmin && <li><Link to="/admin">后台管理</Link></li>}
                                 <li><span>欢迎您, {user.email}</span></li>
                                 <li><button onClick={logout}>退出</button></li>
                             </>
@@ -58,14 +45,6 @@ function App() {
                             <ProtectedRoute>
                                 <HomePage />
                             </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin"
-                        element={
-                            <SuperAdminRoute>
-                                <AdminPage />
-                            </SuperAdminRoute>
                         }
                     />
                     <Route path="/login" element={<LoginPage />} />
