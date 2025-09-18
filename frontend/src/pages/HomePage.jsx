@@ -20,7 +20,7 @@ const HomePage = () => {
 
     const fetchStoredBets = async () => {
         try {
-            const apiUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/get_bets.php`;
+            const apiUrl = '/api/get_bets.php';
             const response = await axios.get(apiUrl, { withCredentials: true });
             if (response.data.success) {
                 setStoredBets(response.data.data);
@@ -33,7 +33,7 @@ const HomePage = () => {
 
     const fetchLatestDraws = async () => {
         try {
-            const apiUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/get_latest_draws.php`;
+            const apiUrl = '/api/get_latest_draws.php';
             const response = await axios.get(apiUrl);
             if (response.data.success) {
                 setLatestDraws(response.data.data);
@@ -74,7 +74,7 @@ const HomePage = () => {
         formData.append('issue_number', issueNumber);
 
         try {
-            const apiUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/api.php`;
+            const apiUrl = '/api/api.php';
             const response = await axios.post(apiUrl, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 withCredentials: true,

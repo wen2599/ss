@@ -21,7 +21,7 @@ const AdminPage = () => {
     useEffect(() => {
         const fetchRules = async () => {
             try {
-                const apiUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/get_rules.php`;
+                const apiUrl = '/api/get_rules.php';
                 const response = await axios.get(apiUrl, { withCredentials: true });
                 if (response.data.success) {
                     // Prettify the JSON for display in textareas
@@ -58,7 +58,7 @@ const AdminPage = () => {
                 odds: JSON.parse(rules.odds),
             };
 
-            const apiUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/update_rules.php`;
+            const apiUrl = '/api/update_rules.php';
             const response = await axios.post(apiUrl, rulesToSave, {
                 withCredentials: true,
             });
