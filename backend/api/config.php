@@ -5,23 +5,22 @@
  * Application Configuration
  *
  * This file loads environment variables from a .env file located in the parent
- * directory (`backend/`) and defines them as constants. It also includes the
- * Composer autoloader, which is required for the application to function.
+ * directory (`backend/`) and defines them as constants.
+ * It uses a custom, dependency-free loader.
  */
 
-// Require the Composer autoloader
-// This makes the phpdotenv library available.
-require_once __DIR__ . '/../vendor/autoload.php';
+// Use the custom .env loader instead of Composer/phpdotenv
+require_once __DIR__ . '/env_loader.php';
 
-// Load the .env file from the parent directory (`backend/`)
 try {
-    // Note the path: __DIR__ . '/../' points to the `backend` directory
-    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
-    $dotenv->load();
-} catch (\Dotenv\Exception\InvalidPathException $e) {
-    // This happens if the .env file is not found.
+    // The .env file is expected to be in the `backend/` directory,
+    // which is one level up from the current `api/` directory.
+    $dotenv_path = __DIR__ . '/../.env';
+    load_env($dotenv_path);
+} catch (Exception $e) {
     http_response_code(503); // Service Unavailable
-    die("FATAL ERROR: Could not find the .env file. Please copy .env.example to .env in the `backend/` directory and fill in your credentials.");
+    // Output a user-friendly error message. The specific error is in the exception.
+    die("FATAL ERROR: Could not load the environment configuration. Ensure the .env file exists in the `backend/` directory and is readable. Details: " . $e->getMessage());
 }
 
 // Helper function to get required env variables and ensure they are not empty.
