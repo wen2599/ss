@@ -6,36 +6,45 @@
 require_once __DIR__ . '/api_header.php';
 
 /**
- * A whitelist of scripts that are allowed to be executed through this router.
- * This is a security measure to prevent arbitrary file inclusion attacks.
- * Only public-facing API endpoints called by the frontend should be here.
+ * Maps a public 'action' name to a specific PHP script on the backend.
+ * This is a security measure to prevent arbitrary file inclusion and to create
+ * a clean, stable API interface. Only actions defined here are executable.
  * @var array
  */
-$allowed_endpoints = [
-    'api.php',                 // Handles file uploads for new bets
-    'check_session.php',       // Checks if a user is logged in
-    'get_bets.php',            // Gets a user's bet history
-    'get_latest_draws.php',    // Gets the latest lottery results
-    'get_rules.php',           // Gets lottery rules (e.g., for parsing)
-    'is_user_registered.php',  // Checks if an email is already registered
-    'login.php',               // Handles user login
-    'logout.php',              // Handles user logout
-    'register.php',            // Handles new user registration
-    'update_rules.php',        // Admin action to update rules
+$allowed_actions = [
+    'api' => 'api.php',                 // Handles file uploads for new bets
+    'check_session' => 'check_session.php',       // Checks if a user is logged in
+    'get_bets' => 'get_bets.php',            // Gets a user's bet history
+    'get_latest_draws' => 'get_latest_draws.php',    // Gets the latest lottery results
+    'get_rules' => 'get_rules.php',           // Gets lottery rules (e.g., for parsing)
+    'is_user_registered' => 'is_user_registered.php',  // Checks if an email is already registered
+    'login' => 'login.php',               // Handles user login
+    'logout' => 'logout.php',              // Handles user logout
+    'register' => 'register.php',            // Handles new user registration
+    'update_rules' => 'update_rules.php',        // Admin action to update rules
 ];
 
-// Get the requested endpoint from the query string passed by the Cloudflare Worker.
-$endpoint = $_GET['endpoint'] ?? null;
+// Get the requested action from the query string passed by the Cloudflare Worker.
+$action = $_GET['action'] ?? null;
 
-// Validate the requested endpoint.
-if ($endpoint && in_array($endpoint, $allowed_endpoints)) {
-    // If the endpoint is in the whitelist, execute it.
-    // The included script will have access to all constants and functions from api_header.php
-    require_once __DIR__ . '/' . $endpoint;
+// Validate the requested action.
+if ($action && isset($allowed_actions[$action])) {
+    // If the action is in the whitelist, execute the corresponding script.
+    $script_to_include = __DIR__ . '/' . $allowed_actions[$action];
+
+    // Double-check that the file actually exists before trying to include it.
+    if (file_exists($script_to_include)) {
+        require_once $script_to_include;
+    } else {
+        // This case should ideally not be reached if the map is correct.
+        log_error("Router error: Action '{$action}' is allowed but file '{$allowed_actions[$action]}' does not exist.");
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Server configuration error.']);
+    }
 } else {
-    // If the endpoint is not provided or not in the whitelist, return a 404 Not Found error.
+    // If the action is not provided or not in the whitelist, return a 404 Not Found error.
     http_response_code(404);
-    echo json_encode(['success' => false, 'message' => 'API endpoint not found.']);
+    echo json_encode(['success' => false, 'message' => 'API action not found.']);
 }
 
 // The included script is responsible for generating its own output.
