@@ -60,6 +60,7 @@ const RegisterModal = ({ onClose, onRegisterSuccess }) => {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
+                            autoComplete="username"
                         />
                     </div>
                     <div className="form-group">
