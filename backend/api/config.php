@@ -30,7 +30,7 @@ define('FRONTEND_URL', getenv('FRONTEND_URL') ?: null);
 
 // --- Super Admin ---
 // This can be left hardcoded if it's considered a system-level constant and not a secret
-define('TELEGRAM_SUPER_ADMIN_ID', 1878794912);
+define('TELEGRAM_SUPER_ADMIN_ID', getenv('TELEGRAM_SUPER_ADMIN_ID') ?: 1878794912);
 
 // Note: The closing PHP tag is intentionally omitted from this file.
 ?>
