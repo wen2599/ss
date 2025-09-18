@@ -4,22 +4,34 @@
 /**
  * Application Configuration
  *
- * IMPORTANT: EDIT THIS FILE WITH YOUR CREDENTIALS
- * This file contains the configuration settings for the application.
- * Unlike the previous .env system, you must now hardcode your credentials here.
+ * This file loads configuration from a .env file located in the `backend` directory.
+ * Do not hardcode credentials here. Create a .env file based on .env.example.
  */
 
+// Load the environment variables
+require_once __DIR__ . '/env_loader.php';
+
 // --- Database Configuration ---
-// Replace the placeholder values with your actual database credentials.
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'your_db_name');
-define('DB_USER', 'your_db_user');
-define('DB_PASS', 'your_db_password');
+// Values are loaded from the .env file.
+define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
+define('DB_PORT', getenv('DB_PORT') ?: '3306');
+define('DB_DATABASE', getenv('DB_DATABASE') ?: null);
+define('DB_USERNAME', getenv('DB_USERNAME') ?: null);
+define('DB_PASSWORD', getenv('DB_PASSWORD') ?: null);
+
 
 // --- Telegram Bot Configuration ---
-// Replace with your actual Telegram bot information.
-define('TELEGRAM_BOT_TOKEN', '123456789:ABCdefGHIjklMNOpqrSTUvwxYZ');
-define('TELEGRAM_CHANNEL_ID', '-1001234567890'); // 频道或群组的chat_id（一般为负数）
-define('TELEGRAM_SUPER_ADMIN_ID', 1878794912);   // 你的Telegram数字ID
+// Values are loaded from the .env file.
+define('TELEGRAM_BOT_TOKEN', getenv('TELEGRAM_BOT_TOKEN') ?: null);
+define('TELEGRAM_CHAT_ID', getenv('TELEGRAM_CHAT_ID') ?: null);
+
+// --- CORS Configuration ---
+// The frontend URL is needed for setting the Access-Control-Allow-Origin header.
+define('FRONTEND_URL', getenv('FRONTEND_URL') ?: null);
+
+// --- Super Admin ---
+// This can be left hardcoded if it's considered a system-level constant and not a secret
+define('TELEGRAM_SUPER_ADMIN_ID', 1878794912);
 
 // Note: The closing PHP tag is intentionally omitted from this file.
+?>

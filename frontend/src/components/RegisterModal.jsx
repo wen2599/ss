@@ -21,8 +21,9 @@ const RegisterModal = ({ onClose, onRegisterSuccess }) => {
         const payload = { email, password };
 
         try {
+            const apiUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/register.php`;
             // Axios automatically serializes the object to JSON and sets the correct Content-Type header.
-            const response = await axios.post('/api/register.php', payload);
+            const response = await axios.post(apiUrl, payload);
 
             if (response.data.success) {
                 // Automatically log the user in after successful registration
