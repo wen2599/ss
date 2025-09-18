@@ -1,4 +1,7 @@
 <?php
+// A test to see if the script is executed at all.
+@file_put_contents(__DIR__ . '/../logs/webhook_execution_test.log', 'EXECUTED: tg_webhook.php at ' . date('Y-m-d H:i:s') . "\n", FILE_APPEND);
+
 // backend/api/tg_webhook.php
 
 require_once __DIR__ . '/config.php';
@@ -145,24 +148,6 @@ try {
         $chat_id = $update['message']['chat']['id'];
         $user_id = $update['message']['from']['id'];
         $text = trim($update['message']['text']);
-
-        // --- TEMPORARY DEBUGGING ---
-        // This block logs the values and types being compared for the admin check.
-        $debug_info = [
-            'timestamp' => date('Y-m-d H:i:s'),
-            'received_user_id' => $user_id,
-            'type_of_received_id' => gettype($user_id),
-            'env_super_admin_id' => TELEGRAM_SUPER_ADMIN_ID,
-            'type_of_env_id' => gettype(TELEGRAM_SUPER_ADMIN_ID),
-            'comparison_result' => ($user_id == TELEGRAM_SUPER_ADMIN_ID) ? 'true' : 'false'
-        ];
-        // Ensure the logs directory exists and is writable
-        $log_dir = __DIR__ . '/../logs';
-        if (!is_dir($log_dir)) {
-            mkdir($log_dir, 0775, true);
-        }
-        file_put_contents($log_dir . '/debug_admin_check.log', json_encode($debug_info, JSON_PRETTY_PRINT) . "\n", FILE_APPEND);
-        // --- END TEMPORARY DEBUGGING ---
 
         if ($user_id == TELEGRAM_SUPER_ADMIN_ID) {
             $parts = explode(' ', $text, 2);
