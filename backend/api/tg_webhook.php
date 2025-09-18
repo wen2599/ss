@@ -169,7 +169,7 @@ function settleBetsForIssue($pdo, $issue_number) {
         $pending_bets = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (empty($pending_bets)) {
-            return "无需结算：期号 `{$issue_number}` 没有待处理的投注。";
+            return "无需结算：期号 `{$issue_number}` 无待处理的投注。";
         }
 
         $pdo->beginTransaction();
