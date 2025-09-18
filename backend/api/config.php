@@ -15,10 +15,9 @@ require_once __DIR__ . '/env_loader.php';
 // Values are loaded from the .env file.
 define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
 define('DB_PORT', getenv('DB_PORT') ?: '3306');
-define('DB_DATABASE', getenv('DB_DATABASE') ?: null);
-define('DB_USERNAME', getenv('DB_USERNAME') ?: null);
-define('DB_PASSWORD', getenv('DB_PASSWORD') ?: null);
-
+define('DB_NAME', getenv('DB_DATABASE') ?: null);
+define('DB_USER', getenv('DB_USERNAME') ?: null);
+define('DB_PASS', getenv('DB_PASSWORD') ?: null);
 
 // --- Telegram Bot Configuration ---
 // Values are loaded from the .env file.
