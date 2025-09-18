@@ -22,4 +22,4 @@ jobs:
 
       - name: Rsync backend directory to serv00
         run: |
-          rsync -avz --mkpath --delete --exclude '.env' -e "ssh -o StrictHostKeyChecking=no" ./backend/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/"
+          rsync -avz --mkpath --delete --exclude 'api/config.php' --exclude 'api/.env' -e "ssh -o StrictHostKeyChecking=no" ./backend/ "${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}/"
