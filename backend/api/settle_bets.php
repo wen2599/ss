@@ -6,46 +6,38 @@
 // The script expects a $settlement_context variable to be defined, containing:
 // ['pdo', 'issue_number', 'winning_numbers']
 if (!isset($settlement_context)) {
-    // Optional: Log an error if context is not set.
     file_put_contents('settlement_error.log', "Settlement script called without context.\n", FILE_APPEND);
     return;
 }
 
 $pdo = $settlement_context['pdo'];
 $issue_number = $settlement_context['issue_number'];
-$winning_numbers = $settlement_context['winning_numbers']['numbers']; // Array of 7 numbers
+$winning_numbers = $settlement_context['winning_numbers']['numbers'];
 $special_number = $settlement_context['winning_numbers']['special_number'];
 
 try {
     $pdo->beginTransaction();
 
-    // 1. Fetch the odds from the database
     $stmt = $pdo->query("SELECT rule_value FROM lottery_rules WHERE rule_key = 'odds'");
     $odds_data = json_decode($stmt->fetchColumn(), true);
     $odds_special = $odds_data['special'] ?? 47;
     $odds_default = $odds_data['default'] ?? 45;
 
-    // 2. Fetch all unsettled bets for this issue number
     $stmt = $pdo->prepare("SELECT * FROM bets WHERE issue_number = :issue_number AND status = 'unsettled'");
     $stmt->execute([':issue_number' => $issue_number]);
     $unsettled_bets = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if (empty($unsettled_bets)) {
-        // No bets to settle, exit gracefully.
         $pdo->commit();
         return;
     }
 
-    // 3. Create a temporary table to stage settlement data
-    $pdo->exec("CREATE TEMPORARY TABLE temp_settlements (
-        bet_id INT PRIMARY KEY,
-        settlement_json JSON NOT NULL
-    )");
-
-    // 4. Loop through bets, calculate outcomes, and insert into the temporary table
-    $insert_stmt = $pdo->prepare("INSERT INTO temp_settlements (bet_id, settlement_json) VALUES (?, ?)");
+    $case_sql_parts = '';
+    $bet_ids = [];
 
     foreach ($unsettled_bets as $bet_row) {
+        $id = (int)$bet_row['id'];
+        $bet_ids[] = $id;
         $bet_data = json_decode($bet_row['bet_data'], true);
         $total_payout = 0;
         $winning_details = [];
@@ -85,21 +77,17 @@ try {
             'winning_numbers' => $winning_numbers
         ];
 
-        $insert_stmt->execute([$bet_row['id'], json_encode($settlement_data_to_save)]);
+        $json_data = json_encode($settlement_data_to_save);
+        $escaped_json = $pdo->quote($json_data);
+        $case_sql_parts .= "WHEN {$id} THEN {$escaped_json} ";
     }
 
-    // 5. Perform a single bulk update from the temporary table
-    $bulk_update_sql = "
-        UPDATE bets b
-        JOIN temp_settlements ts ON b.id = ts.bet_id
-        SET
-            b.status = 'settled',
-            b.settlement_data = ts.settlement_json
-    ";
-    $pdo->exec($bulk_update_sql);
+    $ids_placeholder = implode(',', $bet_ids);
+    $sql = "UPDATE bets SET status = 'settled', settlement_data = (CASE id " .
+           $case_sql_parts .
+           "END) WHERE id IN (" . $ids_placeholder . ")";
 
-    // 6. Clean up the temporary table (optional, as it's dropped at session end anyway)
-    $pdo->exec("DROP TEMPORARY TABLE temp_settlements");
+    $pdo->exec($sql);
 
     $pdo->commit();
 
