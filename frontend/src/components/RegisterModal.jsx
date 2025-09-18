@@ -21,14 +21,9 @@ const RegisterModal = ({ onClose, onRegisterSuccess }) => {
         const payload = { email, password };
 
         try {
-            const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-            if (!apiBaseUrl) {
-                console.error("FATAL: VITE_API_BASE_URL is not defined. API calls will fail. Please check your .env file in the /frontend directory.");
-                setError("Application is not configured correctly. Please contact support.");
-                setLoading(false);
-                return;
-            }
-            const apiUrl = `${apiBaseUrl}/api/register.php`;
+            // With the Cloudflare Worker, we can now use a simple relative path.
+            const apiUrl = '/api/register.php';
+
             // Axios automatically serializes the object to JSON and sets the correct Content-Type header.
             const response = await axios.post(apiUrl, payload);
 
@@ -60,6 +55,7 @@ const RegisterModal = ({ onClose, onRegisterSuccess }) => {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
+                            autoComplete="username"
                         />
                     </div>
                     <div className="form-group">

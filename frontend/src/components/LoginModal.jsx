@@ -19,7 +19,7 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
         };
 
         try {
-            const apiUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/login.php`;
+            const apiUrl = '/api/login.php';
             // Axios will automatically stringify the payload and set Content-Type: application/json
             const response = await axios.post(apiUrl, payload, {
                 withCredentials: true, // This is crucial for sending session cookies

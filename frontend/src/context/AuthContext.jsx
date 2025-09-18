@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
         // Check for an existing session when the app loads
         const checkLoggedIn = async () => {
             try {
-                const apiUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/check_session.php`;
+                const apiUrl = '/api/check_session.php';
                 const response = await axios.get(apiUrl, { withCredentials: true });
                 if (response.data.loggedIn) {
                     setUser(response.data.user);
@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = async () => {
         try {
-            const apiUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/logout.php`;
+            const apiUrl = '/api/logout.php';
             await axios.post(apiUrl, {}, { withCredentials: true });
         } catch (error) {
             console.error("Logout failed", error);
