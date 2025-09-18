@@ -5,11 +5,7 @@
 
 // --- Core Includes ---
 
-// Load environment variables (.env)
-require_once __DIR__ . '/env_loader.php';
-loadEnv(__DIR__ . '/../.env');
-
-// Load application configuration (defines constants)
+// Load application configuration (defines constants and loads .env)
 require_once __DIR__ . '/config.php';
 
 // Set up logging and error handlers
