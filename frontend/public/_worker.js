@@ -34,12 +34,19 @@ export default {
       const newHeaders = new Headers(request.headers);
       newHeaders.set('Host', new URL(backendHost).hostname);
 
-      const backendRequest = new Request(backendUrl, {
+      const requestOptions = {
         method: request.method,
         headers: newHeaders,
         body: request.body,
         redirect: 'follow',
-      });
+      };
+
+      // The 'duplex' property is required by Cloudflare Workers for streaming request bodies.
+      if (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH') {
+        requestOptions.duplex = 'half';
+      }
+
+      const backendRequest = new Request(backendUrl, requestOptions);
 
       try {
         const backendResponse = await fetch(backendRequest);
