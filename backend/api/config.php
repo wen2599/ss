@@ -46,4 +46,7 @@ define('TELEGRAM_BOT_TOKEN', get_required_env('TELEGRAM_BOT_TOKEN'));
 define('TELEGRAM_CHANNEL_ID', get_required_env('TELEGRAM_CHANNEL_ID'));
 define('TELEGRAM_SUPER_ADMIN_ID', get_required_env('TELEGRAM_SUPER_ADMIN_ID'));
 
-?>
+// Note: The closing PHP tag is intentionally omitted from this file.
+// This is a best practice in PHP for files that contain only PHP code.
+// It prevents accidental whitespace from being sent to the browser, which
+// can cause "headers already sent" errors, especially with session handling.
