@@ -11,7 +11,7 @@
  */
 export default {
   async fetch(request, env, ctx) {
-    const backendHost = 'https://9522.ip-ddns.com';
+    const backendHost = 'https://wenge.cloudns.ch';
     const url = new URL(request.url);
 
     // --------- 1. 处理 API 代理 ---------
