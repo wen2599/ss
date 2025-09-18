@@ -1,7 +1,4 @@
 <?php
-// A test to see if the script is executed at all.
-@file_put_contents(__DIR__ . '/../logs/webhook_execution_test.log', 'EXECUTED: tg_webhook.php at ' . date('Y-m-d H:i:s') . "\n", FILE_APPEND);
-
 // backend/api/tg_webhook.php
 
 require_once __DIR__ . '/config.php';
@@ -112,7 +109,9 @@ function parse_lottery_result(string $text) {
             $zodiacs = preg_split('/\s+/', trim($matches[3]), -1, PREG_SPLIT_NO_EMPTY);
             $color_emojis = preg_split('/\s+/', trim($matches[4]), -1, PREG_SPLIT_NO_EMPTY);
             $color_map = ['🔴' => 'red', '🟢' => 'green', '🔵' => 'blue'];
-            $colors = array_map(fn($emoji) => $color_map[$emoji] ?? 'unknown', $color_emojis);
+            $colors = array_map(function($emoji) use ($color_map) {
+                return $color_map[$emoji] ?? 'unknown';
+            }, $color_emojis);
             if (count($numbers) === 7 && count($zodiacs) === 7 && count($colors) === 7) {
                 $lottery_data['winning_numbers'] = ['numbers' => array_map('intval', $numbers), 'zodiacs' => $zodiacs, 'colors' => $colors, 'special_number' => (int)end($numbers)];
             }
