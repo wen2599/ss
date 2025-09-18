@@ -4,15 +4,16 @@
 /**
  * Parses a string containing lottery bet information based on rules defined in the database.
  *
+ * This refactored version iteratively processes the string to avoid issues with
+ * greedy regex and ordering of bet types in the input.
+ *
  * @param string $inputText The raw text input containing bets.
  * @param PDO $pdo A connected PDO instance.
  * @return array An array of parsed bet objects.
  */
-function parseBets(string $inputText, PDO $pdo): array
+function parseBets(string $inputText, $pdo): array
 {
     // 1. Fetch rules from the database
-    // This is essential for mapping Zodiacs and Colors to numbers.
-    // The Admin UI (to be built) will populate these rules.
     $stmt = $pdo->query("SELECT rule_key, rule_value FROM lottery_rules");
     $rules_raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $rules = [];
@@ -22,57 +23,84 @@ function parseBets(string $inputText, PDO $pdo): array
     $zodiac_mappings = $rules['zodiac_mappings'] ?? [];
     $color_mappings = $rules['color_mappings'] ?? [];
 
-    // 2. Process the input string
+    // 2. Iteratively process the input string
     $bets = [];
-    // Split bets by spaces, commas, or semicolons for flexibility
-    $bet_chunks = preg_split('/[\s,;]+/', $inputText, -1, PREG_SPLIT_NO_EMPTY);
+    $remainingText = trim($inputText);
 
-    foreach ($bet_chunks as $chunk) {
-        // Pattern for Special Number bets, e.g., "特15x100" or "特15 100"
-        if (preg_match('/^特(\d+)[\sx*](\d+)$/u', $chunk, $matches)) {
-            $bets[] = [
-                'type' => 'special',
-                'number' => $matches[1],
-                'amount' => (int)$matches[2],
-                'display_name' => '特码'
-            ];
-            continue;
-        }
+    // Define the patterns for different bet types. Order can matter if patterns are ambiguous.
+    $patterns = [
+        'special' => '/^特(\d+)[\sx*](\d+)/u',
+        // Updated to be more specific for Zodiacs (e.g., "鸡狗猴") vs. Colors ("红波")
+        'zodiac' => '/^((?:[\p{Han}](?!波))+?)各数(\d+)/u',
+        'color' => '/^([\p{Han}]+波)各(\d+)/u',
+    ];
 
-        // Pattern for "each number" bets, e.g., "鸡狗猴各数50"
-        if (preg_match('/^([\p{Han}]+)各数(\d+)$/u', $chunk, $matches)) {
-            $items_str = $matches[1];
-            $amount = (int)$matches[2];
-            $items = preg_split('//u', $items_str, -1, PREG_SPLIT_NO_EMPTY);
+    while (strlen($remainingText) > 0) {
+        $matchFound = false;
 
-            foreach ($items as $item) {
-                if (isset($zodiac_mappings[$item])) {
-                    $bets[] = [
-                        'type' => 'zodiac',
-                        'name' => $item,
-                        'numbers' => $zodiac_mappings[$item],
-                        'amount' => $amount,
-                        'display_name' => '生肖'
-                    ];
+        foreach ($patterns as $type => $pattern) {
+            if (preg_match($pattern, $remainingText, $matches)) {
+                $matchFound = true;
+                $fullMatch = $matches[0];
+
+                switch ($type) {
+                    case 'special':
+                        $bets[] = [
+                            'type' => 'special',
+                            'number' => $matches[1],
+                            'amount' => (int)$matches[2],
+                            'display_name' => '特码'
+                        ];
+                        break;
+
+                    case 'zodiac':
+                        $items_str = $matches[1];
+                        $amount = (int)$matches[2];
+                        // Split the multi-character Zodiac string into individual characters
+                        $items = preg_split('//u', $items_str, -1, PREG_SPLIT_NO_EMPTY);
+                        foreach ($items as $item) {
+                            if (isset($zodiac_mappings[$item])) {
+                                $bets[] = [
+                                    'type' => 'zodiac',
+                                    'name' => $item,
+                                    'numbers' => $zodiac_mappings[$item],
+                                    'amount' => $amount,
+                                    'display_name' => '生肖'
+                                ];
+                            }
+                        }
+                        break;
+
+                    case 'color':
+                        $item = $matches[1];
+                        $amount = (int)$matches[2];
+                        if (isset($color_mappings[$item])) {
+                            $bets[] = [
+                                'type' => 'color',
+                                'name' => $item,
+                                'numbers' => $color_mappings[$item],
+                                'amount' => $amount,
+                                'display_name' => '波色'
+                            ];
+                        }
+                        break;
                 }
+
+                // Remove the matched part and any following separators from the string
+                $remainingText = trim(substr($remainingText, strlen($fullMatch)));
+                $remainingText = ltrim($remainingText, " \t\n\r\0\x0B,;");
+
+                // Break the inner loop and start again from the beginning of the patterns
+                break;
             }
-            continue;
         }
 
-        // Pattern for "each wave/color" bets, e.g., "红波各10"
-        if (preg_match('/^([\p{Han}]+波)各(\d+)$/u', $chunk, $matches)) {
-            $item = $matches[1];
-            $amount = (int)$matches[2];
-            if (isset($color_mappings[$item])) {
-                $bets[] = [
-                    'type' => 'color',
-                    'name' => $item,
-                    'numbers' => $color_mappings[$item],
-                    'amount' => $amount,
-                    'display_name' => '波色'
-                ];
-            }
-            continue;
+        // If no pattern matched, it means there's unparseable text.
+        // To prevent an infinite loop, we stop processing.
+        if (!$matchFound) {
+            // Optional: Log the unparseable text for debugging
+            // error_log("Unparseable text remaining in parser: " . $remainingText);
+            break;
         }
     }
 
