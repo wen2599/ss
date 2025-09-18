@@ -1,6 +1,9 @@
 /**
  * Cloudflare Worker for API Proxy (Enhanced Version)
  *
+ * NOTE: This version of the worker handles API proxying and CORS.
+ * The email forwarding functionality mentioned in the README is not implemented here.
+ *
  * 增强特性：
  * - 支持 OPTIONS 预检请求自动 CORS 响应
  * - 支持自定义响应头（含 CORS 头）
