@@ -162,14 +162,21 @@ if (strpos($text, '/start') === 0) {
     sendMessage($chatId, $result_message);
 
 } elseif (strpos($text, '/draw') === 0) {
-    $parts = explode(' ', $text, 3);
-    if (count($parts) < 3) {
-        sendMessage($chatId, "格式错误。用法: `/draw [开奖名称] [号码,用逗号隔开]`\n例如: `/draw 新澳门六合彩 1,2,3,4,5,6,7`");
+    // Corrected format: /draw [issue_number] [lottery_name] [numbers]
+    $parts = explode(' ', $text, 4);
+    if (count($parts) < 4) {
+        sendMessage($chatId, "格式错误。用法: `/draw [期号] [开奖名称] [号码,用逗号隔开]`\n例如: `/draw 2025101 新澳门六合彩 1,2,3,4,5,6,7`");
         exit();
     }
-    $lotteryName = trim($parts[1]);
-    $numbersStr = trim($parts[2]);
+    $issueNumber = trim($parts[1]);
+    $lotteryName = trim($parts[2]);
+    $numbersStr = trim($parts[3]);
     $numbers = array_map('trim', explode(',', $numbersStr));
+
+    if (!is_numeric($issueNumber)) {
+        sendMessage($chatId, "期号错误：期号必须是数字。");
+        exit();
+    }
 
     if (count($numbers) < 7) {
         sendMessage($chatId, "号码错误：必须提供至少7个号码。");
@@ -181,12 +188,18 @@ if (strpos($text, '/start') === 0) {
     // The rest are the main numbers
     $main_numbers = $numbers;
 
-    // Use the current date as the issue number
-    $issueNumber = date('Ymd');
-
     try {
-        $stmt = $pdo->prepare("INSERT INTO lottery_draws (issue_number, lottery_name, numbers, special_number, draw_time) VALUES (?, ?, ?, ?, NOW())");
-        $stmt->execute([$issueNumber, $lotteryName, json_encode($main_numbers), $special_number]);
+        // Corrected INSERT statement to match the new `lottery_draws` schema
+        $winning_numbers_json = json_encode([
+            'numbers' => $main_numbers,
+            'special_number' => $special_number
+        ]);
+
+        $stmt = $pdo->prepare(
+            "INSERT INTO lottery_draws (issue_number, lottery_name, winning_numbers, created_at)
+             VALUES (?, ?, ?, NOW())"
+        );
+        $stmt->execute([$issueNumber, $lotteryName, $winning_numbers_json]);
 
         sendMessage($chatId, "开奖结果已手动保存！\n期号: `$issueNumber`\n名称: `$lotteryName`\n号码: `" . implode(', ', $main_numbers) . "`\n特别号: `$special_number`");
 
@@ -195,8 +208,13 @@ if (strpos($text, '/start') === 0) {
         sendMessage($chatId, $settle_message);
 
     } catch (Exception $e) {
-        log_error("Manual draw error: " . $e->getMessage());
-        sendMessage($chatId, "保存开奖结果时发生错误。");
+        // Check for duplicate entry error (error code 23000)
+        if ($e->getCode() == '23000') {
+             sendMessage($chatId, "保存开奖结果时发生错误：该期号 (`$issueNumber`) 的开奖结果已存在。");
+        } else {
+            log_error("Manual draw error: " . $e->getMessage());
+            sendMessage($chatId, "保存开奖结果时发生未知错误。");
+        }
     }
 
 } else {
