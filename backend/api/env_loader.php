@@ -28,7 +28,5 @@ function loadEnv($path)
     }
 }
 
-// The .env file should be in the `backend` directory, one level up from `api`
-$dotenv_path = __DIR__ . '/../.env';
-loadEnv($dotenv_path);
+// This file only defines the function. The caller is responsible for invoking it.
 ?>

@@ -16,7 +16,7 @@ This version has been significantly refactored for improved security, stability,
 
 -   **Frontend:** A React single-page application built with Vite (`frontend/`).
 -   **Backend:** A PHP application providing a RESTful API (`backend/`).
--   **Telegram Bot (Webhook):** A **new, unified** PHP script (`backend/api/tg_webhook_unified.php`) that acts as a self-contained webhook for the Telegram bot.
+-   **Telegram Bot (Webhook):** A **new, unified** PHP script (`backend/api/tg_webhook.php`) that acts as a self-contained webhook for the Telegram bot.
 -   **Cloudflare Worker (`frontend/public/_worker.js`):** A Cloudflare Worker script that can handle email forwarding. The frontend no longer relies on it for API proxying.
 
 ---
@@ -62,8 +62,8 @@ The backend now uses a `.env` file for all configuration, which is more secure a
     ```
 3.  **Deploy Backend:** Copy the entire `backend/` directory (including your new `.env` file) to your PHP-enabled web server.
 
-4.  **Set Telegram Webhook:** You must register the **new unified webhook script** with Telegram. Open the following URL in your browser, replacing the placeholders. **Note the new script name.**
-    `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://<YOUR_DOMAIN>/api/tg_webhook_unified.php`
+4.  **Set Telegram Webhook:** You must register the **new unified webhook script** with Telegram. Open the following URL in your browser, replacing the placeholders.
+    `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://<YOUR_DOMAIN>/api/tg_webhook.php`
 
 ### Step 3: Configure and Deploy the Frontend
 

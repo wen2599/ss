@@ -5,6 +5,7 @@
 require_once __DIR__ . '/config.php';
 
 function getDbConnection() {
+    // This function provides a robust way to get a PDO database connection.
     // Retrieve database credentials from constants defined in config.php
     $host = defined('DB_HOST') ? DB_HOST : null;
     $db   = defined('DB_NAME') ? DB_NAME : null;

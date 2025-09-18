@@ -3,243 +3,27 @@
 // This single file contains all necessary functions to run the bot.
 // It is designed to be deployed as a single artifact to avoid `require_once` path issues.
 
-// --- Core Configuration & Setup ---
+// --- Core Includes ---
 
-// 1. Environment Variable Loader (from env_loader.php)
-function loadEnv($path) {
-    if (!file_exists($path)) {
-        http_response_code(500);
-        error_log("FATAL: .env file not found at " . $path);
-        exit("FATAL: .env file not found.");
-    }
-    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) continue;
-        list($name, $value) = explode('=', $line, 2);
-        $name = trim($name);
-        $value = trim($value);
-        if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
-            putenv(sprintf('%s=%s', $name, $value));
-            $_ENV[$name] = $value;
-            $_SERVER[$name] = $value;
-        }
-    }
-}
-// Load the .env file from the same directory as this script
+// Load environment variables (.env)
+require_once __DIR__ . '/env_loader.php';
 loadEnv(__DIR__ . '/../.env');
 
+// Load application configuration (defines constants)
+require_once __DIR__ . '/config.php';
 
-// 2. Application Configuration (from config.php)
-define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
-define('DB_PORT', getenv('DB_PORT') ?: '3306');
-define('DB_DATABASE', getenv('DB_DATABASE') ?: null);
-define('DB_USERNAME', getenv('DB_USERNAME') ?: null);
-define('DB_PASSWORD', getenv('DB_PASSWORD') ?: null);
-define('TELEGRAM_BOT_TOKEN', getenv('TELEGRAM_BOT_TOKEN') ?: null);
-define('TELEGRAM_CHAT_ID', getenv('TELEGRAM_CHAT_ID') ?: null);
-define('TELEGRAM_SUPER_ADMIN_ID', 1878794912); // System constant
+// Set up logging and error handlers
+require_once __DIR__ . '/error_logger.php';
+register_error_handlers();
 
-// 3. Error Logger (from error_logger.php)
-function log_error($message) {
-    $log_file = __DIR__ . '/../logs/error.log';
-    $log_dir = dirname($log_file);
-    if (!is_dir($log_dir)) {
-        mkdir($log_dir, 0755, true);
-    }
-    $timestamp = date("Y-m-d H:i:s");
-    file_put_contents($log_file, "[$timestamp] " . $message . "\n", FILE_APPEND);
-}
+// Include database connection function
+require_once __DIR__ . '/database.php';
 
-// Set global error/exception handlers
-set_error_handler(function($severity, $message, $file, $line) {
-    if (!(error_reporting() & $severity)) { return; }
-    log_error("Error: [$severity] $message in $file on line $line");
-    return true; // Don't execute PHP internal error handler
-});
-set_exception_handler(function($exception) {
-    log_error("Exception: " . $exception->getMessage() . " in " . $exception->getFile() . " on line " . $exception->getLine());
-});
+// Include the bet parser
+require_once __DIR__ . '/parser.php';
 
-
-// --- Database ---
-
-// 4. Database Connection (from database.php)
-function getDbConnection() {
-    $dsn = "mysql:host=".DB_HOST.";port=".DB_PORT.";dbname=".DB_DATABASE.";charset=utf8mb4";
-    $options = [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-    ];
-    try {
-        return new PDO($dsn, DB_USERNAME, DB_PASSWORD, $options);
-    } catch (\PDOException $e) {
-        log_error('Database Connection Error: ' . $e->getMessage());
-        // Do not echo errors back to Telegram
-        exit();
-    }
-}
-
-
-// --- Core Bot Logic ---
-
-// 5. Bet Parser (from parser.php)
-function parseBets(string $inputText, $pdo): array {
-    $stmt = $pdo->query("SELECT rule_key, rule_value FROM lottery_rules");
-    $rules_raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $rules = [];
-    foreach ($rules_raw as $row) {
-        $rules[$row['rule_key']] = json_decode($row['rule_value'], true);
-    }
-    $zodiac_mappings = $rules['zodiac_mappings'] ?? [];
-    $color_mappings = $rules['color_mappings'] ?? [];
-
-    $bets = [];
-    $remainingText = trim($inputText);
-    $patterns = [
-        'special' => '/^特(\d+)[\sx*](\d+)/u',
-        'zodiac' => '/^((?:[\p{Han}](?!波))+?)各数(\d+)/u',
-        'color' => '/^([\p{Han}]+波)各(\d+)/u',
-    ];
-
-    while (strlen($remainingText) > 0) {
-        $matchFound = false;
-        foreach ($patterns as $type => $pattern) {
-            if (preg_match($pattern, $remainingText, $matches)) {
-                $matchFound = true;
-                $fullMatch = $matches[0];
-                switch ($type) {
-                    case 'special':
-                        $bets[] = ['type' => 'special', 'number' => $matches[1], 'amount' => (int)$matches[2], 'display_name' => '特码'];
-                        break;
-                    case 'zodiac':
-                        $items_str = $matches[1];
-                        $amount = (int)$matches[2];
-                        $items = preg_split('//u', $items_str, -1, PREG_SPLIT_NO_EMPTY);
-                        foreach ($items as $item) {
-                            if (isset($zodiac_mappings[$item])) {
-                                $bets[] = ['type' => 'zodiac', 'name' => $item, 'numbers' => $zodiac_mappings[$item], 'amount' => $amount, 'display_name' => '生肖'];
-                            }
-                        }
-                        break;
-                    case 'color':
-                        $item = $matches[1];
-                        $amount = (int)$matches[2];
-                        if (isset($color_mappings[$item])) {
-                            $bets[] = ['type' => 'color', 'name' => $item, 'numbers' => $color_mappings[$item], 'amount' => $amount, 'display_name' => '波色'];
-                        }
-                        break;
-                }
-                $remainingText = ltrim(substr($remainingText, strlen($fullMatch)));
-                break;
-            }
-        }
-        if (!$matchFound) {
-            log_error("Unparseable text remaining: " . $remainingText);
-            break;
-        }
-    }
-    return $bets;
-}
-
-// 6. Bet Settlement Logic (from settle_bets.php)
-function settleBetsForIssue($pdo, $issue_number) {
-    try {
-        // First, get the winning numbers for this issue
-        $stmt = $pdo->prepare("SELECT numbers, special_number FROM lottery_draws WHERE issue_number = ?");
-        $stmt->execute([$issue_number]);
-        $draw = $stmt->fetch();
-
-        if (!$draw) {
-            return "结算失败：找不到期号为 `{$issue_number}` 的开奖结果。";
-        }
-
-        $winning_numbers = json_decode($draw['numbers'], true);
-        $special_number = $draw['special_number'];
-
-        // Get odds
-        $stmt = $pdo->query("SELECT rule_value FROM lottery_rules WHERE rule_key = 'odds'");
-        $odds_data = json_decode($stmt->fetchColumn(), true);
-        $odds_special = $odds_data['special'] ?? 47;
-        $odds_default = $odds_data['default'] ?? 45; // A default for zodiac/color if not specified
-
-        // Get all pending bets for this issue
-        $stmt = $pdo->prepare("SELECT * FROM bets WHERE issue_number = ? AND status = 'pending'");
-        $stmt->execute([$issue_number]);
-        $pending_bets = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        if (empty($pending_bets)) {
-            return "无需结算：期号 `{$issue_number}` 无待处理的投注。";
-        }
-
-        $pdo->beginTransaction();
-
-        $update_stmt = $pdo->prepare("UPDATE bets SET status = 'settled', settlement_data = ? WHERE id = ?");
-        $settled_count = 0;
-        $total_payout_all_bets = 0;
-
-        foreach ($pending_bets as $bet_row) {
-            $parsed_bets = json_decode($bet_row['parsed_data'], true);
-            $bet_total_payout = 0;
-            $winning_details = [];
-
-            foreach ($parsed_bets as $individual_bet) {
-                $is_win = false;
-                $payout = 0;
-                $bet_amount = $individual_bet['amount'];
-
-                switch ($individual_bet['type']) {
-                    case 'special':
-                        if ($individual_bet['number'] == $special_number) {
-                            $is_win = true;
-                            $payout = $bet_amount * $odds_special;
-                        }
-                        break;
-                    case 'zodiac':
-                    case 'color':
-                        $common_numbers = array_intersect($individual_bet['numbers'], $winning_numbers);
-                        if (!empty($common_numbers)) {
-                            $is_win = true;
-                            $payout = $bet_amount * $odds_default;
-                        }
-                        break;
-                }
-
-                if ($is_win) {
-                    $bet_total_payout += $payout;
-                    $winning_details[] = ['bet' => $individual_bet, 'payout' => $payout, 'is_win' => true];
-                }
-            }
-
-            // Only update if there was a payout
-            if ($bet_total_payout > 0) {
-                 $total_payout_all_bets += $bet_total_payout;
-            }
-
-            $settlement_data_to_save = json_encode([
-                'total_payout' => $bet_total_payout,
-                'details' => $winning_details,
-                'settled_at' => date('Y-m-d H:i:s'),
-                'winning_numbers' => $winning_numbers,
-                'special_number' => $special_number
-            ]);
-
-            $update_stmt->execute([$settlement_data_to_save, $bet_row['id']]);
-            $settled_count++;
-        }
-
-        $pdo->commit();
-
-        return "结算完成！\n期号: `$issue_number`\n- 处理了 `{$settled_count}` 条投注。\n- 总赔付金额: `{$total_payout_all_bets}`。";
-
-    } catch (Exception $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        log_error("Error during settlement for issue {$issue_number}: " . $e->getMessage());
-        return "结算时发生严重错误。请检查日志。";
-    }
-}
+// Include the settlement logic
+require_once __DIR__ . '/settle_bets.php';
 
 
 // 7. Telegram API Communication
