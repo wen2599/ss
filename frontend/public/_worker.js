@@ -31,11 +31,12 @@ export default {
 
       // 1.2. 转发 API 请求
       // All API requests are routed to the single index.php front controller.
-      const endpoint = url.pathname.substring(url.pathname.lastIndexOf('/') + 1);
+      // We convert the path into a safer 'action' parameter to avoid security filters.
+      // e.g., /api/check_session.php -> 'check_session'
+      const action = url.pathname.substring(url.pathname.lastIndexOf('/') + 1).replace('.php', '');
       const newSearchParams = new URLSearchParams(url.search);
-      newSearchParams.set('endpoint', endpoint);
 
-      const backendUrl = `${backendHost}/api/index.php?${newSearchParams.toString()}`;
+      const backendUrl = `${backendHost}/api/index.php?action=${action}&${newSearchParams.toString()}`;
 
       // 拷贝 headers，剔除 Host、CF-*、Sec-* 等敏感头
       const newHeaders = new Headers();
