@@ -52,18 +52,16 @@ This project requires a three-part deployment: the database, the backend, and th
 
 ### Step 2: Configure and Deploy the Backend & Telegram Bot
 
-1.  **Configure Credentials:** Open the `backend/api/config.php` file in a text editor. You must replace the placeholder values (e.g., `'your_database_host'`) with your actual credentials for the database and Telegram bot.
-    ```php
-    // Example:
-    define('DB_HOST', 'localhost');
-    define('DB_NAME', 'my_lottery_db');
-    // ... and so on for all credentials.
-    ```
-    **Security Warning:** Be very careful not to publicly expose this file with your completed credentials.
+1.  **Configure Credentials:** The backend now uses a `.env` file for all credentials, which is safer than hardcoding them. You must create and configure this file before deploying.
+    -   Navigate to the `backend/` directory.
+    -   Copy the example file: `cp .env.example .env`
+    -   Open the newly created `.env` file in a text editor.
+    -   Fill in your actual credentials for the database (DB_HOST, DB_NAME, etc.) and your Telegram bot (TELEGRAM_BOT_TOKEN, etc.).
+    -   **Security Warning:** The `.env` file should never be committed to version control or made public. It is already included in the `.gitignore` file to prevent this.
 
-2.  **Deploy Backend:** Copy the entire `backend/` directory (with your modified `config.php`) to your PHP-enabled web server.
+2.  **Deploy Backend:** Copy the entire `backend/` directory to your PHP-enabled web server. Ensure the `.env` file is included in the upload.
 
-3.  **Set Telegram Webhook:** You must register the `tg_webhook.php` script with Telegram. Open the following URL in your browser, replacing the placeholders with your bot token and the public URL to your script. You only need to do this once.
+3.  **Set Telegram Webhook:** You must register the `tg_webhook.php` script with Telegram. Open the following URL in your browser, replacing `<YOUR_BOT_TOKEN>` with the value from your `.env` file and `<YOUR_DOMAIN>` with the public URL to your script. You only need to do this once.
     `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://<YOUR_DOMAIN>/api/tg_webhook.php`
 
 ### Step 3: Deploy the Frontend
@@ -81,11 +79,11 @@ If you encounter issues after deployment, please use the following tools:
 
 ### 1. Configuration Health Check
 
-The application includes a health check endpoint to verify your configuration. Simply visit the following URL in your browser:
+The application includes a health check endpoint to verify your configuration. This is the best place to start if you have problems. Simply visit the following URL in your browser:
 
 `https://<YOUR_DOMAIN>/api/check_config.php`
 
-This will provide a JSON report detailing the status of your `config.php` file, required constants, and the database connection. If there are any errors, this page will give you specific information about what is wrong.
+This will provide a JSON report detailing the status of your `backend/.env` file, whether all required variables are set, and the status of the database connection. If there are any errors, this page will give you specific, actionable information about what needs to be fixed in your `.env` file.
 
 ### 2. Self-Contained Error Log
 
