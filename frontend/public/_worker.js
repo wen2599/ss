@@ -37,12 +37,13 @@ export default {
       const requestOptions = {
         method: request.method,
         headers: newHeaders,
-        body: request.body,
         redirect: 'follow',
       };
 
-      // The 'duplex' property is required by Cloudflare Workers for streaming request bodies.
-      if (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH') {
+      // Only add body and duplex for methods that are expected to have a body.
+      // This prevents an error when constructing a Request for GET/HEAD requests.
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        requestOptions.body = request.body;
         requestOptions.duplex = 'half';
       }
 
