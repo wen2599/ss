@@ -40,11 +40,10 @@ export default {
         redirect: 'follow',
       };
 
-      // Only add body and duplex for methods that are expected to have a body.
-      // This prevents an error when constructing a Request for GET/HEAD requests.
+      // Only add body for methods that are expected to have a body.
       if (request.method !== 'GET' && request.method !== 'HEAD') {
         requestOptions.body = request.body;
-        requestOptions.duplex = 'half';
+        // Cloudflare Workers do NOT support 'duplex', so do NOT set it!
       }
 
       const backendRequest = new Request(backendUrl, requestOptions);
