@@ -17,14 +17,22 @@ require_once __DIR__ . '/error_logger.php';
 function handle_admin_command(string $command, string $argument, PDO $pdo, int $chat_id) {
     switch ($command) {
         case '/start':
-            sendMessage($chat_id, "Welcome, Admin! Available commands: /listusers, /deleteuser [email]");
+            $keyboard = [
+                'inline_keyboard' => [
+                    [
+                        ['text' => '列出所有用户', 'callback_data' => '/listusers']
+                    ]
+                    // Future buttons can be added here
+                ]
+            ];
+            sendMessage($chat_id, "欢迎您，管理员！请选择一个操作：", $keyboard);
             break;
         case '/listusers':
             $stmt = $pdo->query("SELECT id, email, created_at FROM users ORDER BY created_at DESC");
             $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $reply = "<b>Registered Users:</b>\n";
+            $reply = "<b>已注册用户:</b>\n";
             if (empty($users)) {
-                $reply .= "No users found.";
+                $reply .= "没有找到用户。";
             } else {
                 foreach ($users as $user) {
                     $reply .= "- <code>" . htmlspecialchars($user['email']) . "</code> (ID: " . $user['id'] . ")\n";
@@ -33,21 +41,20 @@ function handle_admin_command(string $command, string $argument, PDO $pdo, int $
             sendMessage($chat_id, $reply);
             break;
         case '/deleteuser':
-            // Basic implementation for user deletion
             if (empty($argument)) {
-                sendMessage($chat_id, "Please provide an email to delete. Usage: /deleteuser user@example.com");
+                sendMessage($chat_id, "请输入需要删除的邮箱。用法：/deleteuser user@example.com");
                 return;
             }
             $stmt = $pdo->prepare("DELETE FROM users WHERE email = ?");
             $stmt->execute([$argument]);
             if ($stmt->rowCount() > 0) {
-                sendMessage($chat_id, "User '" . htmlspecialchars($argument) . "' has been deleted.");
+                sendMessage($chat_id, "用户 '" . htmlspecialchars($argument) . "' 已被删除。");
             } else {
-                sendMessage($chat_id, "User '" . htmlspecialchars($argument) . "' not found.");
+                sendMessage($chat_id, "未找到用户 '" . htmlspecialchars($argument) . "'。");
             }
             break;
         default:
-            sendMessage($chat_id, "Unknown command.");
+            sendMessage($chat_id, "未知命令。");
             break;
     }
 }
@@ -68,29 +75,46 @@ function handle_lottery_result(string $text, PDO $pdo) {
             ':numbers' => json_encode($result['winning_numbers'])
         ]);
 
-        // After saving the draw, trigger the settlement process
         $settlement_context = [
             'pdo' => $pdo,
             'issue_number' => $result['issue_number'],
             'winning_numbers' => $result['winning_numbers']
         ];
-        include __DIR__ . '/settle_bets.php'; // This will now use the context variables
+        include __DIR__ . '/settle_bets.php';
     }
 }
 
 // --- Helper Functions ---
-function sendMessage(int $chat_id, string $text) {
+function sendMessage(int $chat_id, string $text, ?array $reply_markup = null) {
     $url = "https://api.telegram.org/bot" . TELEGRAM_BOT_TOKEN . "/sendMessage";
     $post_fields = ['chat_id' => $chat_id, 'text' => $text, 'parse_mode' => 'HTML'];
+    if ($reply_markup) {
+        $post_fields['reply_markup'] = $reply_markup;
+    }
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type:multipart/form-data"]);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $post_fields);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($post_fields));
     @curl_exec($ch);
     if (curl_errno($ch)) {
         log_error('Curl error in sendMessage: ' . curl_error($ch));
     }
+    curl_close($ch);
+}
+
+function answerCallbackQuery(string $callback_query_id, ?string $text = null) {
+    $url = "https://api.telegram.org/bot" . TELEGRAM_BOT_TOKEN . "/answerCallbackQuery";
+    $post_fields = ['callback_query_id' => $callback_query_id];
+    if ($text) {
+        $post_fields['text'] = $text;
+    }
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($post_fields));
+    @curl_exec($ch);
     curl_close($ch);
 }
 
@@ -99,7 +123,7 @@ function parse_lottery_result(string $text) {
     $patterns = [
         '新澳六合彩' => '/新澳门六合彩第:(\d+)期开奖结果:\s*([\d\s]+)\s*([\p{Han}\s]+)\s*([🔴🟢🔵\s]+)/u',
         '香港六合彩' => '/香港六合彩第:(\d+)奖结果:\s*([\d\s]+)\s*([\p{Han}\s]+)\s*([🔴🟢🔵\s]+)/u',
-        '老澳21.30' => '/老澳21第:(\d+)\s*期开奖结果:\s*([\d\s]+)\s*([\p{Han}\s]+)\s*([🔴🟢🔵\s]+)/u',
+        '老澳21.30' => '/老澳21\.30第:(\d+)\s*期开奖结果:\s*([\d\s]+)\s*([\p{Han}\s]+)\s*([🔴🟢🔵\s]+)/u',
     ];
     foreach ($patterns as $name => $pattern) {
         if (preg_match($pattern, $text, $matches)) {
@@ -152,7 +176,21 @@ try {
             $parts = explode(' ', $text, 2);
             handle_admin_command($parts[0], $parts[1] ?? '', $pdo, $chat_id);
         } else {
-            sendMessage($chat_id, "You are not authorized to perform this action.");
+            sendMessage($chat_id, "您没有权限执行此操作。");
+        }
+
+    } else if (isset($update['callback_query'])) {
+        $callback_query = $update['callback_query'];
+        $user_id = $callback_query['from']['id'];
+        $chat_id = $callback_query['message']['chat']['id'];
+        $command = $callback_query['data'];
+
+        answerCallbackQuery($callback_query['id']);
+
+        if ($user_id == TELEGRAM_SUPER_ADMIN_ID) {
+            handle_admin_command($command, '', $pdo, $chat_id);
+        } else {
+            answerCallbackQuery($callback_query['id'], "您没有权限执行此操作。");
         }
 
     } else if (isset($update['channel_post']) && $update['channel_post']['chat']['id'] == TELEGRAM_CHANNEL_ID) {
