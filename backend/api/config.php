@@ -11,18 +11,15 @@
 
 // --- Database Configuration ---
 // Replace the placeholder values with your actual database credentials.
-define('DB_HOST', 'your_database_host');
-define('DB_NAME', 'your_database_name');
-define('DB_USER', 'your_database_user');
-define('DB_PASS', 'your_database_password');
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'your_db_name');
+define('DB_USER', 'your_db_user');
+define('DB_PASS', 'your_db_password');
 
 // --- Telegram Bot Configuration ---
-// Replace the placeholder values with your actual Telegram bot credentials.
-define('TELEGRAM_BOT_TOKEN', 'your_telegram_bot_token');
-define('TELEGRAM_CHANNEL_ID', 'your_telegram_channel_id');
-define('TELEGRAM_SUPER_ADMIN_ID', 'your_telegram_super_admin_id');
+// Replace with your actual Telegram bot information.
+define('TELEGRAM_BOT_TOKEN', '123456789:ABCdefGHIjklMNOpqrSTUvwxYZ');
+define('TELEGRAM_CHANNEL_ID', '-1001234567890'); // 频道或群组的chat_id（一般为负数）
+define('TELEGRAM_SUPER_ADMIN_ID', 1878794912);   // 你的Telegram数字ID
 
 // Note: The closing PHP tag is intentionally omitted from this file.
-// This is a best practice in PHP for files that contain only PHP code.
-// It prevents accidental whitespace from being sent to the browser, which
-// can cause "headers already sent" errors.
