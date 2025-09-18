@@ -56,13 +56,6 @@ function parse_lottery_result($text) {
 
 // --- Main Webhook Logic ---
 $update_json = file_get_contents('php://input');
-
-// --- DIAGNOSTIC LOGGING ---
-// Log the raw request body to help debug intermittent 403 errors from the WAF.
-$log_entry = "[" . date('Y-m-d H:i:s') . "] " . $update_json . "\n";
-file_put_contents('tg_webhook_raw_input.log', $log_entry, FILE_APPEND);
-// --- END DIAGNOSTIC LOGGING ---
-
 $update = json_decode($update_json, true);
 
 if (!$update) {

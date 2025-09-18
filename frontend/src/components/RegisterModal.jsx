@@ -18,12 +18,11 @@ const RegisterModal = ({ onClose, onRegisterSuccess }) => {
         setLoading(true);
         setError('');
 
-        const formData = new FormData();
-        formData.append('email', email);
-        formData.append('password', password);
+        const payload = { email, password };
 
         try {
-            const response = await axios.post('/api/register.php', formData);
+            // Axios automatically serializes the object to JSON and sets the correct Content-Type header.
+            const response = await axios.post('/api/register.php', payload);
 
             if (response.data.success) {
                 // Automatically log the user in after successful registration
