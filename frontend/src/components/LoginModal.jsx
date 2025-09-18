@@ -13,13 +13,16 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
         setLoading(true);
         setError('');
 
-        const formData = new FormData();
-        formData.append('email', email);
-        formData.append('password', password);
+        const payload = {
+            email: email,
+            password: password,
+        };
 
         try {
-            const response = await axios.post('/api/login.php', formData, {
-                withCredentials: true,
+            const apiUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/login.php`;
+            // Axios will automatically stringify the payload and set Content-Type: application/json
+            const response = await axios.post(apiUrl, payload, {
+                withCredentials: true, // This is crucial for sending session cookies
             });
 
             if (response.data.success) {
