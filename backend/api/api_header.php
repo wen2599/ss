@@ -1,24 +1,11 @@
 <?php
-// Set a global exception handler to catch all uncaught exceptions
-set_exception_handler(function($exception) {
-    // Log the error to the server's error log
-    error_log($exception);
-
-    // Send a generic 500 Internal Server Error response
-    http_response_code(500);
-    header('Content-Type: application/json');
-
-    // It's good practice not to expose detailed error messages in production
-    echo json_encode([
-        'success' => false,
-        'message' => 'An internal server error occurred.'
-    ]);
-
-    exit;
-});
-
-// Load the main application configuration
+// Centralized error handling and configuration
+require_once __DIR__ . '/error_logger.php';
 require_once __DIR__ . '/config.php';
+
+// Register the global error and exception handlers.
+// This will catch any fatal errors and log them / return a clean JSON response.
+register_error_handlers();
 
 // --- CORS and HTTP Headers ---
 

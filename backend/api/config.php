@@ -10,6 +10,7 @@
 
 // Load the environment variables
 require_once __DIR__ . '/env_loader.php';
+loadEnv(__DIR__ . '/../.env'); // <-- This was the missing line
 
 // --- Database Configuration ---
 // Values are loaded from the .env file.

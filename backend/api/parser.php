@@ -13,6 +13,7 @@
  */
 function parseBets(string $inputText, $pdo): array
 {
+    // This is the centralized function for parsing bet strings.
     // 1. Fetch rules from the database
     $stmt = $pdo->query("SELECT rule_key, rule_value FROM lottery_rules");
     $rules_raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
