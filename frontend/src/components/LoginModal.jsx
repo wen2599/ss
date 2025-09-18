@@ -13,12 +13,10 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
         setLoading(true);
         setError('');
 
-        const formData = new FormData();
-        formData.append('email', email);
-        formData.append('password', password);
-
         try {
-            const response = await axios.post('/api/login.php', formData, {
+            // The backend expects a JSON payload, not FormData.
+            const payload = { email, password };
+            const response = await axios.post('/api/login.php', payload, {
                 withCredentials: true,
             });
 
