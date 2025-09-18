@@ -74,3 +74,25 @@ The frontend is a Vite application and can be deployed to any modern static host
 2.  **Install dependencies:** `npm install`
 3.  **Build the application:** `npm run build`
 4.  **Deploy:** Upload the contents of the `frontend/dist` directory to your hosting provider.
+
+## Debugging
+
+If you encounter issues after deployment, please use the following tools:
+
+### 1. Configuration Health Check
+
+The application includes a health check endpoint to verify your configuration. Simply visit the following URL in your browser:
+
+`https://<YOUR_DOMAIN>/api/check_config.php`
+
+This will provide a JSON report detailing the status of your `config.php` file, required constants, and the database connection. If there are any errors, this page will give you specific information about what is wrong.
+
+### 2. Self-Contained Error Log
+
+The application now includes its own error logging system, which does not depend on server-level log files. If a critical error occurs (e.g., in the Telegram webhook), it will be logged to a file inside the project directory.
+
+You can find this log file at:
+
+`backend/logs/error.log`
+
+Check this file for detailed error messages, including timestamps and the exact line of code where the error occurred.
