@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import './Modal.css'; // Shared styles for modals
+import { useNavigate, Link } from 'react-router-dom';
+import './Page.css'; // A generic stylesheet for pages
 
-const RegisterModal = ({ onClose, onRegisterSuccess }) => {
+const RegisterPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [success, setSuccess] = useState('');
+
+    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -17,20 +21,19 @@ const RegisterModal = ({ onClose, onRegisterSuccess }) => {
         }
         setLoading(true);
         setError('');
+        setSuccess('');
 
         const payload = { email, password };
 
         try {
-            // With the Cloudflare Worker, we can now use a simple relative path.
             const apiUrl = '/api/register.php';
-
-            // Axios automatically serializes the object to JSON and sets the correct Content-Type header.
             const response = await axios.post(apiUrl, payload);
 
             if (response.data.success) {
-                // Automatically log the user in after successful registration
-                onRegisterSuccess(response.data.user);
-                onClose();
+                setSuccess('注册成功！请登录。');
+                setTimeout(() => {
+                    navigate('/login');
+                }, 2000); // Wait 2 seconds before redirecting
             } else {
                 setError(response.data.message || '注册失败。');
             }
@@ -42,11 +45,12 @@ const RegisterModal = ({ onClose, onRegisterSuccess }) => {
     };
 
     return (
-        <div className="modal-backdrop" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="page-container">
+            <div className="form-container">
                 <h2>创建账户</h2>
                 <form onSubmit={handleSubmit}>
                     {error && <p className="error">{error}</p>}
+                    {success && <p className="success">{success}</p>}
                     <div className="form-group">
                         <label htmlFor="register-email">邮箱</label>
                         <input
@@ -55,7 +59,6 @@ const RegisterModal = ({ onClose, onRegisterSuccess }) => {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
-                            autoComplete="username"
                         />
                     </div>
                     <div className="form-group">
@@ -66,7 +69,6 @@ const RegisterModal = ({ onClose, onRegisterSuccess }) => {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
-                            autoComplete="new-password"
                         />
                     </div>
                     <div className="form-group">
@@ -77,17 +79,18 @@ const RegisterModal = ({ onClose, onRegisterSuccess }) => {
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             required
-                            autoComplete="new-password"
                         />
                     </div>
-                    <button type="submit" disabled={loading}>
+                    <button type="submit" disabled={loading || success}>
                         {loading ? '注册中...' : '注册'}
                     </button>
                 </form>
-                <button className="modal-close-btn" onClick={onClose}>×</button>
+                <p className="redirect-link">
+                    已经有账户了？ <Link to="/login">在此登录</Link>
+                </p>
             </div>
         </div>
     );
 };
 
-export default RegisterModal;
+export default RegisterPage;

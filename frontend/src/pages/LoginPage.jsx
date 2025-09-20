@@ -1,33 +1,34 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import './Modal.css'; // Shared styles for modals
+import { useAuth } from '../context/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
+import './Page.css'; // A generic stylesheet for pages
 
-const LoginModal = ({ onClose, onLoginSuccess }) => {
+const LoginPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    const { login } = useAuth();
+    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
 
-        const payload = {
-            email: email,
-            password: password,
-        };
+        const payload = { email, password };
 
         try {
             const apiUrl = '/api/login.php';
-            // Axios will automatically stringify the payload and set Content-Type: application/json
             const response = await axios.post(apiUrl, payload, {
-                withCredentials: true, // This is crucial for sending session cookies
+                withCredentials: true,
             });
 
             if (response.data.success) {
-                onLoginSuccess(response.data.user);
-                onClose(); // Close the modal
+                login(response.data.user); // Update auth context
+                navigate('/'); // Redirect to home page
             } else {
                 setError(response.data.message || '登录失败，请检查您的凭证。');
             }
@@ -39,8 +40,8 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
     };
 
     return (
-        <div className="modal-backdrop" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="page-container">
+            <div className="form-container">
                 <h2>用户登录</h2>
                 <form onSubmit={handleSubmit}>
                     {error && <p className="error">{error}</p>}
@@ -68,10 +69,12 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                         {loading ? '登录中...' : '登录'}
                     </button>
                 </form>
-                <button className="modal-close-btn" onClick={onClose}>×</button>
+                <p className="redirect-link">
+                    还没有账户？ <Link to="/register">在此注册</Link>
+                </p>
             </div>
         </div>
     );
 };
 
-export default LoginModal;
+export default LoginPage;

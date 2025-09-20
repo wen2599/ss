@@ -1,65 +1,42 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import LoginModal from './components/LoginModal';
-import RegisterModal from './components/RegisterModal';
-import './App.css';
+
+import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
+
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 
 function App() {
-    const { isAuthenticated, user, login, logout, loading } = useAuth();
-    const [showLoginModal, setShowLoginModal] = useState(false);
-    const [showRegisterModal, setShowRegisterModal] = useState(false);
-
-    const handleLoginSuccess = (userData) => {
-        login(userData);
-        setShowLoginModal(false);
-    };
-
-    const handleRegisterSuccess = (userData) => {
-        login(userData); // Log in the new user automatically
-        setShowRegisterModal(false);
-    };
+    const { loading } = useAuth();
 
     if (loading) {
-        return <div className="loading-container">正在加载应用状态...</div>;
+        return <div className="loading-container">Loading Application...</div>;
     }
 
     return (
-        <div className="App">
-            {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} onLoginSuccess={handleLoginSuccess} />}
-            {showRegisterModal && <RegisterModal onClose={() => setShowRegisterModal(false)} onRegisterSuccess={handleRegisterSuccess} />}
+        <Routes>
+            <Route path="/" element={<Layout />}>
+                {/* Protected Route */}
+                <Route
+                    index
+                    element={
+                        <ProtectedRoute>
+                            <HomePage />
+                        </ProtectedRoute>
+                    }
+                />
 
-            <header className="App-header">
-                <h1>用户认证系统</h1>
-                <div className="auth-buttons">
-                    {!isAuthenticated ? (
-                        <>
-                            <button onClick={() => setShowLoginModal(true)}>登录</button>
-                            <button onClick={() => setShowRegisterModal(true)}>注册</button>
-                        </>
-                    ) : (
-                        <>
-                            <span className="welcome-user">欢迎, {user?.email}</span>
-                            <button onClick={logout}>退出</button>
-                        </>
-                    )}
-                </div>
-            </header>
-            <main className="App-main">
-                <div className="content-container">
-                    {isAuthenticated ? (
-                        <div>
-                            <h2>您已成功登录</h2>
-                            <p>这是一个极简版的应用程序。</p>
-                        </div>
-                    ) : (
-                        <div>
-                            <h2>请登录或注册</h2>
-                            <p>所有功能都需要登录后才能使用。</p>
-                        </div>
-                    )}
-                </div>
-            </main>
-        </div>
+                {/* Public Routes */}
+                <Route path="login" element={<LoginPage />} />
+                <Route path="register" element={<RegisterPage />} />
+
+                {/* Catch-all for not found pages - can be enhanced later */}
+                <Route path="*" element={<h2>404 Not Found</h2>} />
+            </Route>
+        </Routes>
     );
 }
 
