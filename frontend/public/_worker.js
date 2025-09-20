@@ -60,8 +60,6 @@ export default {
         method: request.method,
         headers: newHeaders,
         redirect: 'follow',
-        // Add duplex: 'half' to fix streaming body error in newer CF Worker runtimes
-        duplex: 'half',
       };
 
       // 仅 GET/HEAD 没有 body，其它带 body
