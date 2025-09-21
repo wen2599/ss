@@ -43,17 +43,32 @@ if (json_last_error() !== JSON_ERROR_NONE || !isset($data['emailText'])) {
 }
 
 // 5. 核心处理逻辑
-require_once __DIR__ . '/lib/TextAnalyzer.php';
-
 $text = $data['emailText'];
 
-$analyzer = new TextAnalyzer();
-$analysis_result = $analyzer->analyze($text);
+// a. 计算字符数 (使用 mb_strlen 以正确处理中文字符等多字节字符)
+$char_count = mb_strlen($text, 'UTF-8');
+
+// b. 计算单词数 (先用正则表达式替换掉标点符号，再用 str_word_count)
+// \p{P} 匹配任何标点字符, \p{S} 匹配任何符号, \s 匹配空白字符
+$cleaned_text_for_words = preg_replace('/[\p{P}\p{S}\s]+/u', ' ', $text);
+$word_count = str_word_count($cleaned_text_for_words);
+
+// c. 提取关键词 (一个简单的示例：提取所有长度大于4的英文单词和所有中文词组)
+// ([a-zA-Z]{5,}) 匹配至少5个字母的英文单词
+// ([\p{Han}]+) 匹配一个或多个连续的汉字
+preg_match_all('/([a-zA-Z]{5,})|([\p{Han}]+)/u', $text, $matches);
+// array_filter 移除空值, array_unique 去重
+$keywords = array_unique(array_filter($matches[0]));
 
 // 6. 准备成功的响应数据
 $response = [
     'success' => true,
-    'data' => $analysis_result
+    'data' => [
+        'charCount' => $char_count,
+        'wordCount' => $word_count,
+        // 使用 array_values 重建索引，确保 JSON 输出为数组 `[]` 而不是对象 `{}`
+        'keywords' => array_values($keywords)
+    ]
 ];
 
 // 7. 发送 JSON 响应

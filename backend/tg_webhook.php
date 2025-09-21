@@ -9,7 +9,6 @@
 
 // 1. Include Configuration using an absolute path
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/lib/TextAnalyzer.php';
 
 // SQL to create the necessary table:
 /*
@@ -31,7 +30,7 @@ try {
 }
 
 // 3. Define a function to send messages back to Telegram
-function sendMessage($chat_id, $text, $reply_markup = null) {
+function sendMessage($chat_id, $text) {
     global $bot_token;
     $url = "https://api.telegram.org/bot" . $bot_token . "/sendMessage";
     $data = [
@@ -39,9 +38,6 @@ function sendMessage($chat_id, $text, $reply_markup = null) {
         'text' => $text,
         'parse_mode' => 'Markdown'
     ];
-    if ($reply_markup) {
-        $data['reply_markup'] = $reply_markup;
-    }
     $options = ['http' => ['header'  => "Content-type: application/x-www-form-urlencoded\r\n", 'method'  => 'POST', 'content' => http_build_query($data)]];
     $context  = stream_context_create($options);
     file_get_contents($url, false, $context);
@@ -50,18 +46,18 @@ function sendMessage($chat_id, $text, $reply_markup = null) {
 // 4. User Management and Analysis Functions
 function addUserToDB($pdo, $username) {
     if (!preg_match('/^[a-zA-Z0-9_]{3,32}$/', $username)) {
-        return "用户名无效。它必须是3-32个字符长，并且只能包含字母、数字和下划线。";
+        return "Invalid username. It must be 3-32 characters long and can only contain letters, numbers, and underscores.";
     }
     try {
         $stmt = $pdo->prepare("INSERT INTO users (username) VALUES (:username)");
         $stmt->execute([':username' => $username]);
-        return "用户 `{$username}` 添加成功。";
+        return "User `{$username}` has been added successfully.";
     } catch (PDOException $e) {
         if ($e->errorInfo[1] == 1062) {
-            return "用户 `{$username}` 已存在。";
+            return "User `{$username}` already exists.";
         }
         error_log("Error adding user: " . $e->getMessage());
-        return "添加用户时出错。";
+        return "An error occurred while adding the user.";
     }
 }
 function deleteUserFromDB($pdo, $username) {
@@ -69,13 +65,13 @@ function deleteUserFromDB($pdo, $username) {
         $stmt = $pdo->prepare("DELETE FROM users WHERE username = :username");
         $stmt->execute([':username' => $username]);
         if ($stmt->rowCount() > 0) {
-            return "用户 `{$username}` 已被删除。";
+            return "User `{$username}` has been deleted.";
         } else {
-            return "未找到用户 `{$username}`。";
+            return "User `{$username}` not found.";
         }
     } catch (PDOException $e) {
         error_log("Error deleting user: " . $e->getMessage());
-        return "删除用户时出错。";
+        return "An error occurred while deleting the user.";
     }
 }
 function listUsersFromDB($pdo) {
@@ -83,18 +79,47 @@ function listUsersFromDB($pdo) {
         $stmt = $pdo->query("SELECT username FROM users ORDER BY created_at ASC");
         $users = $stmt->fetchAll(PDO::FETCH_COLUMN);
         if (empty($users)) {
-            return "数据库中没有用户。";
+            return "There are no users in the database.";
         }
-        $userList = "列出所有用户：\n";
+        $userList = "Listing all users:\n";
         foreach ($users as $index => $user) {
             $userList .= ($index + 1) . ". `" . htmlspecialchars($user) . "`\n";
         }
         return $userList;
     } catch (PDOException $e) {
         error_log("Error listing users: " . $e->getMessage());
-        return "获取用户列表时出错。";
+        return "An error occurred while fetching the user list.";
     }
 }
+
+/**
+ * Analyzes a given text and returns a formatted report.
+ * @param string $text The text to analyze.
+ * @return string The analysis report.
+ */
+function analyzeText($text) {
+    // a. Calculate character count (multi-byte safe)
+    $char_count = mb_strlen($text, 'UTF-8');
+
+    // b. Calculate word count (handles punctuation and unicode)
+    $cleaned_text_for_words = preg_replace('/[\p{P}\p{S}\s]+/u', ' ', $text);
+    $word_count = str_word_count($cleaned_text_for_words);
+
+    // c. Extract keywords (long English words and Chinese phrases)
+    preg_match_all('/([a-zA-Z]{5,})|([\p{Han}]+)/u', $text, $matches);
+    $keywords = array_unique(array_filter($matches[0]));
+    $keywords_list = !empty($keywords) ? '`' . implode('`, `', array_values($keywords)) . '`' : '_None found_';
+
+    // Format the response
+    $response = "*Text Analysis Report:*\n"
+              . "---------------------\n"
+              . "Character Count: *{$char_count}*\n"
+              . "Word Count: *{$word_count}*\n"
+              . "Keywords: {$keywords_list}\n";
+
+    return $response;
+}
+
 
 // 5. Get and Decode the Incoming Update
 $update_json = file_get_contents('php://input');
@@ -108,84 +133,57 @@ if (isset($update['message'])) {
     $text = $message['text'];
     $admin_id = intval($admin_id);
 
-    // Define command mapping for Chinese commands from the keyboard
-    $command_map = [
-        '添加用户' => '/adduser',
-        '删除用户' => '/deluser',
-        '列出所有用户' => '/listusers',
-        '分析文本' => '/analyze',
-    ];
-
-    $command = null;
-    $args = '';
-
-    if (isset($command_map[$text])) {
-        $command = $command_map[$text];
-    } elseif (strpos($text, '/') === 0) {
+    if (strpos($text, '/') === 0) {
         $parts = explode(' ', $text, 2);
         $command = $parts[0];
         $args = isset($parts[1]) ? trim($parts[1]) : '';
-    }
 
-    if ($command) {
         if ($command === '/start') {
-            $responseText = "欢迎！我是您的用户管理机器人。\n\n";
-            $keyboard = null;
+            $responseText = "Welcome! I am your user management bot.\n\n";
             if ($chat_id === $admin_id) {
-                $responseText .= "您是管理员。请使用下面的菜单或直接输入命令。";
-                $keyboard_buttons = [
-                    [['text' => '添加用户'], ['text' => '删除用户']],
-                    [['text' => '列出所有用户'], ['text' => '分析文本']]
-                ];
-                $keyboard = json_encode(['keyboard' => $keyboard_buttons, 'resize_keyboard' => true, 'one_time_keyboard' => false]);
+                $responseText .= "You are the admin. Available commands:\n"
+                               . "`/adduser <username>` - Add a user.\n"
+                               . "`/deluser <username>` - Delete a user.\n"
+                               . "`/listusers` - List all users.\n"
+                               . "`/analyze <text>` - Analyze the provided text.\n";
             } else {
-                $responseText .= "您无权执行任何操作。";
+                $responseText .= "You are not authorized to perform any actions.";
             }
-            sendMessage($chat_id, $responseText, $keyboard);
+            sendMessage($chat_id, $responseText);
             http_response_code(200);
             exit();
         }
 
         if ($chat_id !== $admin_id) {
-            sendMessage($chat_id, "您无权使用此命令。");
+            sendMessage($chat_id, "You are not authorized to use this command.");
             http_response_code(403);
             exit();
         }
 
         switch ($command) {
             case '/adduser':
-                $responseText = !empty($args) ? addUserToDB($pdo, $args) : "用法：`/adduser <username>`";
+                $responseText = !empty($args) ? addUserToDB($pdo, $args) : "Usage: `/adduser <username>`";
                 break;
             case '/deluser':
-                $responseText = !empty($args) ? deleteUserFromDB($pdo, $args) : "用法：`/deluser <username>`";
+                $responseText = !empty($args) ? deleteUserFromDB($pdo, $args) : "Usage: `/deluser <username>`";
                 break;
             case '/listusers':
                 $responseText = listUsersFromDB($pdo);
                 break;
             case '/analyze':
-                if (!empty($args)) {
-                    $analyzer = new TextAnalyzer();
-                    $result = $analyzer->analyze($args);
-                    $keywords_list = !empty($result['keywords']) ? '`' . implode('`, `', $result['keywords']) . '`' : '_未找到_';
-                    $responseText = "*文本分析报告：*\n"
-                                  . "---------------------\n"
-                                  . "字符数： *{$result['charCount']}*\n"
-                                  . "单词数： *{$result['wordCount']}*\n"
-                                  . "关键词： {$keywords_list}\n";
-                } else {
-                    $responseText = "用法：`/analyze <在此处输入您的文本>`";
-                }
+                $responseText = !empty($args) ? analyzeText($args) : "Usage: `/analyze <your text here>`";
                 break;
             default:
-                $responseText = "抱歉，我不理解该命令。";
+                $responseText = "Sorry, I don't understand that command.";
                 break;
         }
         sendMessage($chat_id, $responseText);
+
     } else {
         if ($chat_id === $admin_id) {
-            sendMessage($chat_id, "请输入以 `/` 开头的命令。");
+            sendMessage($chat_id, "Please send a command starting with `/`.");
         } else {
-            sendMessage($chat_id, "抱歉，我只能回复授权用户。");
+            sendMessage($chat_id, "Sorry, I can only respond to authorized users.");
         }
     }
 }
