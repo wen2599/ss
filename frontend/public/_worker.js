@@ -4,8 +4,9 @@ export default {
 
     // 我们只代理对 /api/ 路径的请求
     if (url.pathname.startsWith('/api/')) {
-      // 你的后端 API 地址
-      const backendUrl = 'https://wenge.cloudns.ch';
+      // 从环境变量中获取后端 API 地址，如果未设置则使用默认值
+      // 这样可以灵活地在 Cloudflare 控制台中更改后端地址，而无需修改代码
+      const backendUrl = env.BACKEND_URL || 'https://wenge.cloudns.ch';
 
       // 构建指向后端的新 URL
       const newUrl = new URL(backendUrl + url.pathname + url.search);
