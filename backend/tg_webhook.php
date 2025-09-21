@@ -7,8 +7,9 @@
  * Access to management commands is restricted to the admin user specified in config.php.
  */
 
-// 1. Include Configuration
-require_once 'config.php';
+// 1. Include Configuration using an absolute path
+// __DIR__ ensures that the path is always relative to the current script's location.
+require_once __DIR__ . '/config.php';
 
 // SQL to create the necessary table:
 /*
