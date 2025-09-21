@@ -15,7 +15,7 @@ function RegisterPage() {
     setMessage('');
 
     if (!email || !password) {
-      setError('Email and password are required.');
+      setError('需要填写邮箱和密码。');
       return;
     }
 
@@ -31,24 +31,24 @@ function RegisterPage() {
       const data = await response.json();
 
       if (data.success) {
-        setMessage('Registration successful! Redirecting to login...');
+        setMessage('注册成功！正在跳转到登录页面...');
         setTimeout(() => {
           navigate('/login');
         }, 2000);
       } else {
-        setError(data.error || 'Registration failed.');
+        setError(data.error || '注册失败。');
       }
     } catch (err) {
-      setError('An error occurred. Please try again.');
+      setError('发生错误，请重试。');
     }
   };
 
   return (
     <AuthLayout>
-      <h1>Register</h1>
+      <h1>注册</h1>
       <form onSubmit={handleSubmit}>
         <div>
-          <label htmlFor="email">Email:</label>
+          <label htmlFor="email">邮箱：</label>
           <input
             type="email"
             id="email"
@@ -58,7 +58,7 @@ function RegisterPage() {
           />
         </div>
         <div>
-          <label htmlFor="password">Password:</label>
+          <label htmlFor="password">密码：</label>
           <input
             type="password"
             id="password"
@@ -67,12 +67,12 @@ function RegisterPage() {
             required
           />
         </div>
-        <button type="submit">Register</button>
+        <button type="submit">注册</button>
       </form>
       {error && <p className="error">{error}</p>}
       {message && <p style={{ color: 'green' }}>{message}</p>}
       <p>
-        Already have an account? <Link to="/login">Login</Link>
+        已经有账户了？ <Link to="/login">登录</Link>
       </p>
     </AuthLayout>
   );

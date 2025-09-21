@@ -56,8 +56,8 @@ function App() {
       <header className="app-header">
         <h1>邮件文本处理器</h1>
         <div className="user-info">
-          {user && <span>Welcome, {user.email}</span>}
-          <button onClick={logout}>Logout</button>
+          {user && <span>欢迎，{user.email}</span>}
+          <button onClick={logout}>登出</button>
         </div>
       </header>
       <form onSubmit={handleSubmit}>

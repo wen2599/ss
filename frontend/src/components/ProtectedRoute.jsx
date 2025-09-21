@@ -6,7 +6,7 @@ function ProtectedRoute() {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <div>加载中...</div>;
   }
 
   if (!isAuthenticated) {

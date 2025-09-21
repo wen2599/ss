@@ -15,7 +15,7 @@ function LoginPage() {
     setError('');
 
     if (!email || !password) {
-      setError('Email and password are required.');
+      setError('需要填写邮箱和密码。');
       return;
     }
 
@@ -34,19 +34,19 @@ function LoginPage() {
         login(data.user);
         navigate('/');
       } else {
-        setError(data.error || 'Login failed.');
+        setError(data.error || '登录失败。');
       }
     } catch (err) {
-      setError('An error occurred. Please try again.');
+      setError('发生错误，请重试。');
     }
   };
 
   return (
     <AuthLayout>
-      <h1>Login</h1>
+      <h1>登录</h1>
       <form onSubmit={handleSubmit}>
         <div>
-          <label htmlFor="email">Email:</label>
+          <label htmlFor="email">邮箱：</label>
           <input
             type="email"
             id="email"
@@ -56,7 +56,7 @@ function LoginPage() {
           />
         </div>
         <div>
-          <label htmlFor="password">Password:</label>
+          <label htmlFor="password">密码：</label>
           <input
             type="password"
             id="password"
@@ -65,11 +65,11 @@ function LoginPage() {
             required
           />
         </div>
-        <button type="submit">Login</button>
+        <button type="submit">登录</button>
       </form>
       {error && <p className="error">{error}</p>}
       <p>
-        Don't have an account? <Link to="/register">Register</Link>
+        还没有账户？ <Link to="/register">注册</Link>
       </p>
     </AuthLayout>
   );
