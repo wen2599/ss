@@ -1,11 +1,9 @@
 import { useState } from 'react';
-import { useAuth } from './context/AuthContext';
 import './App.css';
 
 const API_URL = '/api/process.php';
 
 function App() {
-  const { user, logout } = useAuth();
   const [inputText, setInputText] = useState('');
   const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -53,13 +51,7 @@ function App() {
 
   return (
     <div className="container">
-      <header className="app-header">
-        <h1>邮件文本处理器</h1>
-        <div className="user-info">
-          {user && <span>欢迎，{user.email}</span>}
-          <button onClick={logout}>登出</button>
-        </div>
-      </header>
+      <h1>邮件文本处理器</h1>
       <form onSubmit={handleSubmit}>
         <textarea
           value={inputText}
