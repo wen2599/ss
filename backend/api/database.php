@@ -28,6 +28,10 @@ class DotEnv
                 continue;
             }
 
+            if (strpos($line, '=') === false) {
+                continue;
+            }
+
             list($name, $value) = explode('=', $line, 2);
             $name = trim($name);
             $value = trim($value);
