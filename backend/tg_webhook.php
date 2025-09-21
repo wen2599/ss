@@ -4,6 +4,7 @@
  *
  * This script acts as the webhook for a Telegram bot, allowing it to manage users.
  * It receives updates from Telegram, processes commands, and interacts with a database.
+ * Access to management commands is restricted to the admin user specified in config.php.
  */
 
 // 1. Include Configuration
@@ -23,11 +24,8 @@ try {
     $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8", $db_user, $db_pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
-    // Log error and stop execution if the database connection fails
     error_log("Database connection failed: " . $e->getMessage());
-    // In a real scenario, you might want to send an alert to the admin
-    // For now, we'll stop the script gracefully.
-    http_response_code(500); // Internal Server Error
+    http_response_code(500);
     die(json_encode(['status' => 'error', 'message' => 'Database connection failed.']));
 }
 
@@ -40,27 +38,13 @@ function sendMessage($chat_id, $text) {
         'text' => $text,
         'parse_mode' => 'Markdown'
     ];
-
-    $options = [
-        'http' => [
-            'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
-            'method'  => 'POST',
-            'content' => http_build_query($data),
-        ],
-    ];
+    $options = ['http' => ['header'  => "Content-type: application/x-www-form-urlencoded\r\n", 'method'  => 'POST', 'content' => http_build_query($data)]];
     $context  = stream_context_create($options);
     file_get_contents($url, false, $context);
 }
 
-// 4. User Management Functions
-/**
- * Adds a new user to the database.
- * @param PDO $pdo The database connection object.
- * @param string $username The username to add.
- * @return string The result message.
- */
+// 4. User Management Functions (add, delete, list) - unchanged
 function addUserToDB($pdo, $username) {
-    // Basic validation for username
     if (!preg_match('/^[a-zA-Z0-9_]{3,32}$/', $username)) {
         return "Invalid username. It must be 3-32 characters long and can only contain letters, numbers, and underscores.";
     }
@@ -69,20 +53,13 @@ function addUserToDB($pdo, $username) {
         $stmt->execute([':username' => $username]);
         return "User `{$username}` has been added successfully.";
     } catch (PDOException $e) {
-        if ($e->errorInfo[1] == 1062) { // SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry
+        if ($e->errorInfo[1] == 1062) {
             return "User `{$username}` already exists.";
         }
         error_log("Error adding user: " . $e->getMessage());
         return "An error occurred while adding the user.";
     }
 }
-
-/**
- * Deletes a user from the database.
- * @param PDO $pdo The database connection object.
- * @param string $username The username to delete.
- * @return string The result message.
- */
 function deleteUserFromDB($pdo, $username) {
     try {
         $stmt = $pdo->prepare("DELETE FROM users WHERE username = :username");
@@ -97,12 +74,6 @@ function deleteUserFromDB($pdo, $username) {
         return "An error occurred while deleting the user.";
     }
 }
-
-/**
- * Lists all users from the database.
- * @param PDO $pdo The database connection object.
- * @return string The formatted list of users.
- */
 function listUsersFromDB($pdo) {
     try {
         $stmt = $pdo->query("SELECT username FROM users ORDER BY created_at ASC");
@@ -124,8 +95,6 @@ function listUsersFromDB($pdo) {
 // 5. Get and Decode the Incoming Update
 $update_json = file_get_contents('php://input');
 $update = json_decode($update_json, true);
-
-// Log the raw update for debugging
 file_put_contents('webhook_log.txt', $update_json . "\n", FILE_APPEND);
 
 // 6. Process the Message
@@ -134,21 +103,38 @@ if (isset($update['message'])) {
     $chat_id = $message['chat']['id'];
     $text = $message['text'];
 
+    // Convert admin_id from config to integer for safe comparison
+    $admin_id = intval($admin_id);
+
     if (strpos($text, '/') === 0) {
         $parts = explode(' ', $text, 2);
         $command = $parts[0];
         $args = isset($parts[1]) ? trim($parts[1]) : '';
 
-        // Handle Different Commands
-        switch ($command) {
-            case '/start':
-                $responseText = "Welcome! I am your user management bot.\n\n"
-                              . "Available commands:\n"
-                              . "`/adduser <username>` - Add a new user.\n"
-                              . "`/deluser <username>` - Delete a user.\n"
-                              . "`/listusers` - List all users.\n";
-                break;
+        // Commands accessible to everyone
+        if ($command === '/start') {
+            $responseText = "Welcome! I am your user management bot.\n\n";
+            if ($chat_id === $admin_id) {
+                $responseText .= "You are the admin. Available commands:\n"
+                               . "`/adduser <username>`\n"
+                               . "`/deluser <username>`\n"
+                               . "`/listusers`\n";
+            } else {
+                $responseText .= "You are not authorized to perform any actions.";
+            }
+            sendMessage($chat_id, $responseText);
+            http_response_code(200);
+            exit();
+        }
+        
+        // Admin-only commands
+        if ($chat_id !== $admin_id) {
+            sendMessage($chat_id, "You are not authorized to use this command.");
+            http_response_code(403); // Forbidden
+            exit();
+        }
 
+        switch ($command) {
             case '/adduser':
                 if (!empty($args)) {
                     $responseText = addUserToDB($pdo, $args);
@@ -174,12 +160,18 @@ if (isset($update['message'])) {
                 break;
         }
         sendMessage($chat_id, $responseText);
+
     } else {
-        sendMessage($chat_id, "Please send a command starting with `/`.");
+        // Handle non-command messages
+        if ($chat_id === $admin_id) {
+            sendMessage($chat_id, "Please send a command starting with `/`.");
+        } else {
+            sendMessage($chat_id, "Sorry, I can only respond to authorized users.");
+        }
     }
 }
 
-// 7. Respond to Telegram to acknowledge receipt of the update
+// 7. Respond to Telegram to acknowledge receipt
 http_response_code(200);
 echo json_encode(['status' => 'ok']);
 ?>
