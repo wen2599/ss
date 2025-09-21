@@ -28,13 +28,13 @@ jobs:
         # It uses secrets to securely store credentials.
         uses: webfactory/ssh-agent@v0.5.3
         with:
-          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
+          ssh-private-key: ${{ secrets.SERV00_KEY }}
 
       - name: 3. Add Server to Known Hosts
         # This prevents the 'Host key verification failed' error by adding the server's host key.
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.SERV00_HOST }} >> ~/.ssh/known_hosts
 
       - name: 4. Deploy Backend Files using rsync
         # This is the core deployment step.
@@ -44,4 +44,4 @@ jobs:
           rsync -avz --delete \
             --exclude 'config.php' \
             --exclude 'webhook_log.txt' \
-            ./backend/ ${{ secrets.SERVER_USERNAME }}@${{ secrets.SERVER_IP }}:/path/to/your/backend/destination
+            ./backend/ ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}
