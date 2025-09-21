@@ -1,0 +1,19 @@
+{
+    "name": "vendor/project",
+    "description": "A simple text analysis API.",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "Vendor\\Project\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Jules",
+            "email": "jules@example.com"
+        }
+    ],
+    "require-dev": {
+        "phpunit/phpunit": "^9.5"
+    }
+}
