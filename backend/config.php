@@ -31,4 +31,16 @@ $db_name = 'your_database_name'; // The name of your database
 $db_user = 'your_username';       // Your database username
 $db_pass = 'your_password';       // Your database password
 
+// 6. Database Schema Notes
+//
+// Initial table from tg_webhook.php:
+// CREATE TABLE `users` (
+//   `id` INT AUTO_INCREMENT PRIMARY KEY,
+//   `username` VARCHAR(255) NOT NULL UNIQUE,
+//   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+// );
+//
+// Add a password column for web login functionality:
+// ALTER TABLE `users` ADD `password` VARCHAR(255) NOT NULL AFTER `username`;
+
 ?>
