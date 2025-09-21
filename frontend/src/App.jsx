@@ -1,10 +1,7 @@
-// frontend/src/App.jsx
 import { useState } from 'react';
 import './App.css';
 
-// 关键改动：API URL 指向相对路径
-// 之前: const API_URL = 'https://wenge.cloudns.ch/api/process.php';
-const API_URL = '/api/process.php'; // <--- 修改这里！
+const API_URL = '/api/process.php';
 
 function App() {
   const [inputText, setInputText] = useState('');
@@ -18,10 +15,13 @@ function App() {
     setError('');
     setResult(null);
 
-    // ... 其他代码保持不变 ...
+    if (!inputText.trim()) {
+      setError('请输入邮件内容！');
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      // fetch 调用现在使用的是相对路径，会被 _worker.js 拦截
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
@@ -30,19 +30,56 @@ function App() {
         body: JSON.stringify({ emailText: inputText }),
       });
 
-      // ... 其他代码保持不变 ...
+      if (!response.ok) {
+        throw new Error(`HTTP 错误! 状态: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setResult(data.data);
+      } else {
+        setError(data.error || '后端处理失败');
+      }
     } catch (err) {
       console.error("API 请求失败:", err);
-      setError('请求失败，请检查网络或 Worker 代理配置。');
+      setError('无法连接到服务器，请检查网络或代理配置。');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ... JSX 结构保持不变 ...
   return (
     <div className="container">
-        {/* ... */}
+      <h1>邮件文本处理器</h1>
+      <form onSubmit={handleSubmit}>
+        <textarea
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          placeholder="在此处粘贴邮件文本..."
+          rows="10"
+          disabled={isLoading}
+        />
+        <button type="submit" disabled={isLoading}>
+          {isLoading ? '正在处理...' : '处理文本'}
+        </button>
+      </form>
+
+      {error && <div className="error">{error}</div>}
+
+      {result && (
+        <div className="result">
+          <h2>处理结果</h2>
+          <p><strong>字符数:</strong> {result.charCount}</p>
+          <p><strong>单词数:</strong> {result.wordCount}</p>
+          <p><strong>关键词:</strong></p>
+          <ul>
+            {result.keywords && result.keywords.map((keyword, index) => (
+              <li key={index}>{keyword}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
