@@ -1,22 +1,12 @@
-# Dependencies
-/node_modules
-/frontend/node_modules
+# Ignore Composer dependencies
+/vendor/
 
-# Build outputs
-/dist
-/frontend/dist
-/frontend/android/build
-/frontend/android/app/build
-*.apk
-*.aab
+# Ignore log files
+*.log
+webhook_log.txt
 
-# Mac files
-.DS_Store
+# Ignore local development configurations
+.env
 
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Configuration files
-backend/config.php
+# Ignore upload directories
+/backend/uploads/

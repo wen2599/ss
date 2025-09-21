@@ -2,13 +2,12 @@
 /**
  * Telegram Bot Webhook
  *
- * This script acts as the webhook for a Telegram bot, allowing it to manage users.
+ * This script acts as the webhook for a Telegram bot, allowing it to manage users and perform text analysis.
  * It receives updates from Telegram, processes commands, and interacts with a database.
  * Access to management commands is restricted to the admin user specified in config.php.
  */
 
 // 1. Include Configuration using an absolute path
-// __DIR__ ensures that the path is always relative to the current script's location.
 require_once __DIR__ . '/config.php';
 
 // SQL to create the necessary table:
@@ -44,7 +43,7 @@ function sendMessage($chat_id, $text) {
     file_get_contents($url, false, $context);
 }
 
-// 4. User Management Functions (add, delete, list) - unchanged
+// 4. User Management and Analysis Functions
 function addUserToDB($pdo, $username) {
     if (!preg_match('/^[a-zA-Z0-9_]{3,32}$/', $username)) {
         return "Invalid username. It must be 3-32 characters long and can only contain letters, numbers, and underscores.";
@@ -93,6 +92,35 @@ function listUsersFromDB($pdo) {
     }
 }
 
+/**
+ * Analyzes a given text and returns a formatted report.
+ * @param string $text The text to analyze.
+ * @return string The analysis report.
+ */
+function analyzeText($text) {
+    // a. Calculate character count (multi-byte safe)
+    $char_count = mb_strlen($text, 'UTF-8');
+
+    // b. Calculate word count (handles punctuation and unicode)
+    $cleaned_text_for_words = preg_replace('/[\p{P}\p{S}\s]+/u', ' ', $text);
+    $word_count = str_word_count($cleaned_text_for_words);
+
+    // c. Extract keywords (long English words and Chinese phrases)
+    preg_match_all('/([a-zA-Z]{5,})|([\p{Han}]+)/u', $text, $matches);
+    $keywords = array_unique(array_filter($matches[0]));
+    $keywords_list = !empty($keywords) ? '`' . implode('`, `', array_values($keywords)) . '`' : '_None found_';
+
+    // Format the response
+    $response = "*Text Analysis Report:*\n"
+              . "---------------------\n"
+              . "Character Count: *{$char_count}*\n"
+              . "Word Count: *{$word_count}*\n"
+              . "Keywords: {$keywords_list}\n";
+
+    return $response;
+}
+
+
 // 5. Get and Decode the Incoming Update
 $update_json = file_get_contents('php://input');
 $update = json_decode($update_json, true);
@@ -103,8 +131,6 @@ if (isset($update['message'])) {
     $message = $update['message'];
     $chat_id = $message['chat']['id'];
     $text = $message['text'];
-
-    // Convert admin_id from config to integer for safe comparison
     $admin_id = intval($admin_id);
 
     if (strpos($text, '/') === 0) {
@@ -112,14 +138,14 @@ if (isset($update['message'])) {
         $command = $parts[0];
         $args = isset($parts[1]) ? trim($parts[1]) : '';
 
-        // Commands accessible to everyone
         if ($command === '/start') {
             $responseText = "Welcome! I am your user management bot.\n\n";
             if ($chat_id === $admin_id) {
                 $responseText .= "You are the admin. Available commands:\n"
-                               . "`/adduser <username>`\n"
-                               . "`/deluser <username>`\n"
-                               . "`/listusers`\n";
+                               . "`/adduser <username>` - Add a user.\n"
+                               . "`/deluser <username>` - Delete a user.\n"
+                               . "`/listusers` - List all users.\n"
+                               . "`/analyze <text>` - Analyze the provided text.\n";
             } else {
                 $responseText .= "You are not authorized to perform any actions.";
             }
@@ -128,34 +154,25 @@ if (isset($update['message'])) {
             exit();
         }
         
-        // Admin-only commands
         if ($chat_id !== $admin_id) {
             sendMessage($chat_id, "You are not authorized to use this command.");
-            http_response_code(403); // Forbidden
+            http_response_code(403);
             exit();
         }
 
         switch ($command) {
             case '/adduser':
-                if (!empty($args)) {
-                    $responseText = addUserToDB($pdo, $args);
-                } else {
-                    $responseText = "Please provide a username. Usage: `/adduser <username>`";
-                }
+                $responseText = !empty($args) ? addUserToDB($pdo, $args) : "Usage: `/adduser <username>`";
                 break;
-
             case '/deluser':
-                if (!empty($args)) {
-                    $responseText = deleteUserFromDB($pdo, $args);
-                } else {
-                    $responseText = "Please provide a username. Usage: `/deluser <username>`";
-                }
+                $responseText = !empty($args) ? deleteUserFromDB($pdo, $args) : "Usage: `/deluser <username>`";
                 break;
-
             case '/listusers':
                 $responseText = listUsersFromDB($pdo);
                 break;
-
+            case '/analyze':
+                $responseText = !empty($args) ? analyzeText($args) : "Usage: `/analyze <your text here>`";
+                break;
             default:
                 $responseText = "Sorry, I don't understand that command.";
                 break;
@@ -163,7 +180,6 @@ if (isset($update['message'])) {
         sendMessage($chat_id, $responseText);
 
     } else {
-        // Handle non-command messages
         if ($chat_id === $admin_id) {
             sendMessage($chat_id, "Please send a command starting with `/`.");
         } else {

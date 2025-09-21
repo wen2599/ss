@@ -13,11 +13,18 @@ $bot_token = 'YOUR_TELEGRAM_BOT_TOKEN';
 
 // 2. Telegram Admin User ID
 // Replace 'YOUR_ADMIN_USER_ID' with your own numeric Telegram User ID.
-// This is used to restrict access to sensitive commands.
-// You can get your ID by messaging @userinfobot on Telegram.
 $admin_id = 'YOUR_ADMIN_USER_ID'; 
 
-// 3. Database Connection Settings
+// 3. Cloudflare Worker Secret
+// This secret must exactly match the WORKER_SECRET in your Cloudflare Worker script.
+$worker_secret = 'A_VERY_SECRET_KEY';
+
+// 4. Upload Directory
+// Defines the path where files uploaded from the worker will be stored.
+// Ensure this directory exists and is writable by the web server.
+define('UPLOAD_DIR', __DIR__ . '/uploads/');
+
+// 5. Database Connection Settings
 // Replace the following placeholders with your actual database credentials.
 $db_host = 'localhost';     // Database host (e.g., '127.0.0.1' or 'localhost')
 $db_name = 'your_database_name'; // The name of your database
