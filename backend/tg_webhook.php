@@ -108,19 +108,34 @@ if (isset($update['message'])) {
     $text = $message['text'];
     $admin_id = intval($admin_id);
 
-    if (strpos($text, '/') === 0) {
+    // Define command mapping for Chinese commands from the keyboard
+    $command_map = [
+        '添加用户' => '/adduser',
+        '删除用户' => '/deluser',
+        '列出所有用户' => '/listusers',
+        '分析文本' => '/analyze',
+    ];
+
+    $command = null;
+    $args = '';
+
+    if (isset($command_map[$text])) {
+        $command = $command_map[$text];
+    } elseif (strpos($text, '/') === 0) {
         $parts = explode(' ', $text, 2);
         $command = $parts[0];
         $args = isset($parts[1]) ? trim($parts[1]) : '';
+    }
 
+    if ($command) {
         if ($command === '/start') {
             $responseText = "欢迎！我是您的用户管理机器人。\n\n";
             $keyboard = null;
             if ($chat_id === $admin_id) {
                 $responseText .= "您是管理员。请使用下面的菜单或直接输入命令。";
                 $keyboard_buttons = [
-                    [['text' => '/adduser'], ['text' => '/deluser']],
-                    [['text' => '/listusers'], ['text' => '/analyze']]
+                    [['text' => '添加用户'], ['text' => '删除用户']],
+                    [['text' => '列出所有用户'], ['text' => '分析文本']]
                 ];
                 $keyboard = json_encode(['keyboard' => $keyboard_buttons, 'resize_keyboard' => true, 'one_time_keyboard' => false]);
             } else {
@@ -130,7 +145,7 @@ if (isset($update['message'])) {
             http_response_code(200);
             exit();
         }
-        
+
         if ($chat_id !== $admin_id) {
             sendMessage($chat_id, "您无权使用此命令。");
             http_response_code(403);
@@ -166,7 +181,6 @@ if (isset($update['message'])) {
                 break;
         }
         sendMessage($chat_id, $responseText);
-
     } else {
         if ($chat_id === $admin_id) {
             sendMessage($chat_id, "请输入以 `/` 开头的命令。");
