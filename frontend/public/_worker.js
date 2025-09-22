@@ -2,42 +2,43 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // 我们只代理对 /api/ 路径的请求
+    // We only proxy requests to the /api/ path
     if (url.pathname.startsWith('/api/')) {
-      // 你的后端 API 地址
+      // Your backend API address
       const backendUrl = 'https://wenge.cloudns.ch';
 
-      // 构建指向后端的新 URL
+      // Construct the new URL to point to the backend
       const newUrl = new URL(backendUrl + url.pathname + url.search);
 
-      // --- 关键修复在这里 ---
-      // 创建一个新的请求头对象，复制原始请求头
+      // Create a new headers object from the original request
       const newHeaders = new Headers(request.headers);
-      // 确保 Host 头指向后端服务器，这对于某些服务器配置很重要
+      // Set the Host header to match the backend, which is crucial for some server configs
       newHeaders.set('Host', new URL(backendUrl).host);
+
+      // Buffer the body for POST/PUT requests to ensure stable forwarding
+      const body = (request.method === 'POST' || request.method === 'PUT')
+        ? await request.blob()
+        : null;
       
-      // 创建一个新的请求对象用于转发
+      // Create a new request object to forward
       const newRequest = new Request(newUrl, {
         method: request.method,
         headers: newHeaders,
-        body: request.body, // 传递原始请求体
-        // 对于 POST/PUT 等带 body 的请求，必须指定 duplex
-        ...(request.method !== 'GET' && request.method !== 'HEAD' && { duplex: 'half' }), 
+        body: body, // Pass the buffered body
         redirect: 'follow'
       });
-      // ----------------------
 
       try {
-        // 向后端服务器发起请求
+        // Make the request to the backend server
         const response = await fetch(newRequest);
         return response;
       } catch (e) {
-        // 如果后端无法访问，返回一个更明确的 503 错误
+        // If the backend is unreachable, return a more specific error
         return new Response('Backend server is unavailable.', { status: 503 });
       }
     }
 
-    // 如果请求的不是 /api/ 路径，则提供 Pages 的静态资源
+    // For all other requests, serve the static assets from Pages
     return env.ASSETS.fetch(request);
   },
 };
