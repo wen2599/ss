@@ -1,12 +1,11 @@
--- This is a template for the tables that will be created dynamically by the bot.
--- The placeholder `{TABLE_NAME}` should be replaced with the actual table name by the bot script.
+-- This SQL script creates the table for storing parsed lottery results.
+-- The bot should be modified to save the parsed data into this table.
 
-CREATE TABLE IF NOT EXISTS `{TABLE_NAME}` (
-    `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `column_a` TEXT,
-    `column_b` TEXT,
-    `column_c` TEXT,
-    `column_d` TEXT,
-    `column_e` TEXT,
-    `imported_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+CREATE TABLE IF NOT EXISTS `lottery_results` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `lottery_name` VARCHAR(255) NOT NULL,
+  `issue_number` VARCHAR(255) NOT NULL,
+  `numbers` VARCHAR(255) NOT NULL COMMENT 'Comma-separated winning numbers',
+  `parsed_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_result` (`lottery_name`, `issue_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
