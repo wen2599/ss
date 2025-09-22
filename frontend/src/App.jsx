@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import './App.css';
 
-const API_URL = '/api/process.php';
+const API_URL = '/api/process_text';
 
 function App() {
   const [inputText, setInputText] = useState('');
