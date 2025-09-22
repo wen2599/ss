@@ -97,13 +97,13 @@ form button {
   padding: 1rem 0;
 }
 
-p > .error {
+p.error {
     padding: 1rem;
     background-color: rgba(255, 107, 107, 0.1);
     border-radius: 8px;
 }
 
-p[style*="color: green"] {
+p.success {
   color: var(--success-color);
   background-color: rgba(123, 237, 159, 0.1);
   padding: 1rem;

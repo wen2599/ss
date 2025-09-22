@@ -55,6 +55,7 @@ function RegisterPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            autoComplete="email"
           />
         </div>
         <div>
@@ -65,12 +66,13 @@ function RegisterPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            autoComplete="new-password"
           />
         </div>
         <button type="submit">注册</button>
       </form>
       {error && <p className="error">{error}</p>}
-      {message && <p style={{ color: 'green' }}>{message}</p>}
+      {message && <p className="success">{message}</p>}
       <p>
         已经有账户了？ <Link to="/login">登录</Link>
       </p>
