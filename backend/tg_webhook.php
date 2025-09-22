@@ -97,6 +97,44 @@ function listUsersFromDB($pdo) {
 }
 
 /**
+ * Saves a parsed lottery result to the database.
+ * Handles duplicates by updating the existing record.
+ *
+ * @param PDO $pdo The database connection object.
+ * @param array $result The parsed result array from LotteryParser.
+ * @return string A status message indicating the outcome.
+ */
+function saveLotteryResultToDB($pdo, $result) {
+    $numbers_str = implode(',', $result['numbers']);
+
+    $sql = "INSERT INTO lottery_results (lottery_name, issue_number, numbers)
+            VALUES (:lottery_name, :issue_number, :numbers)
+            ON DUPLICATE KEY UPDATE numbers = VALUES(numbers), parsed_at = CURRENT_TIMESTAMP";
+
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':lottery_name' => $result['lottery_name'],
+            ':issue_number' => $result['issue_number'],
+            ':numbers' => $numbers_str
+        ]);
+
+        $rowCount = $stmt->rowCount();
+        if ($rowCount === 1) {
+            return "新开奖结果已成功存入数据库。";
+        } elseif ($rowCount === 2) {
+            return "开奖结果已在数据库中更新。";
+        } else {
+            return "开奖结果与数据库记录一致，未作更改。";
+        }
+
+    } catch (PDOException $e) {
+        error_log("Database error saving lottery result: " . $e->getMessage());
+        return "保存开奖结果时出错。";
+    }
+}
+
+/**
  * Analyzes a given text and returns a formatted report.
  * @param string $text The text to analyze.
  * @return string The analysis report.
@@ -141,13 +179,15 @@ if (isset($update['message'])) {
     $parsedResult = LotteryParser::parse($text);
 
     if ($parsedResult) {
-        // If parsing is successful, log the result.
-        // Later, this will be saved to the database.
-        $logMessage = "Parsed Lottery Result: " . json_encode($parsedResult, JSON_UNESCAPED_UNICODE);
-        file_put_contents('webhook_log.txt', $logMessage . "\n", FILE_APPEND);
-        // Optionally, send a confirmation back to the admin
+        // If parsing is successful, save the result to the database.
+        $statusMessage = saveLotteryResultToDB($pdo, $parsedResult);
+
+        // Send a confirmation back to the admin with the status.
         if ($chat_id === $admin_id) {
-            sendMessage($chat_id, "成功识别到开奖结果：\n" . $parsedResult['lottery_name'] . " - " . $parsedResult['issue_number']);
+            $responseText = "成功识别到开奖结果：\n"
+                          . "`" . $parsedResult['lottery_name'] . " - " . $parsedResult['issue_number'] . "`\n\n"
+                          . "状态: *" . $statusMessage . "*";
+            sendMessage($chat_id, $responseText);
         }
     } else {
         // If it's not a lottery result, process it as a command
