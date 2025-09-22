@@ -40,9 +40,8 @@ try {
     $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8", $db_user, $db_pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Check if the email exists in the 'username' column of the 'users' table.
-    // Note: This assumes emails are stored in the 'username' field.
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = :email");
+    // Check if the email exists in the 'email' column of the 'users' table.
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = :email");
     $stmt->execute([':email' => $email]);
     
     if ($stmt->fetchColumn() > 0) {
