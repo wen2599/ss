@@ -1,7 +1,7 @@
 <?php
-// A command-line script to import an .sql file into the database.
+// A command-line script to import the data_table_schema.sql file into the database.
 
-// Usage: php import.php <path_to_your_sql_file.sql>
+// Usage: php import.php
 
 // 1. Include Configuration
 require_once __DIR__ . '/config.php';
@@ -11,15 +11,13 @@ if (php_sapi_name() !== 'cli') {
     die("This script can only be run from the command line.");
 }
 
-// 3. Get SQL file path from command line arguments
-if ($argc < 2) {
-    die("Usage: php " . $argv[0] . " <path_to_sql_file>\n");
-}
-$sql_file_path = $argv[1];
+// 3. Hardcode the SQL file path
+// This assumes data_table_schema.sql is in the same directory as this script.
+$sql_file_path = __DIR__ . '/data_table_schema.sql';
 
 // 4. Check if the file exists and is readable
 if (!is_file($sql_file_path) || !is_readable($sql_file_path)) {
-    die("Error: File not found or is not readable: " . $sql_file_path . "\n");
+    die("Error: SQL schema file not found or is not readable: " . $sql_file_path . "\n");
 }
 
 // 5. Read the SQL file content
@@ -40,7 +38,7 @@ try {
     // Execute the SQL commands from the file
     $pdo->exec($sql_content);
 
-    echo "Successfully imported SQL file.\n";
+    echo "Successfully imported SQL schema file.\n";
 
 } catch (PDOException $e) {
     die("Database error: " . $e->getMessage() . "\n");
