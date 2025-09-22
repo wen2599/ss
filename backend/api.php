@@ -7,102 +7,101 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit;
 }
 
-/**
- * api.php
- *
- * This script serves as the primary API endpoint for the Cloudflare Worker.
- * It handles the uploading of email content sent as a file.
- *
- * --- How It Works ---
- * 1. It expects a POST request with 'multipart/form-data'.
- * 2. It requires three fields: 'worker_secret', 'user_email', and a file upload named 'chat_file'.
- * 3. It validates the secret to ensure the request is from a trusted source.
- * 4. It checks if the upload directory exists and is writable, creating it if necessary.
- * 5. It creates a subdirectory based on the user's email for organized storage.
- * 6. It saves the uploaded file to the user-specific directory with a unique timestamped name.
- * 7. It returns a JSON response indicating success or failure.
- */
-
-// 1. Include Configuration using an absolute path
+// 1. Include Dependencies
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/lib/BetCalculator.php'; // New dependency
 
 // 2. Set Headers
 header('Content-Type: application/json');
 
-// 3. Security Check: Validate the Worker Secret from POST data
+// 3. Security & Input Validation
 if (!isset($_POST['worker_secret']) || $_POST['worker_secret'] !== $worker_secret) {
-    http_response_code(403); // Forbidden
-    echo json_encode(['success' => false, 'error' => 'Access denied. Invalid secret.']);
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Access denied.']);
     exit();
 }
-
-// 4. Input Validation
 if (!isset($_POST['user_email']) || !filter_var($_POST['user_email'], FILTER_VALIDATE_EMAIL)) {
-    http_response_code(400); // Bad Request
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid or missing user_email.']);
     exit();
 }
-
 if (!isset($_FILES['chat_file']) || $_FILES['chat_file']['error'] !== UPLOAD_ERR_OK) {
-    http_response_code(400); // Bad Request
-    $upload_errors = [
-        UPLOAD_ERR_INI_SIZE   => "The uploaded file exceeds the upload_max_filesize directive in php.ini.",
-        UPLOAD_ERR_FORM_SIZE  => "The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form.",
-        UPLOAD_ERR_PARTIAL    => "The uploaded file was only partially uploaded.",
-        UPLOAD_ERR_NO_FILE    => "No file was uploaded.",
-        UPLOAD_ERR_NO_TMP_DIR => "Missing a temporary folder.",
-        UPLOAD_ERR_CANT_WRITE => "Failed to write file to disk.",
-        UPLOAD_ERR_EXTENSION  => "A PHP extension stopped the file upload.",
-    ];
-    $error_message = isset($upload_errors[$_FILES['chat_file']['error']]) 
-        ? $upload_errors[$_FILES['chat_file']['error']] 
-        : 'Unknown upload error.';
-    echo json_encode(['success' => false, 'error' => $error_message]);
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'File upload error.']);
     exit();
 }
 
-// 5. Directory and File Handling
 $user_email = $_POST['user_email'];
 $file_tmp_path = $_FILES['chat_file']['tmp_name'];
-$file_name = $_FILES['chat_file']['name'];
 
-// Sanitize email to create a safe directory name (e.g., 'user_example_com')
-$user_dir_name = preg_replace('/[^a-zA-Z0-9_-]/', '_', $user_email);
-$user_upload_dir = UPLOAD_DIR . $user_dir_name . '/';
-
-// Create the main upload directory if it doesn't exist
-if (!is_dir(UPLOAD_DIR) && !mkdir(UPLOAD_DIR, 0755)) {
+// 4. Read file content
+$raw_content = file_get_contents($file_tmp_path);
+if ($raw_content === false) {
     http_response_code(500);
-    error_log("Failed to create main upload directory: " . UPLOAD_DIR);
-    echo json_encode(['success' => false, 'error' => 'Server configuration error: Cannot create upload directory.']);
+    echo json_encode(['success' => false, 'error' => 'Could not read uploaded file.']);
     exit();
 }
 
-// Create the user-specific directory if it doesn't exist
-if (!is_dir($user_upload_dir) && !mkdir($user_upload_dir, 0755, true)) {
+// 5. Database Connection
+try {
+    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8", $db_user, $db_pass);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    error_log("API DB connection error: " . $e->getMessage());
     http_response_code(500);
-    error_log("Failed to create user directory: " . $user_upload_dir);
-    echo json_encode(['success' => false, 'error' => 'Server configuration error: Cannot create user directory.']);
+    echo json_encode(['success' => false, 'error' => 'Database connection failed.']);
     exit();
 }
 
-// Generate a unique filename to prevent overwrites
-$sanitized_file_name = basename($file_name);
-$destination_path = $user_upload_dir . date('Y-m-d_H-i-s') . '_' . $sanitized_file_name;
+// 6. Get User ID from Email
+$stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
+$stmt->execute([':email' => $user_email]);
+$user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// 6. Move the Uploaded File
-if (move_uploaded_file($file_tmp_path, $destination_path)) {
-    // 7. Send Success Response
-    http_response_code(200);
+if (!$user) {
+    http_response_code(404); // Not Found
+    echo json_encode(['success' => false, 'error' => 'User not found for the provided email.']);
+    exit();
+}
+$user_id = $user['id'];
+
+// 7. Process Betting Slip
+$calculation_result = BetCalculator::calculate($raw_content);
+
+$status = 'unrecognized';
+$settlement_details = null;
+$total_cost = null;
+
+if ($calculation_result !== null) {
+    $status = 'processed';
+    $settlement_details = json_encode($calculation_result['breakdown'], JSON_UNESCAPED_UNICODE);
+    $total_cost = $calculation_result['total_cost'];
+}
+
+// 8. Insert into Bills Table
+try {
+    $sql = "INSERT INTO bills (user_id, raw_content, settlement_details, total_cost, status)
+            VALUES (:user_id, :raw_content, :settlement_details, :total_cost, :status)";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        ':user_id' => $user_id,
+        ':raw_content' => $raw_content,
+        ':settlement_details' => $settlement_details,
+        ':total_cost' => $total_cost,
+        ':status' => $status
+    ]);
+
+    http_response_code(201); // Created
     echo json_encode([
         'success' => true,
-        'message' => 'File uploaded successfully.',
-        'path' => $destination_path
+        'message' => 'Bill processed and saved successfully.',
+        'status' => $status
     ]);
-} else {
-    http_response_code(500);
-    error_log("Failed to move uploaded file to: " . $destination_path);
-    echo json_encode(['success' => false, 'error' => 'Failed to save the uploaded file.']);
-}
 
+} catch (PDOException $e) {
+    error_log("Bill insertion error: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Failed to save the bill to the database.']);
+    exit();
+}
 ?>

@@ -11,14 +11,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/lib/LotteryParser.php';
 
-// SQL to create the necessary table:
-/*
-CREATE TABLE `users` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `username` VARCHAR(255) NOT NULL UNIQUE,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-*/
+// The authoritative database schema is located in the `data_table_schema.sql` file.
 
 // 2. Establish Database Connection
 try {
