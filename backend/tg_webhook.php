@@ -9,6 +9,7 @@
 
 // 1. Include Configuration using an absolute path
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/lib/LotteryParser.php';
 
 // SQL to create the necessary table:
 /*
@@ -136,74 +137,84 @@ if (isset($update['message'])) {
     $text = $message['text'];
     $admin_id = intval($admin_id);
 
-    // Define command mapping for Chinese commands from the keyboard
-    $command_map = [
-        '添加用户' => '/adduser',
-        '删除用户' => '/deluser',
-        '列出所有用户' => '/listusers',
-        '分析文本' => '/analyze',
-    ];
+    // First, try to parse the message as a lottery result
+    $parsedResult = LotteryParser::parse($text);
 
-    $command = null;
-    $args = '';
-
-    if (isset($command_map[$text])) {
-        $command = $command_map[$text];
-    } elseif (strpos($text, '/') === 0) {
-        $parts = explode(' ', $text, 2);
-        $command = $parts[0];
-        $args = isset($parts[1]) ? trim($parts[1]) : '';
-    }
-
-    if ($command) {
-        if ($command === '/start') {
-            $responseText = "欢迎！我是您的用户管理机器人。\n\n";
-            $keyboard = null;
-            if ($chat_id === $admin_id) {
-                $responseText .= "您是管理员。请使用下面的菜单或直接输入命令。";
-                $keyboard_buttons = [
-                    [['text' => '添加用户'], ['text' => '删除用户']],
-                    [['text' => '列出所有用户'], ['text' => '分析文本']]
-                ];
-                $keyboard = json_encode(['keyboard' => $keyboard_buttons, 'resize_keyboard' => true, 'one_time_keyboard' => false]);
-            } else {
-                $responseText .= "您无权执行任何操作。";
-            }
-            sendMessage($chat_id, $responseText, $keyboard);
-            http_response_code(200);
-            exit();
-        }
-
-        if ($chat_id !== $admin_id) {
-            sendMessage($chat_id, "您无权使用此命令。");
-            http_response_code(403);
-            exit();
-        }
-
-        switch ($command) {
-            case '/adduser':
-                $responseText = !empty($args) ? addUserToDB($pdo, $args) : "用法：`/adduser <username>`";
-                break;
-            case '/deluser':
-                $responseText = !empty($args) ? deleteUserFromDB($pdo, $args) : "用法：`/deluser <username>`";
-                break;
-            case '/listusers':
-                $responseText = listUsersFromDB($pdo);
-                break;
-            case '/analyze':
-                $responseText = !empty($args) ? analyzeText($args) : "用法：`/analyze <在此处输入您的文本>`";
-                break;
-            default:
-                $responseText = "抱歉，我不理解该命令。";
-                break;
-        }
-        sendMessage($chat_id, $responseText);
-    } else {
+    if ($parsedResult) {
+        // If parsing is successful, log the result.
+        // Later, this will be saved to the database.
+        $logMessage = "Parsed Lottery Result: " . json_encode($parsedResult, JSON_UNESCAPED_UNICODE);
+        file_put_contents('webhook_log.txt', $logMessage . "\n", FILE_APPEND);
+        // Optionally, send a confirmation back to the admin
         if ($chat_id === $admin_id) {
-            sendMessage($chat_id, "请输入以 `/` 开头的命令。");
-        } else {
-            sendMessage($chat_id, "抱歉，我只能回复授权用户。");
+            sendMessage($chat_id, "成功识别到开奖结果：\n" . $parsedResult['lottery_name'] . " - " . $parsedResult['issue_number']);
         }
+    } else {
+        // If it's not a lottery result, process it as a command
+        $command_map = [
+            '添加用户' => '/adduser',
+            '删除用户' => '/deluser',
+            '列出所有用户' => '/listusers',
+            '分析文本' => '/analyze',
+        ];
+
+        $command = null;
+        $args = '';
+
+        if (isset($command_map[$text])) {
+            $command = $command_map[$text];
+        } elseif (strpos($text, '/') === 0) {
+            $parts = explode(' ', $text, 2);
+            $command = $parts[0];
+            $args = isset($parts[1]) ? trim($parts[1]) : '';
+        }
+
+        if ($command) {
+            if ($command === '/start') {
+                $responseText = "欢迎！我是您的用户管理机器人。\n\n";
+                $keyboard = null;
+                if ($chat_id === $admin_id) {
+                    $responseText .= "您是管理员。请使用下面的菜单或直接输入命令。";
+                    $keyboard_buttons = [
+                        [['text' => '添加用户'], ['text' => '删除用户']],
+                        [['text' => '列出所有用户'], ['text' => '分析文本']]
+                    ];
+                    $keyboard = json_encode(['keyboard' => $keyboard_buttons, 'resize_keyboard' => true, 'one_time_keyboard' => false]);
+                } else {
+                    $responseText .= "您无权执行任何操作。";
+                }
+                sendMessage($chat_id, $responseText, $keyboard);
+                http_response_code(200);
+                exit();
+            }
+
+            if ($chat_id !== $admin_id) {
+                sendMessage($chat_id, "您无权使用此命令。");
+                http_response_code(403);
+                exit();
+            }
+
+            switch ($command) {
+                case '/adduser':
+                    $responseText = !empty($args) ? addUserToDB($pdo, $args) : "用法：`/adduser <username>`";
+                    break;
+                case '/deluser':
+                    $responseText = !empty($args) ? deleteUserFromDB($pdo, $args) : "用法：`/deluser <username>`";
+                    break;
+                case '/listusers':
+                    $responseText = listUsersFromDB($pdo);
+                    break;
+                case '/analyze':
+                    $responseText = !empty($args) ? analyzeText($args) : "用法：`/analyze <在此处输入您的文本>`";
+                    break;
+                default:
+                    $responseText = "抱歉，我不理解该命令。";
+                    break;
+            }
+            sendMessage($chat_id, $responseText);
+        }
+        // If it's not a lottery result and not a command, do nothing.
+        // We don't want to reply to every single message in the channel.
     }
 }
 
