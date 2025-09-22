@@ -40,7 +40,7 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // a. Find user by email
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE username = :email");
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = :email");
     $stmt->execute([':email' => $email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -48,7 +48,7 @@ try {
     if ($user && password_verify($password, $user['password'])) {
         // Password is correct, start the session
         $_SESSION['user_id'] = $user['id'];
-        $_SESSION['user_email'] = $user['username'];
+        $_SESSION['user_email'] = $user['email'];
 
         // 8. Send Success Response with user data
         http_response_code(200); // OK
@@ -57,7 +57,7 @@ try {
             'message' => 'Login successful.',
             'user' => [
                 'id' => $user['id'],
-                'email' => $user['username']
+                'email' => $user['email']
             ]
         ]);
         exit();
