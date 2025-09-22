@@ -1,4 +1,12 @@
 <?php
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
 /**
  * is_user_registered.php
  *
@@ -40,8 +48,9 @@ try {
     $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8", $db_user, $db_pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Check if the email exists in the 'email' column of the 'users' table.
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = :email");
+    // Check if the email exists in the 'username' column of the 'users' table.
+    // Note: This assumes emails are stored in the 'username' field.
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = :email");
     $stmt->execute([':email' => $email]);
     
     if ($stmt->fetchColumn() > 0) {
