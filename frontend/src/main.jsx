@@ -7,17 +7,27 @@ import {
 import App from './App.jsx'
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
+import BillsPage from './pages/BillsPage.jsx'; // Import the new page
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import MainLayout from './components/MainLayout.jsx'; // Import the new layout
 import { AuthProvider } from './context/AuthContext.jsx';
 import './index.css'
 
 const router = createBrowserRouter([
   {
-    element: <ProtectedRoute />,
+    element: (
+      <ProtectedRoute>
+        <MainLayout />
+      </ProtectedRoute>
+    ),
     children: [
       {
         path: "/",
         element: <App />,
+      },
+      {
+        path: "/bills",
+        element: <BillsPage />,
       }
     ]
   },

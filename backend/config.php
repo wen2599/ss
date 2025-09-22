@@ -32,13 +32,6 @@ $db_user = 'your_username';       // Your database username
 $db_pass = 'your_password';       // Your database password
 
 // 6. Database Schema
-//
-// CREATE TABLE `users` (
-//   `id` INT AUTO_INCREMENT PRIMARY KEY,
-//   `username` VARCHAR(255) NULL UNIQUE,
-//   `email` VARCHAR(255) NOT NULL UNIQUE,
-//   `password` VARCHAR(255) NOT NULL,
-//   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-// );
+// The authoritative database schema is located in the `data_table_schema.sql` file.
 
 ?>
