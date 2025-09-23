@@ -1,49 +1,74 @@
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
+    const backendHost = 'https://wenge.cloudns.ch';
     const url = new URL(request.url);
 
     if (url.pathname.startsWith('/api/')) {
-      const backendUrl = 'https://wenge.cloudns.ch';
+      // Handle CORS pre-flight (OPTIONS) requests
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+            'Access-Control-Max-Age': '86400',
+          },
+        });
+      }
+
+      // --- CORRECTED ROUTING LOGIC ---
+      // Extract the action from the path, e.g., /api/login -> login
       const action = url.pathname.substring('/api/'.length);
+
+      // Preserve original search parameters
       const searchParams = new URLSearchParams(url.search);
       searchParams.set('action', action);
 
-      const newUrl = new URL(`${backendUrl}/api/index.php?${searchParams.toString()}`);
+      // Construct the new URL to point to the single index.php endpoint
+      // NOTE: We are not including /api/ in the path to index.php, assuming the backend domain points to the `backend` dir.
+      const backendUrl = new URL(`${backendHost}/index.php?${searchParams.toString()}`);
+      // --- END CORRECTED ROUTING LOGIC ---
 
-      // --- NEW MINIMAL HEADERS LOGIC ---
-      // Create a new Headers object instead of cloning, to avoid forwarding
-      // potentially problematic headers like 'sec-fetch-...' etc.
+      // Forward request with intelligent header filtering
       const newHeaders = new Headers();
-      newHeaders.set('Host', new URL(backendUrl).host);
-
-      // Only forward essential headers
-      if (request.headers.has('Content-Type')) {
-        newHeaders.set('Content-Type', request.headers.get('Content-Type'));
+      for (const [k, v] of request.headers.entries()) {
+        if (!/^host$/i.test(k) && !/^cf-/i.test(k) && !/^sec-/i.test(k)) {
+          newHeaders.set(k, v);
+        }
       }
-      if (request.headers.has('Authorization')) {
-        newHeaders.set('Authorization', request.headers.get('Authorization'));
-      }
-      // --- END NEW MINIMAL HEADERS LOGIC ---
+      newHeaders.set('Host', new URL(backendHost).hostname);
 
-      const body = (request.method === 'POST' || request.method === 'PUT')
-        ? await request.blob()
-        : null;
-
-      const newRequest = new Request(newUrl, {
+      const init = {
         method: request.method,
         headers: newHeaders,
-        body: body,
-        redirect: 'follow'
-      });
+        redirect: 'follow',
+      };
 
-      try {
-        const response = await fetch(newRequest);
-        return response;
-      } catch (e) {
-        return new Response('Backend server is unavailable.', { status: 503 });
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        init.body = await request.clone().arrayBuffer();
       }
+
+      let backendResp;
+      try {
+        backendResp = await fetch(backendUrl, init);
+      } catch (error) {
+        console.error('Error proxying to backend:', error.message);
+        return new Response('API backend unavailable.', { status: 502 });
+      }
+
+      // Return response with forced CORS headers
+      const respHeaders = new Headers(backendResp.headers);
+      respHeaders.set('Access-Control-Allow-Origin', '*');
+      respHeaders.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+
+      return new Response(backendResp.body, {
+        status: backendResp.status,
+        statusText: backendResp.statusText,
+        headers: respHeaders,
+      });
     }
 
     return env.ASSETS.fetch(request);
-  },
+  }
 };
