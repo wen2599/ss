@@ -73,14 +73,15 @@ function deleteUserFromDB($pdo, $username) {
 }
 function listUsersFromDB($pdo) {
     try {
-        $stmt = $pdo->query("SELECT username FROM users ORDER BY created_at ASC");
-        $users = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $stmt = $pdo->query("SELECT username, email FROM users ORDER BY created_at ASC");
+        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (empty($users)) {
             return "数据库中没有用户。";
         }
-        $userList = "列出所有用户：\n";
+        $userList = "👤 *列出所有用户：*\n---------------------\n";
         foreach ($users as $index => $user) {
-            $userList .= ($index + 1) . ". `" . htmlspecialchars($user) . "`\n";
+            $display_name = !empty($user['username']) ? $user['username'] : 'N/A';
+            $userList .= ($index + 1) . ". *Email:* `" . htmlspecialchars($user['email']) . "`\n   *Username:* `" . htmlspecialchars($display_name) . "`\n";
         }
         return $userList;
     } catch (PDOException $e) {

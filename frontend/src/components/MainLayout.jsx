@@ -1,33 +1,28 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import AuthModal from './AuthModal';
-import '../App.css';
+import '../App.css'; // Re-using styles from App.css
 
 function MainLayout() {
-  const { user, logout, isAuthenticated } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   return (
     <div className="container">
       <header className="app-header">
-        <div className="header-left">
-          {!isAuthenticated ? (
-            <button onClick={() => setIsModalOpen(true)}>登录 / 注册</button>
-          ) : (
-            <button onClick={logout}>退出登录</button>
-          )}
-        </div>
-        <div className="header-right">
-          {isAuthenticated && (
-            <Link to="/bills" className="header-link">我的账单</Link>
-          )}
+        <h1>邮件账单系统</h1>
+        <nav>
+          <Link to="/">邮件处理器</Link>
+          <Link to="/bills">我的账单</Link>
+          <Link to="/lottery-results">开奖记录</Link>
+        </nav>
+        <div className="user-info">
+          {user && <span>欢迎, {user.email}</span>}
+          <button onClick={logout}>登出</button>
         </div>
       </header>
       <main>
         <Outlet />
       </main>
-      {isModalOpen && <AuthModal onClose={() => setIsModalOpen(false)} />}
     </div>
   );
 }

@@ -10,7 +10,7 @@ export function AuthProvider({ children }) {
     // Check session on initial load
     const verifySession = async () => {
       try {
-        const response = await fetch('/check_session');
+        const response = await fetch('/api/check_session');
         const data = await response.json();
         if (data.isAuthenticated) {
           setUser(data.user);
@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    await fetch('/logout');
+    await fetch('/api/logout');
     setUser(null);
   };
 
