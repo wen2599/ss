@@ -3,13 +3,7 @@ export default {
     const backendHost = 'https://wenge.cloudns.ch';
     const url = new URL(request.url);
 
-    // Check if the request is for a static asset. If not, proxy to the API backend.
-    // A simple heuristic: check for a file extension.
-    const isStaticAsset = /\.[a-zA-Z0-9]+$/.test(url.pathname);
-
-    if (!isStaticAsset && url.pathname !== '/') {
-      // This is an API call.
-
+    if (url.pathname.startsWith('/api/')) {
       // Handle CORS pre-flight (OPTIONS) requests
       if (request.method === 'OPTIONS') {
         return new Response(null, {
@@ -23,16 +17,18 @@ export default {
         });
       }
 
-      // Extract the action from the path, e.g., /login -> login
-      const action = url.pathname.substring(1);
+      // --- CORRECTED ROUTING LOGIC ---
+      // Extract the action from the path, e.g., /api/login -> login
+      const action = url.pathname.substring('/api/'.length);
 
-      // Preserve original search parameters from the frontend request
+      // Preserve original search parameters
       const searchParams = new URLSearchParams(url.search);
-      // Set the action for the backend PHP router
       searchParams.set('action', action);
 
       // Construct the new URL to point to the single index.php endpoint
+      // NOTE: We are not including /api/ in the path to index.php, assuming the backend domain points to the `backend` dir.
       const backendUrl = new URL(`${backendHost}/index.php?${searchParams.toString()}`);
+      // --- END CORRECTED ROUTING LOGIC ---
 
       // Forward request with intelligent header filtering
       const newHeaders = new Headers();
