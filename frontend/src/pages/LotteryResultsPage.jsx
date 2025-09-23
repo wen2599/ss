@@ -2,31 +2,71 @@ import React, { useState, useEffect } from 'react';
 
 function LotteryResultsPage() {
   const [results, setResults] = useState([]);
+  const [colorMap, setColorMap] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchResults = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
       setError('');
       try {
-        const response = await fetch('/api/get_lottery_results');
-        const data = await response.json();
+        const [resultsResponse, gameDataResponse] = await Promise.all([
+          fetch('/api/get_lottery_results'),
+          fetch('/api/get_game_data')
+        ]);
 
-        if (data.success) {
-          setResults(data.results);
+        const resultsData = await resultsResponse.json();
+        const gameData = await gameDataResponse.json();
+
+        if (resultsData.success) {
+          setResults(resultsData.results);
         } else {
-          setError(data.error || 'Failed to fetch lottery results.');
+          throw new Error(resultsData.error || 'Failed to fetch lottery results.');
         }
+
+        if (gameData.success) {
+          setColorMap(gameData.colorMap);
+        } else {
+          throw new Error(gameData.error || 'Failed to fetch game data.');
+        }
+
       } catch (err) {
-        setError('An error occurred while fetching results. Please try again later.');
+        setError(err.message || 'An error occurred while fetching data.');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchResults();
+    fetchData();
   }, []); // Fetch only once on component mount
+
+  const numberColorCache = React.useMemo(() => {
+    if (!colorMap) return {};
+    const cache = {};
+    // Pre-calculate the color for each number for quick lookups
+    for (const color of Object.keys(colorMap)) {
+      const colorName = color === '红波' ? 'red' : color === '蓝波' ? 'blue' : 'green';
+      for (const number of [...colorMap[color].single, ...colorMap[color].double]) {
+        cache[number] = colorName;
+      }
+    }
+    return cache;
+  }, [colorMap]);
+
+  const getNumberColorClass = (number) => {
+    const color = numberColorCache[number];
+    return color ? `number-ball number-ball-${color}` : 'number-ball number-ball-default';
+  };
+
+  const groupedResults = results.reduce((acc, result) => {
+    const key = result.lottery_name;
+    if (!acc[key]) {
+      acc[key] = [];
+    }
+    acc[key].push(result);
+    return acc;
+  }, {});
 
   if (isLoading) {
     return <div>正在加载开奖记录...</div>;
@@ -39,10 +79,13 @@ function LotteryResultsPage() {
   return (
     <div className="bills-container">
       <h2>开奖记录</h2>
-      {results.length === 0 ? (
+      {Object.keys(groupedResults).length === 0 ? (
         <p>还没有任何开奖记录。</p>
       ) : (
-        <table className="bills-table">
+        Object.entries(groupedResults).map(([lotteryName, lotteryResults]) => (
+          <div key={lotteryName} className="lottery-group">
+            <h3>{lotteryName}</h3>
+            <table className="bills-table">
           <thead>
             <tr>
               <th>开奖名称</th>
@@ -52,16 +95,24 @@ function LotteryResultsPage() {
             </tr>
           </thead>
           <tbody>
-            {results.map((result, index) => (
+            {lotteryResults.map((result, index) => (
               <tr key={index}>
                 <td>{result.lottery_name}</td>
                 <td>{result.issue_number}</td>
-                <td>{result.numbers}</td>
+                <td className="number-cell">
+                  {result.numbers.split(',').map(num => (
+                    <span key={num} className={getNumberColorClass(num)}>
+                      {num}
+                    </span>
+                  ))}
+                </td>
                 <td>{new Date(result.parsed_at).toLocaleString()}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
+        ))
       )}
     </div>
   );

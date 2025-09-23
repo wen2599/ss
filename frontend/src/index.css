@@ -65,3 +65,46 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* Lottery Results Page Styles */
+.lottery-group {
+  margin-bottom: 2rem;
+  width: 100%;
+}
+.lottery-group h3 {
+  border-bottom: 2px solid #444;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+.number-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 5px 0;
+}
+.number-ball {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+  text-align: center;
+  border-radius: 50%;
+  color: white;
+  font-weight: bold;
+  font-size: 14px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.number-ball-red {
+  background-color: #e74c3c;
+}
+.number-ball-blue {
+  background-color: #3498db;
+}
+.number-ball-green {
+  background-color: #2ecc71;
+}
+.number-ball-default {
+  background-color: #95a5a6;
+}
