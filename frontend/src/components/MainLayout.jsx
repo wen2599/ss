@@ -13,6 +13,7 @@ function MainLayout() {
         <nav>
           <Link to="/">邮件处理器</Link>
           <Link to="/bills">我的账单</Link>
+          <Link to="/lottery-results">开奖记录</Link>
         </nav>
         <div className="user-info">
           {user && <span>欢迎, {user.email}</span>}

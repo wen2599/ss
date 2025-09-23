@@ -7,7 +7,8 @@ import {
 import App from './App.jsx'
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
-import BillsPage from './pages/BillsPage.jsx'; // Import the new page
+import BillsPage from './pages/BillsPage.jsx';
+import LotteryResultsPage from './pages/LotteryResultsPage.jsx'; // Import the new page
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import MainLayout from './components/MainLayout.jsx'; // Import the new layout
 import { AuthProvider } from './context/AuthContext.jsx';
@@ -28,6 +29,10 @@ const router = createBrowserRouter([
       {
         path: "/bills",
         element: <BillsPage />,
+      },
+      {
+        path: "/lottery-results",
+        element: <LotteryResultsPage />,
       }
     ]
   },
