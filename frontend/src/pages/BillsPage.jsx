@@ -12,7 +12,7 @@ function BillsPage() {
       setIsLoading(true);
       setError('');
       try {
-        const response = await fetch('/get_bills', {
+        const response = await fetch('/api/get_bills', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
