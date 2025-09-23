@@ -7,18 +7,13 @@ import {
 import App from './App.jsx'
 import BillsPage from './pages/BillsPage.jsx';
 import LotteryResultsPage from './pages/LotteryResultsPage.jsx';
-import ProtectedRoute from './components/ProtectedRoute.jsx';
 import MainLayout from './components/MainLayout.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import './index.css'
 
 const router = createBrowserRouter([
   {
-    element: (
-      <ProtectedRoute>
-        <MainLayout />
-      </ProtectedRoute>
-    ),
+    element: <MainLayout />,
     children: [
       {
         index: true,
