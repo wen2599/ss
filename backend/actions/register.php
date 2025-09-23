@@ -10,23 +10,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $input = file_get_contents("php://input");
 $data = json_decode($input, true);
 
-// --- AGGRESSIVE DEBUGGING ---
+// --- AGGRESSIVE DEBUGGING V2 ---
 // We will stop the script here to see exactly what data is being received.
-header('Content-Type: text/plain; charset=utf-8'); // Ensure plain text for readability
-echo "--- DEBUG OUTPUT ---";
-echo "\n\n";
-echo "Raw Input Stream:\n";
-print_r($input);
-echo "\n\n";
-echo "json_decode() Result:\n";
-print_r($data);
-echo "\n\n";
-echo "Email from decoded data:\n";
-print_r($data['email'] ?? 'NOT SET');
-echo "\n\n";
-echo "--- END DEBUG ---";
+// This version returns valid JSON so the frontend doesn't crash.
+
+$debug_info = "DEBUG - Raw Input: " . $input . " || Decoded Email: " . ($data['email'] ?? 'NOT_SET');
+
+header('Content-Type: application/json; charset=utf-8');
+http_response_code(400); // Use a client error code so it's treated as an error
+echo json_encode([
+    'success' => false,
+    'error' => $debug_info
+]);
 exit();
-// --- END AGGRESSIVE DEBUGGING ---
+// --- END AGGRESSIVE DEBUGGING V2 ---
 
 
 if (!isset($data['email']) || !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
