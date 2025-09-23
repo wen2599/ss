@@ -12,8 +12,8 @@ function LotteryResultsPage() {
       setError('');
       try {
         const [resultsResponse, gameDataResponse] = await Promise.all([
-          fetch('/api/get_lottery_results'),
-          fetch('/api/get_game_data')
+          fetch('/get_lottery_results'),
+          fetch('/get_game_data')
         ]);
 
         const resultsData = await resultsResponse.json();
