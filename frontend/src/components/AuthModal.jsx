@@ -46,7 +46,8 @@ function AuthModal({ onClose }) {
         setSuccessMessage('注册成功！请登录。');
         setIsLoginView(true); // Switch to login view
       } else {
-        setError(data.error || '注册失败。');
+        const errorMessage = data.error || '注册失败。';
+        setError(`为邮箱 [${email}] 注册失败：${errorMessage}`);
       }
     } catch (err) {
       setError('发生错误，请重试。');
