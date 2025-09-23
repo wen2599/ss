@@ -67,10 +67,6 @@ button:focus-visible {
 }
 
 /* Lottery Results Page Styles */
-.lottery-group {
-  margin-bottom: 2rem;
-  width: 100%;
-}
 .lottery-group h3 {
   border-bottom: 2px solid #444;
   padding-bottom: 0.5rem;
@@ -107,4 +103,15 @@ button:focus-visible {
 }
 .number-ball-default {
   background-color: #95a5a6;
+}
+.special-number {
+  margin-left: 15px; /* Adds space before the special number */
+}
+.lottery-group {
+  width: 100%;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border: 1px solid #444;
+  border-radius: 8px;
+  background-color: var(--card-background-color);
 }
