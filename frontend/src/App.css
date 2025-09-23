@@ -115,3 +115,35 @@ p.success {
 a {
     color: var(--primary-color);
 }
+
+/* Lottery Banner Styles */
+.lottery-banner {
+  background-color: #f0f8ff; /* AliceBlue */
+  border: 1px solid #d4e8ff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.lottery-banner h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: #0056b3;
+  font-size: 1.4em;
+}
+
+.banner-numbers .number-ball {
+  width: 40px;
+  height: 40px;
+  line-height: 40px;
+  font-size: 1.2em;
+  font-weight: bold;
+  margin: 4px;
+}
+
+.banner-numbers .special-number {
+  background-color: #ffc107; /* Amber */
+  color: #212529;
+  border-color: #ffc107;
+}
