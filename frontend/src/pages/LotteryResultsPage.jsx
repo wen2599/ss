@@ -14,8 +14,8 @@ function LotteryResultsPage() {
       setError('');
       try {
         const [resultsResponse, gameDataResponse] = await Promise.all([
-          fetch('/api/get_lottery_results'),
-          fetch('/api/get_game_data')
+          fetch('/get_lottery_results'),
+          fetch('/get_game_data')
         ]);
 
         const resultsData = await resultsResponse.json();
@@ -23,7 +23,6 @@ function LotteryResultsPage() {
 
         if (resultsData.success && resultsData.results) {
           setResults(resultsData.results);
-          // Assuming the API returns results sorted with the latest first
           if (resultsData.results.length > 0) {
             setLatestResult(resultsData.results[0]);
           }
