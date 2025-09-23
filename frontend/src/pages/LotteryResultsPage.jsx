@@ -95,8 +95,8 @@ function LotteryResultsPage() {
             </tr>
           </thead>
           <tbody>
-            {lotteryResults.map((result, index) => (
-              <tr key={index}>
+            {lotteryResults.map((result) => (
+              <tr key={result.id}>
                 <td>{result.lottery_name}</td>
                 <td>{result.issue_number}</td>
                 <td className="number-cell">
@@ -111,7 +111,7 @@ function LotteryResultsPage() {
             ))}
           </tbody>
         </table>
-        </div>
+          </div>
         ))
       )}
     </div>
