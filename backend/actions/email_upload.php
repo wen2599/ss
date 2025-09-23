@@ -1,6 +1,5 @@
 <?php
 // Action: Handle file upload from email worker
-require_once __DIR__ . '/../lib/BetCalculator.php';
 
 // This endpoint is for the email worker, so it uses POST and expects multipart/form-data
 if (!isset($_POST['worker_secret']) || $_POST['worker_secret'] !== $worker_secret) {

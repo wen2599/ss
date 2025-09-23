@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import LotteryBanner from '../components/LotteryBanner';
 
 function LotteryResultsPage() {
   const [results, setResults] = useState([]);
-  const [latestResult, setLatestResult] = useState(null);
   const [colorMap, setColorMap] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -14,19 +12,15 @@ function LotteryResultsPage() {
       setError('');
       try {
         const [resultsResponse, gameDataResponse] = await Promise.all([
-          fetch('/get_lottery_results'),
-          fetch('/get_game_data')
+          fetch('/api/get_lottery_results'),
+          fetch('/api/get_game_data')
         ]);
 
         const resultsData = await resultsResponse.json();
         const gameData = await gameDataResponse.json();
 
-        if (resultsData.success && resultsData.results) {
+        if (resultsData.success) {
           setResults(resultsData.results);
-          if (resultsData.results.length > 0) {
-            const latest = resultsData.results[0];
-            setLatestResult(latest);
-          }
         } else {
           throw new Error(resultsData.error || 'Failed to fetch lottery results.');
         }
@@ -84,7 +78,6 @@ function LotteryResultsPage() {
 
   return (
     <div className="bills-container">
-      <LotteryBanner latestResult={latestResult} getNumberColorClass={getNumberColorClass} />
       <h2>开奖记录</h2>
       {Object.keys(groupedResults).length === 0 ? (
         <p>还没有任何开奖记录。</p>
