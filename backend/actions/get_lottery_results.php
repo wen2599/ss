@@ -3,7 +3,7 @@
 
 try {
     // The $pdo variable is inherited from index.php
-    $sql = "SELECT lottery_name, issue_number, numbers, parsed_at FROM lottery_results ORDER BY id DESC";
+    $sql = "SELECT id, lottery_name, issue_number, numbers, parsed_at FROM lottery_results ORDER BY id DESC";
     $stmt = $pdo->prepare($sql);
     $stmt->execute();
 
