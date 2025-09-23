@@ -1,3 +1,4 @@
+// This is a no-op change to trigger a new deployment.
 import React, { useState, useEffect } from 'react';
 import LotteryBanner from './components/LotteryBanner';
 import './App.css';
