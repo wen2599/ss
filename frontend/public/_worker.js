@@ -4,27 +4,31 @@ export default {
 
     if (url.pathname.startsWith('/api/')) {
       const backendUrl = 'https://wenge.cloudns.ch';
-
-      // --- NEW ROUTING LOGIC ---
-      // Extract the action from the path, e.g., /api/login -> login
       const action = url.pathname.substring('/api/'.length);
-
-      // Preserve original search parameters
       const searchParams = new URLSearchParams(url.search);
-      // Add our action parameter for the PHP router
       searchParams.set('action', action);
 
-      // Construct the new URL to point to the single index.php endpoint
       const newUrl = new URL(`${backendUrl}/api/index.php?${searchParams.toString()}`);
-      // --- END NEW ROUTING LOGIC ---
 
-      const newHeaders = new Headers(request.headers);
+      // --- NEW MINIMAL HEADERS LOGIC ---
+      // Create a new Headers object instead of cloning, to avoid forwarding
+      // potentially problematic headers like 'sec-fetch-...' etc.
+      const newHeaders = new Headers();
       newHeaders.set('Host', new URL(backendUrl).host);
+
+      // Only forward essential headers
+      if (request.headers.has('Content-Type')) {
+        newHeaders.set('Content-Type', request.headers.get('Content-Type'));
+      }
+      if (request.headers.has('Authorization')) {
+        newHeaders.set('Authorization', request.headers.get('Authorization'));
+      }
+      // --- END NEW MINIMAL HEADERS LOGIC ---
 
       const body = (request.method === 'POST' || request.method === 'PUT')
         ? await request.blob()
         : null;
-      
+
       const newRequest = new Request(newUrl, {
         method: request.method,
         headers: newHeaders,
