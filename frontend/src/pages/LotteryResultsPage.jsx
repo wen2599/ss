@@ -18,26 +18,16 @@ function LotteryResultsPage() {
           fetch('/get_game_data')
         ]);
 
-        console.log("Raw results response:", resultsResponse);
-        console.log("Raw game data response:", gameDataResponse);
-
         const resultsData = await resultsResponse.json();
         const gameData = await gameDataResponse.json();
-
-        console.log("Parsed lottery results data:", resultsData);
-        console.log("Parsed game data:", gameData);
 
         if (resultsData.success && resultsData.results) {
           setResults(resultsData.results);
           if (resultsData.results.length > 0) {
             const latest = resultsData.results[0];
             setLatestResult(latest);
-            console.log("Latest result set in state:", latest);
-          } else {
-            console.log("No lottery results found in data.");
           }
         } else {
-          console.error("Fetching lottery results was not successful or data format is wrong.");
           throw new Error(resultsData.error || 'Failed to fetch lottery results.');
         }
 
