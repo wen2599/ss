@@ -1,85 +1,88 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import LotteryBanner from './components/LotteryBanner';
 import './App.css';
 
-const API_URL = '/process_text';
-
 function App() {
-  const [inputText, setInputText] = useState('');
-  const [result, setResult] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [latestResults, setLatestResults] = useState([]);
+  const [colorMap, setColorMap] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setIsLoading(true);
-    setError('');
-    setResult(null);
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError('');
+      try {
+        const [resultsResponse, gameDataResponse] = await Promise.all([
+          fetch('/get_lottery_results'),
+          fetch('/get_game_data')
+        ]);
 
-    if (!inputText.trim()) {
-      setError('请输入邮件内容！');
-      setIsLoading(false);
-      return;
-    }
+        const resultsData = await resultsResponse.json();
+        const gameData = await gameDataResponse.json();
 
-    try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ emailText: inputText }),
-      });
+        if (resultsData.success && resultsData.results) {
+          // Take the top 3 results for the homepage
+          setLatestResults(resultsData.results.slice(0, 3));
+        } else {
+          throw new Error(resultsData.error || 'Failed to fetch lottery results.');
+        }
 
-      if (!response.ok) {
-        throw new Error(`HTTP 错误! 状态: ${response.status}`);
+        if (gameData.success) {
+          setColorMap(gameData.colorMap);
+        } else {
+          throw new Error(gameData.error || 'Failed to fetch game data.');
+        }
+
+      } catch (err) {
+        setError(err.message || 'An error occurred while fetching data.');
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      const data = await response.json();
+    fetchData();
+  }, []);
 
-      if (data.success) {
-        setResult(data.data);
-      } else {
-        setError(data.error || '后端处理失败');
+  const numberColorCache = React.useMemo(() => {
+    if (!colorMap) return {};
+    const cache = {};
+    for (const color of Object.keys(colorMap)) {
+      const colorName = color === '红波' ? 'red' : color === '蓝波' ? 'blue' : 'green';
+      for (const number of [...colorMap[color].single, ...colorMap[color].double]) {
+        cache[number] = colorName;
       }
-    } catch (err) {
-      console.error("API 请求失败:", err);
-      setError('无法连接到服务器，请检查网络或代理配置。');
-    } finally {
-      setIsLoading(false);
     }
+    return cache;
+  }, [colorMap]);
+
+  const getNumberColorClass = (number) => {
+    const color = numberColorCache[number];
+    return color ? `number-ball number-ball-${color}` : 'number-ball number-ball-default';
   };
 
+  if (isLoading) {
+    return <div>正在加载最新开奖...</div>;
+  }
+
+  if (error) {
+    return <div className="error">{error}</div>;
+  }
+
   return (
-    <>
-      <form onSubmit={handleSubmit}>
-        <textarea
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="在此处粘贴邮件文本..."
-          rows="10"
-          disabled={isLoading}
-        />
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? '正在处理...' : '处理文本'}
-        </button>
-      </form>
-
-      {error && <div className="error">{error}</div>}
-
-      {result && (
-        <div className="result">
-          <h2>处理结果</h2>
-          <p><strong>字符数:</strong> {result.charCount}</p>
-          <p><strong>单词数:</strong> {result.wordCount}</p>
-          <p><strong>关键词:</strong></p>
-          <ul>
-            {result.keywords && result.keywords.map((keyword, index) => (
-              <li key={index}>{keyword}</li>
-            ))}
-          </ul>
-        </div>
+    <div>
+      {latestResults.length > 0 ? (
+        latestResults.map(result => (
+          <LotteryBanner
+            key={result.id}
+            latestResult={result}
+            getNumberColorClass={getNumberColorClass}
+          />
+        ))
+      ) : (
+        <p>暂无开奖记录。</p>
       )}
-    </>
+    </div>
   );
 }
 
