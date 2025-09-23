@@ -100,8 +100,8 @@ function LotteryResultsPage() {
                 <td>{result.lottery_name}</td>
                 <td>{result.issue_number}</td>
                 <td className="number-cell">
-                  {result.numbers.split(',').map(num => (
-                    <span key={num} className={getNumberColorClass(num)}>
+                  {result.numbers.split(',').map((num, idx) => (
+                    <span key={num} className={`${getNumberColorClass(num)} ${idx === 6 ? 'special-number' : ''}`}>
                       {num}
                     </span>
                   ))}
