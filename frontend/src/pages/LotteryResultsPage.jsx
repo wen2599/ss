@@ -2,7 +2,7 @@ import React from 'react';
 import { useLotteryData } from '../hooks/useLotteryData';
 
 function LotteryResultsPage() {
-  const { results, isLoading, error, getNumberColorClass } = useLotteryData({ apiPrefix: '/api' });
+  const { results, isLoading, error, getNumberColorClass } = useLotteryData();
 
   const groupedResults = results.reduce((acc, result) => {
     const key = result.lottery_name;
