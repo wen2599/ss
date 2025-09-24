@@ -2,13 +2,25 @@ export default {
   async fetch(request, env, ctx) {
     const backendHost = 'https://wenge.cloudns.ch';
     const url = new URL(request.url);
+    const { pathname } = url;
 
-    // Check if the request is for a static asset. If not, proxy to the API backend.
-    // A simple heuristic: check for a file extension.
-    const isStaticAsset = /\.[a-zA-Z0-9]+$/.test(url.pathname);
+    // Define all known API routes (actions) that should be proxied to the backend
+    const apiRoutes = [
+      '/check_session',
+      '/email_upload',
+      '/get_bills',
+      '/get_game_data',
+      '/get_lottery_results',
+      '/is_user_registered',
+      '/login',
+      '/logout',
+      '/process_text',
+      '/register'
+    ];
 
-    if (!isStaticAsset && url.pathname !== '/') {
-      // This is an API call.
+    // Check if the request is for an API route
+    if (apiRoutes.includes(pathname)) {
+      // This is an API call. Proxy it to the backend.
 
       // Handle CORS pre-flight (OPTIONS) requests
       if (request.method === 'OPTIONS') {
@@ -24,7 +36,7 @@ export default {
       }
 
       // Extract the action from the path, e.g., /login -> login
-      const action = url.pathname.substring(1);
+      const action = pathname.substring(1);
 
       // Preserve original search parameters from the frontend request
       const searchParams = new URLSearchParams(url.search);
@@ -34,13 +46,7 @@ export default {
       // Construct the new URL to point to the single index.php endpoint
       const backendUrl = new URL(`${backendHost}/index.php?${searchParams.toString()}`);
 
-      // Forward request with intelligent header filtering
-      const newHeaders = new Headers();
-      for (const [k, v] of request.headers.entries()) {
-        if (!/^host$/i.test(k) && !/^cf-/i.test(k) && !/^sec-/i.test(k)) {
-          newHeaders.set(k, v);
-        }
-      }
+      const newHeaders = new Headers(request.headers);
       newHeaders.set('Host', new URL(backendHost).hostname);
 
       const init = {
@@ -50,7 +56,7 @@ export default {
       };
 
       if (request.method !== 'GET' && request.method !== 'HEAD') {
-        init.body = await request.clone().arrayBuffer();
+        init.body = request.body;
       }
 
       let backendResp;
@@ -61,7 +67,6 @@ export default {
         return new Response('API backend unavailable.', { status: 502 });
       }
 
-      // Return response with forced CORS headers
       const respHeaders = new Headers(backendResp.headers);
       respHeaders.set('Access-Control-Allow-Origin', '*');
       respHeaders.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
@@ -73,6 +78,22 @@ export default {
       });
     }
 
-    return env.ASSETS.fetch(request);
+    // For all other requests, assume it's a static asset or a SPA route.
+    // Let Cloudflare Pages' asset handling take over.
+    // It will serve the file if it exists, or serve the SPA fallback (index.html)
+    // if a _redirects file with `/* /index.html 200` is configured,
+    // or if SPA fallback is enabled in the Pages settings.
+    // A simple try-catch can also work as a fallback.
+    try {
+      return await env.ASSETS.fetch(request);
+    } catch (e) {
+      // If the asset is not found, fall back to the main index.html page
+      // This is crucial for SPA routing to work correctly.
+      let notFoundResponse = await env.ASSETS.fetch(new URL('/', url).toString());
+      return new Response(notFoundResponse.body, {
+        ...notFoundResponse,
+        status: 200
+      });
+    }
   }
 };
