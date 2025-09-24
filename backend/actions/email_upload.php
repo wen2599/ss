@@ -23,6 +23,12 @@ $user_email = $_POST['user_email'];
 $file_tmp_path = $_FILES['chat_file']['tmp_name'];
 $raw_content = file_get_contents($file_tmp_path);
 
+// Detect and convert encoding to UTF-8 to prevent garbled text
+$encoding = mb_detect_encoding($raw_content, mb_detect_order(), true);
+if ($encoding && $encoding !== 'UTF-8') {
+    $raw_content = mb_convert_encoding($raw_content, 'UTF-8', $encoding);
+}
+
 if ($raw_content === false) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Could not read uploaded file.']);
