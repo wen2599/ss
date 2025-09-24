@@ -248,6 +248,36 @@ a:hover {
 .modal-close-button:hover {
   color: var(--text-color);
 }
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  #root {
+    padding: 1rem;
+  }
+
+  .app-header {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .lottery-banner {
+    padding: 1rem;
+  }
+
+  .banner-numbers .number-ball {
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
+    font-size: 1em;
+    margin: 2px;
+  }
+
+  .modal-content {
+    width: 95%;
+    padding: 1.5rem;
+  }
+}
 .modal-toggle {
   margin-top: 1.5rem;
   text-align: center;
@@ -261,27 +291,4 @@ a:hover {
   padding: 0;
   font-size: inherit;
   cursor: pointer;
-}
-
-/* Responsive adjustments for mobile */
-@media (max-width: 768px) {
-  #root {
-    padding: 1rem;
-  }
-  main {
-    padding: 1.5rem;
-  }
-  .lottery-banner {
-    padding: 1rem 1.5rem;
-  }
-  .lottery-banner h3 {
-    font-size: 1.1em;
-  }
-  .banner-numbers .number-ball {
-    width: 32px;
-    height: 32px;
-    line-height: 32px;
-    font-size: 1em;
-    margin: 2px;
-  }
 }
