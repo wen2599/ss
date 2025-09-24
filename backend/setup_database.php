@@ -3,14 +3,23 @@
 
 header('Content-Type: text/plain; charset=utf-8');
 
-// Ensure this script is not run in a production environment by mistake
-// by checking for a specific query parameter.
-if (!isset($_GET['really_run_setup']) || $_GET['really_run_setup'] !== 'true') {
+// Ensure this script is not run by mistake.
+// It must be triggered either from a browser with a specific query parameter
+// or from the command line with a specific argument.
+$is_cli = (php_sapi_name() === 'cli');
+$run_from_cli = ($is_cli && isset($argv[1]) && $argv[1] === 'run');
+$run_from_browser = (isset($_GET['really_run_setup']) && $_GET['really_run_setup'] === 'true');
+
+if (!$run_from_cli && !$run_from_browser) {
     http_response_code(403);
-    die("
-        ❌ DANGER: This is a setup script. It can modify your database structure.
-        To run it, you must add `?really_run_setup=true` to the end of the URL.
-    ");
+    $message = "
+        ❌ DANGER: This is a setup script that can modify your database.
+
+        To run from a BROWSER, you must add `?really_run_setup=true` to the URL.
+        To run from the COMMAND LINE (SSH), you must add the 'run' argument: `php setup_database.php run`
+    ";
+    // For CLI, output plain text. For browser, wrap in <pre> for readability.
+    die($is_cli ? $message : "<pre>" . htmlspecialchars($message) . "</pre>");
 }
 
 
