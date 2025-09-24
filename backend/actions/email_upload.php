@@ -18,7 +18,7 @@ if (!isset($_POST['worker_secret']) || $_POST['worker_secret'] !== $worker_secre
 // Validate required fields
 if (!isset($_POST['user_email']) || !isset($_POST['charset']) || !isset($_FILES['email_part_file'])) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Missing required fields from worker.']);
+    echo json_encode(['success' => false, 'error' => 'Missing required fields from worker (v2).']);
     exit();
 }
 if ($_FILES['email_part_file']['error'] !== UPLOAD_ERR_OK) {
