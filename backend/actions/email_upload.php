@@ -41,16 +41,16 @@ if (!$user) {
 }
 $user_id = $user['id'];
 
-$calculation_result = BetCalculator::calculate($raw_content);
+$settlement_slip = BetCalculator::calculate($raw_content);
 
 $status = 'unrecognized';
 $settlement_details = null;
 $total_cost = null;
 
-if ($calculation_result !== null) {
+if ($settlement_slip !== null) {
     $status = 'processed';
-    $settlement_details = json_encode($calculation_result['breakdown'], JSON_UNESCAPED_UNICODE);
-    $total_cost = $calculation_result['total_cost'];
+    $settlement_details = json_encode($settlement_slip, JSON_UNESCAPED_UNICODE);
+    $total_cost = $settlement_slip['summary']['total_cost'];
 }
 
 try {
