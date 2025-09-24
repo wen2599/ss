@@ -32,24 +32,9 @@ CREATE TABLE IF NOT EXISTS `bills` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT NOT NULL,
   `raw_content` TEXT NOT NULL,
-  `html_content` TEXT NULL,
   `settlement_details` TEXT NULL,
   `total_cost` DECIMAL(10, 2) NULL,
   `status` VARCHAR(50) NOT NULL DEFAULT 'unrecognized',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
---
--- Table structure for table `bill_attachments`
---
-CREATE TABLE IF NOT EXISTS `bill_attachments` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `bill_id` INT NOT NULL,
-  `original_filename` VARCHAR(255) NOT NULL,
-  `stored_filename` VARCHAR(255) NOT NULL UNIQUE,
-  `mime_type` VARCHAR(100) NOT NULL,
-  `file_size` INT NOT NULL,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (`bill_id`) REFERENCES `bills`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
