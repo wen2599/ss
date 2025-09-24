@@ -1,63 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useLotteryData } from '../hooks/useLotteryData';
 
 function LotteryResultsPage() {
-  const [results, setResults] = useState([]);
-  const [colorMap, setColorMap] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError('');
-      try {
-        const [resultsResponse, gameDataResponse] = await Promise.all([
-          fetch('/api/get_lottery_results'),
-          fetch('/api/get_game_data')
-        ]);
-
-        const resultsData = await resultsResponse.json();
-        const gameData = await gameDataResponse.json();
-
-        if (resultsData.success) {
-          setResults(resultsData.results);
-        } else {
-          throw new Error(resultsData.error || 'Failed to fetch lottery results.');
-        }
-
-        if (gameData.success) {
-          setColorMap(gameData.colorMap);
-        } else {
-          throw new Error(gameData.error || 'Failed to fetch game data.');
-        }
-
-      } catch (err) {
-        setError(err.message || 'An error occurred while fetching data.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []); // Fetch only once on component mount
-
-  const numberColorCache = React.useMemo(() => {
-    if (!colorMap) return {};
-    const cache = {};
-    // Pre-calculate the color for each number for quick lookups
-    for (const color of Object.keys(colorMap)) {
-      const colorName = color === '红波' ? 'red' : color === '蓝波' ? 'blue' : 'green';
-      for (const number of [...colorMap[color].single, ...colorMap[color].double]) {
-        cache[number] = colorName;
-      }
-    }
-    return cache;
-  }, [colorMap]);
-
-  const getNumberColorClass = (number) => {
-    const color = numberColorCache[number];
-    return color ? `number-ball number-ball-${color}` : 'number-ball number-ball-default';
-  };
+  const { results, isLoading, error, getNumberColorClass } = useLotteryData({ apiPrefix: '/api' });
 
   const groupedResults = results.reduce((acc, result) => {
     const key = result.lottery_name;
