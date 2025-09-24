@@ -1,6 +1,6 @@
 export default {
   async fetch(request, env, ctx) {
-    const backendHost = 'https://wenge.cloudns.ch:10758';
+    const backendHost = 'https://wenge.cloudns.ch';
     const url = new URL(request.url);
 
     // Check if the request is for a static asset. If not, proxy to the API backend.
