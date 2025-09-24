@@ -1,41 +1,60 @@
 <?php
-// Action: Handle file upload from email worker
+// Action: Handle parsed email data from the Cloudflare worker
 require_once __DIR__ . '/../lib/BetCalculator.php';
 
-// This endpoint is for the email worker, so it uses POST and expects multipart/form-data
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => 'Method Not Allowed']);
+    exit();
+}
+
 if (!isset($_POST['worker_secret']) || $_POST['worker_secret'] !== $worker_secret) {
     http_response_code(403);
     echo json_encode(['success' => false, 'error' => 'Access denied.']);
     exit();
 }
-if (!isset($_POST['user_email']) || !filter_var($_POST['user_email'], FILTER_VALIDATE_EMAIL)) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Invalid or missing user_email.']);
-    exit();
-}
-if (!isset($_FILES['chat_file']) || $_FILES['chat_file']['error'] !== UPLOAD_ERR_OK) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'File upload error.']);
-    exit();
+
+// Validate required fields from the worker
+$required_fields = ['user_email', 'encoded_body', 'transfer_encoding', 'charset'];
+foreach ($required_fields as $field) {
+    if (!isset($_POST[$field])) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => "Missing required field: {$field}"]);
+        exit();
+    }
 }
 
 $user_email = $_POST['user_email'];
-$file_tmp_path = $_FILES['chat_file']['tmp_name'];
-$raw_content = file_get_contents($file_tmp_path);
+$encoded_body = $_POST['encoded_body'];
+$transfer_encoding = strtolower($_POST['transfer_encoding']);
+$charset = $_POST['charset'];
+$decoded_body = '';
 
-// Detect and convert encoding to UTF-8 to prevent garbled text
-$encoding = mb_detect_encoding($raw_content, ['UTF-8', 'GBK', 'GB2312', 'BIG5'], true);
-if ($encoding && $encoding !== 'UTF-8') {
-    $raw_content = mb_convert_encoding($raw_content, 'UTF-8', $encoding);
+// 1. Decode the transfer encoding (e.g., base64, quoted-printable)
+switch ($transfer_encoding) {
+    case 'base64':
+        $decoded_body = base64_decode($encoded_body);
+        break;
+    case 'quoted-printable':
+        $decoded_body = quoted_printable_decode($encoded_body);
+        break;
+    default: // 7bit, 8bit, binary
+        $decoded_body = $encoded_body;
+        break;
 }
 
-if ($raw_content === false) {
+if ($decoded_body === false) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Could not read uploaded file.']);
+    echo json_encode(['success' => false, 'error' => 'Failed to decode email body based on transfer encoding.']);
     exit();
 }
 
-// The $pdo variable is inherited from index.php
+// 2. Convert character encoding to UTF-8
+// Use a broad list of possible source encodings, with the one from the email first.
+$detection_order = [$charset, 'UTF-8', 'GBK', 'GB2312', 'BIG5', 'ISO-8859-1'];
+$raw_content = mb_convert_encoding($decoded_body, 'UTF-8', $detection_order);
+
+// 3. Find user
 $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
 $stmt->execute([':email' => $user_email]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -47,6 +66,7 @@ if (!$user) {
 }
 $user_id = $user['id'];
 
+// 4. Process content with BetCalculator
 $settlement_slip = BetCalculator::calculate($raw_content);
 
 $status = 'unrecognized';
@@ -59,6 +79,7 @@ if ($settlement_slip !== null) {
     $total_cost = $settlement_slip['summary']['total_cost'];
 }
 
+// 5. Save the bill to the database
 try {
     $sql = "INSERT INTO bills (user_id, raw_content, settlement_details, total_cost, status)
             VALUES (:user_id, :raw_content, :settlement_details, :total_cost, :status)";
