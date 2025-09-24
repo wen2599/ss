@@ -5,45 +5,30 @@ import {
   RouterProvider,
 } from "react-router-dom";
 import App from './App.jsx'
-import LoginPage from './pages/LoginPage.jsx';
-import RegisterPage from './pages/RegisterPage.jsx';
 import BillsPage from './pages/BillsPage.jsx';
-import LotteryResultsPage from './pages/LotteryResultsPage.jsx'; // Import the new page
-import ProtectedRoute from './components/ProtectedRoute.jsx';
-import MainLayout from './components/MainLayout.jsx'; // Import the new layout
+import LotteryResultsPage from './pages/LotteryResultsPage.jsx';
+import MainLayout from './components/MainLayout.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import './index.css'
 
 const router = createBrowserRouter([
   {
-    element: (
-      <ProtectedRoute>
-        <MainLayout />
-      </ProtectedRoute>
-    ),
+    element: <MainLayout />,
     children: [
       {
-        path: "/",
+        index: true,
         element: <App />,
       },
       {
-        path: "/bills",
+        path: "bills",
         element: <BillsPage />,
       },
       {
-        path: "/lottery-results",
+        path: "lottery-results",
         element: <LotteryResultsPage />,
       }
     ]
-  },
-  {
-    path: "/login",
-    element: <LoginPage />,
-  },
-  {
-    path: "/register",
-    element: <RegisterPage />,
-  },
+  }
 ]);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
