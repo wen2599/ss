@@ -78,27 +78,28 @@ function BillsPage() {
   const [selectedBillIndex, setSelectedBillIndex] = useState(null);
   const { token } = useAuth();
 
-  useEffect(() => {
-    const fetchBills = async () => {
-      setIsLoading(true);
-      setError('');
-      try {
-        const response = await fetch('/get_bills', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await response.json();
-        if (data.success) {
-          setBills(data.bills);
-        } else {
-          setError(data.error || 'Failed to fetch bills.');
-        }
-      } catch (err) {
-        setError('An error occurred while fetching bills. Please try again later.');
-      } finally {
-        setIsLoading(false);
+  const fetchBills = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const response = await fetch('/get_bills', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setBills(data.bills);
+      } else {
+        setError(data.error || 'Failed to fetch bills.');
       }
-    };
+    } catch (err) {
+      setError('An error occurred while fetching bills. Please try again later.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchBills();
   }, [token]);
 
@@ -115,6 +116,33 @@ function BillsPage() {
   const handleNextBill = () => {
     if (selectedBillIndex !== null && selectedBillIndex < bills.length - 1) {
       setSelectedBillIndex(selectedBillIndex + 1);
+    }
+  };
+
+  const handleDeleteBill = async (billId) => {
+    if (!window.confirm(`您确定要删除账单 #${billId} 吗？此操作无法撤销。`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/delete_bill', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bill_id: billId })
+        });
+        const data = await response.json();
+        if (data.success) {
+            // Remove the bill from the local state to update UI
+            setBills(prevBills => prevBills.filter(bill => bill.id !== billId));
+            // If the deleted bill was the selected one, close the details view
+            if (selectedBillIndex !== null && bills[selectedBillIndex]?.id === billId) {
+                setSelectedBillIndex(null);
+            }
+        } else {
+            alert(`删除失败: ${data.error}`);
+        }
+    } catch (err) {
+        alert('删除时发生错误。');
     }
   };
 
@@ -152,6 +180,7 @@ function BillsPage() {
               <th>创建时间</th>
               <th>总金额</th>
               <th>状态</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -165,6 +194,11 @@ function BillsPage() {
                 <td>{new Date(bill.created_at).toLocaleString()}</td>
                 <td>{bill.total_cost ? `${bill.total_cost} 元` : 'N/A'}</td>
                 <td>{renderStatus(bill.status)}</td>
+                <td>
+                  <button onClick={(e) => { e.stopPropagation(); handleDeleteBill(bill.id); }} className="delete-button">
+                    删除
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
