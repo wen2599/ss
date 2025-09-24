@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 // Component to render the structured settlement details
@@ -142,7 +141,6 @@ function BillsPage() {
 
   return (
     <div className="bills-container">
-      <Link to="/" className="back-link">&larr; 返回主页</Link>
       <h2>我的账单</h2>
       {bills.length === 0 ? (
         <p>您还没有任何账单记录。</p>

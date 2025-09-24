@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthModal from './AuthModal';
 import '../App.css';
@@ -7,6 +7,7 @@ import '../App.css';
 function MainLayout() {
   const { isAuthenticated, logout } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <div className="container">
@@ -20,7 +21,9 @@ function MainLayout() {
         </div>
         <div className="header-right">
           {isAuthenticated && (
-            <NavLink to="/bills" className="header-link">我的账单</NavLink>
+            location.pathname === '/bills'
+              ? <NavLink to="/" className="header-link">返回主页</NavLink>
+              : <NavLink to="/bills" className="header-link">我的账单</NavLink>
           )}
         </div>
       </header>
