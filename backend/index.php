@@ -35,7 +35,7 @@ require_once __DIR__ . '/config.php';
 
 // 2. Database Connection (passed to action scripts)
 try {
-    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8", $db_user, $db_pass);
+    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     error_log("DB connection error in router: " . $e->getMessage());
