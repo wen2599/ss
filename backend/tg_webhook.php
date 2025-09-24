@@ -170,10 +170,13 @@ if ($message) {
     $text = $message['text'] ?? ''; // Use null coalescing for cases with no text
     $admin_id = intval($admin_id);
 
+    file_put_contents(__DIR__ . '/webhook_log.txt', "--- Processing Message ---\nText: " . $text . "\n", FILE_APPEND);
+
     // First, try to parse the message as a lottery result
     $parsedResult = LotteryParser::parse($text);
 
     if ($parsedResult) {
+        file_put_contents(__DIR__ . '/webhook_log.txt', "Parser Result: SUCCESS\n", FILE_APPEND);
         // If parsing is successful, save the result to the database.
         $statusMessage = saveLotteryResultToDB($pdo, $parsedResult);
 
@@ -185,6 +188,7 @@ if ($message) {
             sendMessage($chat_id, $responseText);
         }
     } else {
+        file_put_contents(__DIR__ . '/webhook_log.txt', "Parser Result: FAILED\n", FILE_APPEND);
         // If it's not a lottery result, process it as a command
         $command_map = [
             '添加用户' => '/adduser',
