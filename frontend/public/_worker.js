@@ -9,6 +9,7 @@ export default {
       '/check_session',
       '/email_upload',
       '/get_bills',
+      '/delete_bill',
       '/get_game_data',
       '/get_lottery_results',
       '/is_user_registered',
