@@ -10,6 +10,7 @@
 // 1. Include Configuration using an absolute path
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/lib/LotteryParser.php';
+require_once __DIR__ . '/lib/TelegramNotifier.php';
 
 // The authoritative database schema is located in the `data_table_schema.sql` file.
 
@@ -170,15 +171,22 @@ if ($message) {
     $text = $message['text'] ?? ''; // Use null coalescing for cases with no text
     $admin_id = intval($admin_id);
 
+    TelegramNotifier::sendMessage($admin_id, "DEBUG: Received message from chat ID {$chat_id}. Text: " . $text, $bot_token);
+
     file_put_contents(__DIR__ . '/webhook_log.txt', "--- Processing Message ---\nText: " . $text . "\n", FILE_APPEND);
 
     // First, try to parse the message as a lottery result
+    TelegramNotifier::sendMessage($admin_id, "DEBUG: Calling LotteryParser...", $bot_token);
     $parsedResult = LotteryParser::parse($text);
 
     if ($parsedResult) {
+        TelegramNotifier::sendMessage($admin_id, "DEBUG: Parser SUCCESSFUL. Result: " . json_encode($parsedResult), $bot_token);
         file_put_contents(__DIR__ . '/webhook_log.txt', "Parser Result: SUCCESS\n", FILE_APPEND);
+
         // If parsing is successful, save the result to the database.
+        TelegramNotifier::sendMessage($admin_id, "DEBUG: Calling saveLotteryResultToDB...", $bot_token);
         $statusMessage = saveLotteryResultToDB($pdo, $parsedResult);
+        TelegramNotifier::sendMessage($admin_id, "DEBUG: DB save status: " . $statusMessage, $bot_token);
 
         // Send a confirmation back to the admin with the status.
         if ($chat_id === $admin_id) {
@@ -188,6 +196,7 @@ if ($message) {
             sendMessage($chat_id, $responseText);
         }
     } else {
+        TelegramNotifier::sendMessage($admin_id, "DEBUG: Parser FAILED.", $bot_token);
         file_put_contents(__DIR__ . '/webhook_log.txt', "Parser Result: FAILED\n", FILE_APPEND);
         // If it's not a lottery result, process it as a command
         $command_map = [
