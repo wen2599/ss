@@ -155,13 +155,19 @@ function analyzeText($text) {
 // 5. Get and Decode the Incoming Update
 $update_json = file_get_contents('php://input');
 $update = json_decode($update_json, true);
-file_put_contents('webhook_log.txt', $update_json . "\n", FILE_APPEND);
+file_put_contents(__DIR__ . '/webhook_log.txt', $update_json . "\n", FILE_APPEND);
 
 // 6. Process the Message
+$message = null;
 if (isset($update['message'])) {
     $message = $update['message'];
+} elseif (isset($update['channel_post'])) {
+    $message = $update['channel_post'];
+}
+
+if ($message) {
     $chat_id = $message['chat']['id'];
-    $text = $message['text'];
+    $text = $message['text'] ?? ''; // Use null coalescing for cases with no text
     $admin_id = intval($admin_id);
 
     // First, try to parse the message as a lottery result
@@ -246,6 +252,7 @@ if (isset($update['message'])) {
         // We don't want to reply to every single message in the channel.
     }
 }
+} // Closes the `if ($message)` block
 
 // 7. Respond to Telegram to acknowledge receipt
 http_response_code(200);
