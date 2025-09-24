@@ -16,7 +16,11 @@ class BetCalculator {
      */
     public static function calculate(string $betting_slip_text): ?array {
         $cost_per_number = 5;
-        $calculation_breakdown = [];
+        $settlement_slip = [
+            'zodiac_bets' => [],
+            'number_bets' => ['numbers' => [], 'cost' => 0],
+            'summary' => ['total_unique_numbers' => 0, 'total_cost' => 0]
+        ];
 
         // a. Parse Zodiacs
         preg_match_all('/([\p{Han}]+)各数/u', $betting_slip_text, $zodiac_matches);
@@ -26,14 +30,17 @@ class BetCalculator {
             $mentioned_zodiacs = mb_str_split($zodiac_string);
         }
 
+        $all_zodiac_numbers = [];
         foreach ($mentioned_zodiacs as $zodiac) {
             if (isset(GameData::$zodiacMap[$zodiac])) {
-                $number_count = count(GameData::$zodiacMap[$zodiac]);
-                $calculation_breakdown[] = [
-                    'item' => "生肖[{$zodiac}]",
-                    'number_count' => $number_count,
-                    'cost' => $number_count * $cost_per_number
+                $numbers = GameData::$zodiacMap[$zodiac];
+                $cost = count($numbers) * $cost_per_number;
+                $settlement_slip['zodiac_bets'][] = [
+                    'zodiac' => $zodiac,
+                    'numbers' => $numbers,
+                    'cost' => $cost
                 ];
+                $all_zodiac_numbers = array_merge($all_zodiac_numbers, $numbers);
             }
         }
 
@@ -57,29 +64,19 @@ class BetCalculator {
         }
 
         $unique_numbers = array_unique($mentioned_numbers);
-        $explicit_number_count = count($unique_numbers);
-        $calculation_breakdown[] = [
-            'item' => '单独号码',
-            'number_count' => $explicit_number_count,
-            'cost' => $explicit_number_count * $cost_per_number
-        ];
+        $settlement_slip['number_bets']['numbers'] = array_values($unique_numbers);
+        $settlement_slip['number_bets']['cost'] = count($unique_numbers) * $cost_per_number;
 
         // c. Final Calculation (De-duplicated)
-        $all_bet_numbers = $unique_numbers;
-        foreach ($mentioned_zodiacs as $zodiac) {
-            if (isset(GameData::$zodiacMap[$zodiac])) {
-                $all_bet_numbers = array_merge($all_bet_numbers, GameData::$zodiacMap[$zodiac]);
-            }
-        }
+        $all_bet_numbers = array_merge($all_zodiac_numbers, $unique_numbers);
         $final_unique_numbers = array_unique($all_bet_numbers);
         $total_number_count = count($final_unique_numbers);
         $total_cost = $total_number_count * $cost_per_number;
 
-        return [
-            'total_cost' => $total_cost,
-            'total_unique_numbers' => $total_number_count,
-            'breakdown' => $calculation_breakdown
-        ];
+        $settlement_slip['summary']['total_unique_numbers'] = $total_number_count;
+        $settlement_slip['summary']['total_cost'] = $total_cost;
+
+        return $settlement_slip;
     }
 }
 ?>
