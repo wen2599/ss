@@ -56,7 +56,7 @@ export default {
       };
 
       if (request.method !== 'GET' && request.method !== 'HEAD') {
-        init.body = request.body;
+        init.body = await request.clone().arrayBuffer();
       }
 
       let backendResp;
