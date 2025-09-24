@@ -170,19 +170,12 @@ if ($message) {
     $text = $message['text'] ?? '';
     $admin_id = intval($admin_id);
 
-    sendMessage($admin_id, "DEBUG: Processing update from chat ID: {$chat_id}. Text: {$text}");
-
     // First, try to parse the message as a lottery result
-    sendMessage($admin_id, "DEBUG: Calling LotteryParser...");
     $parsedResult = LotteryParser::parse($text);
 
     if ($parsedResult) {
-        sendMessage($admin_id, "DEBUG: Parser SUCCESSFUL. Result: " . json_encode($parsedResult, JSON_UNESCAPED_UNICODE));
-
         // If parsing is successful, save the result to the database.
-        sendMessage($admin_id, "DEBUG: Calling saveLotteryResultToDB...");
         $statusMessage = saveLotteryResultToDB($pdo, $parsedResult);
-        sendMessage($admin_id, "DEBUG: DB save status: " . $statusMessage);
 
         // Send a confirmation back to the admin with the status.
         if ($chat_id === $admin_id) {
@@ -192,8 +185,6 @@ if ($message) {
             sendMessage($chat_id, $responseText);
         }
     } else {
-        sendMessage($admin_id, "DEBUG: Parser FAILED. Treating as command or regular message.");
-
         // If it's not a lottery result, process it as a command
         $command_map = [
             '添加用户' => '/adduser',
