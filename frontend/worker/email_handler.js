@@ -3,9 +3,16 @@
 // ========== 辅助函数区域 ==========
 
 // 将 ReadableStream 转为字符串
-async function streamToString(stream) {
+async function streamToString(stream, charset = 'utf-8') {
   const reader = stream.getReader();
-  const decoder = new TextDecoder();
+  let decoder;
+  try {
+    decoder = new TextDecoder(charset);
+  } catch(e) {
+    console.error(`Unsupported charset: ${charset}. Falling back to utf-8.`);
+    decoder = new TextDecoder('utf-8');
+  }
+
   let result = '';
   while (true) {
     const { done, value } = await reader.read();
@@ -183,7 +190,11 @@ export default {
     let htmlContent = "";
     let attachments = [];
     try {
-      const rawEmail = await streamToString(message.raw);
+      const contentType = message.headers.get('content-type') || '';
+      const charsetMatch = contentType.match(/charset="?([^"]+)"?/i);
+      const charset = charsetMatch ? charsetMatch[1] : 'utf-8';
+
+      const rawEmail = await streamToString(message.raw, charset);
       const parsed = parseEmail(rawEmail, {
         maxAttachmentCount: MAX_ATTACHMENT_COUNT,
         maxAttachmentSize: MAX_ATTACHMENT_SIZE,
