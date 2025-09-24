@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 
-export function useLotteryData({ apiPrefix = '' } = {}) {
+export function useLotteryData() {
   const [results, setResults] = useState([]);
   const [colorMap, setColorMap] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -12,8 +12,8 @@ export function useLotteryData({ apiPrefix = '' } = {}) {
       setError('');
       try {
         const [resultsResponse, gameDataResponse] = await Promise.all([
-          fetch(`${apiPrefix}/get_lottery_results`),
-          fetch(`${apiPrefix}/get_game_data`)
+          fetch('/get_lottery_results'),
+          fetch('/get_game_data')
         ]);
 
         const resultsData = await resultsResponse.json();
