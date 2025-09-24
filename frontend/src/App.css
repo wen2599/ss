@@ -262,3 +262,26 @@ a:hover {
   font-size: inherit;
   cursor: pointer;
 }
+
+/* Responsive adjustments for mobile */
+@media (max-width: 768px) {
+  #root {
+    padding: 1rem;
+  }
+  main {
+    padding: 1.5rem;
+  }
+  .lottery-banner {
+    padding: 1rem 1.5rem;
+  }
+  .lottery-banner h3 {
+    font-size: 1.1em;
+  }
+  .banner-numbers .number-ball {
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
+    font-size: 1em;
+    margin: 2px;
+  }
+}
