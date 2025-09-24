@@ -1,5 +1,6 @@
 <?php
-// Action: Handle parsed email data from the Cloudflare worker
+// Action: Handle raw email part upload from the Cloudflare worker
+
 require_once __DIR__ . '/../lib/BetCalculator.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -14,45 +15,33 @@ if (!isset($_POST['worker_secret']) || $_POST['worker_secret'] !== $worker_secre
     exit();
 }
 
-// Validate required fields from the worker
-$required_fields = ['user_email', 'encoded_body', 'transfer_encoding', 'charset'];
-foreach ($required_fields as $field) {
-    if (!isset($_POST[$field])) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => "Missing required field: {$field}"]);
-        exit();
-    }
+// Validate required fields
+if (!isset($_POST['user_email']) || !isset($_POST['charset']) || !isset($_FILES['email_part_file'])) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'Missing required fields from worker.']);
+    exit();
 }
-
-$user_email = $_POST['user_email'];
-$encoded_body = $_POST['encoded_body'];
-$transfer_encoding = strtolower($_POST['transfer_encoding']);
-$charset = $_POST['charset'];
-$decoded_body = '';
-
-// 1. Decode the transfer encoding (e.g., base64, quoted-printable)
-switch ($transfer_encoding) {
-    case 'base64':
-        $decoded_body = base64_decode($encoded_body);
-        break;
-    case 'quoted-printable':
-        $decoded_body = quoted_printable_decode($encoded_body);
-        break;
-    default: // 7bit, 8bit, binary
-        $decoded_body = $encoded_body;
-        break;
-}
-
-if ($decoded_body === false) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Failed to decode email body based on transfer encoding.']);
+if ($_FILES['email_part_file']['error'] !== UPLOAD_ERR_OK) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'File upload error from worker.']);
     exit();
 }
 
-// 2. Convert character encoding to UTF-8
-// Use a broad list of possible source encodings, with the one from the email first.
-$detection_order = [$charset, 'UTF-8', 'GBK', 'GB2312', 'BIG5', 'ISO-8859-1'];
-$raw_content = mb_convert_encoding($decoded_body, 'UTF-8', $detection_order);
+$user_email = $_POST['user_email'];
+$charset = $_POST['charset'];
+$file_tmp_path = $_FILES['email_part_file']['tmp_name'];
+
+// 1. Read the raw bytes from the uploaded file part
+$raw_body_bytes = file_get_contents($file_tmp_path);
+if ($raw_body_bytes === false) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Could not read uploaded email part file.']);
+    exit();
+}
+
+// 2. Convert the character encoding of the raw bytes to UTF-8
+// This is the most reliable step, as PHP has strong tools for this.
+$raw_content = mb_convert_encoding($raw_body_bytes, 'UTF-8', $charset);
 
 // 3. Find user
 $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
