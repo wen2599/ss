@@ -1,52 +1,83 @@
-// worker/email_handler.js (Final Correct Version)
+// worker/email_handler.js (Ultimate Edition: Raw Buffer Parsing)
 
-async function streamToString(stream) {
+// ========== 辅助函数区域 ==========
+
+// 将 ReadableStream 转为 ArrayBuffer
+async function streamToArrayBuffer(stream) {
+    let result = new Uint8Array(0);
     const reader = stream.getReader();
-    // Use a decoder that is less likely to corrupt bytes, like latin1
-    const decoder = new TextDecoder('iso-8859-1');
-    let result = '';
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        result += decoder.decode(value, { stream: true });
+        const newResult = new Uint8Array(result.length + value.length);
+        newResult.set(result);
+        newResult.set(value, result.length);
+        result = newResult;
     }
-    return result;
+    return result.buffer;
 }
 
-function parseEmailForContent(rawEmail) {
-    const boundaryMatch = rawEmail.match(/boundary="?([^"]+)"?/i);
-    if (!boundaryMatch) {
-        // Not a multipart message, assume the whole body is the content
-        return { encoded_body: rawEmail, transfer_encoding: '7bit', charset: 'utf-8' };
+// 在 Uint8Array 中查找子数组
+function findNeedle(haystack, needle, offset = 0) {
+    for (let i = offset; i <= haystack.length - needle.length; i++) {
+        let found = true;
+        for (let j = 0; j < needle.length; j++) {
+            if (haystack[i + j] !== needle[j]) {
+                found = false;
+                break;
+            }
+        }
+        if (found) return i;
     }
-    const boundary = boundaryMatch[1];
-    const parts = rawEmail.split(new RegExp(`--${boundary}(--)?`));
+    return -1;
+}
+
+function parseEmail(rawBuffer) {
+    const rawUint8 = new Uint8Array(rawBuffer);
+    const textDecoder = new TextDecoder(); // for headers
+    const headersPart = textDecoder.decode(rawUint8.slice(0, 1024));
+
+    const boundaryMatch = headersPart.match(/boundary="?([^"]+)"?/i);
+    if (!boundaryMatch) return null;
+
+    const boundary = `--${boundaryMatch[1]}`;
+    const boundaryBytes = new TextEncoder().encode(boundary);
+
+    let parts = [];
+    let lastPos = 0;
+    while(lastPos < rawUint8.length) {
+        let start = findNeedle(rawUint8, boundaryBytes, lastPos);
+        if (start === -1) break;
+        start += boundaryBytes.length;
+        let end = findNeedle(rawUint8, boundaryBytes, start);
+        if (end === -1) end = rawUint8.length;
+        parts.push(rawUint8.slice(start, end));
+        lastPos = end;
+    }
 
     for (const part of parts) {
-        if (!part.trim()) continue;
-
-        const headersMatch = part.match(/^([\s\S]*?)\r?\n\r?\n/);
+        const partStr = textDecoder.decode(part);
+        const headersMatch = partStr.match(/^([\s\S]*?)\r?\n\r?\n/);
         if (!headersMatch) continue;
-        const headers = headersMatch[1];
 
+        const headers = headersMatch[1];
         const contentTypeHeader = headers.match(/Content-Type:\s*text\/plain/i);
         const contentDispositionHeader = headers.match(/Content-Disposition:\s*attachment/i);
 
-        // We only want the main plain text part, not attachments
         if (contentTypeHeader && !contentDispositionHeader) {
-            const body = part.substring(headers.length).trim();
-            const charsetMatch = headers.match(/charset="?([^"]+)"?/i);
-            const encodingMatch = headers.match(/Content-Transfer-Encoding:\s*(\S+)/i);
+            const bodyOffset = headers.length + 2; // +2 for \r\n
+            const bodyBytes = part.slice(bodyOffset);
 
-            return {
-                encoded_body: body,
-                transfer_encoding: encodingMatch ? encodingMatch[1].trim().toLowerCase() : '7bit',
-                charset: charsetMatch ? charsetMatch[1].trim() : 'utf-8'
-            };
+            const charsetMatch = headers.match(/charset="?([^"]+)"?/i);
+            const charset = charsetMatch ? charsetMatch[1].trim() : 'utf-8';
+
+            return { raw_body_bytes: bodyBytes, charset: charset };
         }
     }
-    return null; // No suitable part found
+    return null;
 }
+
+// ========== 核心处理逻辑 ==========
 
 export default {
   async email(message, env, ctx) {
@@ -62,40 +93,24 @@ export default {
       if (!verificationResponse.ok) { return; }
       const verificationData = await verificationResponse.json();
       if (!verificationData.success || !verificationData.is_registered) { return; }
-    } catch (error) {
-      console.error("Failed to verify user email: " + error.message);
-      return;
-    }
+    } catch (error) { return; }
 
     try {
-      const rawEmailString = await streamToString(message.raw);
-      const emailParts = parseEmailForContent(rawEmailString);
+      const rawEmailBuffer = await streamToArrayBuffer(message.raw);
+      const emailPart = parseEmail(rawEmailBuffer);
 
-      if (emailParts) {
+      if (emailPart) {
         const formData = new FormData();
         formData.append("worker_secret", WORKER_SECRET);
         formData.append("user_email", senderEmail);
-        formData.append("encoded_body", emailParts.encoded_body);
-        formData.append("transfer_encoding", emailParts.transfer_encoding);
-        formData.append("charset", emailParts.charset);
+        formData.append("charset", emailPart.charset);
+        formData.append("email_part_file", new Blob([emailPart.raw_body_bytes]), "email_part.txt");
 
         const uploadUrl = `${PUBLIC_API_ENDPOINT}/email_upload`;
-        const uploadResponse = await fetch(uploadUrl, {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!uploadResponse.ok) {
-            const errorText = await uploadResponse.text();
-            console.error(`Backend upload error: ${uploadResponse.status} ${uploadResponse.statusText}`, errorText);
-        } else {
-            console.log(`Successfully sent parsed content from ${senderEmail} to backend.`);
-        }
-      } else {
-        console.error("Could not find a suitable text/plain part in the email.");
+        await fetch(uploadUrl, { method: "POST", body: formData });
       }
     } catch (error) {
-      console.error("Failed to process and forward email: " + error.message);
+      console.error("Failed to process/forward email: " + error.message);
     }
   },
 };
