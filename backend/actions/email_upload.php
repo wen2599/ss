@@ -164,16 +164,29 @@ if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_
 $attachments_meta = handle_attachments($user_id);
 
 // Split the email body by blank lines to get individual betting slips.
-// PREG_SPLIT_NO_EMPTY ensures that we don't get empty strings from multiple blank lines.
-$slips = preg_split('/(\r\n|\n|\r)\s*(\r\n|\n|\r)/', $text_body, -1, PREG_SPLIT_NO_EMPTY);
+$blocks = preg_split('/(\r\n|\n|\r)\s*(\r\n|\n|\r)/', $text_body, -1, PREG_SPLIT_NO_EMPTY);
 
-// Trim each slip and map it to the new object structure.
-$slips = array_map(function($slip) {
-    return [
-        'raw' => trim($slip),
-        'settlement' => '' // Initialize with an empty settlement
-    ];
-}, $slips);
+// Define keywords that indicate a valid betting slip.
+$betting_keywords = ['各', '#', '块'];
+
+$slips = [];
+foreach ($blocks as $block) {
+    $trimmed_block = trim($block);
+    $is_valid_slip = false;
+    foreach ($betting_keywords as $keyword) {
+        if (strpos($trimmed_block, $keyword) !== false) {
+            $is_valid_slip = true;
+            break;
+        }
+    }
+
+    if ($is_valid_slip) {
+        $slips[] = [
+            'raw' => $trimmed_block,
+            'settlement' => '' // Initialize with an empty settlement
+        ];
+    }
+}
 
 $status = 'pending_settlement';
 $settlement_details = json_encode($slips, JSON_UNESCAPED_UNICODE);
