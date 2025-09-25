@@ -70,13 +70,12 @@ function BillDetailsViewer({ bill, onPrev, onNext, isPrevDisabled, isNextDisable
   );
 }
 
-
 function BillsPage() {
   const [bills, setBills] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedBillIndex, setSelectedBillIndex] = useState(null);
-  const { token } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const fetchBills = async () => {
     setIsLoading(true);
@@ -84,7 +83,8 @@ function BillsPage() {
     try {
       const response = await fetch('/get_bills', {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include' // 关键，带上 cookie/session
       });
       const data = await response.json();
       if (data.success) {
@@ -100,8 +100,12 @@ function BillsPage() {
   };
 
   useEffect(() => {
-    fetchBills();
-  }, [token]);
+    if (isAuthenticated) {
+      fetchBills();
+    } else {
+      setBills([]);
+    }
+  }, [isAuthenticated, user]);
 
   const handleSelectBill = (index) => {
     setSelectedBillIndex(index);
@@ -121,28 +125,29 @@ function BillsPage() {
 
   const handleDeleteBill = async (billId) => {
     if (!window.confirm(`您确定要删除账单 #${billId} 吗？此操作无法撤销。`)) {
-        return;
+      return;
     }
 
     try {
-        const response = await fetch('/delete_bill', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bill_id: billId })
-        });
-        const data = await response.json();
-        if (data.success) {
-            // Remove the bill from the local state to update UI
-            setBills(prevBills => prevBills.filter(bill => bill.id !== billId));
-            // If the deleted bill was the selected one, close the details view
-            if (selectedBillIndex !== null && bills[selectedBillIndex]?.id === billId) {
-                setSelectedBillIndex(null);
-            }
-        } else {
-            alert(`删除失败: ${data.error}`);
+      const response = await fetch('/delete_bill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bill_id: billId }),
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Remove the bill from the local state to update UI
+        setBills(prevBills => prevBills.filter(bill => bill.id !== billId));
+        // If the deleted bill was the selected one, close the details view
+        if (selectedBillIndex !== null && bills[selectedBillIndex]?.id === billId) {
+          setSelectedBillIndex(null);
         }
+      } else {
+        alert(`删除失败: ${data.error}`);
+      }
     } catch (err) {
-        alert('删除时发生错误。');
+      alert('删除时发生错误。');
     }
   };
 
