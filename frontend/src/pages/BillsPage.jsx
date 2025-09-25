@@ -38,7 +38,7 @@ function SettlementDetails({ details }) {
         {summary && (
           <div className="details-summary">
             <strong>总结:</strong>
-            <p>总计: <strong>{summary.total_unique_numbers}</strong> 个号码</p>
+            <p>总计: <strong>{summary.total_numbers_count ?? summary.total_unique_numbers}</strong> 个号码</p>
             <p>总金额: <strong>{summary.total_cost}</strong> 元</p>
           </div>
         )}
@@ -87,7 +87,7 @@ function MultiSettlementDetails({ details, billId }) {
 
   // 统计未被标记
   const validSettlements = settlements.filter(s => !markedIndexes.includes(s.index));
-  const totalNumbers = validSettlements.reduce((sum, s) => sum + (s.result?.summary?.total_unique_numbers || 0), 0);
+  const totalNumbers = validSettlements.reduce((sum, s) => sum + (s.result?.summary?.total_numbers_count ?? s.result?.summary?.total_unique_numbers || 0), 0);
   const totalCost = validSettlements.reduce((sum, s) => sum + (s.result?.summary?.total_cost || 0), 0);
 
   return (
