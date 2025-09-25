@@ -1,19 +1,8 @@
 <?php
 require_once __DIR__ . '/GameData.php';
 
-/**
- * Class BetCalculator
- *
- * Handles parsing of betting slip text and calculates the total cost.
- */
 class BetCalculator {
 
-    /**
-     * Parses a betting slip text and calculates the cost.
-     *
-     * @param string $betting_slip_text The raw text of the betting slip.
-     * @return array|null An associative array with calculation results, or null if parsing fails.
-     */
     public static function calculate(string $betting_slip_text): ?array {
         $cost_per_number = 5;
         $settlement_slip = [
@@ -77,6 +66,26 @@ class BetCalculator {
         $settlement_slip['summary']['total_cost'] = $total_cost;
 
         return $settlement_slip;
+    }
+
+    // 新增多段分条结算
+    public static function calculateMulti(string $full_text): ?array {
+        // 按空行分段，每段至少10个汉字/数字
+        $blocks = preg_split('/\n{2,}/u', $full_text, -1, PREG_SPLIT_NO_EMPTY);
+        $results = [];
+        foreach ($blocks as $idx => $block) {
+            $block = trim($block);
+            if (mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $block)) < 10) continue;
+            $r = self::calculate($block);
+            if ($r) {
+                $results[] = [
+                    'index' => $idx + 1,
+                    'raw' => $block,
+                    'result' => $r
+                ];
+            }
+        }
+        return !empty($results) ? $results : null;
     }
 }
 ?>
