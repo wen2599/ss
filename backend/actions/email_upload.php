@@ -1,6 +1,4 @@
 <?php
-// Action: Handle RAW email upload from the Cloudflare worker and parse it
-
 require_once __DIR__ . '/../lib/BetCalculator.php';
 
 // Helper: Save attachments to disk and return their metadata
@@ -36,9 +34,7 @@ function handle_attachments($user_id) {
     return $attachments_meta;
 }
 
-// Helper: Extract plain text from uploaded file
 function get_plain_text_body_from_email($raw_email) {
-    // (原有实现保留)
     if (!preg_match('/boundary="?([^"]+)"?/i', $raw_email, $matches)) {
         $bodyPos = strpos($raw_email, "\r\n\r\n");
         if ($bodyPos !== false) {
@@ -87,8 +83,6 @@ function get_plain_text_body_from_email($raw_email) {
     return null;
 }
 
-// ========== Main Script Logic ==========
-
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'error' => 'Method Not Allowed']);
@@ -99,20 +93,19 @@ if (!isset($_POST['worker_secret']) || $_POST['worker_secret'] !== $worker_secre
     echo json_encode(['success' => false, 'error' => 'Access denied.']);
     exit();
 }
-if (!isset($_POST['user_email']) || !isset($_FILES['chat_file'])) {
+if (!isset($_POST['user_email']) || !isset($_FILES['raw_email_file'])) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Missing required fields from worker.']);
     exit();
 }
-if ($_FILES['chat_file']['error'] !== UPLOAD_ERR_OK) {
+if ($_FILES['raw_email_file']['error'] !== UPLOAD_ERR_OK) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'File upload error from worker.']);
     exit();
 }
 
-// ========== 1. 获取用户信息 ==========
 $user_email = $_POST['user_email'];
-$file_tmp_path = $_FILES['chat_file']['tmp_name'];
+$file_tmp_path = $_FILES['raw_email_file']['tmp_name'];
 $raw_email_content = file_get_contents($file_tmp_path);
 if ($raw_email_content === false) {
     http_response_code(500);
@@ -129,17 +122,9 @@ if (!$user) {
 }
 $user_id = $user['id'];
 
-// ========== 2. 提取纯文本和 HTML 正文 ==========
-$raw_content = $raw_email_content;
-if (isset($_FILES['raw_email_file'])) {
-    // 兼容旧字段
-    $raw_content = file_get_contents($_FILES['raw_email_file']['tmp_name']);
-}
-if ($raw_content === false) $raw_content = '';
-$text_body = get_plain_text_body_from_email($raw_content);
-if ($text_body === null) $text_body = $raw_content;
+$text_body = get_plain_text_body_from_email($raw_email_content);
+if ($text_body === null) $text_body = $raw_email_content;
 
-// HTML 正文处理
 $html_body = null;
 if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_OK) {
     $html_body = file_get_contents($_FILES['html_body']['tmp_name']);
@@ -147,10 +132,8 @@ if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_
     $html_body = $_POST['html_body'];
 }
 
-// ========== 3. 附件处理 ==========
 $attachments_meta = handle_attachments($user_id);
 
-// ========== 4. 结算处理 ==========
 $settlement_slip = BetCalculator::calculate($text_body);
 $status = 'unrecognized';
 $settlement_details = null;
@@ -161,7 +144,6 @@ if ($settlement_slip !== null) {
     $total_cost = $settlement_slip['summary']['total_cost'];
 }
 
-// ========== 5. 存储数据库 ==========
 try {
     $sql = "INSERT INTO bills (user_id, raw_content, settlement_details, total_cost, status)
             VALUES (:user_id, :raw_content, :settlement_details, :total_cost, :status)";
@@ -173,7 +155,6 @@ try {
         ':total_cost' => $total_cost,
         ':status' => $status
     ]);
-    // 附件存储元数据，可扩展存储到 bills 附加表
     http_response_code(201);
     echo json_encode([
         'success' => true,
