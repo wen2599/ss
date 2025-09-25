@@ -8,7 +8,7 @@ class BetCalculator {
         $settlement_slip = [
             'zodiac_bets' => [],
             'number_bets' => ['numbers' => [], 'cost' => 0],
-            'summary' => ['total_numbers_count' => 0, 'total_cost' => 0]
+            'summary' => ['total_unique_numbers' => 0, 'total_cost' => 0]
         ];
 
         // a. Parse Zodiacs
@@ -20,7 +20,6 @@ class BetCalculator {
         }
 
         $all_zodiac_numbers = [];
-        $total_cost_from_zodiacs = 0;
         foreach ($mentioned_zodiacs as $zodiac) {
             if (isset(GameData::$zodiacMap[$zodiac])) {
                 $numbers = GameData::$zodiacMap[$zodiac];
@@ -31,7 +30,6 @@ class BetCalculator {
                     'cost' => $cost
                 ];
                 $all_zodiac_numbers = array_merge($all_zodiac_numbers, $numbers);
-                $total_cost_from_zodiacs += $cost;
             }
         }
 
@@ -49,25 +47,30 @@ class BetCalculator {
             }
         }
 
+        // If no zodiacs and no numbers were found, parsing has failed.
         if (empty($mentioned_zodiacs) && empty($mentioned_numbers)) {
             return null;
         }
 
-        $settlement_slip['number_bets']['numbers'] = $mentioned_numbers;
-        $cost_from_numbers = count($mentioned_numbers) * $cost_per_number;
-        $settlement_slip['number_bets']['cost'] = $cost_from_numbers;
+        $unique_numbers = array_unique($mentioned_numbers);
+        $settlement_slip['number_bets']['numbers'] = array_values($unique_numbers);
+        $settlement_slip['number_bets']['cost'] = count($unique_numbers) * $cost_per_number;
 
-        // c. Final Calculation (No De-duplication)
-        $total_numbers_count = count($all_zodiac_numbers) + count($mentioned_numbers);
-        $total_cost = $total_cost_from_zodiacs + $cost_from_numbers;
+        // c. Final Calculation (De-duplicated)
+        $all_bet_numbers = array_merge($all_zodiac_numbers, $unique_numbers);
+        $final_unique_numbers = array_unique($all_bet_numbers);
+        $total_number_count = count($final_unique_numbers);
+        $total_cost = $total_number_count * $cost_per_number;
 
-        $settlement_slip['summary']['total_numbers_count'] = $total_numbers_count;
+        $settlement_slip['summary']['total_unique_numbers'] = $total_number_count;
         $settlement_slip['summary']['total_cost'] = $total_cost;
 
         return $settlement_slip;
     }
 
+    // 新增多段分条结算
     public static function calculateMulti(string $full_text): ?array {
+        // 按空行分段，每段至少10个汉字/数字
         $blocks = preg_split('/\n{2,}/u', $full_text, -1, PREG_SPLIT_NO_EMPTY);
         $results = [];
         foreach ($blocks as $idx => $block) {

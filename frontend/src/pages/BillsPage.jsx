@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-// 单条结算详情显示（兼容旧账单）
-function SettlementDetails({ details }) {
+function SettlementDetails({ details, rawContent }) {
   if (!details) return <div className="details-container">没有详细信息。</div>;
 
   let parsedDetails;
@@ -11,45 +10,36 @@ function SettlementDetails({ details }) {
   } catch (e) {
     return <div className="details-container">无法解析详细信息。</div>;
   }
-  // 判断是否是单条（老数据）
-  if (parsedDetails.zodiac_bets || parsedDetails.number_bets) {
-    const { zodiac_bets, number_bets, summary } = parsedDetails;
-    return (
-      <div className="details-container" style={{ padding: '10px' }}>
-        <h4>结算单详情</h4>
-        {zodiac_bets && zodiac_bets.length > 0 && (
-          <div className="details-section">
-            <strong>生肖投注:</strong>
-            <ul>
-              {zodiac_bets.map((bet, index) => (
-                <li key={index}>
-                  `{bet.zodiac}`: {bet.numbers.join(', ')} (<strong>{bet.cost}元</strong>)
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {number_bets && number_bets.numbers && number_bets.numbers.length > 0 && (
-          <div className="details-section">
-            <strong>单独号码投注:</strong>
-            <p>{number_bets.numbers.join(', ')} (<strong>{number_bets.cost}元</strong>)</p>
-          </div>
-        )}
-        {summary && (
-          <div className="details-summary">
-            <strong>总结:</strong>
-            <p>总计: <strong>{summary.total_numbers_count ?? summary.total_unique_numbers}</strong> 个号码</p>
-            <p>总金额: <strong>{summary.total_cost}</strong> 元</p>
-          </div>
-        )}
+
+  const { zodiac_bets, number_bets, summary } = parsedDetails;
+
+  const settlementText = `
+生肖投注:
+${(zodiac_bets || []).map(bet => `  - ${bet.zodiac}: ${bet.numbers.join(', ')} (${bet.cost}元)`).join('\n')}
+
+单独号码投注:
+  - 号码: ${(number_bets?.numbers || []).join(', ')}
+  - 金额: ${number_bets?.cost || 0}元
+
+总结:
+  - 总计: ${summary?.total_numbers_count ?? summary?.total_unique_numbers || 0} 个号码
+  - 总金额: ${summary?.total_cost || 0} 元
+  `;
+
+  return (
+    <div className="panels-container">
+      <div className="panel">
+        <h3>邮件原文</h3>
+        <textarea readOnly value={rawContent}></textarea>
       </div>
-    );
-  }
-  // 多条结算由 MultiSettlementDetails 渲染
-  return null;
+      <div className="panel">
+        <h3>结算内容</h3>
+        <textarea readOnly value={settlementText.trim()}></textarea>
+      </div>
+    </div>
+  );
 }
 
-// 多条下注单窗口
 function MultiSettlementDetails({ details, billId }) {
   const [markedIndexes, setMarkedIndexes] = useState(() => {
     const key = `bill_${billId}_marked`;
@@ -67,7 +57,7 @@ function MultiSettlementDetails({ details, billId }) {
   const [currentIdx, setCurrentIdx] = useState(0);
 
   const handleMark = (index) => {
-    const newMarked = [...markedIndexes, index];
+    const newMarked = [...new Set([...markedIndexes, index])];
     setMarkedIndexes(newMarked);
     localStorage.setItem(`bill_${billId}_marked`, JSON.stringify(newMarked));
   };
@@ -85,37 +75,50 @@ function MultiSettlementDetails({ details, billId }) {
   const current = settlements[currentIdx];
   const isMarked = markedIndexes.includes(current.index);
 
-  // 统计未被标记
+  const { zodiac_bets, number_bets, summary } = current.result || {};
+  const settlementText = `
+生肖投注:
+${(zodiac_bets || []).map(bet => `  - ${bet.zodiac}: ${bet.numbers.join(', ')} (${bet.cost}元)`).join('\n')}
+
+单独号码投注:
+  - 号码: ${(number_bets?.numbers || []).join(', ')}
+  - 金额: ${number_bets?.cost || 0}元
+
+总结:
+  - 总计: ${summary?.total_numbers_count ?? summary?.total_unique_numbers || 0} 个号码
+  - 总金额: ${summary?.total_cost || 0} 元
+  `;
+
   const validSettlements = settlements.filter(s => !markedIndexes.includes(s.index));
   const totalNumbers = validSettlements.reduce((sum, s) => sum + (s.result?.summary?.total_numbers_count ?? s.result?.summary?.total_unique_numbers || 0), 0);
   const totalCost = validSettlements.reduce((sum, s) => sum + (s.result?.summary?.total_cost || 0), 0);
 
   return (
-    <div className="multi-details-container">
+    <div>
       <div className="multi-details-nav">
         <button onClick={() => setCurrentIdx(idx => Math.max(idx - 1, 0))} disabled={currentIdx === 0}>上一条</button>
         <span>第 {currentIdx + 1} / {settlements.length} 条下注单</span>
         <button onClick={() => setCurrentIdx(idx => Math.min(idx + 1, settlements.length - 1))} disabled={currentIdx === settlements.length - 1}>下一条</button>
-      </div>
-      <div className="single-bet-section" style={{ margin: '10px 0', padding: '8px', border: '1px solid #eee', borderRadius: '8px' }}>
-        <div>
-          <strong>下注内容：</strong>
-          <pre>{current.raw}</pre>
-        </div>
-        <div>
-          <strong>结算结果：</strong>
-          <SettlementDetails details={current.result} />
-        </div>
-        <div>
+        <div style={{ marginTop: '10px' }}>
           {isMarked ? (
-            <button onClick={() => handleUnmark(current.index)} style={{ color: 'orange' }}>取消标记</button>
+            <button onClick={() => handleUnmark(current.index)} style={{ color: 'orange', fontWeight: 'bold' }}>取消标记错误</button>
           ) : (
             <button onClick={() => handleMark(current.index)} style={{ color: 'red' }}>标记为错误</button>
           )}
+          {isMarked && <span style={{ color: 'red', fontWeight: 'bold', marginLeft: '10px' }}>此条下注单已标记为错误</span>}
         </div>
-        {isMarked && <span style={{ color: 'red', fontWeight: 'bold' }}>已标记为错误</span>}
       </div>
-      <div className="multi-details-summary" style={{ marginTop: '16px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
+      <div className="panels-container">
+        <div className="panel">
+          <h3>下注内容</h3>
+          <textarea readOnly value={current.raw}></textarea>
+        </div>
+        <div className="panel">
+          <h3>结算结果</h3>
+          <textarea readOnly value={settlementText.trim()}></textarea>
+        </div>
+      </div>
+      <div className="multi-details-summary">
         <strong>未标记下注单统计：</strong>
         <p>总号码数：<strong>{totalNumbers}</strong> 个</p>
         <p>总金额：<strong>{totalCost}</strong> 元</p>
@@ -125,30 +128,23 @@ function MultiSettlementDetails({ details, billId }) {
 }
 
 function BillDetailsViewer({ bill, onPrev, onNext, isPrevDisabled, isNextDisabled }) {
-  // 判断是否多条结算
   let isMulti = false;
   try {
     const parsed = JSON.parse(bill.settlement_details);
     isMulti = Array.isArray(parsed);
   } catch {}
+
+  const viewerContent = isMulti
+    ? <MultiSettlementDetails details={bill.settlement_details} billId={bill.id} />
+    : <SettlementDetails details={bill.settlement_details} rawContent={bill.raw_content} />;
+
   return (
     <div className="bill-details-viewer">
       <div className="navigation-buttons">
         <button onClick={onPrev} disabled={isPrevDisabled}>&larr; 上一条</button>
         <button onClick={onNext} disabled={isNextDisabled}>下一条 &rarr;</button>
       </div>
-      <div className="panels-container">
-        <div className="panel">
-          <h3>邮件原文</h3>
-          <pre className="raw-content-panel">{bill.raw_content}</pre>
-        </div>
-        <div className="panel">
-          <h3>结算内容</h3>
-          {isMulti
-            ? <MultiSettlementDetails details={bill.settlement_details} billId={bill.id} />
-            : <SettlementDetails details={bill.settlement_details} />}
-        </div>
-      </div>
+      {viewerContent}
     </div>
   );
 }
