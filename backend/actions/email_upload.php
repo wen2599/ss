@@ -163,28 +163,29 @@ if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_
 
 $attachments_meta = handle_attachments($user_id);
 
-// Split the email body by blank lines to get individual betting slips.
-$blocks = preg_split('/(\r\n|\n|\r)\s*(\r\n|\n|\r)/', $text_body, -1, PREG_SPLIT_NO_EMPTY);
-
-// Define keywords that indicate a valid betting slip.
-$betting_keywords = ['各', '#', '块'];
+// Use a regex to split the text by a line that looks like a sender/timestamp delimiter.
+// This pattern looks for a line that ends with HH:MM time format, preceded by a space.
+// The (?=...) is a positive lookahead to keep the delimiter as part of the next split.
+$blocks = preg_split('/(\r\n|\n|\r)(?=.*\s\d{2}:\d{2}$)/', $text_body, -1, PREG_SPLIT_NO_EMPTY);
 
 $slips = [];
 foreach ($blocks as $block) {
     $trimmed_block = trim($block);
-    $is_valid_slip = false;
-    foreach ($betting_keywords as $keyword) {
-        if (strpos($trimmed_block, $keyword) !== false) {
-            $is_valid_slip = true;
-            break;
+    if (!empty($trimmed_block)) {
+        // We can further filter here if needed, but for now, we assume each block is a slip.
+        // Let's remove the sender line from the slip content itself.
+        $lines = preg_split('/(\r\n|\n|\r)/', $trimmed_block);
+        if (preg_match('/.*\s\d{2}:\d{2}$/', $lines[0])) {
+            array_shift($lines); // Remove the first line if it's a delimiter
         }
-    }
+        $content = trim(implode("\n", $lines));
 
-    if ($is_valid_slip) {
-        $slips[] = [
-            'raw' => $trimmed_block,
-            'settlement' => '' // Initialize with an empty settlement
-        ];
+        if(!empty($content)) {
+            $slips[] = [
+                'raw' => $content,
+                'settlement' => '' // Initialize with an empty settlement
+            ];
+        }
     }
 }
 
