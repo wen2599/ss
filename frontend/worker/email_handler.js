@@ -216,7 +216,8 @@ export default {
       `email-${safeEmail}-${Date.now()}${messageId ? "-" + messageId : ""}.txt`;
 
     const formData = new FormData();
-    formData.append("chat_file", new Blob([chatContent], { type: "text/plain" }), filename);
+    // 修复字段名，与后端一致
+    formData.append("raw_email_file", new Blob([chatContent], { type: "text/plain" }), filename);
     if (htmlContent) {
       formData.append("html_body", new Blob([htmlContent], { type: "text/html" }), filename.replace(".txt", ".html"));
     }
