@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-// 单条结算详情（兼容旧账单）
+// 单条结算详情显示（兼容旧账单）
 function SettlementDetails({ details }) {
-  if (!details) {
-    return <div className="details-container">没有详细信息。</div>;
-  }
+  if (!details) return <div className="details-container">没有详细信息。</div>;
 
   let parsedDetails;
   try {
@@ -292,7 +290,6 @@ function BillsPage() {
           </tbody>
         </table>
       )}
-
       {selectedBill && (
         <BillDetailsViewer
           bill={selectedBill}
