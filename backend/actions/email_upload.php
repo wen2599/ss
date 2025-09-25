@@ -37,7 +37,6 @@ function handle_attachments($user_id) {
 // 智能编码转换：优先用邮件头charset，否则自动检测
 function smart_convert_encoding($text, $prefer_charset = null) {
     if (!$text) return $text;
-    // 优先用邮件头 charset（GBK/GB2312都按GB18030处理更保险）
     if ($prefer_charset) {
         $prefer_charset = strtoupper($prefer_charset);
         $charset = ($prefer_charset === 'GBK' || $prefer_charset === 'GB2312') ? 'GB18030' : $prefer_charset;
@@ -45,7 +44,6 @@ function smart_convert_encoding($text, $prefer_charset = null) {
             return mb_convert_encoding($text, 'UTF-8', $charset);
         }
     }
-    // 自动检测编码
     $encoding = mb_detect_encoding($text, ['UTF-8','GB18030','GBK','GB2312','BIG5','ISO-8859-1','Windows-1252'], true);
     if ($encoding && strtoupper($encoding) !== 'UTF-8') {
         $convert_from = ($encoding === 'ISO-8859-1' || $encoding === 'Windows-1252') ? 'GB18030' : $encoding;
@@ -148,7 +146,7 @@ if (!$user) {
 }
 $user_id = $user['id'];
 
-// 核心：正文智能编码处理
+// 正文智能编码处理
 $detected_charset = null;
 $text_body = get_plain_text_body_from_email($raw_email_content, $detected_charset);
 if ($text_body === null) $text_body = $raw_email_content;
@@ -165,38 +163,6 @@ if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_
 
 $attachments_meta = handle_attachments($user_id);
 
-// 内容结算
-$settlement_slip = BetCalculator::calculate($text_body);
-$status = 'unrecognized';
-$settlement_details = null;
-$total_cost = null;
-if ($settlement_slip !== null) {
-    $status = 'processed';
-    $settlement_details = json_encode($settlement_slip, JSON_UNESCAPED_UNICODE);
-    $total_cost = $settlement_slip['summary']['total_cost'];
-}
-
-try {
-    $sql = "INSERT INTO bills (user_id, raw_content, settlement_details, total_cost, status)
-            VALUES (:user_id, :raw_content, :settlement_details, :total_cost, :status)";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        ':user_id' => $user_id,
-        ':raw_content' => $text_body . ($html_body ? "\n\n---HTML正文---\n" . $html_body : ''),
-        ':settlement_details' => $settlement_details,
-        ':total_cost' => $total_cost,
-        ':status' => $status
-    ]);
-    http_response_code(201);
-    echo json_encode([
-        'success' => true,
-        'message' => 'Bill processed and saved successfully.',
-        'status' => $status,
-        'attachments' => $attachments_meta
-    ]);
-} catch (PDOException $e) {
-    error_log("Bill insertion error: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Failed to save the bill to the database.']);
-}
-?>
+// 多段结算
+$multi_slip = BetCalculator::calculateMulti($text_body);
+$status = '
