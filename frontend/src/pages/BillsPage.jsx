@@ -1,17 +1,80 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-function BillDetailsViewer({ bill, onPrev, onNext, isPrevDisabled, isNextDisabled }) {
+// New component to display and manage a single slip item
+function SlipItem({ slip, index, billId, onBillUpdate }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [settlementText, setSettlementText] = useState(slip.settlement);
+  const [error, setError] = useState('');
+
+  const handleSave = async () => {
+    setError('');
+    try {
+      const response = await fetch('/update_settlement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bill_id: billId,
+          slip_index: index,
+          settlement_text: settlementText,
+        }),
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (data.success) {
+        setIsEditing(false);
+        // Notify parent component to refetch or update bill data
+        if(onBillUpdate) onBillUpdate();
+      } else {
+        setError(data.error || 'Failed to save settlement.');
+      }
+    } catch (err) {
+      setError('An error occurred while saving.');
+    }
+  };
+
+  return (
+    <div className="slip-item-container">
+      <div className="slip-panel raw-panel">
+        <h4>下注原文</h4>
+        <pre>{slip.raw}</pre>
+      </div>
+      <div className="slip-panel settlement-panel">
+        <h4>结算结果</h4>
+        {isEditing ? (
+          <textarea
+            value={settlementText}
+            onChange={(e) => setSettlementText(e.target.value)}
+            rows={5}
+          />
+        ) : (
+          <pre>{settlementText || '(无结算内容)'}</pre>
+        )}
+        <div className="slip-actions">
+          {isEditing ? (
+            <>
+              <button onClick={handleSave}>保存</button>
+              <button onClick={() => setIsEditing(false)} className="secondary">取消</button>
+            </>
+          ) : (
+            <button onClick={() => setIsEditing(true)}>修改</button>
+          )}
+        </div>
+        {error && <p className="error-text">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+function BillDetailsViewer({ bill, onPrev, onNext, isPrevDisabled, isNextDisabled, onBillUpdate }) {
   let slips = [];
   try {
-    // The settlement_details now contains a JSON array of strings (the raw slips)
     const parsed = JSON.parse(bill.settlement_details);
     if (Array.isArray(parsed)) {
       slips = parsed;
     }
   } catch (e) {
-    // Could be an old bill or malformed data, show raw content as a fallback
-    slips = [bill.settlement_details];
+    slips = []; // If parsing fails, start with an empty list
   }
 
   return (
@@ -20,21 +83,17 @@ function BillDetailsViewer({ bill, onPrev, onNext, isPrevDisabled, isNextDisable
         <button onClick={onPrev} disabled={isPrevDisabled}>&larr; 上一条</button>
         <button onClick={onNext} disabled={isNextDisabled}>下一条 &rarr;</button>
       </div>
-      <div className="panels-container">
-        <div className="panel">
-          <h3>原始邮件内容</h3>
-          <textarea readOnly value={bill.raw_content} className="raw-content-panel" />
-        </div>
-        <div className="panel">
-          <h3>拆分后的下注单 ({slips.length}条)</h3>
-          <div className="slips-display-area">
-            {slips.map((slip, index) => (
-              <pre key={index} className="slip-item">
-                {slip}
-              </pre>
-            ))}
-          </div>
-        </div>
+      <h3>账单详情 (总计 {slips.length} 条下注)</h3>
+      <div className="slips-list-container">
+        {slips.map((slip, index) => (
+          <SlipItem
+            key={index}
+            slip={slip}
+            index={index}
+            billId={bill.id}
+            onBillUpdate={onBillUpdate}
+          />
+        ))}
       </div>
     </div>
   );
@@ -184,6 +243,7 @@ function BillsPage() {
           onNext={handleNextBill}
           isPrevDisabled={selectedBillIndex === 0}
           isNextDisabled={selectedBillIndex === bills.length - 1}
+          onBillUpdate={fetchBills}
         />
       )}
     </div>

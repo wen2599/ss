@@ -167,8 +167,13 @@ $attachments_meta = handle_attachments($user_id);
 // PREG_SPLIT_NO_EMPTY ensures that we don't get empty strings from multiple blank lines.
 $slips = preg_split('/(\r\n|\n|\r)\s*(\r\n|\n|\r)/', $text_body, -1, PREG_SPLIT_NO_EMPTY);
 
-// Trim each slip to remove leading/trailing whitespace.
-$slips = array_map('trim', $slips);
+// Trim each slip and map it to the new object structure.
+$slips = array_map(function($slip) {
+    return [
+        'raw' => trim($slip),
+        'settlement' => '' // Initialize with an empty settlement
+    ];
+}, $slips);
 
 $status = 'pending_settlement';
 $settlement_details = json_encode($slips, JSON_UNESCAPED_UNICODE);
