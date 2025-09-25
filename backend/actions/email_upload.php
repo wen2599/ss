@@ -34,17 +34,24 @@ function handle_attachments($user_id) {
     return $attachments_meta;
 }
 
+// 智能编码转换
 function smart_convert_encoding($text, $prefer_charset = null) {
     // 优先用邮件头 charset，否则自动检测
-    if ($prefer_charset && strtolower($prefer_charset) !== 'utf-8') {
-        return mb_convert_encoding($text, 'UTF-8', $prefer_charset);
+    if ($prefer_charset) {
+        $prefer_charset = strtoupper($prefer_charset);
+        // 部分邮件头写GBK但内容是GB2312
+        $charset = ($prefer_charset === 'GBK' || $prefer_charset === 'GB2312') ? 'GB18030' : $prefer_charset;
+        if ($charset !== 'UTF-8') {
+            return mb_convert_encoding($text, 'UTF-8', $charset);
+        }
     }
-    // 如果内容不是utf-8时才转换
-    $encoding = mb_detect_encoding($text, ['UTF-8','GBK','GB2312','BIG5','ISO-8859-1'], true);
-    if ($encoding && strtolower($encoding) !== 'utf-8') {
-        return mb_convert_encoding($text, 'UTF-8', $encoding);
+    // 自动检测编码
+    $encoding = mb_detect_encoding($text, ['UTF-8','GB18030','GBK','GB2312','BIG5','ISO-8859-1','Windows-1252'], true);
+    if ($encoding && strtoupper($encoding) !== 'UTF-8') {
+        // 部分邮件ISO-8859-1其实是GBK
+        $convert_from = ($encoding === 'ISO-8859-1' || $encoding === 'Windows-1252') ? 'GB18030' : $encoding;
+        return mb_convert_encoding($text, 'UTF-8', $convert_from);
     }
-    // 否则直接返回
     return $text;
 }
 
@@ -78,7 +85,7 @@ function get_plain_text_body_from_email($raw_email, &$detected_charset = null) {
             if (preg_match('/Content-Transfer-Encoding:\s*(\S+)/i', $header_part, $encoding_matches)) {
                 $transfer_encoding = strtolower($encoding_matches[1]);
             }
-            $charset = 'UTF-8';
+            $charset = null;
             if (preg_match('/charset="?([^"]+)"?/i', $header_part, $charset_matches)) {
                 $charset = strtoupper($charset_matches[1]);
             }
@@ -141,15 +148,13 @@ if (!$user) {
 }
 $user_id = $user['id'];
 
-// 核心：正文智能转码处理
+// 核心：正文智能编码处理
 $detected_charset = null;
 $text_body = get_plain_text_body_from_email($raw_email_content, $detected_charset);
 if ($text_body === null) $text_body = $raw_email_content;
-
-// 智能编码转换
 $text_body = smart_convert_encoding($text_body, $detected_charset);
 
-// html_body 同理
+// HTML正文也智能转码
 $html_body = null;
 if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_OK) {
     $html_raw = file_get_contents($_FILES['html_body']['tmp_name']);
@@ -160,6 +165,7 @@ if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_
 
 $attachments_meta = handle_attachments($user_id);
 
+// 内容结算
 $settlement_slip = BetCalculator::calculate($text_body);
 $status = 'unrecognized';
 $settlement_details = null;
