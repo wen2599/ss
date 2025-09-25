@@ -352,3 +352,31 @@ a:hover {
   padding-top: 1rem;
   border-top: 1px solid var(--border-color);
 }
+
+.raw-content-panel {
+  height: 100%;
+}
+
+.slips-display-area {
+  height: 300px;
+  overflow-y: auto;
+  background-color: #f8f9fa;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.8rem;
+}
+
+.slip-item {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0.8rem;
+  margin-bottom: 0.8rem;
+  background-color: white;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.slip-item:last-child {
+  margin-bottom: 0;
+}

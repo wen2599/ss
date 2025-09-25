@@ -1,5 +1,4 @@
 <?php
-require_once __DIR__ . '/../lib/BetCalculator.php';
 
 // Helper: Save attachments to disk and return their metadata
 function handle_attachments($user_id) {
@@ -164,18 +163,16 @@ if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_
 
 $attachments_meta = handle_attachments($user_id);
 
-// 多段结算
-$multi_slip = BetCalculator::calculateMulti($text_body);
-$status = 'unrecognized';
-$settlement_details = null;
+// Split the email body by blank lines to get individual betting slips.
+// PREG_SPLIT_NO_EMPTY ensures that we don't get empty strings from multiple blank lines.
+$slips = preg_split('/(\r\n|\n|\r)\s*(\r\n|\n|\r)/', $text_body, -1, PREG_SPLIT_NO_EMPTY);
+
+// Trim each slip to remove leading/trailing whitespace.
+$slips = array_map('trim', $slips);
+
+$status = 'pending_settlement';
+$settlement_details = json_encode($slips, JSON_UNESCAPED_UNICODE);
 $total_cost = null;
-if ($multi_slip !== null) {
-    $status = 'processed';
-    $settlement_details = json_encode($multi_slip, JSON_UNESCAPED_UNICODE);
-    $total_cost = array_sum(array_map(function($item) {
-        return $item['result']['summary']['total_cost'] ?? 0;
-    }, $multi_slip));
-}
 
 try {
     $sql = "INSERT INTO bills (user_id, raw_content, settlement_details, total_cost, status)
