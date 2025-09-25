@@ -1,15 +1,38 @@
-// worker/email_handler.js （修正版：确保 FormData 被 PHP 正确识别）
+import jschardet from 'jschardet';
+
+// 自动编码检测+解码
+function decodeWithAutoEncoding(uint8arr) {
+  const detected = jschardet.detect(uint8arr);
+  let encoding = detected?.encoding?.toLowerCase() || 'utf-8';
+  // 兼容 GBK/GB2312/GB18030 都用 gb18030
+  if (/gbk|gb2312|gb18030/i.test(encoding)) encoding = 'gb18030';
+  // Cloudflare Worker环境支持 gb18030，如果不支持可用 iconv-lite
+  try {
+    const decoder = new TextDecoder(encoding, { fatal: false });
+    return decoder.decode(uint8arr);
+  } catch {
+    // fallback
+    return new TextDecoder('utf-8').decode(uint8arr);
+  }
+}
 
 async function streamToString(stream) {
+  const chunks = [];
   const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let result = '';
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    result += decoder.decode(value, { stream: true });
+    chunks.push(value);
   }
-  return result;
+  // 合并为一个 Uint8Array
+  let totalLen = chunks.reduce((acc, arr) => acc + arr.length, 0);
+  let buffer = new Uint8Array(totalLen);
+  let offset = 0;
+  for (let arr of chunks) {
+    buffer.set(arr, offset);
+    offset += arr.length;
+  }
+  return decodeWithAutoEncoding(buffer);
 }
 
 function decodeQuotedPrintable(input) {
@@ -18,13 +41,11 @@ function decodeQuotedPrintable(input) {
     .replace(/=([A-Fa-f0-9]{2})/g, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
 }
 
-function b64toBlob(base64, mime) {
-  const byteChars = atob(base64);
-  const byteNumbers = new Array(byteChars.length);
-  for (let i = 0; i < byteChars.length; i++) {
-    byteNumbers[i] = byteChars.charCodeAt(i);
-  }
-  return new Blob([new Uint8Array(byteNumbers)], { type: mime });
+function b64toUint8Array(base64) {
+  const binary = atob(base64);
+  const array = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+  return array;
 }
 
 function parseEmail(rawEmail, options = {}) {
@@ -40,35 +61,65 @@ function parseEmail(rawEmail, options = {}) {
   const attachments = [];
   let attachmentCount = 0;
 
+  // 分段解码时也自动检测编码
+  function getCharset(header) {
+    const m = header.match(/charset="?([^\s"]+)/i);
+    if (m) {
+      let cs = m[1].toLowerCase();
+      if (/gbk|gb2312|gb18030/i.test(cs)) return 'gb18030';
+      return cs;
+    }
+    return null;
+  }
+
   if (boundary) {
     const parts = rawEmail.split(new RegExp(`--${boundary}(?:--)?`, 'g')).filter(Boolean);
     for (const part of parts) {
+      const h = part.split(/\r?\n\r?\n/)[0];
+      const b = part.split(/\r?\n\r?\n/).slice(1).join('\n\n');
+      const charset = getCharset(h) || 'utf-8';
+
+      // text/plain
       if (/Content-Type:\s*text\/plain/i.test(part) && !/Content-Disposition:\s*attachment/i.test(part)) {
         if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
           const base64Match = part.match(/\r?\n\r?\n([^]*)/);
-          if (base64Match) textContent += atob(base64Match[1].replace(/\r?\n/g, ''));
+          if (base64Match) {
+            const u8 = b64toUint8Array(base64Match[1].replace(/\r?\n/g, ''));
+            textContent += new TextDecoder(charset).decode(u8);
+          }
         } else if (/Content-Transfer-Encoding:\s*quoted-printable/i.test(part)) {
           const qpMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (qpMatch) textContent += decodeQuotedPrintable(qpMatch[1]);
+          if (qpMatch) {
+            const qpStr = decodeQuotedPrintable(qpMatch[1]);
+            textContent += new TextDecoder(charset).decode(new TextEncoder().encode(qpStr));
+          }
         } else {
           const plainMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (plainMatch) textContent += plainMatch[1].trim();
+          if (plainMatch) textContent += new TextDecoder(charset).decode(new TextEncoder().encode(plainMatch[1].trim()));
         }
       }
+      // text/html
       if (/Content-Type:\s*text\/html/i.test(part) && !/Content-Disposition:\s*attachment/i.test(part)) {
         let html = '';
         if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
           const base64Match = part.match(/\r?\n\r?\n([^]*)/);
-          if (base64Match) html += atob(base64Match[1].replace(/\r?\n/g, ''));
+          if (base64Match) {
+            const u8 = b64toUint8Array(base64Match[1].replace(/\r?\n/g, ''));
+            html += new TextDecoder(charset).decode(u8);
+          }
         } else if (/Content-Transfer-Encoding:\s*quoted-printable/i.test(part)) {
           const qpMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (qpMatch) html += decodeQuotedPrintable(qpMatch[1]);
+          if (qpMatch) {
+            const qpStr = decodeQuotedPrintable(qpMatch[1]);
+            html += new TextDecoder(charset).decode(new TextEncoder().encode(qpStr));
+          }
         } else {
           const htmlMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (htmlMatch) html += htmlMatch[1].trim();
+          if (htmlMatch) html += new TextDecoder(charset).decode(new TextEncoder().encode(htmlMatch[1].trim()));
         }
         htmlContent += html;
       }
+      // attachment
       if (/Content-Disposition:\s*attachment/i.test(part)) {
         if (attachmentCount++ >= maxAttachmentCount) continue;
         let filename = 'unnamed';
@@ -81,20 +132,23 @@ function parseEmail(rawEmail, options = {}) {
         if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
           const base64Match = part.match(/\r?\n\r?\n([^]*)/);
           if (base64Match) content = base64Match[1].replace(/\r?\n/g, '');
+          try {
+            let blob = new Blob([b64toUint8Array(content)], { type: contentType });
+            if (blob.size > maxAttachmentSize) continue;
+            attachments.push({ filename, blob, contentType });
+          } catch {}
         } else {
           const plainMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (plainMatch) content = plainMatch[1];
+          if (plainMatch) {
+            let blob = new Blob([plainMatch[1]], { type: contentType });
+            if (blob.size > maxAttachmentSize) continue;
+            attachments.push({ filename, blob, contentType });
+          }
         }
-        try {
-          let blob = /base64/i.test(part)
-            ? b64toBlob(content, contentType)
-            : new Blob([content], { type: contentType });
-          if (blob.size > maxAttachmentSize) continue;
-          attachments.push({ filename, blob, contentType });
-        } catch {}
       }
     }
   } else {
+    // 简单邮件
     const textPart = rawEmail.match(/Content-Type:\s*text\/plain[^]*?\r?\n\r?\n([^]*)/i);
     if (textPart && textPart[1]) textContent = textPart[1].trim();
     const htmlPart = rawEmail.match(/Content-Type:\s*text\/html[^]*?\r?\n\r?\n([^]*)/i);
@@ -178,7 +232,6 @@ export default {
 
     try {
       const uploadUrl = `${PUBLIC_API_ENDPOINT}/email_upload`;
-      // 不要设置 Content-Type，FormData 会自动设置（否则 PHP 接收不到 $_FILES）
       await fetch(uploadUrl, {
         method: "POST",
         body: formData,
