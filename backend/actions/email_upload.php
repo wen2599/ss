@@ -34,12 +34,12 @@ function handle_attachments($user_id) {
     return $attachments_meta;
 }
 
-// 智能编码转换
+// 智能编码转换：优先用邮件头charset，否则自动检测
 function smart_convert_encoding($text, $prefer_charset = null) {
-    // 优先用邮件头 charset，否则自动检测
+    if (!$text) return $text;
+    // 优先用邮件头 charset（GBK/GB2312都按GB18030处理更保险）
     if ($prefer_charset) {
         $prefer_charset = strtoupper($prefer_charset);
-        // 部分邮件头写GBK但内容是GB2312
         $charset = ($prefer_charset === 'GBK' || $prefer_charset === 'GB2312') ? 'GB18030' : $prefer_charset;
         if ($charset !== 'UTF-8') {
             return mb_convert_encoding($text, 'UTF-8', $charset);
@@ -48,7 +48,6 @@ function smart_convert_encoding($text, $prefer_charset = null) {
     // 自动检测编码
     $encoding = mb_detect_encoding($text, ['UTF-8','GB18030','GBK','GB2312','BIG5','ISO-8859-1','Windows-1252'], true);
     if ($encoding && strtoupper($encoding) !== 'UTF-8') {
-        // 部分邮件ISO-8859-1其实是GBK
         $convert_from = ($encoding === 'ISO-8859-1' || $encoding === 'Windows-1252') ? 'GB18030' : $encoding;
         return mb_convert_encoding($text, 'UTF-8', $convert_from);
     }
