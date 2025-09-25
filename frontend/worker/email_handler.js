@@ -1,4 +1,4 @@
-// worker/email_handler.js （支持附件、HTML正文，字段名与后端一致）
+// worker/email_handler.js （修正版：确保 FormData 被 PHP 正确识别）
 
 async function streamToString(stream) {
   const reader = stream.getReader();
@@ -164,20 +164,21 @@ export default {
     const filename =
       `email-${safeEmail}-${Date.now()}${messageId ? "-" + messageId : ""}.txt`;
 
+    // 确保字段顺序和名称
     const formData = new FormData();
+    formData.append("worker_secret", WORKER_SECRET);
+    formData.append("user_email", senderEmail);
     formData.append("raw_email_file", new Blob([chatContent], { type: "text/plain" }), filename);
     if (htmlContent) {
       formData.append("html_body", new Blob([htmlContent], { type: "text/html" }), filename.replace(".txt", ".html"));
     }
-    formData.append("worker_secret", WORKER_SECRET);
-    formData.append("user_email", senderEmail);
-
     for (const att of attachments) {
       formData.append("attachment", att.blob, att.filename);
     }
 
     try {
       const uploadUrl = `${PUBLIC_API_ENDPOINT}/email_upload`;
+      // 不要设置 Content-Type，FormData 会自动设置（否则 PHP 接收不到 $_FILES）
       await fetch(uploadUrl, {
         method: "POST",
         body: formData,
