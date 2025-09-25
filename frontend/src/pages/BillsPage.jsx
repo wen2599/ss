@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-// Component to render the structured settlement details
+// 单条结算详情（兼容旧账单）
 function SettlementDetails({ details }) {
   if (!details) {
     return <div className="details-container">没有详细信息。</div>;
@@ -9,47 +9,130 @@ function SettlementDetails({ details }) {
 
   let parsedDetails;
   try {
-    parsedDetails = JSON.parse(details);
+    parsedDetails = typeof details === 'string' ? JSON.parse(details) : details;
   } catch (e) {
     return <div className="details-container">无法解析详细信息。</div>;
   }
+  // 判断是否是单条（老数据）
+  if (parsedDetails.zodiac_bets || parsedDetails.number_bets) {
+    const { zodiac_bets, number_bets, summary } = parsedDetails;
+    return (
+      <div className="details-container" style={{ padding: '10px' }}>
+        <h4>结算单详情</h4>
+        {zodiac_bets && zodiac_bets.length > 0 && (
+          <div className="details-section">
+            <strong>生肖投注:</strong>
+            <ul>
+              {zodiac_bets.map((bet, index) => (
+                <li key={index}>
+                  `{bet.zodiac}`: {bet.numbers.join(', ')} (<strong>{bet.cost}元</strong>)
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {number_bets && number_bets.numbers && number_bets.numbers.length > 0 && (
+          <div className="details-section">
+            <strong>单独号码投注:</strong>
+            <p>{number_bets.numbers.join(', ')} (<strong>{number_bets.cost}元</strong>)</p>
+          </div>
+        )}
+        {summary && (
+          <div className="details-summary">
+            <strong>总结:</strong>
+            <p>总计: <strong>{summary.total_unique_numbers}</strong> 个号码</p>
+            <p>总金额: <strong>{summary.total_cost}</strong> 元</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+  // 多条结算由 MultiSettlementDetails 渲染
+  return null;
+}
 
-  const { zodiac_bets, number_bets, summary } = parsedDetails;
+// 多条下注单窗口
+function MultiSettlementDetails({ details, billId }) {
+  const [markedIndexes, setMarkedIndexes] = useState(() => {
+    const key = `bill_${billId}_marked`;
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  let settlements;
+  try {
+    settlements = typeof details === 'string' ? JSON.parse(details) : details;
+  } catch {
+    return <div>无法解析结算详情。</div>;
+  }
+
+  const [currentIdx, setCurrentIdx] = useState(0);
+
+  const handleMark = (index) => {
+    const newMarked = [...markedIndexes, index];
+    setMarkedIndexes(newMarked);
+    localStorage.setItem(`bill_${billId}_marked`, JSON.stringify(newMarked));
+  };
+
+  const handleUnmark = (index) => {
+    const newMarked = markedIndexes.filter(i => i !== index);
+    setMarkedIndexes(newMarked);
+    localStorage.setItem(`bill_${billId}_marked`, JSON.stringify(newMarked));
+  };
+
+  if (!Array.isArray(settlements) || settlements.length === 0) {
+    return <div>没有详细信息。</div>;
+  }
+
+  const current = settlements[currentIdx];
+  const isMarked = markedIndexes.includes(current.index);
+
+  // 统计未被标记
+  const validSettlements = settlements.filter(s => !markedIndexes.includes(s.index));
+  const totalNumbers = validSettlements.reduce((sum, s) => sum + (s.result?.summary?.total_unique_numbers || 0), 0);
+  const totalCost = validSettlements.reduce((sum, s) => sum + (s.result?.summary?.total_cost || 0), 0);
 
   return (
-    <div className="details-container" style={{ padding: '10px' }}>
-      <h4>结算单详情</h4>
-      {zodiac_bets && zodiac_bets.length > 0 && (
-        <div className="details-section">
-          <strong>生肖投注:</strong>
-          <ul>
-            {zodiac_bets.map((bet, index) => (
-              <li key={index}>
-                `{bet.zodiac}`: {bet.numbers.join(', ')} (<strong>{bet.cost}元</strong>)
-              </li>
-            ))}
-          </ul>
+    <div className="multi-details-container">
+      <div className="multi-details-nav">
+        <button onClick={() => setCurrentIdx(idx => Math.max(idx - 1, 0))} disabled={currentIdx === 0}>上一条</button>
+        <span>第 {currentIdx + 1} / {settlements.length} 条下注单</span>
+        <button onClick={() => setCurrentIdx(idx => Math.min(idx + 1, settlements.length - 1))} disabled={currentIdx === settlements.length - 1}>下一条</button>
+      </div>
+      <div className="single-bet-section" style={{ margin: '10px 0', padding: '8px', border: '1px solid #eee', borderRadius: '8px' }}>
+        <div>
+          <strong>下注内容：</strong>
+          <pre>{current.raw}</pre>
         </div>
-      )}
-      {number_bets && number_bets.numbers && number_bets.numbers.length > 0 && (
-        <div className="details-section">
-          <strong>单独号码投注:</strong>
-          <p>{number_bets.numbers.join(', ')} (<strong>{number_bets.cost}元</strong>)</p>
+        <div>
+          <strong>结算结果：</strong>
+          <SettlementDetails details={current.result} />
         </div>
-      )}
-      {summary && (
-        <div className="details-summary">
-          <strong>总结:</strong>
-          <p>总计: <strong>{summary.total_unique_numbers}</strong> 个号码</p>
-          <p>总金额: <strong>{summary.total_cost}</strong> 元</p>
+        <div>
+          {isMarked ? (
+            <button onClick={() => handleUnmark(current.index)} style={{ color: 'orange' }}>取消标记</button>
+          ) : (
+            <button onClick={() => handleMark(current.index)} style={{ color: 'red' }}>标记为错误</button>
+          )}
         </div>
-      )}
+        {isMarked && <span style={{ color: 'red', fontWeight: 'bold' }}>已标记为错误</span>}
+      </div>
+      <div className="multi-details-summary" style={{ marginTop: '16px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
+        <strong>未标记下注单统计：</strong>
+        <p>总号码数：<strong>{totalNumbers}</strong> 个</p>
+        <p>总金额：<strong>{totalCost}</strong> 元</p>
+      </div>
     </div>
   );
 }
 
-// New component for the two-panel view
 function BillDetailsViewer({ bill, onPrev, onNext, isPrevDisabled, isNextDisabled }) {
+  // 判断是否多条结算
+  let isMulti = false;
+  try {
+    const parsed = JSON.parse(bill.settlement_details);
+    isMulti = Array.isArray(parsed);
+  } catch {}
   return (
     <div className="bill-details-viewer">
       <div className="navigation-buttons">
@@ -63,7 +146,9 @@ function BillDetailsViewer({ bill, onPrev, onNext, isPrevDisabled, isNextDisable
         </div>
         <div className="panel">
           <h3>结算内容</h3>
-          <SettlementDetails details={bill.settlement_details} />
+          {isMulti
+            ? <MultiSettlementDetails details={bill.settlement_details} billId={bill.id} />
+            : <SettlementDetails details={bill.settlement_details} />}
         </div>
       </div>
     </div>
@@ -77,7 +162,7 @@ function BillsPage() {
   const [selectedBillIndex, setSelectedBillIndex] = useState(null);
   const { user, isAuthenticated } = useAuth();
 
-  // 修复关键点：fetch请求必须带credentials: 'include'
+  // fetch请求必须带credentials: 'include'
   const fetchBills = async () => {
     setIsLoading(true);
     setError('');
@@ -100,7 +185,6 @@ function BillsPage() {
     }
   };
 
-  // 只在登录后自动拉取账单
   useEffect(() => {
     if (isAuthenticated) {
       fetchBills();
@@ -125,7 +209,6 @@ function BillsPage() {
     }
   };
 
-  // 删除账单也要带credentials: 'include'
   const handleDeleteBill = async (billId) => {
     if (!window.confirm(`您确定要删除账单 #${billId} 吗？此操作无法撤销。`)) {
       return;
