@@ -1,17 +1,20 @@
-import jschardet from 'jschardet';
+// 不依赖 npm 包，兼容 Cloudflare Worker
 
-// 自动编码检测+解码
-function decodeWithAutoEncoding(uint8arr) {
-  const detected = jschardet.detect(uint8arr);
-  let encoding = detected?.encoding?.toLowerCase() || 'utf-8';
-  // 兼容 GBK/GB2312/GB18030 都用 gb18030
-  if (/gbk|gb2312|gb18030/i.test(encoding)) encoding = 'gb18030';
-  // Cloudflare Worker环境支持 gb18030，如果不支持可用 iconv-lite
+function detectEncoding(uint8arr) {
+  // 尝试用UTF-8解码，能成功就说明是UTF-8
   try {
-    const decoder = new TextDecoder(encoding, { fatal: false });
-    return decoder.decode(uint8arr);
+    new TextDecoder('utf-8', { fatal: true }).decode(uint8arr);
+    return 'utf-8';
+  } catch {}
+  // 只剩GBK/GB2312/GB18030（绝大多数中国邮件）
+  return 'gb18030';
+}
+
+function decodeWithAutoEncoding(uint8arr) {
+  const encoding = detectEncoding(uint8arr);
+  try {
+    return new TextDecoder(encoding, { fatal: false }).decode(uint8arr);
   } catch {
-    // fallback
     return new TextDecoder('utf-8').decode(uint8arr);
   }
 }
@@ -24,7 +27,6 @@ async function streamToString(stream) {
     if (done) break;
     chunks.push(value);
   }
-  // 合并为一个 Uint8Array
   let totalLen = chunks.reduce((acc, arr) => acc + arr.length, 0);
   let buffer = new Uint8Array(totalLen);
   let offset = 0;
@@ -61,7 +63,6 @@ function parseEmail(rawEmail, options = {}) {
   const attachments = [];
   let attachmentCount = 0;
 
-  // 分段解码时也自动检测编码
   function getCharset(header) {
     const m = header.match(/charset="?([^\s"]+)/i);
     if (m) {
@@ -78,7 +79,6 @@ function parseEmail(rawEmail, options = {}) {
       const h = part.split(/\r?\n\r?\n/)[0];
       const b = part.split(/\r?\n\r?\n/).slice(1).join('\n\n');
       const charset = getCharset(h) || 'utf-8';
-
       // text/plain
       if (/Content-Type:\s*text\/plain/i.test(part) && !/Content-Disposition:\s*attachment/i.test(part)) {
         if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
@@ -148,7 +148,6 @@ function parseEmail(rawEmail, options = {}) {
       }
     }
   } else {
-    // 简单邮件
     const textPart = rawEmail.match(/Content-Type:\s*text\/plain[^]*?\r?\n\r?\n([^]*)/i);
     if (textPart && textPart[1]) textContent = textPart[1].trim();
     const htmlPart = rawEmail.match(/Content-Type:\s*text\/html[^]*?\r?\n\r?\n([^]*)/i);
@@ -218,7 +217,6 @@ export default {
     const filename =
       `email-${safeEmail}-${Date.now()}${messageId ? "-" + messageId : ""}.txt`;
 
-    // 确保字段顺序和名称
     const formData = new FormData();
     formData.append("worker_secret", WORKER_SECRET);
     formData.append("user_email", senderEmail);
