@@ -1,14 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/BetCalculator.php';
 
-// ============ 调试日志：用于排查 Worker 上传问题 =============
-// 日志文件路径
-$debug_log_file = __DIR__ . '/../debug_upload.txt';
-// 记录所有 POST 和 FILES 字段
-file_put_contents($debug_log_file, "----------\n" . date('Y-m-d H:i:s') . "\n", FILE_APPEND);
-file_put_contents($debug_log_file, "POST:\n" . print_r($_POST, true) . "\n", FILE_APPEND);
-file_put_contents($debug_log_file, "FILES:\n" . print_r($_FILES, true) . "\n", FILE_APPEND);
-
 // Helper: Save attachments to disk and return their metadata
 function handle_attachments($user_id) {
     $attachments_meta = [];
@@ -43,12 +35,13 @@ function handle_attachments($user_id) {
 }
 
 function get_plain_text_body_from_email($raw_email) {
+    // boundary 查找
     if (!preg_match('/boundary="?([^"]+)"?/i', $raw_email, $matches)) {
         $bodyPos = strpos($raw_email, "\r\n\r\n");
         if ($bodyPos !== false) {
-            return mb_convert_encoding(substr($raw_email, $bodyPos + 4), 'UTF-8', 'auto');
+            return substr($raw_email, $bodyPos + 4);
         }
-        return mb_convert_encoding($raw_email, 'UTF-8', 'auto');
+        return $raw_email;
     }
     $boundary = $matches[1];
     $parts = explode('--' . $boundary, $raw_email);
@@ -85,6 +78,7 @@ function get_plain_text_body_from_email($raw_email) {
                     $decoded_body = $body_part;
                     break;
             }
+            // 邮件正文转UTF-8
             return mb_convert_encoding($decoded_body, 'UTF-8', $charset);
         }
     }
@@ -113,7 +107,6 @@ if ($_FILES['raw_email_file']['error'] !== UPLOAD_ERR_OK) {
     exit();
 }
 
-// ==== 业务逻辑 ====
 $user_email = $_POST['user_email'];
 $file_tmp_path = $_FILES['raw_email_file']['tmp_name'];
 $raw_email_content = file_get_contents($file_tmp_path);
@@ -122,6 +115,7 @@ if ($raw_email_content === false) {
     echo json_encode(['success' => false, 'error' => 'Could not read uploaded email file.']);
     exit();
 }
+
 $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
 $stmt->execute([':email' => $user_email]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -135,11 +129,21 @@ $user_id = $user['id'];
 $text_body = get_plain_text_body_from_email($raw_email_content);
 if ($text_body === null) $text_body = $raw_email_content;
 
+// 邮件正文强制转UTF-8（自动识别原编码）
+$charset = 'UTF-8';
+if (preg_match('/charset="?([^\s";]+)"?/i', $raw_email_content, $match)) {
+    $charset = strtoupper($match[1]);
+}
+$text_body = mb_convert_encoding($text_body, 'UTF-8', $charset);
+
+// html_body 同理
 $html_body = null;
 if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_OK) {
     $html_body = file_get_contents($_FILES['html_body']['tmp_name']);
+    $html_body = mb_convert_encoding($html_body, 'UTF-8', $charset);
 } elseif (!empty($_POST['html_body'])) {
     $html_body = $_POST['html_body'];
+    $html_body = mb_convert_encoding($html_body, 'UTF-8', $charset);
 }
 
 $attachments_meta = handle_attachments($user_id);
