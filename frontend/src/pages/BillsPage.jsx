@@ -84,7 +84,7 @@ function BillsPage() {
       const response = await fetch('/get_bills', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include' // 关键，带上 cookie/session
+        credentials: 'include' // 修复关键点：带上 cookie/session
       });
       const data = await response.json();
       if (data.success) {
@@ -137,9 +137,7 @@ function BillsPage() {
       });
       const data = await response.json();
       if (data.success) {
-        // Remove the bill from the local state to update UI
         setBills(prevBills => prevBills.filter(bill => bill.id !== billId));
-        // If the deleted bill was the selected one, close the details view
         if (selectedBillIndex !== null && bills[selectedBillIndex]?.id === billId) {
           setSelectedBillIndex(null);
         }
