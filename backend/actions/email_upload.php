@@ -1,6 +1,14 @@
 <?php
 require_once __DIR__ . '/../lib/BetCalculator.php';
 
+// ============ 调试日志：用于排查 Worker 上传问题 =============
+// 日志文件路径
+$debug_log_file = __DIR__ . '/../debug_upload.txt';
+// 记录所有 POST 和 FILES 字段
+file_put_contents($debug_log_file, "----------\n" . date('Y-m-d H:i:s') . "\n", FILE_APPEND);
+file_put_contents($debug_log_file, "POST:\n" . print_r($_POST, true) . "\n", FILE_APPEND);
+file_put_contents($debug_log_file, "FILES:\n" . print_r($_FILES, true) . "\n", FILE_APPEND);
+
 // Helper: Save attachments to disk and return their metadata
 function handle_attachments($user_id) {
     $attachments_meta = [];
@@ -83,6 +91,7 @@ function get_plain_text_body_from_email($raw_email) {
     return null;
 }
 
+// ==== 安全性校验 ====
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'error' => 'Method Not Allowed']);
@@ -104,6 +113,7 @@ if ($_FILES['raw_email_file']['error'] !== UPLOAD_ERR_OK) {
     exit();
 }
 
+// ==== 业务逻辑 ====
 $user_email = $_POST['user_email'];
 $file_tmp_path = $_FILES['raw_email_file']['tmp_name'];
 $raw_email_content = file_get_contents($file_tmp_path);
