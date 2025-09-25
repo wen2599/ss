@@ -34,13 +34,29 @@ function handle_attachments($user_id) {
     return $attachments_meta;
 }
 
-function get_plain_text_body_from_email($raw_email) {
-    // boundary 查找
+function smart_convert_encoding($text, $prefer_charset = null) {
+    // 优先用邮件头 charset，否则自动检测
+    if ($prefer_charset && strtolower($prefer_charset) !== 'utf-8') {
+        return mb_convert_encoding($text, 'UTF-8', $prefer_charset);
+    }
+    // 如果内容不是utf-8时才转换
+    $encoding = mb_detect_encoding($text, ['UTF-8','GBK','GB2312','BIG5','ISO-8859-1'], true);
+    if ($encoding && strtolower($encoding) !== 'utf-8') {
+        return mb_convert_encoding($text, 'UTF-8', $encoding);
+    }
+    // 否则直接返回
+    return $text;
+}
+
+function get_plain_text_body_from_email($raw_email, &$detected_charset = null) {
     if (!preg_match('/boundary="?([^"]+)"?/i', $raw_email, $matches)) {
         $bodyPos = strpos($raw_email, "\r\n\r\n");
         if ($bodyPos !== false) {
-            return substr($raw_email, $bodyPos + 4);
+            $body = substr($raw_email, $bodyPos + 4);
+            $detected_charset = null;
+            return $body;
         }
+        $detected_charset = null;
         return $raw_email;
     }
     $boundary = $matches[1];
@@ -66,6 +82,7 @@ function get_plain_text_body_from_email($raw_email) {
             if (preg_match('/charset="?([^"]+)"?/i', $header_part, $charset_matches)) {
                 $charset = strtoupper($charset_matches[1]);
             }
+            $detected_charset = $charset;
             $decoded_body = '';
             switch ($transfer_encoding) {
                 case 'base64':
@@ -78,14 +95,13 @@ function get_plain_text_body_from_email($raw_email) {
                     $decoded_body = $body_part;
                     break;
             }
-            // 邮件正文转UTF-8
-            return mb_convert_encoding($decoded_body, 'UTF-8', $charset);
+            return $decoded_body;
         }
     }
+    $detected_charset = null;
     return null;
 }
 
-// ==== 安全性校验 ====
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'error' => 'Method Not Allowed']);
@@ -115,7 +131,6 @@ if ($raw_email_content === false) {
     echo json_encode(['success' => false, 'error' => 'Could not read uploaded email file.']);
     exit();
 }
-
 $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
 $stmt->execute([':email' => $user_email]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -126,24 +141,21 @@ if (!$user) {
 }
 $user_id = $user['id'];
 
-$text_body = get_plain_text_body_from_email($raw_email_content);
+// 核心：正文智能转码处理
+$detected_charset = null;
+$text_body = get_plain_text_body_from_email($raw_email_content, $detected_charset);
 if ($text_body === null) $text_body = $raw_email_content;
 
-// 邮件正文强制转UTF-8（自动识别原编码）
-$charset = 'UTF-8';
-if (preg_match('/charset="?([^\s";]+)"?/i', $raw_email_content, $match)) {
-    $charset = strtoupper($match[1]);
-}
-$text_body = mb_convert_encoding($text_body, 'UTF-8', $charset);
+// 智能编码转换
+$text_body = smart_convert_encoding($text_body, $detected_charset);
 
 // html_body 同理
 $html_body = null;
 if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_OK) {
-    $html_body = file_get_contents($_FILES['html_body']['tmp_name']);
-    $html_body = mb_convert_encoding($html_body, 'UTF-8', $charset);
+    $html_raw = file_get_contents($_FILES['html_body']['tmp_name']);
+    $html_body = smart_convert_encoding($html_raw, $detected_charset);
 } elseif (!empty($_POST['html_body'])) {
-    $html_body = $_POST['html_body'];
-    $html_body = mb_convert_encoding($html_body, 'UTF-8', $charset);
+    $html_body = smart_convert_encoding($_POST['html_body'], $detected_charset);
 }
 
 $attachments_meta = handle_attachments($user_id);
