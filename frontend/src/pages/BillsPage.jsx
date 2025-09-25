@@ -77,6 +77,7 @@ function BillsPage() {
   const [selectedBillIndex, setSelectedBillIndex] = useState(null);
   const { user, isAuthenticated } = useAuth();
 
+  // 修复关键点：fetch请求必须带credentials: 'include'
   const fetchBills = async () => {
     setIsLoading(true);
     setError('');
@@ -84,7 +85,7 @@ function BillsPage() {
       const response = await fetch('/get_bills', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include' // 修复关键点：带上 cookie/session
+        credentials: 'include'
       });
       const data = await response.json();
       if (data.success) {
@@ -99,6 +100,7 @@ function BillsPage() {
     }
   };
 
+  // 只在登录后自动拉取账单
   useEffect(() => {
     if (isAuthenticated) {
       fetchBills();
@@ -123,11 +125,11 @@ function BillsPage() {
     }
   };
 
+  // 删除账单也要带credentials: 'include'
   const handleDeleteBill = async (billId) => {
     if (!window.confirm(`您确定要删除账单 #${billId} 吗？此操作无法撤销。`)) {
       return;
     }
-
     try {
       const response = await fetch('/delete_bill', {
         method: 'POST',
