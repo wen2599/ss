@@ -1,39 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/BetCalculator.php';
 
-// Helper: Save attachments to disk and return their metadata
-function handle_attachments($user_id) {
-    $attachments_meta = [];
-    $upload_dir = UPLOAD_DIR . "user_$user_id/";
-    if (!is_dir($upload_dir)) {
-        mkdir($upload_dir, 0777, true);
-    }
-    if (!empty($_FILES['attachment'])) {
-        $files = $_FILES['attachment'];
-        $count = is_array($files['name']) ? count($files['name']) : 1;
-        for ($i = 0; $i < $count; $i++) {
-            $name = is_array($files['name']) ? $files['name'][$i] : $files['name'];
-            $tmp_name = is_array($files['tmp_name']) ? $files['tmp_name'][$i] : $files['tmp_name'];
-            $error = is_array($files['error']) ? $files['error'][$i] : $files['error'];
-            $size = is_array($files['size']) ? $files['size'][$i] : $files['size'];
-            $type = is_array($files['type']) ? $files['type'][$i] : $files['type'];
-
-            if ($error === UPLOAD_ERR_OK) {
-                $save_path = $upload_dir . uniqid() . '-' . basename($name);
-                if (move_uploaded_file($tmp_name, $save_path)) {
-                    $attachments_meta[] = [
-                        'filename' => $name,
-                        'saved_as' => $save_path,
-                        'size' => $size,
-                        'type' => $type
-                    ];
-                }
-            }
-        }
-    }
-    return $attachments_meta;
-}
-
 // 智能编码转换：优先用邮件头charset，否则自动检测
 function smart_convert_encoding($text, $prefer_charset = null) {
     if (!$text) return $text;
@@ -54,6 +21,7 @@ function smart_convert_encoding($text, $prefer_charset = null) {
     return $text;
 }
 
+// 优化邮件正文提取，能返回charset
 function get_plain_text_body_from_email($raw_email, &$detected_charset = null) {
     if (!preg_match('/boundary="?([^"]+)"?/i', $raw_email, $matches)) {
         $bodyPos = strpos($raw_email, "\r\n\r\n");
@@ -108,46 +76,8 @@ function get_plain_text_body_from_email($raw_email, &$detected_charset = null) {
     return null;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['success' => false, 'error' => 'Method Not Allowed']);
-    exit();
-}
-if (!isset($_POST['worker_secret']) || $_POST['worker_secret'] !== $worker_secret) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Access denied.']);
-    exit();
-}
-if (!isset($_POST['user_email']) || !isset($_FILES['raw_email_file'])) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Missing required fields from worker.']);
-    exit();
-}
-if ($_FILES['raw_email_file']['error'] !== UPLOAD_ERR_OK) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'File upload error from worker.']);
-    exit();
-}
-
-$user_email = $_POST['user_email'];
-$file_tmp_path = $_FILES['raw_email_file']['tmp_name'];
-$raw_email_content = file_get_contents($file_tmp_path);
-if ($raw_email_content === false) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Could not read uploaded email file.']);
-    exit();
-}
-$stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
-$stmt->execute([':email' => $user_email]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
-if (!$user) {
-    http_response_code(404);
-    echo json_encode(['success' => false, 'error' => 'User not found for the provided email.']);
-    exit();
-}
-$user_id = $user['id'];
-
-// 核心：正文智能编码处理
+...
+// 在主流程里这样调用
 $detected_charset = null;
 $text_body = get_plain_text_body_from_email($raw_email_content, $detected_charset);
 if ($text_body === null) $text_body = $raw_email_content;
@@ -161,41 +91,4 @@ if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_
 } elseif (!empty($_POST['html_body'])) {
     $html_body = smart_convert_encoding($_POST['html_body'], $detected_charset);
 }
-
-$attachments_meta = handle_attachments($user_id);
-
-// 内容结算
-$settlement_slip = BetCalculator::calculate($text_body);
-$status = 'unrecognized';
-$settlement_details = null;
-$total_cost = null;
-if ($settlement_slip !== null) {
-    $status = 'processed';
-    $settlement_details = json_encode($settlement_slip, JSON_UNESCAPED_UNICODE);
-    $total_cost = $settlement_slip['summary']['total_cost'];
-}
-
-try {
-    $sql = "INSERT INTO bills (user_id, raw_content, settlement_details, total_cost, status)
-            VALUES (:user_id, :raw_content, :settlement_details, :total_cost, :status)";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        ':user_id' => $user_id,
-        ':raw_content' => $text_body . ($html_body ? "\n\n---HTML正文---\n" . $html_body : ''),
-        ':settlement_details' => $settlement_details,
-        ':total_cost' => $total_cost,
-        ':status' => $status
-    ]);
-    http_response_code(201);
-    echo json_encode([
-        'success' => true,
-        'message' => 'Bill processed and saved successfully.',
-        'status' => $status,
-        'attachments' => $attachments_meta
-    ]);
-} catch (PDOException $e) {
-    error_log("Bill insertion error: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Failed to save the bill to the database.']);
-}
-?>
+...
