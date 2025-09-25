@@ -107,6 +107,7 @@ function get_plain_text_body_from_email($raw_email, &$detected_charset = null) {
     return null;
 }
 
+// 认证及参数检查
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'error' => 'Method Not Allowed']);
@@ -146,7 +147,7 @@ if (!$user) {
 }
 $user_id = $user['id'];
 
-// 正文智能编码处理
+// 邮件正文处理
 $detected_charset = null;
 $text_body = get_plain_text_body_from_email($raw_email_content, $detected_charset);
 if ($text_body === null) $text_body = $raw_email_content;
@@ -165,4 +166,38 @@ $attachments_meta = handle_attachments($user_id);
 
 // 多段结算
 $multi_slip = BetCalculator::calculateMulti($text_body);
-$status = '
+$status = 'unrecognized';
+$settlement_details = null;
+$total_cost = null;
+if ($multi_slip !== null) {
+    $status = 'processed';
+    $settlement_details = json_encode($multi_slip, JSON_UNESCAPED_UNICODE);
+    $total_cost = array_sum(array_map(function($item) {
+        return $item['result']['summary']['total_cost'] ?? 0;
+    }, $multi_slip));
+}
+
+try {
+    $sql = "INSERT INTO bills (user_id, raw_content, settlement_details, total_cost, status)
+            VALUES (:user_id, :raw_content, :settlement_details, :total_cost, :status)";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        ':user_id' => $user_id,
+        ':raw_content' => $text_body . ($html_body ? "\n\n---HTML正文---\n" . $html_body : ''),
+        ':settlement_details' => $settlement_details,
+        ':total_cost' => $total_cost,
+        ':status' => $status
+    ]);
+    http_response_code(201);
+    echo json_encode([
+        'success' => true,
+        'message' => 'Bill processed and saved successfully.',
+        'status' => $status,
+        'attachments' => $attachments_meta
+    ]);
+} catch (PDOException $e) {
+    error_log("Bill insertion error: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Failed to save the bill to the database.']);
+}
+?>
