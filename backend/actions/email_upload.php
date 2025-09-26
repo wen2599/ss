@@ -165,8 +165,9 @@ $attachments_meta = handle_attachments($user_id);
 
 // Use a regex to split the text by a line that looks like a sender/timestamp delimiter.
 // This pattern looks for a line that ends with HH:MM time format, preceded by a space.
+// The 'm' flag is crucial for making '^' and '$' match the start/end of each line, not just the whole string.
 // The (?=...) is a positive lookahead to keep the delimiter as part of the next split.
-$blocks = preg_split('/(\r\n|\n|\r)(?=.*\s\d{2}:\d{2}$)/', $text_body, -1, PREG_SPLIT_NO_EMPTY);
+$blocks = preg_split('/(\r\n|\n|\r)(?=.*\s\d{2}:\d{2}$)/m', $text_body, -1, PREG_SPLIT_NO_EMPTY);
 
 $slips = [];
 foreach ($blocks as $block) {
