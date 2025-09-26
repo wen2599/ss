@@ -183,7 +183,6 @@ if (empty($delimiters)) {
         $current_delimiter_pos = $delimiters[$i][1];
 
         // Determine the end position for the current slip's content.
-        // It's either the position of the next delimiter or the end of the whole text.
         $next_delimiter_pos = isset($delimiters[$i + 1]) ? $delimiters[$i + 1][1] : strlen($text_body);
 
         // Calculate the length of the slip content.
