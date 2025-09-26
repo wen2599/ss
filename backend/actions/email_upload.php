@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../lib/BetCalculator.php';
 
 // Helper: Save attachments to disk and return their metadata
 function handle_attachments($user_id) {
@@ -163,35 +164,18 @@ if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_
 
 $attachments_meta = handle_attachments($user_id);
 
-// This regex will split the text by lines that look like a sender/timestamp delimiter.
-// e.g., "Sender Name 22:31"
-$delimiter_regex = '/^.*\s\d{2}:\d{2}$/m';
-
-// Split the text into blocks using the delimiter.
-$blocks = preg_split($delimiter_regex, $text_body, -1, PREG_SPLIT_NO_EMPTY);
-
-// Check if the original text started with a delimiter.
-// If it did not, the first block is junk content before the first real slip.
-$lines = preg_split('/(\r\n|\n|\r)/', $text_body);
-$first_line = isset($lines[0]) ? trim($lines[0]) : '';
-if (!preg_match('/^.*\s\d{2}:\d{2}$/', $first_line)) {
-    array_shift($blocks); // Discard the first block if it's not part of a slip.
-}
-
-$slips = [];
-foreach ($blocks as $block) {
-    $trimmed_block = trim($block);
-    if (!empty($trimmed_block)) {
-        $slips[] = [
-            'raw' => $trimmed_block,
-            'settlement' => '' // Initialize with an empty settlement
-        ];
-    }
-}
-
-$status = 'pending_settlement';
-$settlement_details = json_encode($slips, JSON_UNESCAPED_UNICODE);
+// 多段结算
+$multi_slip = BetCalculator::calculateMulti($text_body);
+$status = 'unrecognized';
+$settlement_details = null;
 $total_cost = null;
+if ($multi_slip !== null) {
+    $status = 'processed';
+    $settlement_details = json_encode($multi_slip, JSON_UNESCAPED_UNICODE);
+    $total_cost = array_sum(array_map(function($item) {
+        return $item['result']['summary']['total_cost'] ?? 0;
+    }, $multi_slip));
+}
 
 try {
     $sql = "INSERT INTO bills (user_id, raw_content, settlement_details, total_cost, status)
