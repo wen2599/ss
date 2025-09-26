@@ -138,6 +138,55 @@ a:hover {
 .lottery-banner:last-child {
   margin-bottom: 0;
 }
+
+/* Slip Item Styling */
+.slips-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.slip-item-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: white;
+}
+
+.slip-panel h4 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: var(--text-color-muted);
+  font-size: 0.9em;
+  text-transform: uppercase;
+}
+
+.slip-panel pre, .slip-panel textarea {
+  background-color: #f8f9fa;
+  padding: 0.8rem;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+  min-height: 100px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: monospace;
+}
+
+.slip-actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.error-text {
+  color: var(--error-color);
+  font-size: 0.9em;
+  margin-top: 0.5rem;
+}
 .lottery-banner h3 {
   margin: 0 0 1rem 0;
   font-size: 1.2em;
@@ -310,6 +359,11 @@ a:hover {
 
   /* Responsive Panels Layout */
   .panels-container {
+    grid-template-columns: 1fr;
+  }
+
+  /* Responsive Slip Item Layout */
+  .slip-item-container {
     grid-template-columns: 1fr;
   }
 }
