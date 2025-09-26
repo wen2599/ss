@@ -111,7 +111,7 @@ function BillsPage() {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch('/?action=get_bills', {
+      const response = await fetch('/get_bills', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
@@ -158,7 +158,7 @@ function BillsPage() {
       return;
     }
     try {
-      const response = await fetch('/?action=delete_bill', {
+      const response = await fetch('/delete_bill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bill_id: billId }),
@@ -222,11 +222,11 @@ function BillsPage() {
                 onClick={() => handleSelectBill(index)}
                 className={selectedBillIndex === index ? 'selected-row' : ''}
               >
-                <td data-label="账单ID">{bill.id}</td>
-                <td data-label="创建时间">{new Date(bill.created_at).toLocaleString()}</td>
-                <td data-label="总金额">{bill.total_cost ? `${bill.total_cost} 元` : 'N/A'}</td>
-                <td data-label="状态">{renderStatus(bill.status)}</td>
-                <td data-label="操作">
+                <td>{bill.id}</td>
+                <td>{new Date(bill.created_at).toLocaleString()}</td>
+                <td>{bill.total_cost ? `${bill.total_cost} 元` : 'N/A'}</td>
+                <td>{renderStatus(bill.status)}</td>
+                <td>
                   <button onClick={(e) => { e.stopPropagation(); handleDeleteBill(bill.id); }} className="delete-button">
                     删除
                   </button>
