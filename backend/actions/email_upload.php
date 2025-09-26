@@ -163,7 +163,8 @@ if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_
 
 $attachments_meta = handle_attachments($user_id);
 
-// This regex will find all lines that look like a sender/timestamp delimiter.
+// Final, robust splitting logic.
+// This regex finds all lines that look like a sender/timestamp delimiter.
 $delimiter_regex = '/^.*\s\d{2}:\d{2}$/m';
 preg_match_all($delimiter_regex, $text_body, $matches, PREG_OFFSET_CAPTURE);
 
@@ -171,34 +172,34 @@ $delimiters = $matches[0];
 $slips = [];
 
 if (empty($delimiters)) {
-    // If no delimiters are found, treat the whole body as a single slip.
+    // If no delimiters are found, treat the whole body as a single slip if it's not empty.
     $trimmed_body = trim($text_body);
     if (!empty($trimmed_body)) {
         $slips[] = ['raw' => $trimmed_body, 'settlement' => ''];
     }
 } else {
+    // Iterate through the found delimiters to extract the content between them.
     for ($i = 0; $i < count($delimiters); $i++) {
-        $delimiter_pos = $delimiters[$i][1];
-        // Get the content between the current delimiter and the next one.
-        $next_delimiter_pos = isset($delimiters[$i + 1]) ? $delimiters[$i + 1][1] : strlen($text_body);
-        $content_length = $next_delimiter_pos - $delimiter_pos;
+        $current_delimiter_pos = $delimiters[$i][1];
 
-        $slip_content = substr($text_body, $delimiter_pos, $content_length);
+        // Determine the end position for the current slip's content.
+        // It's either the position of the next delimiter or the end of the whole text.
+        $next_delimiter_pos = isset($delimiters[$i + 1]) ? $delimiters[$i + 1][1] : strlen($text_body);
+
+        // Calculate the length of the slip content.
+        $content_length = $next_delimiter_pos - $current_delimiter_pos;
+
+        // Extract the slip content, which includes the delimiter line itself.
+        $slip_content = substr($text_body, $current_delimiter_pos, $content_length);
         $trimmed_content = trim($slip_content);
 
+        // Only add non-empty slips.
         if (!empty($trimmed_content)) {
             $slips[] = [
                 'raw' => $trimmed_content,
                 'settlement' => '' // Initialize with an empty settlement
             ];
         }
-    }
-
-    // Check if the text starts with something other than a delimiter.
-    // If so, the first "slip" might be junk, so we remove it.
-    $first_line = trim(strtok($text_body, "\r\n"));
-    if (isset($slips[0]) && strpos($slips[0]['raw'], $first_line) === 0 && !preg_match($delimiter_regex, $first_line)) {
-        array_shift($slips);
     }
 }
 
