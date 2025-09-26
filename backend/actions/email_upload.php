@@ -163,16 +163,44 @@ if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_
 
 $attachments_meta = handle_attachments($user_id);
 
-// Use a simple split by blank lines for now.
-$slips_raw = preg_split('/(\r\n|\n|\r)\s*(\r\n|\n|\r)/', $text_body, -1, PREG_SPLIT_NO_EMPTY);
+// This regex will find all lines that look like a sender/timestamp delimiter.
+$delimiter_regex = '/^.*\s\d{2}:\d{2}$/m';
+preg_match_all($delimiter_regex, $text_body, $matches, PREG_OFFSET_CAPTURE);
 
-// Map the raw slips to the new object structure.
-$slips = array_map(function($slip) {
-    return [
-        'raw' => trim($slip),
-        'settlement' => '' // Initialize with an empty settlement
-    ];
-}, $slips_raw);
+$delimiters = $matches[0];
+$slips = [];
+
+if (empty($delimiters)) {
+    // If no delimiters are found, treat the whole body as a single slip.
+    $trimmed_body = trim($text_body);
+    if (!empty($trimmed_body)) {
+        $slips[] = ['raw' => $trimmed_body, 'settlement' => ''];
+    }
+} else {
+    for ($i = 0; $i < count($delimiters); $i++) {
+        $delimiter_pos = $delimiters[$i][1];
+        // Get the content between the current delimiter and the next one.
+        $next_delimiter_pos = isset($delimiters[$i + 1]) ? $delimiters[$i + 1][1] : strlen($text_body);
+        $content_length = $next_delimiter_pos - $delimiter_pos;
+
+        $slip_content = substr($text_body, $delimiter_pos, $content_length);
+        $trimmed_content = trim($slip_content);
+
+        if (!empty($trimmed_content)) {
+            $slips[] = [
+                'raw' => $trimmed_content,
+                'settlement' => '' // Initialize with an empty settlement
+            ];
+        }
+    }
+
+    // Check if the text starts with something other than a delimiter.
+    // If so, the first "slip" might be junk, so we remove it.
+    $first_line = trim(strtok($text_body, "\r\n"));
+    if (isset($slips[0]) && strpos($slips[0]['raw'], $first_line) === 0 && !preg_match($delimiter_regex, $first_line)) {
+        array_shift($slips);
+    }
+}
 
 $status = 'pending_settlement';
 $settlement_details = json_encode($slips, JSON_UNESCAPED_UNICODE);

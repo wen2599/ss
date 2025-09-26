@@ -6,6 +6,40 @@ function SlipItem({ slip, index, billId, onBillUpdate }) {
   const [isEditing, setIsEditing] = useState(false);
   const [settlementText, setSettlementText] = useState(slip.settlement);
   const [error, setError] = useState('');
+  const [isSettling, setIsSettling] = useState(false);
+  const [settleSuccess, setSettleSuccess] = useState(false);
+
+  const handleAutoSettle = async () => {
+    setError('');
+    setSettleSuccess(false);
+    setIsSettling(true);
+    try {
+      const response = await fetch('/auto_settle_slip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bill_id: billId,
+          slip_index: index,
+        }),
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSettleSuccess(true);
+        // Use a timeout to clear the success message and refresh data
+        setTimeout(() => {
+            setSettleSuccess(false);
+            if(onBillUpdate) onBillUpdate();
+        }, 1500);
+      } else {
+        setError(data.error || 'Failed to auto-settle.');
+      }
+    } catch (err) {
+      setError('An error occurred during auto-settlement.');
+    } finally {
+      setIsSettling(false);
+    }
+  };
 
   const handleSave = async () => {
     setError('');
@@ -59,8 +93,12 @@ function SlipItem({ slip, index, billId, onBillUpdate }) {
           ) : (
             <button onClick={() => setIsEditing(true)}>修改</button>
           )}
+          <button onClick={handleAutoSettle} disabled={isSettling}>
+            {isSettling ? '结算中...' : '自动结算'}
+          </button>
         </div>
         {error && <p className="error-text">{error}</p>}
+        {settleSuccess && <p className="success-text">自动结算成功！</p>}
       </div>
     </div>
   );
