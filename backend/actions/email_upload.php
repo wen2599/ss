@@ -163,30 +163,29 @@ if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_
 
 $attachments_meta = handle_attachments($user_id);
 
-// Use a regex to split the text by a line that looks like a sender/timestamp delimiter.
-// This pattern looks for a line that ends with HH:MM time format, preceded by a space.
-// The 'm' flag is crucial for making '^' and '$' match the start/end of each line, not just the whole string.
-// The (?=...) is a positive lookahead to keep the delimiter as part of the next split.
-$blocks = preg_split('/(\r\n|\n|\r)(?=.*\s\d{2}:\d{2}$)/m', $text_body, -1, PREG_SPLIT_NO_EMPTY);
+// This regex will split the text by lines that look like a sender/timestamp delimiter.
+// e.g., "Sender Name 22:31"
+$delimiter_regex = '/^.*\s\d{2}:\d{2}$/m';
+
+// Split the text into blocks using the delimiter.
+$blocks = preg_split($delimiter_regex, $text_body, -1, PREG_SPLIT_NO_EMPTY);
+
+// Check if the original text started with a delimiter.
+// If it did not, the first block is junk content before the first real slip.
+$lines = preg_split('/(\r\n|\n|\r)/', $text_body);
+$first_line = isset($lines[0]) ? trim($lines[0]) : '';
+if (!preg_match('/^.*\s\d{2}:\d{2}$/', $first_line)) {
+    array_shift($blocks); // Discard the first block if it's not part of a slip.
+}
 
 $slips = [];
 foreach ($blocks as $block) {
     $trimmed_block = trim($block);
     if (!empty($trimmed_block)) {
-        // We can further filter here if needed, but for now, we assume each block is a slip.
-        // Let's remove the sender line from the slip content itself.
-        $lines = preg_split('/(\r\n|\n|\r)/', $trimmed_block);
-        if (preg_match('/.*\s\d{2}:\d{2}$/', $lines[0])) {
-            array_shift($lines); // Remove the first line if it's a delimiter
-        }
-        $content = trim(implode("\n", $lines));
-
-        if(!empty($content)) {
-            $slips[] = [
-                'raw' => $content,
-                'settlement' => '' // Initialize with an empty settlement
-            ];
-        }
+        $slips[] = [
+            'raw' => $trimmed_block,
+            'settlement' => '' // Initialize with an empty settlement
+        ];
     }
 }
 
