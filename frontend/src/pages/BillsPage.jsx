@@ -14,7 +14,7 @@ function SlipItem({ slip, index, billId, onBillUpdate }) {
     setSettleSuccess(false);
     setIsSettling(true);
     try {
-      const response = await fetch('/auto_settle_slip', {
+      const response = await fetch('/?action=auto_settle_slip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -44,7 +44,7 @@ function SlipItem({ slip, index, billId, onBillUpdate }) {
   const handleSave = async () => {
     setError('');
     try {
-      const response = await fetch('/update_settlement', {
+      const response = await fetch('/?action=update_settlement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -149,7 +149,7 @@ function BillsPage() {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch('/get_bills', {
+      const response = await fetch('/?action=get_bills', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
@@ -196,7 +196,7 @@ function BillsPage() {
       return;
     }
     try {
-      const response = await fetch('/delete_bill', {
+      const response = await fetch('/?action=delete_bill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bill_id: billId }),

@@ -1,4 +1,6 @@
 <?php
+file_put_contents(__DIR__ . '/debug_log.txt', "--- auto_settle_slip.php started ---\n", FILE_APPEND);
+
 require_once __DIR__ . '/../lib/SettlementCalculator.php';
 
 // Action: Automatically settles a single slip within a bill and updates it.
