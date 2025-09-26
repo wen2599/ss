@@ -187,6 +187,13 @@ a:hover {
   font-size: 0.9em;
   margin-top: 0.5rem;
 }
+
+.success-text {
+  color: var(--success-color);
+  font-size: 0.9em;
+  font-weight: bold;
+  margin-top: 0.5rem;
+}
 .lottery-banner h3 {
   margin: 0 0 1rem 0;
   font-size: 1.2em;
