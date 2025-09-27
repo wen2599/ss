@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-// 单条结算详情显示（兼容旧账单）
+// 单条结算详情显示（兼容旧账单，表格美化，防止溢出）
 function SettlementDetails({ details }) {
   if (!details) return <div className="details-container">没有详细信息。</div>;
   let parsedDetails;
@@ -10,11 +10,10 @@ function SettlementDetails({ details }) {
   } catch (e) {
     return <div className="details-container">无法解析详细信息。</div>;
   }
-  // 新结构或老结构
   if (parsedDetails.zodiac_bets || parsedDetails.number_bets) {
     const { zodiac_bets, number_bets, summary } = parsedDetails;
     return (
-      <div className="details-container" style={{ padding: '10px' }}>
+      <div className="details-container" style={{ padding: '10px', overflowX: 'auto' }}>
         <table className="settlement-table">
           <thead>
             <tr>
@@ -57,11 +56,10 @@ function SettlementDetails({ details }) {
       </div>
     );
   }
-  // 多条结算由 MultiSettlementDetails 渲染
   return null;
 }
 
-// 多条下注单窗口，每条下注单独展示结算，末尾展示全部总计
+// 多条下注单窗口，每条下注单独展示结算，末尾展示全部总计（表格美化+自适应）
 function MultiSettlementDetails({ details, billId }) {
   let settlementObj;
   try {
@@ -69,24 +67,19 @@ function MultiSettlementDetails({ details, billId }) {
   } catch {
     return <div>无法解析结算详情。</div>;
   }
-
   const slips = Array.isArray(settlementObj) ? settlementObj : settlementObj?.slips;
   const summary = settlementObj?.summary;
-
   if (!slips || slips.length === 0) {
     return <div>没有详细信息。</div>;
   }
-
   return (
-    <div className="multi-details-container">
+    <div className="multi-details-container" style={{ overflowX: 'auto' }}>
       <table className="multi-slips-table">
         <thead>
           <tr>
-            <th style={{ width: '80px' }}>时间/序号</th>
+            <th>时间/序号</th>
             <th>下注内容</th>
             <th>结算结果</th>
-            <th>备注</th>
-            <th>结算说明</th>
           </tr>
         </thead>
         <tbody>
@@ -101,21 +94,15 @@ function MultiSettlementDetails({ details, billId }) {
               <td className="slip-result">
                 <SettlementDetails details={slip.result} />
               </td>
-              <td className="slip-remark">
-                {slip.remark ? <span className="remark-tag">{slip.remark}</span> : <span className="remark-empty">—</span>}
-              </td>
-              <td className="slip-settlement">
-                {slip.settlement ? <span className="settlement-tag">{slip.settlement}</span> : <span className="settlement-empty">—</span>}
-              </td>
             </tr>
           ))}
         </tbody>
         {summary && (
           <tfoot>
             <tr className="summary-row">
-              <td colSpan="2" className="summary-label">全部下注单总计：</td>
-              <td colSpan="3" className="summary-value">
-                <span>所有号码总数：<strong>{summary.total_number_count}</strong> 个</span>&emsp;
+              <td colSpan="1" className="summary-label">全部总计</td>
+              <td colSpan="2" className="summary-value">
+                <span>号码总数：<strong>{summary.total_number_count}</strong> 个</span>&emsp;
                 <span>总金额：<strong>{summary.total_cost}</strong> 元</span>
               </td>
             </tr>
@@ -139,11 +126,11 @@ function BillDetailsViewer({ bill, onPrev, onNext, isPrevDisabled, isNextDisable
         <button onClick={onNext} disabled={isNextDisabled}>下一条 &rarr;</button>
       </div>
       <div className="panels-container">
-        <div className="panel">
+        <div className="panel" style={{minWidth: 0, flex: 1}}>
           <h3>邮件原文</h3>
           <pre className="raw-content-panel">{bill.raw_content}</pre>
         </div>
-        <div className="panel">
+        <div className="panel" style={{minWidth: 0, flex: 1}}>
           <h3>结算内容</h3>
           {isMulti
             ? <MultiSettlementDetails details={bill.settlement_details} billId={bill.id} />
