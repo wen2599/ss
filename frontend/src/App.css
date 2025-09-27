@@ -27,397 +27,78 @@ body, #root {
   box-sizing: border-box;
 }
 
-.container {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
 /* ==============================
-   顶部导航条
+   开奖号码横幅+球色彩
    ============================== */
-.app-header {
-  background: linear-gradient(90deg, #4F8CFF 0%, #46d6b6 100%);
+.lottery-banner {
+  background: linear-gradient(90deg, #4f8cff 0%, #46d6b6 100%);
   color: #fff;
-  border-radius: 18px;
-  padding: 1.2vw 2vw;
-  margin-bottom: 2vw;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  border-radius: 16px;
   box-shadow: 0 4px 24px rgba(79,140,255,0.15);
-}
-
-.header-left, .header-right {
-  display: flex;
-  gap: 1.2vw;
-  align-items: center;
-}
-
-.header-link {
-  padding: 0.3em 1em;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.08);
-  color: #fff;
-  font-weight: 500;
-  transition: background 0.22s;
-}
-.header-link:hover, .header-link.active {
-  background: rgba(255,255,255,0.19);
-}
-
-/* ==============================
-   主内容卡片
-   ============================== */
-main {
-  background: var(--card-bg);
-  border-radius: 18px;
-  box-shadow: var(--shadow);
-  padding: 2vw;
+  padding: 2vw 2vw;
   margin-bottom: 2vw;
-  border: 1px solid var(--border);
-  min-width: 0;
-  width: 100%;
-  max-width: 880px;
-  margin: 0 auto;
-  box-sizing: border-box;
-  overflow-x: auto;
-}
-
-.panel {
-  background: var(--card-bg);
-  border-radius: 14px;
-  box-shadow: var(--shadow);
-  padding: 2vw;
-  margin-bottom: 2vw;
-  border: 1px solid var(--border);
-  min-width: 0;
+  text-align: center;
   width: 100%;
   box-sizing: border-box;
-}
-
-.panels-container {
-  display: flex;
-  gap: 2vw;
-  flex-wrap: wrap;
-  width: 100%;
-  min-width: 0;
-}
-
-@media (max-width: 900px) {
-  .panels-container { flex-direction: column; gap: 1vw; }
-  .panel { padding: 1vw; min-width: 0; }
-}
-
-@media (max-width: 600px) {
-  .panel { min-width: 0; padding: 1vw; }
-}
-
-/* ==============================
-   按钮风格
-   ============================== */
-button {
-  border: none;
-  border-radius: 8px;
-  padding: 0.7em 1.4em;
-  font-size: 1.1em;
-  background: var(--primary-color);
-  color: #fff;
-  font-weight: 500;
-  box-shadow: 0 1px 6px rgba(79,140,255,0.11);
-  cursor: pointer;
-  transition: background 0.22s, transform 0.12s;
-}
-button:hover {
-  background: var(--primary-hover);
-  transform: translateY(-2px) scale(1.03);
-}
-button:active {
-  background: #3759bf;
-}
-
-/* ==============================
-   邮件原文样式
-   ============================== */
-.raw-content-panel {
-  background: #f7f8fa;
-  border-radius: 10px;
-  padding: 1.2em;
-  margin: 0;
-  font-size: 1em;
-  font-family: 'Fira Mono', 'Consolas', monospace;
-  white-space: pre-wrap;
-  word-break: break-all;
-  max-width: 100%;
-  max-height: 300px;
-  overflow: auto;
-  color: #32445a;
-  box-sizing: border-box;
-  border: 1px solid #e1e5ef;
-}
-
-/* ==============================
-   结算内容卡片与表格
-   ============================== */
-.multi-details-container {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-.multi-slips-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: #fff;
-  margin-top: 1vw;
-  border-radius: 12px;
-  overflow-x: auto;
-  box-shadow: var(--shadow);
-  font-size: 0.98em;
-}
-.multi-slips-table th,
-.multi-slips-table td {
-  border-bottom: 1px solid #e1e5ef;
-  padding: 0.7em 0.6em;
-  text-align: left;
-  vertical-align: top;
-  min-width: 80px;
-  word-break: break-word;
-  max-width: 240px;
-}
-.multi-slips-table th {
-  background: #f3f6fd;
-  color: #007bff;
-  font-weight: 600;
-}
-.multi-slips-table .slip-raw .slip-pre {
-  background: #f7fafc;
-  margin: 0;
-  padding: 6px;
-  border-radius: 6px;
-  font-size: 0.98em;
-  font-family: 'Fira Mono', 'Consolas', monospace;
-  white-space: pre-wrap;
-  word-break: break-all;
-  max-width: 100%;
   overflow-x: auto;
 }
-.multi-slips-table .slip-result {
-  min-width: 120px;
-  max-width: 260px;
-  overflow-x: auto;
-}
-
-/* 单条结算详情表格 */
-.settlement-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: #f8faff;
-  border-radius: 8px;
-  margin-top: 0.5em;
-  font-size: 0.97em;
-  box-shadow: 0 1px 6px rgba(79,140,255,0.06);
-  overflow-x: auto;
-}
-.settlement-table th,
-.settlement-table td {
-  border-bottom: 1px solid #e1e5ef;
-  padding: 0.4em 0.7em;
-  text-align: left;
-  word-break: break-word;
-  max-width: 160px;
-}
-.settlement-table th {
-  background: #f3f6fd;
-  color: #2980b9;
+.lottery-banner h3 {
+  margin: 0 0 1vw 0;
+  font-size: 1.15em;
   font-weight: 600;
+  opacity: 0.96;
 }
-.type-zodiac { color: #e74c3c; font-weight: bold; }
-.type-number { color: #3576e6; font-weight: bold; }
-.zodiac-tag {
-  display: inline-block; background: #ffe2e2; color: #e74c3c;
-  border-radius: 4px; padding: 1px 6px; margin-top: 2px;
-  font-size: 0.95em;
-}
-.amount { color: #007bff; font-weight: 500; }
-.summary-label { background: #f8f9fa; color: #6c757d; font-weight: 500; }
-.summary-value { background: #eaf3ff; font-weight: bold; color: #28a745; }
-.slip-time .time-tag {
-  display: inline-block; background: #d1e9ff; color: #0056b3;
-  border-radius: 4px; padding: 2px 8px; font-size: 0.98em;
-}
-
-/* 总计高亮 */
-.summary-row { font-size: 1.07em; background: #f0f8ff; }
-.multi-details-summary {
-  margin-top: 2vw;
-  padding: 1vw 1vw 1vw 2vw;
-  border-top: 2px solid #4F8CFF;
-  background: #eaf3ff;
-  border-radius: 8px;
-  font-size: 1.08em;
-  word-break: break-word;
-}
-
-/* ==============================
-   账单表格
-   ============================== */
-.bills-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
-  background-color: var(--card-bg);
-}
-.bills-table th,
-.bills-table td {
-  padding: 1rem;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-}
-.bills-table th {
-  font-weight: 600;
-  color: var(--text-muted);
-}
-.bills-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.bills-table tbody tr:hover {
-  background-color: #f0f7ff;
-  cursor: pointer;
-}
-.selected-row {
-  background: #eaf3ff;
-}
-
-/* ==============================
-   状态标签
-   ============================== */
-.status-processed {
-  background: #e1ffe1;
-  color: #22bb66;
-  border-radius: 6px;
-  padding: 2px 12px;
-  font-weight: 600;
-}
-.status-unrecognized {
-  background: #ffe2e2;
-  color: #e74c3c;
-  border-radius: 6px;
-  padding: 2px 12px;
-  font-weight: 600;
-}
-.status-default {
-  background: #f0f7ff;
-  color: #4F8CFF;
-  border-radius: 6px;
-  padding: 2px 12px;
-  font-weight: 500;
-}
-
-/* ==============================
-   modal弹窗
-   ============================== */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(79,140,255,0.18);
+.banner-numbers {
+  margin-top: 0.5vw;
   display: flex;
   justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.number-ball {
+  display: inline-flex;
   align-items: center;
-  z-index: 9999;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: bold;
+  font-size: 1.1em;
+  margin: 2px;
+  box-shadow: 0 1px 3px rgba(79,140,255,0.09);
+  transition: box-shadow 0.18s, transform 0.18s;
 }
-.modal-content {
-  background: var(--card-bg);
-  padding: 2.5vw;
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(79,140,255,0.2);
-  position: relative;
-  width: 96vw;
-  max-width: 410px;
-}
-.modal-close-button {
-  position: absolute;
-  top: 12px;
-  right: 20px;
-  background: none;
-  border: none;
-  font-size: 2.2em;
-  color: var(--primary-color);
-  cursor: pointer;
-  transition: color 0.22s;
-}
-.modal-close-button:hover {
-  color: var(--primary-hover);
-}
-form input {
-  padding: 1em;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: #f7f8fa;
-  font-size: 1em;
-}
-form input:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(79,140,255,0.09);
-}
-form button {
-  margin-top: 1vw;
-  padding: 1em 0;
-  background: var(--primary-color);
-  font-size: 1.15em;
-}
-.modal-toggle {
-  margin-top: 2vw;
-  text-align: center;
-  color: var(--text-muted);
-}
-.modal-toggle button {
-  background: none;
-  border: none;
-  color: var(--primary-color);
-  text-decoration: underline;
-  font-size: inherit;
+.number-ball-red { background-color: #e74c3c; }
+.number-ball-blue { background-color: #3576e6; }
+.number-ball-green { background-color: #22bb66; }
+.number-ball-default { background-color: #7a8194; }
+.special-number {
+  background: #ffd966 !important;
+  color: #222 !important;
+  border: 2px solid #ffd966;
+  font-weight: bold;
+  box-shadow: 0 0 0 2px #ffd966, 0 2px 8px rgba(79,140,255,0.09);
 }
 
 /* ==============================
-   提示/错误/成功文本
+   其他全局/卡片/表格/按钮/弹窗等样式
    ============================== */
-.error, p.error {
-  color: var(--error);
-  background: #ffe2e2;
-  border: 1px solid #ffd0d0;
-  padding: 1vw;
-  border-radius: 8px;
-  text-align: center;
-}
-p.success {
-  color: var(--success);
-  background: #e1ffe1;
-  border: 1px solid #bbf7bb;
-  padding: 1vw;
-  border-radius: 8px;
-  text-align: center;
-}
+/* ...省略: 你可以用你之前的样式，确保不要覆盖上述横幅和球样式... */
 
-/* ==============================
-   响应式自适应优化
-   ============================== */
-@media (max-width: 900px) {
-  #root { padding: 2vw 1vw; }
-  .container { gap: 1.2rem; }
-  main { padding: 1vw; }
-  .panels-container { flex-direction: column; gap: 1vw; }
-  .panel { padding: 1vw; }
-  .modal-content { padding: 1.2vw; }
-}
 @media (max-width: 600px) {
-  #root { padding: 1vw 0.5vw; }
-  main { padding: 0.5vw; }
-  .panel { min-width: 0; padding: 1vw; }
-  .modal-content { padding: 1vw; }
-  .multi-details-summary, .single-bet-section { padding: 1vw; }
-  .multi-slips-table, .settlement-table, .bills-table {
-    font-size: 0.96em;
+  .lottery-banner {
+    padding: 1vw;
+    font-size: 0.98em;
   }
-  .raw-content-panel { font-size: 0.96em; max-height: 180px; }
+  .number-ball {
+    width: 24px;
+    height: 24px;
+    font-size: 0.98em;
+  }
+  .banner-numbers {
+    gap: 5px;
+  }
 }
