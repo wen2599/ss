@@ -1,91 +1,77 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-// 单条结算详情（支持编辑备注/说明，弹窗自适应，整条单编辑）
-function SettlementDetails({ details, editable = false, editedText, onEditChange, onSaveEdit, saving, saveResult }) {
+// 单条结算详情（仅用于显示）
+function SettlementDetails({ details }) {
   if (!details) return <div className="details-container">没有详细信息。</div>;
+
   let parsedDetails;
   try {
     parsedDetails = typeof details === 'string' ? JSON.parse(details) : details;
   } catch (e) {
     return <div className="details-container">无法解析详细信息。</div>;
   }
-  if (parsedDetails.zodiac_bets || parsedDetails.number_bets) {
-    const { zodiac_bets, number_bets, summary, settlement } = parsedDetails;
-    return (
-      <div className="details-container">
-        <table className="settlement-table">
-          <thead>
-            <tr>
-              <th>类型</th>
-              <th>内容</th>
-              <th>金额</th>
+
+  const { zodiac_bets, number_bets, summary, settlement } = parsedDetails || {};
+
+  // This component should be robust enough to not crash the page.
+  const safe_zodiac_bets = Array.isArray(zodiac_bets) ? zodiac_bets : [];
+  const safe_number_bets = Array.isArray(number_bets) ? number_bets : [];
+
+  if (safe_zodiac_bets.length === 0 && safe_number_bets.length === 0) {
+    return <div className="details-container">没有解析到投注。</div>;
+  }
+
+  return (
+    <div className="details-container">
+      <table className="settlement-table">
+        <thead>
+          <tr>
+            <th>类型</th>
+            <th>内容</th>
+            <th>金额</th>
+          </tr>
+        </thead>
+        <tbody>
+          {safe_zodiac_bets.map((bet, idx) => (
+            <tr key={`zodiac-${idx}`}>
+              <td className="type-zodiac">生肖投注</td>
+              <td>
+                <span className="zodiac-tag">{bet.zodiac}</span>
+                <span>: {bet.numbers.join(', ')}</span>
+              </td>
+              <td className="amount">{bet.cost} 元</td>
             </tr>
-          </thead>
-          <tbody>
-            {zodiac_bets && zodiac_bets.length > 0 && (
-              <tr>
-                <td className="type-zodiac">生肖投注</td>
-                <td>
-                  {zodiac_bets.map(bet => (
-                    <span key={bet.zodiac}>
-                      <span className="zodiac-tag">{bet.zodiac}</span>：{bet.numbers.join(', ')}&nbsp;
-                    </span>
-                  ))}
-                </td>
-                <td className="amount">
-                  {zodiac_bets.reduce((acc, bet) => acc + bet.cost, 0)} 元
-                </td>
-              </tr>
-            )}
-            {number_bets && number_bets.numbers && number_bets.numbers.length > 0 && (
-              <tr>
-                <td className="type-number">单独号码投注</td>
-                <td>{number_bets.numbers.join(', ')}</td>
-                <td className="amount">{number_bets.cost} 元</td>
-              </tr>
-            )}
-          </tbody>
-          {summary && (
-            <tfoot>
-              <tr>
-                <td colSpan="2" className="summary-label">号码总数</td>
-                <td className="summary-value">{summary.number_count ?? summary.total_unique_numbers} 个</td>
-              </tr>
-              <tr>
-                <td colSpan="2" className="summary-label">总金额</td>
-                <td className="summary-value">{summary.total_cost} 元</td>
-              </tr>
-            </tfoot>
-          )}
-        </table>
-        <div className="settlement-notes-section">
-          <strong>结算备注/说明：</strong>
-          {editable ? (
-            <div className="editable-notes">
-              <textarea
-                value={editedText}
-                onChange={e => onEditChange(e.target.value)}
-                rows={3}
-                className="notes-textarea"
-                placeholder="可编辑结算说明..."
-                disabled={saving}
-              />
-              <button onClick={onSaveEdit} disabled={saving}>
-                {saving ? '保存中...' : '保存备注'}
-              </button>
-              {saveResult && <div className={`save-result ${saveResult.startsWith('保存成功') ? 'success' : 'error'}`}>{saveResult}</div>}
-            </div>
-          ) : (
-            <div className="readonly-notes">
-              {settlement || <span className="no-notes">暂无备注</span>}
-            </div>
-          )}
+          ))}
+          {safe_number_bets.map((bet, idx) => (
+            <tr key={`number-${idx}`}>
+              <td className="type-number">号码投注</td>
+              <td>{bet.numbers.join(', ')}</td>
+              <td className="amount">{bet.cost} 元</td>
+            </tr>
+          ))}
+        </tbody>
+        {summary && (
+          <tfoot>
+            <tr>
+              <td colSpan="2" className="summary-label">号码总数</td>
+              <td className="summary-value">{summary.number_count ?? 0} 个</td>
+            </tr>
+            <tr>
+              <td colSpan="2" className="summary-label">总金额</td>
+              <td className="summary-value">{summary.total_cost ?? 0} 元</td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+      <div className="settlement-notes-section">
+        <strong>结算备注/说明：</strong>
+        <div className="readonly-notes">
+          {settlement || <span className="no-notes">暂无备注</span>}
         </div>
       </div>
-    );
-  }
-  return null;
+    </div>
+  );
 }
 
 // 原文弹窗
@@ -206,15 +192,22 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
                   <pre className="slip-pre">{slip.raw}</pre>
                 </div>
                 <div className="slip-result">
-                  <SettlementDetails
-                    details={slip.result}
-                    editable={editingSlipIndex === index}
-                    editedText={editedText}
-                    onEditChange={setEditedText}
-                  />
-                  {saveResult.index === index && saveResult.message && (
-                    <div className={`save-result ${saveResult.message.startsWith('保存成功') ? 'success' : 'error'}`}>
-                      {saveResult.message}
+                  <SettlementDetails details={slip.result} />
+                  {editingSlipIndex === index && (
+                    <div className="editable-notes">
+                      <textarea
+                        value={editedText}
+                        onChange={(e) => setEditedText(e.target.value)}
+                        rows={3}
+                        className="notes-textarea"
+                        placeholder="可编辑结算说明..."
+                        disabled={saving}
+                      />
+                      {saveResult.index === index && saveResult.message && (
+                        <div className={`save-result ${saveResult.message.startsWith('保存成功') ? 'success' : 'error'}`}>
+                          {saveResult.message}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
