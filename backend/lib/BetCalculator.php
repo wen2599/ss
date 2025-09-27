@@ -12,12 +12,14 @@ class BetCalculator {
             'summary' => ['number_count' => 0, 'total_cost' => 0]
         ];
 
-        // a. Parse Zodiacs
-        preg_match_all('/([\p{Han}]+)各数/u', $betting_slip_text, $zodiac_matches);
+        // a. Parse Zodiacs - More flexible regex to allow separators (space, comma) between zodiacs.
+        preg_match_all('/((?:[\p{Han}][,，\s]*)+)各数/u', $betting_slip_text, $zodiac_matches);
         $mentioned_zodiacs = [];
         if (!empty($zodiac_matches[1])) {
             $zodiac_string = implode('', $zodiac_matches[1]);
-            $mentioned_zodiacs = mb_str_split($zodiac_string);
+            // Clean up separators before splitting into characters
+            $cleaned_zodiac_string = preg_replace('/[,，\s]/u', '', $zodiac_string);
+            $mentioned_zodiacs = mb_str_split($cleaned_zodiac_string);
         }
 
         $all_zodiac_numbers = [];
@@ -34,12 +36,13 @@ class BetCalculator {
             }
         }
 
-        // b. Parse Numbers
-        preg_match_all('/([0-9,]+)各5#/u', $betting_slip_text, $number_matches);
+        // b. Parse Numbers - More flexible regex for number bets, allowing different separators and spacing.
+        preg_match_all('/([0-9]+(?:[,，、\s]+[0-9]+)*)\s*各\s*5\s*#/u', $betting_slip_text, $number_matches);
         $mentioned_numbers = [];
         if (!empty($number_matches[1])) {
             foreach ($number_matches[1] as $number_group) {
-                $numbers = explode(',', trim($number_group, ','));
+                // Split by various separators.
+                $numbers = preg_split('/[,，、\s]+/', $number_group);
                 foreach ($numbers as $num) {
                     if (!empty($num)) {
                         $mentioned_numbers[] = trim($num);
