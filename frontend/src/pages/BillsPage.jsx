@@ -118,7 +118,21 @@ function RawModal({ open, rawContent, onClose }) {
 }
 
 // 结算详情弹窗（卡片式布局）
-function SettlementModal({ open, bill, onClose }) {
+function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
+  const [editingSlipIndex, setEditingSlipIndex] = useState(null);
+  const [editedText, setEditedText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveResult, setSaveResult] = useState({ index: null, message: '' });
+
+  useEffect(() => {
+    if (!open) {
+      setEditingSlipIndex(null);
+      setEditedText('');
+      setSaving(false);
+      setSaveResult({ index: null, message: '' });
+    }
+  }, [open]);
+
   if (!open || !bill) return null;
 
   let parsedDetails;
@@ -133,6 +147,47 @@ function SettlementModal({ open, bill, onClose }) {
   const slips = parsedDetails?.slips || [];
   const summary = parsedDetails?.summary || {};
 
+  const handleEditClick = (index) => {
+    setEditingSlipIndex(index);
+    setEditedText(slips[index]?.result?.settlement || '');
+    setSaveResult({ index: null, message: '' });
+  };
+
+  const handleCancelClick = () => {
+    setEditingSlipIndex(null);
+    setEditedText('');
+  };
+
+  const handleSaveEdit = async () => {
+    setSaving(true);
+    setSaveResult({ index: editingSlipIndex, message: '' });
+    try {
+      const response = await fetch('/update_settlement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bill_id: bill.id,
+          slip_index: editingSlipIndex,
+          settlement_text: editedText,
+        }),
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSaveResult({ index: editingSlipIndex, message: '保存成功！' });
+        onSaveSuccess(); // Callback to refresh the bills list
+        setTimeout(() => {
+          setEditingSlipIndex(null);
+        }, 1500);
+      } else {
+        setSaveResult({ index: editingSlipIndex, message: `保存失败: ${data.error || '未知错误'}` });
+      }
+    } catch (err) {
+      setSaveResult({ index: editingSlipIndex, message: '保存失败: 网络错误' });
+    }
+    setSaving(false);
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content wide-modal" onClick={e => e.stopPropagation()}>
@@ -143,7 +198,7 @@ function SettlementModal({ open, bill, onClose }) {
         ) : (
           <div className="slips-card-container">
             {slips.map((slip, index) => (
-              <div key={index} className="bet-slip-card">
+              <div key={index} className={`bet-slip-card ${editingSlipIndex === index ? 'editing' : ''}`}>
                 <div className="slip-raw">
                   <div className="slip-card-header">
                     {slip.time ? <span className="time-tag">{slip.time}</span> : `第 ${slip.index} 段`}
@@ -151,11 +206,37 @@ function SettlementModal({ open, bill, onClose }) {
                   <pre className="slip-pre">{slip.raw}</pre>
                 </div>
                 <div className="slip-result">
-                  <SettlementDetails details={slip.result} />
+                  <SettlementDetails
+                    details={slip.result}
+                    editable={editingSlipIndex === index}
+                    editedText={editedText}
+                    onEditChange={setEditedText}
+                  />
+                  {saveResult.index === index && saveResult.message && (
+                    <div className={`save-result ${saveResult.message.startsWith('保存成功') ? 'success' : 'error'}`}>
+                      {saveResult.message}
+                    </div>
+                  )}
                 </div>
                 <div className="slip-cost">
                   <span>小计</span>
                   <strong>{slip.result?.summary?.total_cost || 0} 元</strong>
+                  <div className="slip-actions">
+                    {editingSlipIndex === index ? (
+                      <>
+                        <button onClick={handleSaveEdit} disabled={saving} className="action-button save">
+                          {saving ? '保存中...' : '保存'}
+                        </button>
+                        <button onClick={handleCancelClick} disabled={saving} className="action-button cancel">
+                          取消
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={() => handleEditClick(index)} className="action-button edit">
+                        编辑备注
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -310,6 +391,7 @@ function BillsPage() {
         open={showSettlementModal && selectedBill}
         bill={selectedBill}
         onClose={() => setShowSettlementModal(false)}
+        onSaveSuccess={fetchBills}
       />
     </div>
   );

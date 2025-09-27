@@ -220,6 +220,26 @@ button:active {
   font-size: 1.5em;
   color: var(--primary-color);
 }
+.slip-actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+.action-button {
+  padding: 0.4em 0.8em;
+  font-size: 0.9em;
+  border-radius: 6px;
+}
+.action-button.save {
+  background-color: var(--success);
+}
+.action-button.cancel {
+  background-color: var(--text-muted);
+}
+.bet-slip-card.editing {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 12px rgba(79, 140, 255, 0.2);
+}
 
 /* 单条结算详情表格 */
 .settlement-table {
