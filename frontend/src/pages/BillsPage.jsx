@@ -117,7 +117,7 @@ function RawModal({ open, rawContent, onClose }) {
   );
 }
 
-// 结算详情弹窗（展示所有分段的表格）
+// 结算详情弹窗（卡片式布局）
 function SettlementModal({ open, bill, onClose }) {
   if (!open || !bill) return null;
 
@@ -141,45 +141,30 @@ function SettlementModal({ open, bill, onClose }) {
         {slips.length === 0 ? (
           <div className="no-slips-message">没有解析到有效的分段下注单。</div>
         ) : (
-          <div className="multi-details-container">
-            <table className="multi-slips-table">
-              <thead>
-                <tr>
-                  <th>时间</th>
-                  <th>下注单原文</th>
-                  <th>解析结果</th>
-                  <th>金额</th>
-                </tr>
-              </thead>
-              <tbody>
-                {slips.map((slip, index) => (
-                  <tr key={index}>
-                    <td className="slip-time">
-                      {slip.time ? <span className="time-tag">{slip.time}</span> : `第 ${slip.index} 段`}
-                    </td>
-                    <td className="slip-raw">
-                      <pre className="slip-pre">{slip.raw}</pre>
-                    </td>
-                    <td className="slip-result">
-                      <SettlementDetails details={slip.result} />
-                    </td>
-                    <td className="slip-cost">
-                      <strong>{slip.result?.summary?.total_cost || 0} 元</strong>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="summary-row">
-                  <td colSpan="3">总计</td>
-                  <td className="summary-total-cost">
-                    <strong>{summary.total_cost || 0} 元</strong>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+          <div className="slips-card-container">
+            {slips.map((slip, index) => (
+              <div key={index} className="bet-slip-card">
+                <div className="slip-raw">
+                  <div className="slip-card-header">
+                    {slip.time ? <span className="time-tag">{slip.time}</span> : `第 ${slip.index} 段`}
+                  </div>
+                  <pre className="slip-pre">{slip.raw}</pre>
+                </div>
+                <div className="slip-result">
+                  <SettlementDetails details={slip.result} />
+                </div>
+                <div className="slip-cost">
+                  <span>小计</span>
+                  <strong>{slip.result?.summary?.total_cost || 0} 元</strong>
+                </div>
+              </div>
+            ))}
             <div className="multi-details-summary">
-              <strong>总号码数:</strong> {summary.total_number_count || 0} 个
+              <strong>总计:</strong>
+              <span>{summary.total_cost || 0} 元</span>
+              <span className="summary-divider">|</span>
+              <strong>总号码数:</strong>
+              <span>{summary.total_number_count || 0} 个</span>
             </div>
           </div>
         )}
