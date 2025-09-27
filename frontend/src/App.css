@@ -81,7 +81,7 @@ main {
   max-width: 880px;
   margin: 0 auto;
   box-sizing: border-box;
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 
 .panel {
@@ -94,7 +94,6 @@ main {
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
-  overflow-x: auto;
 }
 
 .panels-container {
@@ -171,9 +170,9 @@ button:active {
   background: #fff;
   margin-top: 1vw;
   border-radius: 12px;
-  overflow-x: auto;
   box-shadow: var(--shadow);
   font-size: 0.98em;
+  table-layout: fixed;
 }
 .multi-slips-table th,
 .multi-slips-table td {
@@ -181,9 +180,7 @@ button:active {
   padding: 0.7em 0.6em;
   text-align: left;
   vertical-align: top;
-  min-width: 80px;
   word-break: break-word;
-  max-width: 240px;
 }
 .multi-slips-table th {
   background: #f3f6fd;
@@ -200,12 +197,9 @@ button:active {
   white-space: pre-wrap;
   word-break: break-all;
   max-width: 100%;
-  overflow-x: auto;
 }
 .multi-slips-table .slip-result {
-  min-width: 120px;
-  max-width: 260px;
-  overflow-x: auto;
+  word-break: break-word;
 }
 
 /* 单条结算详情表格 */
@@ -217,7 +211,7 @@ button:active {
   margin-top: 0.5em;
   font-size: 0.97em;
   box-shadow: 0 1px 6px rgba(79,140,255,0.06);
-  overflow-x: auto;
+  table-layout: fixed;
 }
 .settlement-table th,
 .settlement-table td {
@@ -225,12 +219,47 @@ button:active {
   padding: 0.4em 0.7em;
   text-align: left;
   word-break: break-word;
-  max-width: 160px;
 }
 .settlement-table th {
   background: #f3f6fd;
   color: #2980b9;
   font-weight: 600;
+}
+.details-container {
+  padding: 10px;
+}
+.settlement-notes-section {
+  margin-top: 1em;
+}
+.editable-notes .notes-textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 8px;
+  margin-top: 6px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.editable-notes button {
+  margin-top: 8px;
+}
+.save-result {
+  margin-top: 8px;
+}
+.save-result.success {
+  color: var(--success);
+}
+.save-result.error {
+  color: var(--error);
+}
+.readonly-notes {
+  background: #f7f8fa;
+  border-radius: 6px;
+  padding: 6px;
+  margin-top: 6px;
+}
+.no-notes {
+  color: #bbb;
 }
 .type-zodiac { color: #e74c3c; font-weight: bold; }
 .type-number { color: #3576e6; font-weight: bold; }
@@ -267,12 +296,14 @@ button:active {
   border-collapse: collapse;
   margin-top: 1rem;
   background-color: var(--card-bg);
+  table-layout: fixed;
 }
 .bills-table th,
 .bills-table td {
   padding: 1rem;
   text-align: left;
   border-bottom: 1px solid var(--border);
+  word-break: break-word;
 }
 .bills-table th {
   font-weight: 600;
@@ -287,6 +318,14 @@ button:active {
 }
 .selected-row {
   background: #eaf3ff;
+}
+.action-buttons-cell {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.action-buttons-cell button {
+  padding: 0.5em 1em;
 }
 
 /* ==============================
@@ -340,6 +379,36 @@ button:active {
   overflow-x: hidden;
   box-sizing: border-box;
 }
+.no-slips-message {
+  padding: 20px;
+  color: #888;
+}
+.modal-panel {
+  margin-bottom: 0;
+  padding: 1em;
+  background: #f7f8fa;
+}
+.modal-raw-content {
+  background: #fff;
+  border: 1px solid #e1e5ef;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 10px;
+  font-family: inherit;
+  font-size: 1em;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.slip-navigation {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin: 1em 0;
+}
+
 @media (max-width: 900px) {
   .modal-content {
     padding: 1vw;
@@ -361,6 +430,10 @@ button:active {
   }
   .settlement-table {
     font-size: 0.95em;
+  }
+  .action-buttons-cell {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
@@ -443,7 +516,7 @@ p.success {
   text-align: center;
   width: 100%;
   box-sizing: border-box;
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 .lottery-banner h3 {
   margin: 0 0 1vw 0;
