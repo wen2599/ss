@@ -1,294 +1,96 @@
-/* #root and general layout */
-#root {
-  max-width: 100%;
-  margin: 0;
-  padding: 2rem;
-  text-align: left;
-  width: 100%;
-}
+/* ...原有内容保留... */
 
-.container {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-main {
-  background-color: var(--card-background-color);
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  border: 1px solid var(--border-color);
-}
-
-/* Header Styles */
-.app-header {
-  background-color: var(--card-background-color);
-  padding: 1rem 2rem;
-  border-radius: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  border: 1px solid var(--border-color);
-}
-
-.header-left, .header-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.header-right .header-link {
-  font-weight: 500;
-  color: var(--text-color);
-  text-decoration: none;
-  transition: color 0.2s;
-  font-size: 1.1em;
-}
-.header-right .header-link:hover,
-.header-right .header-link.active {
-  color: var(--primary-color);
-}
-
-/* Form Styles */
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-form div {
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-}
-
-form label {
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: var(--text-color-muted);
-}
-
-form input {
-  padding: 0.8em;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background-color: var(--background-color);
-  color: var(--text-color);
-  font-size: 1em;
-  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-}
-
-form input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
-}
-
-form button {
-  margin-top: 1rem;
-  font-size: 1.1em;
-  padding: 0.8em 1.2em;
-}
-
-/* Alert/Message Styles */
-.error, p.error {
-  color: var(--error-color);
-  font-weight: 500;
-  background-color: rgba(220, 53, 69, 0.1);
-  border: 1px solid rgba(220, 53, 69, 0.2);
-  padding: 1rem;
-  border-radius: 8px;
-  text-align: center;
-}
-
-p.success {
-  color: var(--success-color);
-  background-color: rgba(40, 167, 69, 0.1);
-  border: 1px solid rgba(40, 167, 69, 0.2);
-  padding: 1rem;
-  border-radius: 8px;
-  margin-top: 1rem;
-  text-align: center;
-}
-
-/* General Link Styles */
-a {
-    color: var(--primary-color);
-    text-decoration: none;
-    transition: color 0.2s;
-}
-a:hover {
-  text-decoration: underline;
-  color: var(--primary-color-hover);
-}
-
-/* Lottery Banner Styles */
-.lottery-banner {
-  background: linear-gradient(135deg, #007bff, #0056b3);
-  color: white;
-  border-radius: 12px;
-  padding: 1.5rem 2rem;
-  margin-bottom: 1.5rem;
-  text-align: center;
-  box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
-}
-.lottery-banner:last-child {
-  margin-bottom: 0;
-}
-.lottery-banner h3 {
-  margin: 0 0 1rem 0;
-  font-size: 1.2em;
-  font-weight: 500;
-  opacity: 0.9;
-}
-.banner-numbers .number-ball {
-  width: 40px;
-  height: 40px;
-  line-height: 40px;
-  font-size: 1.2em;
-  font-weight: bold;
-  margin: 4px;
-  border: 2px solid rgba(255,255,255,0.5);
-}
-.banner-numbers .special-number {
-  background-color: #ffc107;
-  color: #212529;
-  border-color: #ffc107;
-}
-
-/* Table Styles (for Bills and Lottery Results) */
-.bills-table {
+/* 美化结算表格、标签、颜色区分 */
+.settlement-table, .multi-slips-table {
   width: 100%;
   border-collapse: collapse;
+  background-color: #fff;
   margin-top: 1rem;
-  background-color: var(--card-background-color);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
 }
-.bills-table th,
-.bills-table td {
-  padding: 1rem;
+.settlement-table th,
+.settlement-table td,
+.multi-slips-table th,
+.multi-slips-table td {
+  border-bottom: 1px solid #e1e4ea;
+  padding: 0.6em 1em;
   text-align: left;
-  border-bottom: 1px solid var(--border-color);
 }
-.bills-table th {
+.settlement-table th, .multi-slips-table th {
+  background: #f3f6fd;
+  color: #007bff;
   font-weight: 600;
-  color: var(--text-color-muted);
 }
-.bills-table tbody tr:last-child td {
+.settlement-table tr:last-child td,
+.multi-slips-table tr:last-child td {
   border-bottom: none;
 }
-.bills-table tbody tr:hover {
-  background-color: var(--background-color);
+.type-zodiac { color: #e74c3c; font-weight: bold; }
+.type-number { color: #2980b9; font-weight: bold; }
+.zodiac-tag {
+  display: inline-block; background: #ffe2e2; color: #e74c3c;
+  border-radius: 4px; padding: 1px 6px; margin-top: 2px;
+  font-size: 0.95em;
 }
-.number-cell {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+.amount { color: #007bff; font-weight: 500; }
+.summary-label { background: #f8f9fa; color: #6c757d; font-weight: 500; }
+.summary-value { background: #f8f9fa; font-weight: bold; color: #28a745; }
+.slip-row { transition: background 0.16s; }
+.slip-row:hover { background: #f4f6fa; }
+.slip-time .time-tag {
+  display: inline-block; background: #d1e9ff; color: #0056b3;
+  border-radius: 4px; padding: 2px 8px; font-size: 0.98em;
 }
-.number-ball {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  line-height: 30px;
-  border-radius: 50%;
-  color: white;
-  font-weight: bold;
-  font-size: 13px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+.slip-raw .slip-pre {
+  background: #f7fafc; margin: 0; padding: 6px; border-radius: 6px;
+  font-size: 1em; font-family: inherit;
 }
-.number-ball-red { background-color: #e74c3c; }
-.number-ball-blue { background-color: #3498db; }
-.number-ball-green { background-color: #2ecc71; }
-.number-ball-default { background-color: #95a5a6; }
+.slip-remark .remark-tag {
+  background: #fff8e1; color: #b57d00; border-radius: 4px; padding: 1px 6px; font-size: 0.96em;
+}
+.slip-remark .remark-empty {
+  color: #b0b8c1;
+}
+.slip-settlement .settlement-tag {
+  background: #e1ffe1; color: #27963c; border-radius: 4px; padding: 1px 6px; font-size: 0.96em;
+}
+.slip-settlement .settlement-empty {
+  color: #b0b8c1;
+}
+.summary-row { font-size: 1.07em; background: #f0f8ff; }
+.multi-details-container { margin-top: 1.5rem; }
+.details-container { padding: 0.6em 0; }
+.details-section { margin-bottom: 0.5em; }
+.details-summary { font-weight: 500; color: #28a745; }
+.panels-container { display: flex; gap: 2rem; margin-top: 1.5rem; flex-wrap: wrap; }
+.panel { flex: 1; min-width: 260px; background: #f6f8fa; border-radius: 8px; padding: 1.2rem; box-shadow: 0 1px 6px rgba(0,0,0,0.04); }
+.raw-content-panel { background: #fcfcfc; border-radius: 6px; padding: 0.8em; margin: 0; font-size: 0.98em; font-family: inherit; }
 
-.special-number {
-  margin-left: 8px;
-  transform: scale(1.1);
+/* 状态标签 */
+.status-processed {
+  color: #28a745; background: #e1ffe1; border-radius: 4px; padding: 2px 7px; font-weight: 600;
 }
-
-/* Modal Styles */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
+.status-unrecognized {
+  color: #e74c3c; background: #ffe2e2; border-radius: 4px; padding: 2px 7px; font-weight: 600;
 }
-.modal-content {
-  background-color: var(--card-background-color);
-  padding: 2.5rem;
-  border-radius: 12px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-  position: relative;
-  width: 90%;
-  max-width: 400px;
-}
-.modal-close-button {
-  position: absolute;
-  top: 10px;
-  right: 15px;
-  background: none;
-  border: none;
-  font-size: 2.5rem;
-  line-height: 1;
-  color: var(--text-color-muted);
-  cursor: pointer;
-  transition: color 0.2s;
-}
-.modal-close-button:hover {
-  color: var(--text-color);
+.status-default {
+  color: #6c757d; background: #f3f6fd; border-radius: 4px; padding: 2px 7px; font-weight: 500;
 }
 
-/* Responsive Styles */
-@media (max-width: 768px) {
-  #root {
-    padding: 1rem;
+/* 账单表格选中行高亮 */
+.selected-row {
+  background: #d1e9ff !important;
+}
+
+/* 响应式优化 */
+@media (max-width: 900px) {
+  .panels-container { flex-direction: column; gap: 1rem; }
+}
+@media (max-width: 600px) {
+  .settlement-table, .multi-slips-table, .bills-table {
+    font-size: 0.96em;
   }
-
-  .app-header {
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1rem;
-  }
-
-  .lottery-banner {
-    padding: 1rem;
-  }
-
-  .banner-numbers .number-ball {
-    width: 32px;
-    height: 32px;
-    line-height: 32px;
-    font-size: 1em;
-    margin: 2px;
-  }
-
-  .modal-content {
-    width: 95%;
-    padding: 1.5rem;
-  }
-}
-.modal-toggle {
-  margin-top: 1.5rem;
-  text-align: center;
-  color: var(--text-color-muted);
-}
-.modal-toggle button {
-  background: none;
-  border: none;
-  color: var(--primary-color);
-  text-decoration: underline;
-  padding: 0;
-  font-size: inherit;
-  cursor: pointer;
+  .panel { padding: 0.7rem; }
 }
