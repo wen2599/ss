@@ -68,23 +68,65 @@ class BetCalculator {
         return $settlement_slip;
     }
 
-    // 新增多段分条结算
+    // 新增按时间点分段结算
     public static function calculateMulti(string $full_text): ?array {
-        // 按空行分段，每段至少10个汉字/数字
-        $blocks = preg_split('/\n{2,}/u', $full_text, -1, PREG_SPLIT_NO_EMPTY);
+        // 时间点正则：适配 21:30、22:15、08:00 等
+        $pattern = '/(?<=\n|^)\s*(\d{1,2}:\d{2})/u';
+        preg_match_all($pattern, $full_text, $matches, PREG_OFFSET_CAPTURE);
+
         $results = [];
-        foreach ($blocks as $idx => $block) {
-            $block = trim($block);
-            if (mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $block)) < 10) continue;
-            $r = self::calculate($block);
+        $timePoints = $matches[1];
+
+        if (empty($timePoints)) {
+            // 没有时间点则按原空行分段逻辑
+            $blocks = preg_split('/\n{2,}/u', $full_text, -1, PREG_SPLIT_NO_EMPTY);
+            foreach ($blocks as $idx => $block) {
+                $block = trim($block);
+                if (mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $block)) < 10) continue;
+                $r = self::calculate($block);
+                if ($r) {
+                    $results[] = [
+                        'index' => $idx + 1,
+                        'raw' => $block,
+                        'result' => $r
+                    ];
+                }
+            }
+            return !empty($results) ? $results : null;
+        }
+
+        // 按时间点分段
+        $segments = [];
+        for ($i = 0; $i < count($timePoints); $i++) {
+            $start = $timePoints[$i][1];
+            $end = ($i + 1 < count($timePoints)) ? $timePoints[$i + 1][1] : mb_strlen($full_text, 'UTF-8');
+            $segment = mb_substr($full_text, $start, $end - $start, 'UTF-8');
+            // 去掉头部的时间点本身
+            $segment = preg_replace('/^\s*\d{1,2}:\d{2}/u', '', $segment);
+            $segment = trim($segment);
+            if ($segment !== '' && mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $segment)) >= 10) {
+                $segments[] = [
+                    'time' => $timePoints[$i][0],
+                    'content' => $segment
+                ];
+            }
+        }
+
+        // 针对最后一个时间点到末尾
+        if (count($segments) === 0) return null;
+
+        foreach ($segments as $idx => $seg) {
+            $r = self::calculate($seg['content']);
             if ($r) {
                 $results[] = [
                     'index' => $idx + 1,
-                    'raw' => $block,
+                    'time' => $seg['time'],
+                    'raw' => $seg['content'],
                     'result' => $r
                 ];
             }
         }
+
         return !empty($results) ? $results : null;
     }
 }
