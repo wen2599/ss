@@ -3,12 +3,13 @@ require_once __DIR__ . '/GameData.php';
 
 class BetCalculator {
 
-    public static function calculate(string $betting_slip_text): ?array {
+    // 单条下注单结算，不去重
+    public static function calculateSingle(string $betting_slip_text): ?array {
         $cost_per_number = 5;
         $settlement_slip = [
             'zodiac_bets' => [],
             'number_bets' => ['numbers' => [], 'cost' => 0],
-            'summary' => ['total_unique_numbers' => 0, 'total_cost' => 0]
+            'summary' => ['number_count' => 0, 'total_cost' => 0]
         ];
 
         // a. Parse Zodiacs
@@ -52,25 +53,22 @@ class BetCalculator {
             return null;
         }
 
-        $unique_numbers = array_unique($mentioned_numbers);
-        $settlement_slip['number_bets']['numbers'] = array_values($unique_numbers);
-        $settlement_slip['number_bets']['cost'] = count($unique_numbers) * $cost_per_number;
+        $settlement_slip['number_bets']['numbers'] = $mentioned_numbers;
+        $settlement_slip['number_bets']['cost'] = count($mentioned_numbers) * $cost_per_number;
 
-        // c. Final Calculation (De-duplicated)
-        $all_bet_numbers = array_merge($all_zodiac_numbers, $unique_numbers);
-        $final_unique_numbers = array_unique($all_bet_numbers);
-        $total_number_count = count($final_unique_numbers);
-        $total_cost = $total_number_count * $cost_per_number;
+        // c. Final Calculation (不去重)
+        $all_bet_numbers = array_merge($all_zodiac_numbers, $mentioned_numbers);
+        $number_count = count($all_bet_numbers);
+        $total_cost = $number_count * $cost_per_number;
 
-        $settlement_slip['summary']['total_unique_numbers'] = $total_number_count;
+        $settlement_slip['summary']['number_count'] = $number_count;
         $settlement_slip['summary']['total_cost'] = $total_cost;
 
         return $settlement_slip;
     }
 
-    // 新增按时间点分段结算
+    // 按时间点分段结算，每段用calculateSingle，最后总计也不去重
     public static function calculateMulti(string $full_text): ?array {
-        // 时间点正则：适配 21:30、22:15、08:00 等
         $pattern = '/(?<=\n|^)\s*(\d{1,2}:\d{2})/u';
         preg_match_all($pattern, $full_text, $matches, PREG_OFFSET_CAPTURE);
 
@@ -83,7 +81,7 @@ class BetCalculator {
             foreach ($blocks as $idx => $block) {
                 $block = trim($block);
                 if (mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $block)) < 10) continue;
-                $r = self::calculate($block);
+                $r = self::calculateSingle($block);
                 if ($r) {
                     $results[] = [
                         'index' => $idx + 1,
@@ -92,42 +90,50 @@ class BetCalculator {
                     ];
                 }
             }
-            return !empty($results) ? $results : null;
-        }
-
-        // 按时间点分段
-        $segments = [];
-        for ($i = 0; $i < count($timePoints); $i++) {
-            $start = $timePoints[$i][1];
-            $end = ($i + 1 < count($timePoints)) ? $timePoints[$i + 1][1] : mb_strlen($full_text, 'UTF-8');
-            $segment = mb_substr($full_text, $start, $end - $start, 'UTF-8');
-            // 去掉头部的时间点本身
-            $segment = preg_replace('/^\s*\d{1,2}:\d{2}/u', '', $segment);
-            $segment = trim($segment);
-            if ($segment !== '' && mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $segment)) >= 10) {
-                $segments[] = [
-                    'time' => $timePoints[$i][0],
-                    'content' => $segment
-                ];
+        } else {
+            // 按时间点分段
+            $segments = [];
+            for ($i = 0; $i < count($timePoints); $i++) {
+                $start = $timePoints[$i][1];
+                $end = ($i + 1 < count($timePoints)) ? $timePoints[$i + 1][1] : mb_strlen($full_text, 'UTF-8');
+                $segment = mb_substr($full_text, $start, $end - $start, 'UTF-8');
+                $segment = preg_replace('/^\s*\d{1,2}:\d{2}/u', '', $segment);
+                $segment = trim($segment);
+                if ($segment !== '' && mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $segment)) >= 10) {
+                    $segments[] = [
+                        'time' => $timePoints[$i][0],
+                        'content' => $segment
+                    ];
+                }
+            }
+            foreach ($segments as $idx => $seg) {
+                $r = self::calculateSingle($seg['content']);
+                if ($r) {
+                    $results[] = [
+                        'index' => $idx + 1,
+                        'time' => $seg['time'],
+                        'raw' => $seg['content'],
+                        'result' => $r
+                    ];
+                }
             }
         }
 
-        // 针对最后一个时间点到末尾
-        if (count($segments) === 0) return null;
-
-        foreach ($segments as $idx => $seg) {
-            $r = self::calculate($seg['content']);
-            if ($r) {
-                $results[] = [
-                    'index' => $idx + 1,
-                    'time' => $seg['time'],
-                    'raw' => $seg['content'],
-                    'result' => $r
-                ];
-            }
+        // 总计统计（不去重，所有段合并）
+        $total_number_count = 0;
+        $total_cost = 0;
+        foreach ($results as $item) {
+            $total_number_count += $item['result']['summary']['number_count'];
+            $total_cost += $item['result']['summary']['total_cost'];
         }
 
-        return !empty($results) ? $results : null;
+        return [
+            'slips' => $results,
+            'summary' => [
+                'total_number_count' => $total_number_count,
+                'total_cost' => $total_cost
+            ]
+        ];
     }
 }
 ?>

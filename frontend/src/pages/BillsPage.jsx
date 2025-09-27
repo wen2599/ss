@@ -11,7 +11,7 @@ function SettlementDetails({ details }) {
   } catch (e) {
     return <div className="details-container">无法解析详细信息。</div>;
   }
-  // 判断是否是单条（老数据）
+  // 新结构或老结构
   if (parsedDetails.zodiac_bets || parsedDetails.number_bets) {
     const { zodiac_bets, number_bets, summary } = parsedDetails;
     return (
@@ -38,7 +38,7 @@ function SettlementDetails({ details }) {
         {summary && (
           <div className="details-summary">
             <strong>总结:</strong>
-            <p>总计: <strong>{summary.total_unique_numbers}</strong> 个号码</p>
+            <p>号码总数: <strong>{summary.number_count ?? summary.total_unique_numbers}</strong> 个</p>
             <p>总金额: <strong>{summary.total_cost}</strong> 元</p>
           </div>
         )}
@@ -49,59 +49,57 @@ function SettlementDetails({ details }) {
   return null;
 }
 
-// 多条下注单窗口（全面移除标记功能，统计全部下注单）
+// 多条下注单窗口，每条下注单独展示结算，末尾展示全部总计
 function MultiSettlementDetails({ details, billId }) {
-  let settlements;
+  let settlementObj;
   try {
-    settlements = typeof details === 'string' ? JSON.parse(details) : details;
+    settlementObj = typeof details === 'string' ? JSON.parse(details) : details;
   } catch {
     return <div>无法解析结算详情。</div>;
   }
 
-  const [currentIdx, setCurrentIdx] = useState(0);
+  // 新结构：{ slips: [...], summary: {...} }
+  const slips = Array.isArray(settlementObj) ? settlementObj : settlementObj?.slips;
+  const summary = settlementObj?.summary;
 
-  if (!Array.isArray(settlements) || settlements.length === 0) {
+  if (!slips || slips.length === 0) {
     return <div>没有详细信息。</div>;
   }
 
-  const current = settlements[currentIdx];
-
-  // 统计全部下注单
-  const totalNumbers = settlements.reduce((sum, s) => sum + (s.result?.summary?.total_unique_numbers || 0), 0);
-  const totalCost = settlements.reduce((sum, s) => sum + (s.result?.summary?.total_cost || 0), 0);
-
   return (
     <div className="multi-details-container">
-      <div className="multi-details-nav">
-        <button onClick={() => setCurrentIdx(idx => Math.max(idx - 1, 0))} disabled={currentIdx === 0}>上一条</button>
-        <span>第 {currentIdx + 1} / {settlements.length} 条下注单</span>
-        <button onClick={() => setCurrentIdx(idx => Math.min(idx + 1, settlements.length - 1))} disabled={currentIdx === settlements.length - 1}>下一条</button>
-      </div>
-      <div className="single-bet-section" style={{ margin: '10px 0', padding: '8px', border: '1px solid #eee', borderRadius: '8px' }}>
-        <div>
-          <strong>下注内容：</strong>
-          <pre>{current.raw}</pre>
+      {slips.map((slip, idx) => (
+        <div key={idx} className="single-bet-section" style={{ margin: '16px 0', padding: '8px', border: '1px solid #eee', borderRadius: '8px' }}>
+          <div>
+            <strong>时间点：</strong> {slip.time ?? `第${slip.index}段`}
+          </div>
+          <div>
+            <strong>下注内容：</strong>
+            <pre>{slip.raw}</pre>
+          </div>
+          <div>
+            <strong>该条结算结果：</strong>
+            <SettlementDetails details={slip.result} />
+          </div>
         </div>
-        <div>
-          <strong>结算结果：</strong>
-          <SettlementDetails details={current.result} />
+      ))}
+      {summary && (
+        <div className="multi-details-summary" style={{ marginTop: '24px', paddingTop: '12px', borderTop: '2px solid #ccc' }}>
+          <strong>全部下注单总计：</strong>
+          <p>所有号码总数：<strong>{summary.total_number_count}</strong> 个</p>
+          <p>总金额：<strong>{summary.total_cost}</strong> 元</p>
         </div>
-      </div>
-      <div className="multi-details-summary" style={{ marginTop: '16px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
-        <strong>全部下注单统计：</strong>
-        <p>总号码数：<strong>{totalNumbers}</strong> 个</p>
-        <p>总金额：<strong>{totalCost}</strong> 元</p>
-      </div>
+      )}
     </div>
   );
 }
 
 function BillDetailsViewer({ bill, onPrev, onNext, isPrevDisabled, isNextDisabled }) {
-  // 判断是否多条结算
+  // 判断是否多条结算（新结构：有slips数组）
   let isMulti = false;
   try {
     const parsed = JSON.parse(bill.settlement_details);
-    isMulti = Array.isArray(parsed);
+    isMulti = Array.isArray(parsed?.slips) || Array.isArray(parsed);
   } catch {}
   return (
     <div className="bill-details-viewer">
