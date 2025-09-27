@@ -13,7 +13,7 @@ function SettlementDetails({ details, editable = false, editedText, onEditChange
   if (parsedDetails.zodiac_bets || parsedDetails.number_bets) {
     const { zodiac_bets, number_bets, summary, settlement } = parsedDetails;
     return (
-      <div className="details-container" style={{ padding: '10px', overflowX: 'auto' }}>
+      <div className="details-container">
         <table className="settlement-table">
           <thead>
             <tr>
@@ -59,34 +59,26 @@ function SettlementDetails({ details, editable = false, editedText, onEditChange
             </tfoot>
           )}
         </table>
-        <div style={{ marginTop: '1em' }}>
+        <div className="settlement-notes-section">
           <strong>结算备注/说明：</strong>
           {editable ? (
-            <div>
+            <div className="editable-notes">
               <textarea
                 value={editedText}
                 onChange={e => onEditChange(e.target.value)}
                 rows={3}
-                style={{
-                  width: '100%',
-                  borderRadius: 8,
-                  border: '1px solid #e1e5ef',
-                  padding: 8,
-                  marginTop: 6,
-                  resize: 'vertical',
-                  boxSizing: 'border-box'
-                }}
+                className="notes-textarea"
                 placeholder="可编辑结算说明..."
                 disabled={saving}
               />
-              <button onClick={onSaveEdit} disabled={saving} style={{ marginTop: 8 }}>
+              <button onClick={onSaveEdit} disabled={saving}>
                 {saving ? '保存中...' : '保存备注'}
               </button>
-              {saveResult && <div style={{ marginTop: 8, color: saveResult.startsWith('保存成功') ? '#22bb66' : '#e74c3c' }}>{saveResult}</div>}
+              {saveResult && <div className={`save-result ${saveResult.startsWith('保存成功') ? 'success' : 'error'}`}>{saveResult}</div>}
             </div>
           ) : (
-            <div style={{ background: '#f7f8fa', borderRadius: 6, padding: 6, marginTop: 6 }}>
-              {settlement || <span style={{ color: '#bbb' }}>暂无备注</span>}
+            <div className="readonly-notes">
+              {settlement || <span className="no-notes">暂无备注</span>}
             </div>
           )}
         </div>
@@ -154,7 +146,7 @@ function SettlementModal({ open, bill, onClose }) {
         <div className="modal-content" onClick={e => e.stopPropagation()}>
           <button className="modal-close-button" onClick={onClose}>&times;</button>
           <h2>结算详情</h2>
-          <div style={{ padding: 20, color: '#888' }}>没有分段信息。</div>
+          <div className="no-slips-message">没有分段信息。</div>
         </div>
       </div>
     );
@@ -192,38 +184,20 @@ function SettlementModal({ open, bill, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal-content"
-        style={{
-          maxWidth: 600,
-          width: '98vw',
-          minWidth: 260,
-          maxHeight: '98vh',
-          overflowY: 'auto',
-          boxSizing: 'border-box'
-        }}
         onClick={e => e.stopPropagation()}
       >
         <button className="modal-close-button" onClick={onClose}>&times;</button>
         <h2>结算详情</h2>
-        <div className="panel" style={{ marginBottom: 0, padding: '1em', background: '#f7f8fa', maxWidth: '100%', overflowX: 'auto' }}>
+        <div className="panel modal-panel">
           <strong>下注单原文（第{currentIdx + 1}条）{slip.time ? `【${slip.time}】` : ''}</strong>
-          <pre style={{
-            background: '#fff',
-            border: '1px solid #e1e5ef',
-            borderRadius: 8,
-            padding: 10,
-            marginTop: 10,
-            fontFamily: 'inherit',
-            fontSize: '1em',
-            maxHeight: 120,
-            overflow: 'auto'
-          }}>{slip.raw}</pre>
+          <pre className="modal-raw-content">{slip.raw}</pre>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, margin: '1em 0' }}>
+        <div className="slip-navigation">
           <button onClick={() => setCurrentIdx(idx => Math.max(0, idx - 1))} disabled={currentIdx === 0}>上一条</button>
           <span>第 {currentIdx + 1} / {slips.length} 条</span>
           <button onClick={() => setCurrentIdx(idx => Math.min(slips.length - 1, idx + 1))} disabled={currentIdx === slips.length - 1}>下一条</button>
         </div>
-        <div className="panel" style={{ marginTop: 0, padding: '1em', background: '#f7f8fa', maxWidth: '100%', overflowX: 'auto' }}>
+        <div className="panel modal-panel">
           <SettlementDetails
             details={slip.result}
             editable={true}
@@ -350,7 +324,7 @@ function BillsPage() {
                 <td>{new Date(bill.created_at).toLocaleString()}</td>
                 <td>{bill.total_cost ? `${bill.total_cost} 元` : 'N/A'}</td>
                 <td>{renderStatus(bill.status)}</td>
-                <td style={{ display: 'flex', gap: 8 }}>
+                <td className="action-buttons-cell">
                   <button
                     onClick={e => { e.stopPropagation(); setSelectedBillIndex(index); setShowRawModal(true); }}
                   >原文</button>
