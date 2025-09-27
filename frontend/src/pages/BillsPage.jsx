@@ -1,85 +1,84 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-// 单条结算详情（支持编辑备注/说明）
-function SettlementDetails({ details, editable = false, editedText, onEditChange, onSaveEdit, saving, saveResult }) {
-  if (!details) return <div className="details-container">没有详细信息。</div>;
-  let parsedDetails;
-  try {
-    parsedDetails = typeof details === 'string' ? JSON.parse(details) : details;
-  } catch (e) {
-    return <div className="details-container">无法解析详细信息。</div>;
-  }
-  if (parsedDetails.zodiac_bets || parsedDetails.number_bets) {
-    const { zodiac_bets, number_bets, summary, settlement } = parsedDetails;
-    return (
-      <div className="details-container" style={{ padding: '10px', overflowX: 'auto' }}>
-        <table className="settlement-table">
-          <thead>
+// 单条结算详情（支持备注编辑保存，结算为整条单）
+function SettlementDetails({ slip, editable = false, editedText, onEditChange, onSaveEdit, saving, saveResult }) {
+  if (!slip || !slip.result) return <div className="details-container">没有详细信息。</div>;
+  const { result } = slip;
+  const { zodiac_bets, number_bets, summary, settlement } = result;
+
+  return (
+    <div className="details-container" style={{ padding: '10px', overflowX: 'auto' }}>
+      <table className="settlement-table">
+        <thead>
+          <tr>
+            <th>类型</th>
+            <th>内容</th>
+            <th>金额</th>
+          </tr>
+        </thead>
+        <tbody>
+          {zodiac_bets && zodiac_bets.length > 0 && (
             <tr>
-              <th>类型</th>
-              <th>内容</th>
-              <th>金额</th>
+              <td className="type-zodiac">生肖投注</td>
+              <td>
+                {zodiac_bets.map(bet => (
+                  <span key={bet.zodiac}>
+                    <span className="zodiac-tag">{bet.zodiac}</span>：{bet.numbers.join(', ')}&nbsp;
+                  </span>
+                ))}
+              </td>
+              <td className="amount">
+                {zodiac_bets.reduce((acc, bet) => acc + bet.cost, 0)} 元
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {zodiac_bets && zodiac_bets.length > 0 && (
-              zodiac_bets.map((bet, idx) => (
-                <tr key={`zodiac-${idx}`}>
-                  <td className="type-zodiac">生肖投注<br/><span className="zodiac-tag">{bet.zodiac}</span></td>
-                  <td>{bet.numbers.join(', ')}</td>
-                  <td className="amount">{bet.cost} 元</td>
-                </tr>
-              ))
-            )}
-            {number_bets && number_bets.numbers && number_bets.numbers.length > 0 && (
-              <tr>
-                <td className="type-number">单独号码投注</td>
-                <td>{number_bets.numbers.join(', ')}</td>
-                <td className="amount">{number_bets.cost} 元</td>
-              </tr>
-            )}
-          </tbody>
-          {summary && (
-            <tfoot>
-              <tr>
-                <td colSpan="2" className="summary-label">号码总数</td>
-                <td className="summary-value">{summary.number_count ?? summary.total_unique_numbers} 个</td>
-              </tr>
-              <tr>
-                <td colSpan="2" className="summary-label">总金额</td>
-                <td className="summary-value">{summary.total_cost} 元</td>
-              </tr>
-            </tfoot>
           )}
-        </table>
-        <div style={{ marginTop: '1em' }}>
-          <strong>结算备注/说明：</strong>
-          {editable ? (
-            <div>
-              <textarea
-                value={editedText}
-                onChange={e => onEditChange(e.target.value)}
-                rows={3}
-                style={{ width: '100%', borderRadius: 8, border: '1px solid #e1e5ef', padding: 8, marginTop: 6, resize: 'vertical' }}
-                placeholder="可编辑结算说明..."
-                disabled={saving}
-              />
-              <button onClick={onSaveEdit} disabled={saving} style={{ marginTop: 8 }}>
-                {saving ? '保存中...' : '保存备注'}
-              </button>
-              {saveResult && <div style={{ marginTop: 8, color: saveResult.startsWith('保存成功') ? '#22bb66' : '#e74c3c' }}>{saveResult}</div>}
-            </div>
-          ) : (
-            <div style={{ background: '#f7f8fa', borderRadius: 6, padding: 6, marginTop: 6 }}>
-              {settlement || <span style={{ color: '#bbb' }}>暂无备注</span>}
-            </div>
+          {number_bets && number_bets.numbers && number_bets.numbers.length > 0 && (
+            <tr>
+              <td className="type-number">单独号码投注</td>
+              <td>{number_bets.numbers.join(', ')}</td>
+              <td className="amount">{number_bets.cost} 元</td>
+            </tr>
           )}
-        </div>
+        </tbody>
+        {summary && (
+          <tfoot>
+            <tr>
+              <td colSpan="2" className="summary-label">号码总数</td>
+              <td className="summary-value">{summary.number_count ?? summary.total_unique_numbers} 个</td>
+            </tr>
+            <tr>
+              <td colSpan="2" className="summary-label">总金额</td>
+              <td className="summary-value">{summary.total_cost} 元</td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+      <div style={{ marginTop: '1em' }}>
+        <strong>结算备注/说明：</strong>
+        {editable ? (
+          <div>
+            <textarea
+              value={editedText}
+              onChange={e => onEditChange(e.target.value)}
+              rows={3}
+              style={{ width: '100%', borderRadius: 8, border: '1px solid #e1e5ef', padding: 8, marginTop: 6, resize: 'vertical' }}
+              placeholder="可编辑结算说明..."
+              disabled={saving}
+            />
+            <button onClick={onSaveEdit} disabled={saving} style={{ marginTop: 8 }}>
+              {saving ? '保存中...' : '保存备注'}
+            </button>
+            {saveResult && <div style={{ marginTop: 8, color: saveResult.startsWith('保存成功') ? '#22bb66' : '#e74c3c' }}>{saveResult}</div>}
+          </div>
+        ) : (
+          <div style={{ background: '#f7f8fa', borderRadius: 6, padding: 6, marginTop: 6 }}>
+            {slip.settlement || settlement || <span style={{ color: '#bbb' }}>暂无备注</span>}
+          </div>
+        )}
       </div>
-    );
-  }
-  return null;
+    </div>
+  );
 }
 
 // 原文弹窗
@@ -87,7 +86,7 @@ function RawModal({ open, rawContent, onClose }) {
   if (!open) return null;
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
+      <div className="modal-content" style={{ maxWidth: 600, width: '98vw', minWidth: 260 }} onClick={e => e.stopPropagation()}>
         <button className="modal-close-button" onClick={onClose}>&times;</button>
         <h2>邮件原文</h2>
         <div className="panel" style={{ background: '#f7f8fa', padding: '1em' }}>
@@ -100,10 +99,9 @@ function RawModal({ open, rawContent, onClose }) {
   );
 }
 
-// 结算详情弹窗，支持上一条/下一条切换和备注编辑保存
+// 结算详情弹窗（自适应屏幕，每条单可编辑保存）
 function SettlementModal({ open, bill, onClose }) {
   if (!open || !bill) return null;
-  // 解析分段
   let slips = [];
   try {
     const parsed = typeof bill.settlement_details === 'string'
@@ -118,9 +116,8 @@ function SettlementModal({ open, bill, onClose }) {
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState('');
 
-  // 初始化编辑文本
   useEffect(() => {
-    setEditText(slips[currentIdx]?.result?.settlement || '');
+    setEditText(slips[currentIdx]?.settlement || slips[currentIdx]?.result?.settlement || '');
     setSaveResult('');
     setSaving(false);
   }, [open, bill?.id, currentIdx, bill?.settlement_details]);
@@ -139,7 +136,6 @@ function SettlementModal({ open, bill, onClose }) {
 
   const slip = slips[currentIdx];
 
-  // 保存备注
   const handleSaveEdit = async () => {
     setSaving(true);
     setSaveResult('');
@@ -168,7 +164,11 @@ function SettlementModal({ open, bill, onClose }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
+      <div
+        className="modal-content"
+        style={{ maxWidth: 600, width: '98vw', minWidth: 260, padding: '2vw' }}
+        onClick={e => e.stopPropagation()}
+      >
         <button className="modal-close-button" onClick={onClose}>&times;</button>
         <h2>结算详情</h2>
         <div className="panel" style={{ marginBottom: 0, padding: '1em', background: '#f7f8fa' }}>
@@ -192,7 +192,7 @@ function SettlementModal({ open, bill, onClose }) {
         </div>
         <div className="panel" style={{ marginTop: 0, padding: '1em', background: '#f7f8fa' }}>
           <SettlementDetails
-            details={slip.result}
+            slip={slip}
             editable={true}
             editedText={editText}
             onEditChange={setEditText}
@@ -244,10 +244,6 @@ function BillsPage() {
       setBills([]);
     }
   }, [isAuthenticated, user]);
-
-  const handleSelectBill = (index) => {
-    setSelectedBillIndex(index);
-  };
 
   const handleDeleteBill = async (billId) => {
     if (!window.confirm(`您确定要删除账单 #${billId} 吗？此操作无法撤销。`)) {
