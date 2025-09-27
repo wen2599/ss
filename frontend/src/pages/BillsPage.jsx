@@ -117,97 +117,72 @@ function RawModal({ open, rawContent, onClose }) {
   );
 }
 
-// 结算详情弹窗（自适应屏幕，每条单可编辑保存，整条单编辑）
+// 结算详情弹窗（展示所有分段的表格）
 function SettlementModal({ open, bill, onClose }) {
   if (!open || !bill) return null;
-  let slips = [];
+
+  let parsedDetails;
   try {
-    const parsed = typeof bill.settlement_details === 'string'
+    parsedDetails = typeof bill.settlement_details === 'string'
       ? JSON.parse(bill.settlement_details)
       : bill.settlement_details;
-    slips = parsed?.slips || [];
   } catch {
-    slips = [];
-  }
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [editText, setEditText] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saveResult, setSaveResult] = useState('');
-
-  useEffect(() => {
-    setEditText(slips[currentIdx]?.result?.settlement || '');
-    setSaveResult('');
-    setSaving(false);
-  }, [open, bill?.id, currentIdx, bill?.settlement_details]);
-
-  if (slips.length === 0) {
-    return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content" onClick={e => e.stopPropagation()}>
-          <button className="modal-close-button" onClick={onClose}>&times;</button>
-          <h2>结算详情</h2>
-          <div className="no-slips-message">没有分段信息。</div>
-        </div>
-      </div>
-    );
+    parsedDetails = { slips: [], summary: {} };
   }
 
-  const slip = slips[currentIdx];
-
-  const handleSaveEdit = async () => {
-    setSaving(true);
-    setSaveResult('');
-    try {
-      const response = await fetch('/update_settlement', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bill_id: bill.id,
-          slip_index: currentIdx,
-          settlement_text: editText
-        }),
-        credentials: 'include'
-      });
-      const data = await response.json();
-      if (data.success) {
-        setSaveResult('保存成功！');
-      } else {
-        setSaveResult('保存失败：' + (data.error || '未知错误'));
-      }
-    } catch {
-      setSaveResult('保存失败：网络错误');
-    }
-    setSaving(false);
-  };
+  const slips = parsedDetails?.slips || [];
+  const summary = parsedDetails?.summary || {};
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-content"
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="modal-content wide-modal" onClick={e => e.stopPropagation()}>
         <button className="modal-close-button" onClick={onClose}>&times;</button>
-        <h2>结算详情</h2>
-        <div className="panel modal-panel">
-          <strong>下注单原文（第{currentIdx + 1}条）{slip.time ? `【${slip.time}】` : ''}</strong>
-          <pre className="modal-raw-content">{slip.raw}</pre>
-        </div>
-        <div className="slip-navigation">
-          <button onClick={() => setCurrentIdx(idx => Math.max(0, idx - 1))} disabled={currentIdx === 0}>上一条</button>
-          <span>第 {currentIdx + 1} / {slips.length} 条</span>
-          <button onClick={() => setCurrentIdx(idx => Math.min(slips.length - 1, idx + 1))} disabled={currentIdx === slips.length - 1}>下一条</button>
-        </div>
-        <div className="panel modal-panel">
-          <SettlementDetails
-            details={slip.result}
-            editable={true}
-            editedText={editText}
-            onEditChange={setEditText}
-            onSaveEdit={handleSaveEdit}
-            saving={saving}
-            saveResult={saveResult}
-          />
-        </div>
+        <h2>结算详情 (账单 #{bill.id})</h2>
+        {slips.length === 0 ? (
+          <div className="no-slips-message">没有解析到有效的分段下注单。</div>
+        ) : (
+          <div className="multi-details-container">
+            <table className="multi-slips-table">
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>下注单原文</th>
+                  <th>解析结果</th>
+                  <th>金额</th>
+                </tr>
+              </thead>
+              <tbody>
+                {slips.map((slip, index) => (
+                  <tr key={index}>
+                    <td className="slip-time">
+                      {slip.time ? <span className="time-tag">{slip.time}</span> : `第 ${slip.index} 段`}
+                    </td>
+                    <td className="slip-raw">
+                      <pre className="slip-pre">{slip.raw}</pre>
+                    </td>
+                    <td className="slip-result">
+                      <SettlementDetails details={slip.result} />
+                    </td>
+                    <td className="slip-cost">
+                      <strong>{slip.result?.summary?.total_cost || 0} 元</strong>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="summary-row">
+                  <td colSpan="3">总计</td>
+                  <td className="summary-total-cost">
+                    <strong>{summary.total_cost || 0} 元</strong>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+            <div className="multi-details-summary">
+              <strong>总号码数:</strong> {summary.total_number_count || 0} 个
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
