@@ -19,6 +19,10 @@ $admin_id = 'YOUR_ADMIN_USER_ID';
 // This secret must exactly match the WORKER_SECRET in your Cloudflare Worker script.
 $worker_secret = 'A_VERY_SECRET_KEY';
 
+// 3a. Cloudflare AI Worker URL
+// Replace with the URL of your deployed Cloudflare Worker.
+$cloudflare_worker_url = 'https://your-worker-name.your-subdomain.workers.dev';
+
 // 4. Upload Directory
 // Defines the path where files uploaded from the worker will be stored.
 // Ensure this directory exists and is writable by the web server.

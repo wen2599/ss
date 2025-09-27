@@ -223,12 +223,16 @@ button:active {
 .slip-actions {
   margin-top: 1rem;
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
+  width: 100%;
 }
 .action-button {
   padding: 0.4em 0.8em;
   font-size: 0.9em;
   border-radius: 6px;
+  width: 100%;
+  box-sizing: border-box;
 }
 .action-button.save {
   background-color: var(--success);
@@ -239,6 +243,46 @@ button:active {
 .bet-slip-card.editing {
   border-color: var(--primary-color);
   box-shadow: 0 0 12px rgba(79, 140, 255, 0.2);
+}
+.editable-notes.full-width {
+  width: 100%;
+}
+.edit-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.slip-actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+.action-button {
+  padding: 0.4em 0.8em;
+  font-size: 0.9em;
+  border-radius: 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.action-button.save {
+  background-color: var(--success);
+}
+.action-button.cancel {
+  background-color: var(--text-muted);
+}
+.bet-slip-card.editing {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 12px rgba(79, 140, 255, 0.2);
+}
+.editable-notes.full-width {
+  width: 100%;
+}
+.edit-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 
 /* 单条结算详情表格 */

@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../lib/BetCalculator.php';
+require_once __DIR__ . '/../lib/AIParser.php';
 
 // Helper: Save attachments to disk and return their metadata
 function handle_attachments($user_id) {
@@ -179,17 +179,35 @@ if (empty($calculation_content)) {
     $calculation_content = smart_convert_encoding($raw_email_content, $detected_charset);
 }
 
-// 多段结算
-$multi_slip = BetCalculator::calculateMulti($calculation_content);
+// --- AI-Powered Parsing ---
+$ai_result = AIParser::parse($calculation_content);
 $status = 'unrecognized';
 $settlement_details = null;
-$total_cost = null;
+$total_cost = 0;
 
-// Only set status to 'processed' if the calculator found valid bet slips.
-if ($multi_slip !== null && !empty($multi_slip['slips'])) {
+if (isset($ai_result['error'])) {
+    // If there was an error calling the AI, we save it for debugging.
+    $status = 'error';
+    $settlement_details = json_encode(['error' => $ai_result['error']], JSON_UNESCAPED_UNICODE);
+} elseif (isset($ai_result['slips']) && !empty($ai_result['slips'])) {
     $status = 'processed';
-    $settlement_details = json_encode($multi_slip, JSON_UNESCAPED_UNICODE);
-    $total_cost = $multi_slip['summary']['total_cost'] ?? 0;
+
+    // Calculate total cost from the AI's structured response
+    foreach ($ai_result['slips'] as $slip) {
+        $cost_per_number = $slip['cost_per_number'] ?? 0;
+        $number_count = count($slip['numbers'] ?? []);
+        $total_cost += $cost_per_number * $number_count;
+    }
+
+    // Add summary to the result before saving
+    $ai_result['summary'] = [
+        'total_cost' => $total_cost,
+        'total_slip_count' => count($ai_result['slips'])
+    ];
+    $settlement_details = json_encode($ai_result, JSON_UNESCAPED_UNICODE);
+} else {
+    // AI returned no slips, so it's unrecognized.
+    $settlement_details = json_encode($ai_result, JSON_UNESCAPED_UNICODE);
 }
 
 try {
