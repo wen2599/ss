@@ -332,7 +332,7 @@ button:active {
   box-shadow: 0 8px 32px rgba(79,140,255,0.2);
   position: relative;
   width: 96vw;
-  max-width: 410px;
+  max-width: 600px;
 }
 .modal-close-button {
   position: absolute;
@@ -348,14 +348,16 @@ button:active {
 .modal-close-button:hover {
   color: var(--primary-hover);
 }
-form input {
+form input,
+textarea {
   padding: 1em;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: #f7f8fa;
   font-size: 1em;
 }
-form input:focus {
+form input:focus,
+textarea:focus {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 2px rgba(79,140,255,0.09);
 }
