@@ -1,96 +1,359 @@
-/* ...原有内容保留... */
+/* 全局卡片、阴影、圆角、响应式布局 */
+#root {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2vw;
+  min-height: 100vh;
+}
 
-/* 美化结算表格、标签、颜色区分 */
-.settlement-table, .multi-slips-table {
+.container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+main {
+  background: var(--card-bg-light);
+  border-radius: 18px;
+  box-shadow: var(--shadow-light);
+  padding: 2.5vw;
+  margin-bottom: 2vw;
+  border: 1px solid var(--border-light);
+  min-height: 300px;
+}
+
+/* 顶部导航 */
+.app-header {
+  background: linear-gradient(90deg, #4F8CFF 0%, #46d6b6 100%);
+  color: #fff;
+  border-radius: 18px;
+  padding: 1.2vw 2vw;
+  margin-bottom: 2vw;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 24px rgba(79,140,255,0.15);
+}
+
+.header-left, .header-right {
+  display: flex;
+  gap: 1.2vw;
+  align-items: center;
+}
+
+.header-link {
+  padding: 0.3em 1em;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  font-weight: 500;
+  transition: background 0.22s;
+}
+.header-link:hover, .header-link.active {
+  background: rgba(255,255,255,0.19);
+}
+
+/* 按钮风格 */
+button {
+  border: none;
+  border-radius: 8px;
+  padding: 0.7em 1.4em;
+  font-size: 1.1em;
+  background: var(--primary-color);
+  color: #fff;
+  font-weight: 500;
+  box-shadow: 0 1px 6px rgba(79,140,255,0.11);
+  cursor: pointer;
+  transition: background 0.22s, transform 0.12s;
+}
+button:hover {
+  background: var(--primary-color-hover);
+  transform: translateY(-2px) scale(1.03);
+}
+button:active {
+  background: #3759bf;
+}
+
+/* 卡片内容 */
+.panel {
+  background: var(--card-bg-light);
+  border-radius: 14px;
+  box-shadow: var(--shadow-light);
+  padding: 2vw;
+  margin-bottom: 2vw;
+  border: 1px solid var(--border-light);
+}
+
+.panels-container {
+  display: flex;
+  gap: 2vw;
+  flex-wrap: wrap;
+}
+.panel {
+  flex: 1 1 380px;
+  min-width: 280px;
+}
+
+/* 账单表格与开奖表格 */
+.bills-table,
+.multi-slips-table,
+.settlement-table {
   width: 100%;
   border-collapse: collapse;
-  background-color: #fff;
-  margin-top: 1rem;
-  border-radius: 10px;
+  background: var(--card-bg-light);
+  margin-top: 1vw;
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  box-shadow: var(--shadow-light);
 }
-.settlement-table th,
-.settlement-table td,
-.multi-slips-table th,
-.multi-slips-table td {
-  border-bottom: 1px solid #e1e4ea;
-  padding: 0.6em 1em;
+
+.bills-table th, .bills-table td,
+.multi-slips-table th, .multi-slips-table td,
+.settlement-table th, .settlement-table td {
+  border-bottom: 1px solid var(--border-light);
+  padding: 1vw 0.7vw;
   text-align: left;
 }
-.settlement-table th, .multi-slips-table th {
-  background: #f3f6fd;
-  color: #007bff;
+
+.bills-table th, .multi-slips-table th, .settlement-table th {
   font-weight: 600;
+  color: var(--primary-color);
+  background: rgba(79,140,255,0.05);
 }
-.settlement-table tr:last-child td,
-.multi-slips-table tr:last-child td {
+
+.bills-table tbody tr:last-child td,
+.multi-slips-table tbody tr:last-child td,
+.settlement-table tbody tr:last-child td {
   border-bottom: none;
 }
-.type-zodiac { color: #e74c3c; font-weight: bold; }
-.type-number { color: #2980b9; font-weight: bold; }
+
+.selected-row {
+  background: #eaf3ff;
+}
+
+.bills-table tbody tr:hover,
+.multi-slips-table tbody tr:hover {
+  background: #f0f7ff;
+  cursor: pointer;
+}
+
+/* 结算单表格高亮、标签 */
+.type-zodiac {
+  color: #e74c3c;
+  font-weight: bold;
+}
+.type-number {
+  color: #3576e6;
+  font-weight: bold;
+}
 .zodiac-tag {
-  display: inline-block; background: #ffe2e2; color: #e74c3c;
-  border-radius: 4px; padding: 1px 6px; margin-top: 2px;
-  font-size: 0.95em;
+  background: #ffe2e2;
+  color: #e74c3c;
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 1em;
 }
-.amount { color: #007bff; font-weight: 500; }
-.summary-label { background: #f8f9fa; color: #6c757d; font-weight: 500; }
-.summary-value { background: #f8f9fa; font-weight: bold; color: #28a745; }
-.slip-row { transition: background 0.16s; }
-.slip-row:hover { background: #f4f6fa; }
-.slip-time .time-tag {
-  display: inline-block; background: #d1e9ff; color: #0056b3;
-  border-radius: 4px; padding: 2px 8px; font-size: 0.98em;
+.amount {
+  color: #46d6b6;
+  font-weight: bold;
 }
-.slip-raw .slip-pre {
-  background: #f7fafc; margin: 0; padding: 6px; border-radius: 6px;
-  font-size: 1em; font-family: inherit;
+.summary-label {
+  background: #f7f8fa;
+  color: #7a8194;
 }
-.slip-remark .remark-tag {
-  background: #fff8e1; color: #b57d00; border-radius: 4px; padding: 1px 6px; font-size: 0.96em;
+.summary-value {
+  background: #eaf3ff;
+  color: #4F8CFF;
+  font-weight: bold;
 }
-.slip-remark .remark-empty {
-  color: #b0b8c1;
+
+/* 分段结算区块 */
+.single-bet-section {
+  margin: 2vw 0;
+  padding: 1vw;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: #f7f8fa;
+  box-shadow: 0 1px 8px rgba(79,140,255,0.05);
+  transition: background 0.18s;
 }
-.slip-settlement .settlement-tag {
-  background: #e1ffe1; color: #27963c; border-radius: 4px; padding: 1px 6px; font-size: 0.96em;
+.single-bet-section:hover {
+  background: #eaf3ff;
 }
-.slip-settlement .settlement-empty {
-  color: #b0b8c1;
+
+/* 总计高亮 */
+.multi-details-summary {
+  margin-top: 2vw;
+  padding: 1vw 1vw 1vw 2vw;
+  border-top: 2px solid #4F8CFF;
+  background: #eaf3ff;
+  border-radius: 10px;
+  font-size: 1.08em;
 }
-.summary-row { font-size: 1.07em; background: #f0f8ff; }
-.multi-details-container { margin-top: 1.5rem; }
-.details-container { padding: 0.6em 0; }
-.details-section { margin-bottom: 0.5em; }
-.details-summary { font-weight: 500; color: #28a745; }
-.panels-container { display: flex; gap: 2rem; margin-top: 1.5rem; flex-wrap: wrap; }
-.panel { flex: 1; min-width: 260px; background: #f6f8fa; border-radius: 8px; padding: 1.2rem; box-shadow: 0 1px 6px rgba(0,0,0,0.04); }
-.raw-content-panel { background: #fcfcfc; border-radius: 6px; padding: 0.8em; margin: 0; font-size: 0.98em; font-family: inherit; }
 
 /* 状态标签 */
 .status-processed {
-  color: #28a745; background: #e1ffe1; border-radius: 4px; padding: 2px 7px; font-weight: 600;
+  background: #e1ffe1;
+  color: #22bb66;
+  border-radius: 6px;
+  padding: 2px 12px;
+  font-weight: 600;
 }
 .status-unrecognized {
-  color: #e74c3c; background: #ffe2e2; border-radius: 4px; padding: 2px 7px; font-weight: 600;
+  background: #ffe2e2;
+  color: #e74c3c;
+  border-radius: 6px;
+  padding: 2px 12px;
+  font-weight: 600;
 }
 .status-default {
-  color: #6c757d; background: #f3f6fd; border-radius: 4px; padding: 2px 7px; font-weight: 500;
+  background: #f0f7ff;
+  color: #4F8CFF;
+  border-radius: 6px;
+  padding: 2px 12px;
+  font-weight: 500;
 }
 
-/* 账单表格选中行高亮 */
-.selected-row {
-  background: #d1e9ff !important;
+/* 号码球与开奖Banner */
+.number-ball {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: bold;
+  font-size: 1.1em;
+  margin: 2px;
+  box-shadow: 0 1px 3px rgba(79,140,255,0.09);
+}
+.number-ball-red { background-color: #e74c3c; }
+.number-ball-blue { background-color: #3576e6; }
+.number-ball-green { background-color: #22bb66; }
+.number-ball-default { background-color: #7a8194; }
+.special-number { background: #ffd966; color: #222; border: 2px solid #ffd966; }
+
+.lottery-banner {
+  background: linear-gradient(90deg, #4f8cff 0%, #46d6b6 100%);
+  color: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(79,140,255,0.15);
+  padding: 2vw 2vw;
+  margin-bottom: 2vw;
+  text-align: center;
+}
+.lottery-banner h3 {
+  margin: 0 0 1vw 0;
+  font-size: 1.15em;
+  font-weight: 600;
+  opacity: 0.96;
+}
+.banner-numbers {
+  margin-top: 0.5vw;
 }
 
-/* 响应式优化 */
+/* 登录/注册弹窗 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(79,140,255,0.18);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+.modal-content {
+  background: var(--card-bg-light);
+  padding: 2.5vw;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(79,140,255,0.2);
+  position: relative;
+  width: 96vw;
+  max-width: 410px;
+}
+.modal-close-button {
+  position: absolute;
+  top: 12px;
+  right: 20px;
+  background: none;
+  border: none;
+  font-size: 2.2em;
+  color: var(--primary-color);
+  cursor: pointer;
+  transition: color 0.22s;
+}
+.modal-close-button:hover {
+  color: var(--primary-color-hover);
+}
+form input {
+  padding: 1em;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: #f7f8fa;
+  font-size: 1em;
+}
+form input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(79,140,255,0.09);
+}
+form button {
+  margin-top: 1vw;
+  padding: 1em 0;
+  background: var(--primary-color);
+  font-size: 1.15em;
+}
+.modal-toggle {
+  margin-top: 2vw;
+  text-align: center;
+  color: var(--text-muted-light);
+}
+.modal-toggle button {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  text-decoration: underline;
+  font-size: inherit;
+}
+
+/* 提示/错误/成功文本 */
+.error, p.error {
+  color: var(--error-color);
+  background: #ffe2e2;
+  border: 1px solid #ffd0d0;
+  padding: 1vw;
+  border-radius: 8px;
+  text-align: center;
+}
+p.success {
+  color: var(--success-color);
+  background: #e1ffe1;
+  border: 1px solid #bbf7bb;
+  padding: 1vw;
+  border-radius: 8px;
+  text-align: center;
+}
+
+/* 响应式自适应优化 */
 @media (max-width: 900px) {
-  .panels-container { flex-direction: column; gap: 1rem; }
+  #root { padding: 2vw 1vw; }
+  .container { gap: 1.2rem; }
+  main { padding: 1vw; }
+  .panels-container { flex-direction: column; gap: 1vw; }
+  .panel { padding: 1vw; }
+  .modal-content { padding: 1.2vw; }
 }
 @media (max-width: 600px) {
-  .settlement-table, .multi-slips-table, .bills-table {
-    font-size: 0.96em;
-  }
-  .panel { padding: 0.7rem; }
+  #root { padding: 1vw 0.5vw; }
+  main { padding: 0.5vw; }
+  .panel { min-width: 0; padding: 1vw; }
+  .modal-content { padding: 1vw; }
+  .lottery-banner { padding: 1vw; }
+  .multi-details-summary, .single-bet-section { padding: 1vw; }
+  .bills-table th, .bills-table td,
+  .multi-slips-table th, .multi-slips-table td,
+  .settlement-table th, .settlement-table td { padding: 0.5vw 0.3vw; }
+  .number-ball { width: 24px; height: 24px; font-size: 0.96em; }
 }
