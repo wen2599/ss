@@ -49,14 +49,8 @@ function SettlementDetails({ details }) {
   return null;
 }
 
-// 多条下注单窗口
+// 多条下注单窗口（全面移除标记功能，统计全部下注单）
 function MultiSettlementDetails({ details, billId }) {
-  const [markedIndexes, setMarkedIndexes] = useState(() => {
-    const key = `bill_${billId}_marked`;
-    const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : [];
-  });
-
   let settlements;
   try {
     settlements = typeof details === 'string' ? JSON.parse(details) : details;
@@ -66,29 +60,15 @@ function MultiSettlementDetails({ details, billId }) {
 
   const [currentIdx, setCurrentIdx] = useState(0);
 
-  const handleMark = (index) => {
-    const newMarked = [...markedIndexes, index];
-    setMarkedIndexes(newMarked);
-    localStorage.setItem(`bill_${billId}_marked`, JSON.stringify(newMarked));
-  };
-
-  const handleUnmark = (index) => {
-    const newMarked = markedIndexes.filter(i => i !== index);
-    setMarkedIndexes(newMarked);
-    localStorage.setItem(`bill_${billId}_marked`, JSON.stringify(newMarked));
-  };
-
   if (!Array.isArray(settlements) || settlements.length === 0) {
     return <div>没有详细信息。</div>;
   }
 
   const current = settlements[currentIdx];
-  const isMarked = markedIndexes.includes(current.index);
 
-  // 统计未被标记
-  const validSettlements = settlements.filter(s => !markedIndexes.includes(s.index));
-  const totalNumbers = validSettlements.reduce((sum, s) => sum + (s.result?.summary?.total_unique_numbers || 0), 0);
-  const totalCost = validSettlements.reduce((sum, s) => sum + (s.result?.summary?.total_cost || 0), 0);
+  // 统计全部下注单
+  const totalNumbers = settlements.reduce((sum, s) => sum + (s.result?.summary?.total_unique_numbers || 0), 0);
+  const totalCost = settlements.reduce((sum, s) => sum + (s.result?.summary?.total_cost || 0), 0);
 
   return (
     <div className="multi-details-container">
@@ -106,17 +86,9 @@ function MultiSettlementDetails({ details, billId }) {
           <strong>结算结果：</strong>
           <SettlementDetails details={current.result} />
         </div>
-        <div>
-          {isMarked ? (
-            <button onClick={() => handleUnmark(current.index)} style={{ color: 'orange' }}>取消标记</button>
-          ) : (
-            <button onClick={() => handleMark(current.index)} style={{ color: 'red' }}>标记为错误</button>
-          )}
-        </div>
-        {isMarked && <span style={{ color: 'red', fontWeight: 'bold' }}>已标记为错误</span>}
       </div>
       <div className="multi-details-summary" style={{ marginTop: '16px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
-        <strong>未标记下注单统计：</strong>
+        <strong>全部下注单统计：</strong>
         <p>总号码数：<strong>{totalNumbers}</strong> 个</p>
         <p>总金额：<strong>{totalCost}</strong> 元</p>
       </div>
