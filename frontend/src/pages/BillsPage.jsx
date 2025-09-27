@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-// 单条结算详情（表格美化）
-function SettlementDetails({ details }) {
+// 单条结算详情（支持编辑备注/说明）
+function SettlementDetails({ details, editable = false, editedText, onEditChange, onSaveEdit, saving, saveResult }) {
   if (!details) return <div className="details-container">没有详细信息。</div>;
   let parsedDetails;
   try {
@@ -11,7 +11,7 @@ function SettlementDetails({ details }) {
     return <div className="details-container">无法解析详细信息。</div>;
   }
   if (parsedDetails.zodiac_bets || parsedDetails.number_bets) {
-    const { zodiac_bets, number_bets, summary } = parsedDetails;
+    const { zodiac_bets, number_bets, summary, settlement } = parsedDetails;
     return (
       <div className="details-container" style={{ padding: '10px', overflowX: 'auto' }}>
         <table className="settlement-table">
@@ -53,92 +53,153 @@ function SettlementDetails({ details }) {
             </tfoot>
           )}
         </table>
+        <div style={{ marginTop: '1em' }}>
+          <strong>结算备注/说明：</strong>
+          {editable ? (
+            <div>
+              <textarea
+                value={editedText}
+                onChange={e => onEditChange(e.target.value)}
+                rows={3}
+                style={{ width: '100%', borderRadius: 8, border: '1px solid #e1e5ef', padding: 8, marginTop: 6, resize: 'vertical' }}
+                placeholder="可编辑结算说明..."
+                disabled={saving}
+              />
+              <button onClick={onSaveEdit} disabled={saving} style={{ marginTop: 8 }}>
+                {saving ? '保存中...' : '保存备注'}
+              </button>
+              {saveResult && <div style={{ marginTop: 8, color: saveResult.startsWith('保存成功') ? '#22bb66' : '#e74c3c' }}>{saveResult}</div>}
+            </div>
+          ) : (
+            <div style={{ background: '#f7f8fa', borderRadius: 6, padding: 6, marginTop: 6 }}>
+              {settlement || <span style={{ color: '#bbb' }}>暂无备注</span>}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
   return null;
 }
 
-// 多条下注单窗口，每条下注单独展示结算，末尾展示全部总计（表格美化+自适应）
-function MultiSettlementDetails({ details, billId }) {
-  let settlementObj;
-  try {
-    settlementObj = typeof details === 'string' ? JSON.parse(details) : details;
-  } catch {
-    return <div>无法解析结算详情。</div>;
-  }
-  const slips = Array.isArray(settlementObj) ? settlementObj : settlementObj?.slips;
-  const summary = settlementObj?.summary;
-  if (!slips || slips.length === 0) {
-    return <div>没有详细信息。</div>;
-  }
+// 原文弹窗
+function RawModal({ open, rawContent, onClose }) {
+  if (!open) return null;
   return (
-    <div className="multi-details-container" style={{ overflowX: 'auto' }}>
-      <table className="multi-slips-table">
-        <thead>
-          <tr>
-            <th>时间/序号</th>
-            <th>下注内容</th>
-            <th>结算结果</th>
-          </tr>
-        </thead>
-        <tbody>
-          {slips.map((slip, idx) => (
-            <tr key={idx} className="slip-row">
-              <td className="slip-time">
-                {slip.time ? <span className="time-tag">{slip.time}</span> : `第${slip.index}段`}
-              </td>
-              <td className="slip-raw">
-                <pre className="slip-pre">{slip.raw}</pre>
-              </td>
-              <td className="slip-result">
-                <SettlementDetails details={slip.result} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        {summary && (
-          <tfoot>
-            <tr className="summary-row">
-              <td colSpan="1" className="summary-label">全部总计</td>
-              <td colSpan="2" className="summary-value">
-                <span>号码总数：<strong>{summary.total_number_count}</strong> 个</span>&emsp;
-                <span>总金额：<strong>{summary.total_cost}</strong> 元</span>
-              </td>
-            </tr>
-          </tfoot>
-        )}
-      </table>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <button className="modal-close-button" onClick={onClose}>&times;</button>
+        <h2>邮件原文</h2>
+        <div className="panel" style={{ background: '#f7f8fa', padding: '1em' }}>
+          <pre className="raw-content-panel" style={{ fontSize: '1em', maxHeight: 400, overflow: 'auto' }}>
+            {rawContent}
+          </pre>
+        </div>
+      </div>
     </div>
   );
 }
 
-// 账单详情区块（导航+原文+结算内容）
-function BillDetailsViewer({ bill, onPrev, onNext, isPrevDisabled, isNextDisabled }) {
-  if (!bill) {
-    return <div style={{ padding: '2em', color: '#888' }}>没有账单数据。</div>;
-  }
-  let isMulti = false;
+// 结算详情弹窗，支持上一条/下一条切换和备注编辑保存
+function SettlementModal({ open, bill, onClose }) {
+  if (!open || !bill) return null;
+  // 解析分段
+  let slips = [];
   try {
-    const parsed = bill.settlement_details ? JSON.parse(bill.settlement_details) : null;
-    isMulti = parsed && (Array.isArray(parsed?.slips) || Array.isArray(parsed));
-  } catch {}
-  return (
-    <div className="bill-details-viewer">
-      <div className="navigation-buttons">
-        <button onClick={onPrev} disabled={isPrevDisabled}>&larr; 上一条</button>
-        <button onClick={onNext} disabled={isNextDisabled}>下一条 &rarr;</button>
-      </div>
-      <div className="panels-container">
-        <div className="panel" style={{minWidth: 0, flex: 1}}>
-          <h3>邮件原文</h3>
-          <pre className="raw-content-panel">{bill.raw_content || '无原文数据'}</pre>
+    const parsed = typeof bill.settlement_details === 'string'
+      ? JSON.parse(bill.settlement_details)
+      : bill.settlement_details;
+    slips = parsed?.slips || [];
+  } catch {
+    slips = [];
+  }
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [editText, setEditText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveResult, setSaveResult] = useState('');
+
+  // 初始化编辑文本
+  useEffect(() => {
+    setEditText(slips[currentIdx]?.result?.settlement || '');
+    setSaveResult('');
+    setSaving(false);
+  }, [open, bill?.id, currentIdx, bill?.settlement_details]);
+
+  if (slips.length === 0) {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <button className="modal-close-button" onClick={onClose}>&times;</button>
+          <h2>结算详情</h2>
+          <div style={{ padding: 20, color: '#888' }}>没有分段信息。</div>
         </div>
-        <div className="panel" style={{minWidth: 0, flex: 1}}>
-          <h3>结算内容</h3>
-          {isMulti
-            ? <MultiSettlementDetails details={bill.settlement_details} billId={bill.id} />
-            : <SettlementDetails details={bill.settlement_details} />}
+      </div>
+    );
+  }
+
+  const slip = slips[currentIdx];
+
+  // 保存备注
+  const handleSaveEdit = async () => {
+    setSaving(true);
+    setSaveResult('');
+    try {
+      const response = await fetch('/update_settlement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bill_id: bill.id,
+          slip_index: currentIdx,
+          settlement_text: editText
+        }),
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSaveResult('保存成功！');
+      } else {
+        setSaveResult('保存失败：' + (data.error || '未知错误'));
+      }
+    } catch {
+      setSaveResult('保存失败：网络错误');
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
+        <button className="modal-close-button" onClick={onClose}>&times;</button>
+        <h2>结算详情</h2>
+        <div className="panel" style={{ marginBottom: 0, padding: '1em', background: '#f7f8fa' }}>
+          <strong>下注单原文（第{currentIdx + 1}条）{slip.time ? `【${slip.time}】` : ''}</strong>
+          <pre style={{
+            background: '#fff',
+            border: '1px solid #e1e5ef',
+            borderRadius: 8,
+            padding: 10,
+            marginTop: 10,
+            fontFamily: 'inherit',
+            fontSize: '1em',
+            maxHeight: 120,
+            overflow: 'auto'
+          }}>{slip.raw}</pre>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, margin: '1em 0' }}>
+          <button onClick={() => setCurrentIdx(idx => Math.max(0, idx - 1))} disabled={currentIdx === 0}>上一条</button>
+          <span>第 {currentIdx + 1} / {slips.length} 条</span>
+          <button onClick={() => setCurrentIdx(idx => Math.min(slips.length - 1, idx + 1))} disabled={currentIdx === slips.length - 1}>下一条</button>
+        </div>
+        <div className="panel" style={{ marginTop: 0, padding: '1em', background: '#f7f8fa' }}>
+          <SettlementDetails
+            details={slip.result}
+            editable={true}
+            editedText={editText}
+            onEditChange={setEditText}
+            onSaveEdit={handleSaveEdit}
+            saving={saving}
+            saveResult={saveResult}
+          />
         </div>
       </div>
     </div>
@@ -150,6 +211,8 @@ function BillsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedBillIndex, setSelectedBillIndex] = useState(null);
+  const [showRawModal, setShowRawModal] = useState(false);
+  const [showSettlementModal, setShowSettlementModal] = useState(false);
   const { user, isAuthenticated } = useAuth();
 
   const fetchBills = async () => {
@@ -184,18 +247,6 @@ function BillsPage() {
 
   const handleSelectBill = (index) => {
     setSelectedBillIndex(index);
-  };
-
-  const handlePrevBill = () => {
-    if (selectedBillIndex !== null && selectedBillIndex > 0) {
-      setSelectedBillIndex(selectedBillIndex - 1);
-    }
-  };
-
-  const handleNextBill = () => {
-    if (selectedBillIndex !== null && selectedBillIndex < bills.length - 1) {
-      setSelectedBillIndex(selectedBillIndex + 1);
-    }
   };
 
   const handleDeleteBill = async (billId) => {
@@ -264,32 +315,39 @@ function BillsPage() {
             {bills.map((bill, index) => (
               <tr
                 key={bill.id}
-                onClick={() => handleSelectBill(index)}
                 className={selectedBillIndex === index ? 'selected-row' : ''}
               >
                 <td>{bill.id}</td>
                 <td>{new Date(bill.created_at).toLocaleString()}</td>
                 <td>{bill.total_cost ? `${bill.total_cost} 元` : 'N/A'}</td>
                 <td>{renderStatus(bill.status)}</td>
-                <td>
-                  <button onClick={(e) => { e.stopPropagation(); handleDeleteBill(bill.id); }} className="delete-button">
-                    删除
-                  </button>
+                <td style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={e => { e.stopPropagation(); setSelectedBillIndex(index); setShowRawModal(true); }}
+                  >原文</button>
+                  <button
+                    onClick={e => { e.stopPropagation(); setSelectedBillIndex(index); setShowSettlementModal(true); }}
+                  >结算详情</button>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleDeleteBill(bill.id); }}
+                    className="delete-button"
+                  >删除</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
-      {selectedBill && (
-        <BillDetailsViewer
-          bill={selectedBill}
-          onPrev={handlePrevBill}
-          onNext={handleNextBill}
-          isPrevDisabled={selectedBillIndex === 0}
-          isNextDisabled={selectedBillIndex === bills.length - 1}
-        />
-      )}
+      <RawModal
+        open={showRawModal && selectedBill}
+        rawContent={selectedBill ? selectedBill.raw_content : ''}
+        onClose={() => setShowRawModal(false)}
+      />
+      <SettlementModal
+        open={showSettlementModal && selectedBill}
+        bill={selectedBill}
+        onClose={() => setShowSettlementModal(false)}
+      />
     </div>
   );
 }
