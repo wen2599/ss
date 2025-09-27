@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 // 单条结算详情显示（兼容旧账单）
 function SettlementDetails({ details }) {
   if (!details) return <div className="details-container">没有详细信息。</div>;
-
   let parsedDetails;
   try {
     parsedDetails = typeof details === 'string' ? JSON.parse(details) : details;
@@ -16,32 +15,45 @@ function SettlementDetails({ details }) {
     const { zodiac_bets, number_bets, summary } = parsedDetails;
     return (
       <div className="details-container" style={{ padding: '10px' }}>
-        <h4>结算单详情</h4>
-        {zodiac_bets && zodiac_bets.length > 0 && (
-          <div className="details-section">
-            <strong>生肖投注:</strong>
-            <ul>
-              {zodiac_bets.map((bet, index) => (
-                <li key={index}>
-                  `{bet.zodiac}`: {bet.numbers.join(', ')} (<strong>{bet.cost}元</strong>)
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {number_bets && number_bets.numbers && number_bets.numbers.length > 0 && (
-          <div className="details-section">
-            <strong>单独号码投注:</strong>
-            <p>{number_bets.numbers.join(', ')} (<strong>{number_bets.cost}元</strong>)</p>
-          </div>
-        )}
-        {summary && (
-          <div className="details-summary">
-            <strong>总结:</strong>
-            <p>号码总数: <strong>{summary.number_count ?? summary.total_unique_numbers}</strong> 个</p>
-            <p>总金额: <strong>{summary.total_cost}</strong> 元</p>
-          </div>
-        )}
+        <table className="settlement-table">
+          <thead>
+            <tr>
+              <th>类型</th>
+              <th>内容</th>
+              <th>金额</th>
+            </tr>
+          </thead>
+          <tbody>
+            {zodiac_bets && zodiac_bets.length > 0 && (
+              zodiac_bets.map((bet, idx) => (
+                <tr key={`zodiac-${idx}`}>
+                  <td className="type-zodiac">生肖投注<br/><span className="zodiac-tag">{bet.zodiac}</span></td>
+                  <td>{bet.numbers.join(', ')}</td>
+                  <td className="amount">{bet.cost} 元</td>
+                </tr>
+              ))
+            )}
+            {number_bets && number_bets.numbers && number_bets.numbers.length > 0 && (
+              <tr>
+                <td className="type-number">单独号码投注</td>
+                <td>{number_bets.numbers.join(', ')}</td>
+                <td className="amount">{number_bets.cost} 元</td>
+              </tr>
+            )}
+          </tbody>
+          {summary && (
+            <tfoot>
+              <tr>
+                <td colSpan="2" className="summary-label">号码总数</td>
+                <td className="summary-value">{summary.number_count ?? summary.total_unique_numbers} 个</td>
+              </tr>
+              <tr>
+                <td colSpan="2" className="summary-label">总金额</td>
+                <td className="summary-value">{summary.total_cost} 元</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
       </div>
     );
   }
@@ -58,7 +70,6 @@ function MultiSettlementDetails({ details, billId }) {
     return <div>无法解析结算详情。</div>;
   }
 
-  // 新结构：{ slips: [...], summary: {...} }
   const slips = Array.isArray(settlementObj) ? settlementObj : settlementObj?.slips;
   const summary = settlementObj?.summary;
 
@@ -68,34 +79,54 @@ function MultiSettlementDetails({ details, billId }) {
 
   return (
     <div className="multi-details-container">
-      {slips.map((slip, idx) => (
-        <div key={idx} className="single-bet-section" style={{ margin: '16px 0', padding: '8px', border: '1px solid #eee', borderRadius: '8px' }}>
-          <div>
-            <strong>时间点：</strong> {slip.time ?? `第${slip.index}段`}
-          </div>
-          <div>
-            <strong>下注内容：</strong>
-            <pre>{slip.raw}</pre>
-          </div>
-          <div>
-            <strong>该条结算结果：</strong>
-            <SettlementDetails details={slip.result} />
-          </div>
-        </div>
-      ))}
-      {summary && (
-        <div className="multi-details-summary" style={{ marginTop: '24px', paddingTop: '12px', borderTop: '2px solid #ccc' }}>
-          <strong>全部下注单总计：</strong>
-          <p>所有号码总数：<strong>{summary.total_number_count}</strong> 个</p>
-          <p>总金额：<strong>{summary.total_cost}</strong> 元</p>
-        </div>
-      )}
+      <table className="multi-slips-table">
+        <thead>
+          <tr>
+            <th style={{ width: '80px' }}>时间/序号</th>
+            <th>下注内容</th>
+            <th>结算结果</th>
+            <th>备注</th>
+            <th>结算说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          {slips.map((slip, idx) => (
+            <tr key={idx} className="slip-row">
+              <td className="slip-time">
+                {slip.time ? <span className="time-tag">{slip.time}</span> : `第${slip.index}段`}
+              </td>
+              <td className="slip-raw">
+                <pre className="slip-pre">{slip.raw}</pre>
+              </td>
+              <td className="slip-result">
+                <SettlementDetails details={slip.result} />
+              </td>
+              <td className="slip-remark">
+                {slip.remark ? <span className="remark-tag">{slip.remark}</span> : <span className="remark-empty">—</span>}
+              </td>
+              <td className="slip-settlement">
+                {slip.settlement ? <span className="settlement-tag">{slip.settlement}</span> : <span className="settlement-empty">—</span>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        {summary && (
+          <tfoot>
+            <tr className="summary-row">
+              <td colSpan="2" className="summary-label">全部下注单总计：</td>
+              <td colSpan="3" className="summary-value">
+                <span>所有号码总数：<strong>{summary.total_number_count}</strong> 个</span>&emsp;
+                <span>总金额：<strong>{summary.total_cost}</strong> 元</span>
+              </td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
     </div>
   );
 }
 
 function BillDetailsViewer({ bill, onPrev, onNext, isPrevDisabled, isNextDisabled }) {
-  // 判断是否多条结算（新结构：有slips数组）
   let isMulti = false;
   try {
     const parsed = JSON.parse(bill.settlement_details);
@@ -130,7 +161,6 @@ function BillsPage() {
   const [selectedBillIndex, setSelectedBillIndex] = useState(null);
   const { user, isAuthenticated } = useAuth();
 
-  // fetch请求必须带credentials: 'include'
   const fetchBills = async () => {
     setIsLoading(true);
     setError('');
