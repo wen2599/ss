@@ -12,14 +12,20 @@ function LotteryBanner({ latestResult, getNumberColorClass }) {
   const { lottery_name, issue_number, numbers } = latestResult;
   const numberArray = numbers.split(',');
 
-  // Define which lotteries get a special stamp, their display names, and a CSS class
-  const specialLotteries = {
-    '香港': { name: '香港', class: 'hk' },
-    '老澳门': { name: '老澳', class: 'om' },
-    '新澳门': { name: '新澳', class: 'nm' }
+  const getLotteryInfo = (name) => {
+    if (name.includes('香港')) {
+      return { name: '香港', class: 'hk' };
+    }
+    if (name.includes('老澳')) {
+      return { name: '老澳', class: 'om' };
+    }
+    if (name.includes('新澳门')) {
+      return { name: '新澳', class: 'nm' };
+    }
+    return null;
   };
 
-  const lotteryInfo = specialLotteries[lottery_name];
+  const lotteryInfo = getLotteryInfo(lottery_name);
 
   return (
     <div className="lottery-banner">
