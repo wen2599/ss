@@ -11,12 +11,7 @@ class BetCalculator {
         ];
         $text = $betting_slip_text;
 
-        // --- Parsing Strategy ---
-        // For each type of bet, we find all matches, process them,
-        // and then remove all matched strings from the text before proceeding to the next type.
-
         // 1. Unified Zodiac "Per Number" Parsing (Handles both "数各" and "各数")
-        // e.g., "鼠马各数5元" OR "鼠,鸡数各二十"
         $pattern = '/([\p{Han},，\s]+?)(?:数各|各数)\s*([\p{Han}\d]+)\s*[元块]?/u';
         if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
@@ -70,7 +65,7 @@ class BetCalculator {
         // Final Calculation
         $total_cost = 0;
         $total_number_count = 0;
-        foreach ($settlement_slip['zodiac_bets'] as $bet) { // This loop remains for potential future bet types
+        foreach ($settlement_slip['zodiac_bets'] as $bet) {
             $total_cost += $bet['cost'];
             $total_number_count += count($bet['numbers']);
         }
@@ -159,10 +154,7 @@ class BetCalculator {
     }
 
     private static function chineseToNumber(string $text): int {
-        $map = [
-            '零' => 0, '一' => 1, '二' => 2, '三' => 3, '四' => 4, '五' => 5,
-            '六' => 6, '七' => 7, '八' => 8, '九' => 9, '两' => 2,
-        ];
+        $map = [ '零'=>0,'一'=>1,'二'=>2,'三'=>3,'四'=>4,'五'=>5,'六'=>6,'七'=>7,'八'=>8,'九'=>9,'两'=>2 ];
         $text = trim(str_replace('两', '二', $text));
         if (isset($map[$text])) return $map[$text];
         if ($text === '十') return 10;
@@ -175,39 +167,17 @@ class BetCalculator {
         return 0;
     }
 
-    /**
-     * Settles a bill against a set of lottery results.
-     *
-     * @param array $bill_details The parsed bill details from calculateMulti.
-     * @param array $lottery_results_map A map of lottery names to their winning numbers array.
-     * @return array The bill details annotated with winnings.
-     */
-    public static function settle(array $bill_details, array $lottery_results_map): array
-    {
+    public static function settle(array $bill_details, array $lottery_results_map): array {
         $settled_details = $bill_details;
         $total_winnings = 0;
         $winning_rate = 45;
-
-        // Determine which winning numbers to use based on the rules.
         $hk_numbers = $lottery_results_map['香港'] ?? null;
         $nm_numbers = $lottery_results_map['新澳门'] ?? null;
 
         foreach ($settled_details['slips'] as &$slip) {
             $region = $slip['region'] ?? '';
-            $winning_numbers = null;
-
-            // Rule: If '香港' or '港' is present, use Hong Kong results.
-            if (strpos($region, '香港') !== false || strpos($region, '港') !== false) {
-                $winning_numbers = $hk_numbers;
-            } else {
-                // Default Rule: Otherwise, always use New Macau results.
-                $winning_numbers = $nm_numbers;
-            }
-
-            if ($winning_numbers === null) {
-                continue; // Skip if no relevant winning numbers are available.
-            }
-
+            $winning_numbers = (strpos($region, '香港') !== false || strpos($region, '港') !== false) ? $hk_numbers : $nm_numbers;
+            if ($winning_numbers === null) continue;
             $slip_winnings = 0;
             if (isset($slip['result']['number_bets'])) {
                 foreach ($slip['result']['number_bets'] as &$bet) {
@@ -226,12 +196,10 @@ class BetCalculator {
                 }
                 unset($bet);
             }
-
             $slip['result']['summary']['winnings'] = $slip_winnings;
             $total_winnings += $slip_winnings;
         }
         unset($slip);
-
         $settled_details['summary']['total_winnings'] = $total_winnings;
         return $settled_details;
     }

@@ -46,15 +46,7 @@ try {
 }
 
 // 3. Routing
-$action = $_GET['action'] ?? null;
-
-if (empty($action)) {
-    // If action is not in query string, try to get it from the path.
-    // This allows for cleaner URLs like /get_bills instead of /index.php?action=get_bills
-    $request_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    $action = basename($request_path);
-}
-
+$action = $_GET['action'] ?? '';
 $action_file = __DIR__ . '/actions/' . $action . '.php';
 
 if ($action && file_exists($action_file)) {

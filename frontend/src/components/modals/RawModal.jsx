@@ -1,13 +1,5 @@
 import React from 'react';
 
-/**
- * A modal dialog to display raw text content.
- * Closes when the overlay or the close button is clicked.
- * @param {object} props
- * @param {boolean} props.open - Whether the modal is open.
- * @param {string} props.rawContent - The text content to display.
- * @param {function} props.onClose - The function to call when the modal should close.
- */
 function RawModal({ open, rawContent, onClose }) {
   if (!open) return null;
 
