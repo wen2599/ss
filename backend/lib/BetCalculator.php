@@ -3,7 +3,6 @@ require_once __DIR__ . '/GameData.php';
 
 class BetCalculator {
 
-    // 单条下注单结算，不去重
     public static function calculateSingle(string $betting_slip_text): ?array {
         $settlement_slip = [
             'zodiac_bets' => [],
@@ -12,79 +11,78 @@ class BetCalculator {
         ];
         $text = $betting_slip_text;
 
-        // Pattern 1: Zodiacs per number (e.g., "鼠马各数5元")
-        $zodiac_by_number_pattern = '/((?:[\p{Han}]+[,，\s]*)+?)各数\s*([\p{Han}\d]+)\s*[元块]?/u';
-        if (preg_match_all($zodiac_by_number_pattern, $text, $matches, PREG_SET_ORDER)) {
-            foreach ($matches as $match) {
-                $zodiac_string = $match[1];
-                $cost_text = $match[2];
-                $cost_per_number = self::chineseToNumber($cost_text) ?: (is_numeric($cost_text) ? intval($cost_text) : 0);
+        // --- Parsing Strategy ---
+        // For each type of bet, we find all matches, process them,
+        // and then remove all matched strings from the text before proceeding to the next type.
+        // This prevents parsing errors from modifying the string mid-loop.
 
-                if ($cost_per_number > 0) {
-                    $cleaned_zodiac_string = preg_replace('/[,，\s]/u', '', $zodiac_string);
-                    $mentioned_zodiacs = mb_str_split($cleaned_zodiac_string);
-                    $all_numbers = [];
-                    foreach ($mentioned_zodiacs as $zodiac) {
-                        if (isset(GameData::$zodiacMap[$zodiac])) {
-                            $all_numbers = array_merge($all_numbers, GameData::$zodiacMap[$zodiac]);
+        // 1. Zodiacs per number (e.g., "鼠马各数5元")
+        $pattern = '/([\p{Han},，\s]+?)各数\s*([\p{Han}\d]+)\s*[元块]?/u';
+        if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $zodiac_string = preg_replace('/[,，\s]/u', '', $match[1]);
+                $zodiacs = mb_str_split($zodiac_string);
+                $cost = self::chineseToNumber($match[2]) ?: intval($match[2]);
+
+                if ($cost > 0 && !empty($zodiacs)) {
+                    $numbers = [];
+                    foreach ($zodiacs as $z) {
+                        if (isset(GameData::$zodiacMap[$z])) {
+                            $numbers = array_merge($numbers, GameData::$zodiacMap[$z]);
                         }
                     }
-                    $unique_numbers = array_values(array_unique($all_numbers));
+                    $unique_numbers = array_values(array_unique($numbers));
                     if (!empty($unique_numbers)) {
                         $settlement_slip['number_bets'][] = [
-                            'numbers' => $unique_numbers,
-                            'cost_per_number' => $cost_per_number,
-                            'cost' => count($unique_numbers) * $cost_per_number,
-                            'source_zodiacs' => $mentioned_zodiacs
+                            'numbers' => $unique_numbers, 'cost_per_number' => $cost, 'cost' => count($unique_numbers) * $cost, 'source_zodiacs' => $zodiacs
                         ];
                     }
                 }
             }
-            $text = preg_replace($zodiac_by_number_pattern, '', $text);
+            $text = preg_replace($pattern, '', $text);
         }
 
-        // Pattern 2: Zodiac sets (e.g., "鼠数各20元")
-        $zodiac_set_pattern = '/((?:[\p{Han}]+[,，\s]*)+?)数各\s*([\p{Han}\d]+)\s*[元块]?/u';
-        if (preg_match_all($zodiac_set_pattern, $text, $matches, PREG_SET_ORDER)) {
+        // 2. Zodiac sets (e.g., "鼠数各20元")
+        $pattern = '/([\p{Han},，\s]+?)数各\s*([\p{Han}\d]+)\s*[元块]?/u';
+        if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
-                $cost_text = $match[2];
-                $cost_per_zodiac = self::chineseToNumber($cost_text) ?: (is_numeric($cost_text) ? intval($cost_text) : 0);
-                if ($cost_per_zodiac > 0) {
-                    $cleaned_zodiac_string = preg_replace('/[,，\s]/u', '', $match[1]);
-                    $mentioned_zodiacs = mb_str_split($cleaned_zodiac_string);
-                    foreach ($mentioned_zodiacs as $zodiac) {
-                        if (isset(GameData::$zodiacMap[$zodiac])) {
-                            $settlement_slip['zodiac_bets'][] = [ 'zodiac' => $zodiac, 'numbers' => GameData::$zodiacMap[$zodiac], 'cost' => $cost_per_zodiac ];
+                $zodiac_string = preg_replace('/[,，\s]/u', '', $match[1]);
+                $zodiacs = mb_str_split($zodiac_string);
+                $cost = self::chineseToNumber($match[2]) ?: intval($match[2]);
+                if ($cost > 0) {
+                    foreach ($zodiacs as $z) {
+                        if (isset(GameData::$zodiacMap[$z])) {
+                            $settlement_slip['zodiac_bets'][] = [ 'zodiac' => $z, 'numbers' => GameData::$zodiacMap[$z], 'cost' => $cost ];
                         }
                     }
                 }
             }
-            $text = preg_replace($zodiac_set_pattern, '', $text);
+            $text = preg_replace($pattern, '', $text);
         }
 
-        // Pattern 3: Number lists (e.g., "06-36各5元", "36,48各30#")
-        $number_list_pattern = '/((?:[0-9]+[.,，、\s-]*)+)各\s*(\d+)\s*(?:#|[元块])/u';
-        if (preg_match_all($number_list_pattern, $text, $matches, PREG_SET_ORDER)) {
+        // 3. Number lists (e.g., "06-36各5元", "36,48各30#")
+        $pattern = '/([0-9.,，、\s-]+)各\s*(\d+)\s*(?:#|[元块])/u';
+        if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
-                $numbers = preg_split('/[.,，、\s-]+/', $match[1]);
-                $valid_numbers = array_values(array_filter(array_map('trim', $numbers), 'strlen'));
-                $cost_per_number = intval($match[2]);
-                if (!empty($valid_numbers) && $cost_per_number > 0) {
-                    $settlement_slip['number_bets'][] = [ 'numbers' => $valid_numbers, 'cost_per_number' => $cost_per_number, 'cost' => count($valid_numbers) * $cost_per_number ];
+                $numbers = preg_split('/[.,，、\s-]+/', $match[1], -1, PREG_SPLIT_NO_EMPTY);
+                $cost = intval($match[2]);
+                if (!empty($numbers) && $cost > 0) {
+                    $settlement_slip['number_bets'][] = [ 'numbers' => $numbers, 'cost_per_number' => $cost, 'cost' => count($numbers) * $cost ];
                 }
             }
-            $text = preg_replace($number_list_pattern, '', $text);
+            $text = preg_replace($pattern, '', $text);
         }
 
-        // Pattern 4: Multiplier numbers (e.g., "40x10元")
-        $multiplier_pattern = '/(\d+)\s*[xX×\*]\s*(\d+)\s*[元块]?/u';
-        if (preg_match_all($multiplier_pattern, $text, $matches, PREG_SET_ORDER)) {
+        // 4. Multiplier numbers (e.g., "40x10元")
+        $pattern = '/(\d+)\s*[xX×\*]\s*(\d+)\s*[元块]?/u';
+        if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
-                if (intval($match[2]) > 0) {
-                    $settlement_slip['number_bets'][] = [ 'numbers' => [$match[1]], 'cost_per_number' => intval($match[2]), 'cost' => intval($match[2]) ];
+                $cost = intval($match[2]);
+                if ($cost > 0) {
+                    $settlement_slip['number_bets'][] = [ 'numbers' => [$match[1]], 'cost_per_number' => $cost, 'cost' => $cost ];
                 }
             }
-            $text = preg_replace($multiplier_pattern, '', $text);
+            $text = preg_replace($pattern, '', $text);
         }
 
         // Final Calculation
@@ -103,15 +101,11 @@ class BetCalculator {
 
         $settlement_slip['summary']['number_count'] = $total_number_count;
         $settlement_slip['summary']['total_cost'] = $total_cost;
-
         return $settlement_slip;
     }
 
-    // 按地区、时间点/空行分段结算
     public static function calculateMulti(string $full_text): ?array {
         $all_slips = [];
-
-        // 1. 按地区（澳门/香港）分割文本
         $regional_blocks = preg_split('/(?=澳门|香港)/u', $full_text, -1, PREG_SPLIT_NO_EMPTY);
         if (empty($regional_blocks)) {
             $regional_blocks = [$full_text];
@@ -120,6 +114,7 @@ class BetCalculator {
         foreach ($regional_blocks as $block) {
             $block = trim($block);
             $current_region = null;
+            $content = $block;
 
             if (mb_strpos($block, '澳门', 0, 'UTF-8') === 0) {
                 $current_region = '澳门';
@@ -127,22 +122,17 @@ class BetCalculator {
             } elseif (mb_strpos($block, '香港', 0, 'UTF-8') === 0) {
                 $current_region = '香港';
                 $content = trim(mb_substr($block, mb_strlen('香港', 'UTF-8')));
-            } else {
-                $content = $block;
             }
 
-            // 2. 在地区内部，按时间或空行分割
             $time_pattern = '/(\d{1,2}:\d{2})/u';
             $parts = preg_split($time_pattern, $content, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
-
-            $slips_in_block = [];
 
             if (count($parts) <= 1) {
                 $sub_blocks = preg_split('/\n{2,}/u', $content, -1, PREG_SPLIT_NO_EMPTY);
                 foreach ($sub_blocks as $sub_block) {
                     if (mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $sub_block)) < 10) continue;
                     $r = self::calculateSingle(trim($sub_block));
-                    if ($r) $slips_in_block[] = ['raw' => trim($sub_block), 'result' => $r, 'region' => $current_region];
+                    if ($r) $all_slips[] = ['raw' => trim($sub_block), 'result' => $r, 'region' => $current_region];
                 }
             } else {
                 $current_slip_content = !preg_match($time_pattern, $parts[0]) ? array_shift($parts) : '';
@@ -151,7 +141,7 @@ class BetCalculator {
                     if (preg_match($time_pattern, $part)) {
                         if (!empty(trim($current_slip_content))) {
                             $r = self::calculateSingle(trim($current_slip_content));
-                            if ($r) $slips_in_block[] = ['time' => $current_time, 'raw' => trim($current_slip_content), 'result' => $r, 'region' => $current_region];
+                            if ($r) $all_slips[] = ['time' => $current_time, 'raw' => trim($current_slip_content), 'result' => $r, 'region' => $current_region];
                         }
                         $current_time = $part;
                         $current_slip_content = '';
@@ -161,13 +151,13 @@ class BetCalculator {
                 }
                 if (!empty(trim($current_slip_content))) {
                     $r = self::calculateSingle(trim($current_slip_content));
-                    if ($r) $slips_in_block[] = ['time' => $current_time, 'raw' => trim($current_slip_content), 'result' => $r, 'region' => $current_region];
+                    if ($r) $all_slips[] = ['time' => $current_time, 'raw' => trim($current_slip_content), 'result' => $r, 'region' => $current_region];
                 }
             }
-            $all_slips = array_merge($all_slips, $slips_in_block);
         }
 
-        // 3. 重新编号并计算总计
+        if (empty($all_slips)) return null;
+
         $total_number_count = 0;
         $total_cost = 0;
         foreach ($all_slips as $key => &$item) {
@@ -186,47 +176,20 @@ class BetCalculator {
         ];
     }
 
-    /**
-     * Converts simple Chinese numeric strings to integers.
-     * Handles cases like "五", "十", "二十", "二十五".
-     * @param string $text The Chinese numeral text.
-     * @return int The integer value.
-     */
     private static function chineseToNumber(string $text): int {
         $map = [
             '零' => 0, '一' => 1, '二' => 2, '三' => 3, '四' => 4, '五' => 5,
             '六' => 6, '七' => 7, '八' => 8, '九' => 9, '两' => 2,
         ];
         $text = trim(str_replace('两', '二', $text));
-
-        if (isset($map[$text])) {
-            return $map[$text];
-        }
-
-        if ($text === '十') {
-            return 10;
-        }
-
-        // "十五" -> 15
-        if (mb_substr($text, 0, 1) === '十') {
-            $unit_char = mb_substr($text, 1, 1);
-            return 10 + ($map[$unit_char] ?? 0);
-        }
-
-        // "二十" -> 20
-        if (mb_substr($text, -1, 1) === '十') {
-            $ten_char = mb_substr($text, 0, 1);
-            if (isset($map[$ten_char])) {
-                return $map[$ten_char] * 10;
-            }
-        }
-
-        // "二十五" -> 25
+        if (isset($map[$text])) return $map[$text];
+        if ($text === '十') return 10;
+        if (mb_substr($text, 0, 1) === '十') return 10 + ($map[mb_substr($text, 1, 1)] ?? 0);
+        if (mb_substr($text, -1, 1) === '十') return ($map[mb_substr($text, 0, 1)] ?? 0) * 10;
         $parts = mb_split('十', $text);
         if (count($parts) === 2 && isset($map[$parts[0]]) && isset($map[$parts[1]])) {
             return $map[$parts[0]] * 10 + $map[$parts[1]];
         }
-
         return 0;
     }
 }
