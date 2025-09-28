@@ -49,15 +49,19 @@ try {
          exit();
     }
 
-    // Check if the slip index is valid
-    if (!isset($settlement_details[$slip_index])) {
+    // Check if the slip index is valid within the 'slips' array
+    if (!is_array($settlement_details) || !isset($settlement_details['slips']) || !isset($settlement_details['slips'][$slip_index])) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Invalid slip index.']);
+        echo json_encode(['success' => false, 'error' => 'Invalid slip index or data structure.']);
         exit();
     }
 
-    // Update the settlement text for the specific slip
-    $settlement_details[$slip_index]['settlement'] = $settlement_text;
+    // Update the settlement text for the specific slip within its 'result' object
+    if (!isset($settlement_details['slips'][$slip_index]['result'])) {
+        // If for some reason 'result' doesn't exist, create it.
+        $settlement_details['slips'][$slip_index]['result'] = [];
+    }
+    $settlement_details['slips'][$slip_index]['result']['settlement'] = $settlement_text;
 
     // Encode the updated array back to JSON
     $new_settlement_details_json = json_encode($settlement_details, JSON_UNESCAPED_UNICODE);

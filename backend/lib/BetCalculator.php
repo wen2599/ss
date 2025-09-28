@@ -124,68 +124,100 @@ class BetCalculator {
         return $settlement_slip;
     }
 
-    // 按时间点分段结算，每段用calculateSingle，最后总计也不去重
+    // 按地区、时间点/空行分段结算
     public static function calculateMulti(string $full_text): ?array {
-        $pattern = '/(?<=\n|^)\s*(\d{1,2}:\d{2})/u';
-        preg_match_all($pattern, $full_text, $matches, PREG_OFFSET_CAPTURE);
+        $all_slips = [];
 
-        $results = [];
-        $timePoints = $matches[1];
-
-        if (empty($timePoints)) {
-            // 没有时间点则按原空行分段逻辑
-            $blocks = preg_split('/\n{2,}/u', $full_text, -1, PREG_SPLIT_NO_EMPTY);
-            foreach ($blocks as $idx => $block) {
-                $block = trim($block);
-                if (mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $block)) < 10) continue;
-                $r = self::calculateSingle($block);
-                if ($r) {
-                    $results[] = [
-                        'index' => $idx + 1,
-                        'raw' => $block,
-                        'result' => $r
-                    ];
-                }
-            }
-        } else {
-            // 按时间点分段
-            $segments = [];
-            for ($i = 0; $i < count($timePoints); $i++) {
-                $start = $timePoints[$i][1];
-                $end = ($i + 1 < count($timePoints)) ? $timePoints[$i + 1][1] : mb_strlen($full_text, 'UTF-8');
-                $segment = mb_substr($full_text, $start, $end - $start, 'UTF-8');
-                $segment = preg_replace('/^\s*\d{1,2}:\d{2}/u', '', $segment);
-                $segment = trim($segment);
-                if ($segment !== '' && mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $segment)) >= 10) {
-                    $segments[] = [
-                        'time' => $timePoints[$i][0],
-                        'content' => $segment
-                    ];
-                }
-            }
-            foreach ($segments as $idx => $seg) {
-                $r = self::calculateSingle($seg['content']);
-                if ($r) {
-                    $results[] = [
-                        'index' => $idx + 1,
-                        'time' => $seg['time'],
-                        'raw' => $seg['content'],
-                        'result' => $r
-                    ];
-                }
-            }
+        // 1. 按地区（澳门/香港）分割文本
+        $regional_blocks = preg_split('/(?=澳门|香港)/u', $full_text, -1, PREG_SPLIT_NO_EMPTY);
+        if (empty($regional_blocks)) {
+            // 如果没有地区标记，则将全部内容视为一个默认块
+            $regional_blocks = [$full_text];
         }
 
-        // 总计统计（不去重，所有段合并）
+        foreach ($regional_blocks as $block) {
+            $block = trim($block);
+            $current_region = null;
+
+            // 识别并移除地区标记
+            if (mb_strpos($block, '澳门', 0, 'UTF-8') === 0) {
+                $current_region = '澳门';
+                $content = trim(mb_substr($block, mb_strlen('澳门', 'UTF-8')));
+            } elseif (mb_strpos($block, '香港', 0, 'UTF-8') === 0) {
+                $current_region = '香港';
+                $content = trim(mb_substr($block, mb_strlen('香港', 'UTF-8')));
+            } else {
+                $content = $block; // 没有地区标记的块
+            }
+
+            // 2. 在地区内部，按时间或空行分割
+            $time_pattern = '/(?<=\n|^)\s*(\d{1,2}:\d{2})/u';
+            preg_match_all($time_pattern, $content, $matches, PREG_OFFSET_CAPTURE);
+            $timePoints = $matches[1];
+
+            $slips_in_block = [];
+
+            if (empty($timePoints)) {
+                // 按空行分段
+                $sub_blocks = preg_split('/\n{2,}/u', $content, -1, PREG_SPLIT_NO_EMPTY);
+                foreach ($sub_blocks as $sub_block) {
+                    $sub_block = trim($sub_block);
+                    if (mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $sub_block)) < 10) continue;
+
+                    $r = self::calculateSingle($sub_block);
+                    if ($r) {
+                        $slips_in_block[] = [
+                            'raw' => $sub_block,
+                            'result' => $r,
+                            'region' => $current_region
+                        ];
+                    }
+                }
+            } else {
+                // 按时间点分段
+                $segments = [];
+                for ($i = 0; $i < count($timePoints); $i++) {
+                    $start = $timePoints[$i][1];
+                    $end = ($i + 1 < count($timePoints)) ? $timePoints[$i + 1][1] : mb_strlen($content, 'UTF-8');
+                    $segment_text = mb_substr($content, $start, $end - $start, 'UTF-8');
+                    $segment_text = preg_replace('/^\s*\d{1,2}:\d{2}/u', '', $segment_text);
+                    $segment_text = trim($segment_text);
+
+                    if ($segment_text !== '' && mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $segment_text)) >= 10) {
+                        $segments[] = [
+                            'time' => $timePoints[$i][0],
+                            'content' => $segment_text
+                        ];
+                    }
+                }
+
+                foreach ($segments as $seg) {
+                    $r = self::calculateSingle($seg['content']);
+                    if ($r) {
+                        $slips_in_block[] = [
+                            'time' => $seg['time'],
+                            'raw' => $seg['content'],
+                            'result' => $r,
+                            'region' => $current_region
+                        ];
+                    }
+                }
+            }
+            $all_slips = array_merge($all_slips, $slips_in_block);
+        }
+
+        // 3. 重新编号并计算总计
         $total_number_count = 0;
         $total_cost = 0;
-        foreach ($results as $item) {
+        foreach ($all_slips as $key => &$item) {
+            $item['index'] = $key + 1; // Assign a global, sequential index
             $total_number_count += $item['result']['summary']['number_count'];
             $total_cost += $item['result']['summary']['total_cost'];
         }
+        unset($item); // Unset reference
 
         return [
-            'slips' => $results,
+            'slips' => $all_slips,
             'summary' => [
                 'total_number_count' => $total_number_count,
                 'total_cost' => $total_cost
