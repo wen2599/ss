@@ -71,7 +71,7 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
   const [editedJsonText, setEditedJsonText] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState({ index: null, type: '', message: '' });
-  const [viewMode, setViewMode] = useState('card');
+  const [viewMode, setViewMode] = useState('text'); // 'text' is now the default
 
   useEffect(() => {
     if (!open) {
@@ -79,7 +79,7 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
       setEditedJsonText('');
       setSaving(false);
       setSaveResult({ index: null, type: '', message: '' });
-      setViewMode('card');
+      setViewMode('text'); // Reset to default view on close
     }
   }, [open]);
 
@@ -170,10 +170,6 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
         <button className="modal-close-button" onClick={onClose}>&times;</button>
         <div className="modal-header">
           <h2>结算详情 (账单 #{bill.id})</h2>
-          <div className="view-toggle">
-            <button onClick={() => setViewMode('card')} className={viewMode === 'card' ? 'active' : ''}>卡片视图</button>
-            <button onClick={() => setViewMode('text')} className={viewMode === 'text' ? 'active' : ''}>原文视图</button>
-          </div>
         </div>
 
         {viewMode === 'card' && (
