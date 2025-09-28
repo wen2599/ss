@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 
-// This is a sub-component used only within the SettlementModal.
 function SettlementDetails({ details }) {
   if (!details) return <div className="details-container">没有详细信息。</div>;
 
-  const { zodiac_bets, number_bets, summary, settlement } = details || {};
-  const safe_zodiac_bets = Array.isArray(zodiac_bets) ? zodiac_bets : [];
+  const { number_bets, summary, settlement } = details || {};
   const safe_number_bets = Array.isArray(number_bets) ? number_bets : [];
 
-  if (safe_zodiac_bets.length === 0 && safe_number_bets.length === 0) {
+  if (safe_number_bets.length === 0) {
     return <div className="details-container">没有解析到投注。</div>;
   }
 
@@ -19,25 +17,26 @@ function SettlementDetails({ details }) {
           <tr>
             <th>类型</th>
             <th>内容</th>
-            <th>金额</th>
+            <th>投注 / 中奖</th>
           </tr>
         </thead>
         <tbody>
-          {safe_zodiac_bets.map((bet, idx) => (
-            <tr key={`zodiac-${idx}`}>
-              <td className="type-zodiac">生肖投注</td>
-              <td>
-                <span className="zodiac-tag">{bet.zodiac}</span>
-                <span>: {bet.numbers.join(', ')}</span>
-              </td>
-              <td className="amount">{bet.cost} 元</td>
-            </tr>
-          ))}
           {safe_number_bets.map((bet, idx) => (
-            <tr key={`number-${idx}`}>
+            <tr key={`number-${idx}`} className={bet.winnings > 0 ? 'winning-row' : ''}>
               <td className="type-number">号码投注</td>
-              <td>{bet.numbers.join(', ')}</td>
-              <td className="amount">{bet.cost} 元</td>
+              <td>
+                {bet.numbers.map(num => (
+                  <span key={num} className={bet.winning_numbers?.includes(num) ? 'winning-number' : ''}>
+                    {num}
+                  </span>
+                ))}
+              </td>
+              <td className="amount">
+                {bet.cost} 元
+                {bet.winnings > 0 && (
+                  <span className="winnings-amount"> 赢: {bet.winnings} 元</span>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -51,6 +50,12 @@ function SettlementDetails({ details }) {
               <td colSpan="2" className="summary-label">总金额</td>
               <td className="summary-value">{summary.total_cost ?? 0} 元</td>
             </tr>
+            {summary.winnings > 0 && (
+              <tr>
+                <td colSpan="2" className="summary-label winning-row">总计中奖</td>
+                <td className="summary-value winning-row">{summary.winnings} 元</td>
+              </tr>
+            )}
           </tfoot>
         )}
       </table>
@@ -246,6 +251,13 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
                 <span className="summary-divider">|</span>
                 <strong>总号码数:</strong>
                 <span>{summary.total_number_count || 0} 个</span>
+                {summary.total_winnings > 0 && (
+                  <>
+                    <span className="summary-divider">|</span>
+                    <strong className="winning-row">总计中奖:</strong>
+                    <span className="winning-row">{summary.total_winnings} 元</span>
+                  </>
+                )}
               </div>
             </>
           )

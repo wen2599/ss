@@ -254,3 +254,57 @@ a:hover {
   padding: 10px 15px;
   flex-grow: 1;
 }
+
+/* Status Styles */
+.status-processed {
+  color: var(--success-color);
+  font-weight: bold;
+}
+.status-unrecognized {
+  color: var(--error-color);
+  font-weight: bold;
+}
+.status-settled {
+  color: #9c27b0; /* A distinct purple for settled state */
+  font-weight: bold;
+}
+.status-default {
+  color: var(--text-muted-light);
+}
+
+/* Settle Button Style */
+.settle-button {
+  background-color: var(--secondary-color);
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-left: 4px; /* Add some space from other buttons */
+}
+.settle-button:hover {
+  background-color: #3dbaa2; /* A slightly darker shade */
+}
+
+/* Winnings Display Styles */
+.winning-row {
+  background-color: #fffbe6;
+  color: #d46b08;
+  font-weight: bold;
+}
+
+.winning-number {
+  background-color: #f1c40f; /* Yellow highlight for winning numbers */
+  color: #333;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin: 0 2px;
+  font-weight: bold;
+}
+
+.winnings-amount {
+  color: #e74c3c;
+  font-weight: bold;
+  margin-left: 8px;
+}

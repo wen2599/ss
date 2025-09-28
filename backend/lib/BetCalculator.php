@@ -174,5 +174,66 @@ class BetCalculator {
         }
         return 0;
     }
+
+    /**
+     * Settles a bill against a set of lottery results.
+     *
+     * @param array $bill_details The parsed bill details from calculateMulti.
+     * @param array $lottery_results_map A map of lottery names to their winning numbers array.
+     * @return array The bill details annotated with winnings.
+     */
+    public static function settle(array $bill_details, array $lottery_results_map): array
+    {
+        $settled_details = $bill_details;
+        $total_winnings = 0;
+        $winning_rate = 45;
+
+        // Determine which winning numbers to use based on the rules.
+        $hk_numbers = $lottery_results_map['香港'] ?? null;
+        $nm_numbers = $lottery_results_map['新澳门'] ?? null;
+
+        foreach ($settled_details['slips'] as &$slip) {
+            $region = $slip['region'] ?? '';
+            $winning_numbers = null;
+
+            // Rule: If '香港' or '港' is present, use Hong Kong results.
+            if (strpos($region, '香港') !== false || strpos($region, '港') !== false) {
+                $winning_numbers = $hk_numbers;
+            } else {
+                // Default Rule: Otherwise, always use New Macau results.
+                $winning_numbers = $nm_numbers;
+            }
+
+            if ($winning_numbers === null) {
+                continue; // Skip if no relevant winning numbers are available.
+            }
+
+            $slip_winnings = 0;
+            if (isset($slip['result']['number_bets'])) {
+                foreach ($slip['result']['number_bets'] as &$bet) {
+                    $bet['winning_numbers'] = [];
+                    $bet['winnings'] = 0;
+                    if (isset($bet['cost_per_number'])) {
+                        foreach ($bet['numbers'] as $number) {
+                            if (in_array($number, $winning_numbers)) {
+                                $win_amount = $bet['cost_per_number'] * $winning_rate;
+                                $bet['winnings'] += $win_amount;
+                                $bet['winning_numbers'][] = $number;
+                            }
+                        }
+                    }
+                    $slip_winnings += $bet['winnings'];
+                }
+                unset($bet);
+            }
+
+            $slip['result']['summary']['winnings'] = $slip_winnings;
+            $total_winnings += $slip_winnings;
+        }
+        unset($slip);
+
+        $settled_details['summary']['total_winnings'] = $total_winnings;
+        return $settled_details;
+    }
 }
 ?>
