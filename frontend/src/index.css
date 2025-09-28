@@ -240,17 +240,14 @@ a:hover {
   font-weight: bold;
   padding: 0 15px;
   font-size: 1rem;
+  background-color: transparent; /* Ensure no background color */
 }
 
-/* Color-coded tags */
-.lottery-name-tag.hk {
-  background-color: #d72828; /* Hong Kong Red */
-}
-.lottery-name-tag.om {
-  background-color: #007bff; /* Old Macau Blue */
-}
+/* Specific classes are no longer needed for color, but can be kept for future use */
+.lottery-name-tag.hk,
+.lottery-name-tag.om,
 .lottery-name-tag.nm {
-  background-color: #28a745; /* New Macau Green */
+  /* No background color properties */
 }
 
 .lottery-details {
