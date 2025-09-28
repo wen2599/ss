@@ -14,17 +14,17 @@ class BetCalculator {
         // --- Parsing Strategy ---
         // For each type of bet, we find all matches, process them,
         // and then remove all matched strings from the text before proceeding to the next type.
-        // This prevents parsing errors from modifying the string mid-loop.
 
-        // 1. Zodiacs per number (e.g., "鼠马各数5元")
-        $pattern = '/([\p{Han},，\s]+?)各数\s*([\p{Han}\d]+)\s*[元块]?/u';
+        // 1. Unified Zodiac "Per Number" Parsing (Handles both "数各" and "各数")
+        // e.g., "鼠马各数5元" OR "鼠,鸡数各二十"
+        $pattern = '/([\p{Han},，\s]+?)(?:数各|各数)\s*([\p{Han}\d]+)\s*[元块]?/u';
         if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $zodiac_string = preg_replace('/[,，\s]/u', '', $match[1]);
                 $zodiacs = mb_str_split($zodiac_string);
-                $cost = self::chineseToNumber($match[2]) ?: intval($match[2]);
+                $cost_per_number = self::chineseToNumber($match[2]) ?: intval($match[2]);
 
-                if ($cost > 0 && !empty($zodiacs)) {
+                if ($cost_per_number > 0 && !empty($zodiacs)) {
                     $numbers = [];
                     foreach ($zodiacs as $z) {
                         if (isset(GameData::$zodiacMap[$z])) {
@@ -34,7 +34,7 @@ class BetCalculator {
                     $unique_numbers = array_values(array_unique($numbers));
                     if (!empty($unique_numbers)) {
                         $settlement_slip['number_bets'][] = [
-                            'numbers' => $unique_numbers, 'cost_per_number' => $cost, 'cost' => count($unique_numbers) * $cost, 'source_zodiacs' => $zodiacs
+                            'numbers' => $unique_numbers, 'cost_per_number' => $cost_per_number, 'cost' => count($unique_numbers) * $cost_per_number, 'source_zodiacs' => $zodiacs
                         ];
                     }
                 }
@@ -42,25 +42,7 @@ class BetCalculator {
             $text = preg_replace($pattern, '', $text);
         }
 
-        // 2. Zodiac sets (e.g., "鼠数各20元")
-        $pattern = '/([\p{Han},，\s]+?)数各\s*([\p{Han}\d]+)\s*[元块]?/u';
-        if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
-            foreach ($matches as $match) {
-                $zodiac_string = preg_replace('/[,，\s]/u', '', $match[1]);
-                $zodiacs = mb_str_split($zodiac_string);
-                $cost = self::chineseToNumber($match[2]) ?: intval($match[2]);
-                if ($cost > 0) {
-                    foreach ($zodiacs as $z) {
-                        if (isset(GameData::$zodiacMap[$z])) {
-                            $settlement_slip['zodiac_bets'][] = [ 'zodiac' => $z, 'numbers' => GameData::$zodiacMap[$z], 'cost' => $cost ];
-                        }
-                    }
-                }
-            }
-            $text = preg_replace($pattern, '', $text);
-        }
-
-        // 3. Number lists (e.g., "06-36各5元", "36,48各30#")
+        // 2. Number lists (e.g., "06-36各5元", "36,48各30#")
         $pattern = '/([0-9.,，、\s-]+)各\s*(\d+)\s*(?:#|[元块])/u';
         if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
@@ -73,7 +55,7 @@ class BetCalculator {
             $text = preg_replace($pattern, '', $text);
         }
 
-        // 4. Multiplier numbers (e.g., "40x10元")
+        // 3. Multiplier numbers (e.g., "40x10元")
         $pattern = '/(\d+)\s*[xX×\*]\s*(\d+)\s*[元块]?/u';
         if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
@@ -88,7 +70,7 @@ class BetCalculator {
         // Final Calculation
         $total_cost = 0;
         $total_number_count = 0;
-        foreach ($settlement_slip['zodiac_bets'] as $bet) {
+        foreach ($settlement_slip['zodiac_bets'] as $bet) { // This loop remains for potential future bet types
             $total_cost += $bet['cost'];
             $total_number_count += count($bet['numbers']);
         }
