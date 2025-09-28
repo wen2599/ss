@@ -2,8 +2,14 @@
 // Action: Get all lottery results
 
 try {
-    // The $pdo variable is inherited from index.php
-    $sql = "SELECT id, lottery_name, issue_number, numbers, parsed_at FROM lottery_results ORDER BY parsed_at DESC";
+    // This query ensures we get exactly one, the most recent, result for each of the three lottery types.
+    $sql = "
+        (SELECT * FROM lottery_results WHERE lottery_name LIKE '%香港%' ORDER BY parsed_at DESC, id DESC LIMIT 1)
+        UNION
+        (SELECT * FROM lottery_results WHERE lottery_name LIKE '%新澳门%' ORDER BY parsed_at DESC, id DESC LIMIT 1)
+        UNION
+        (SELECT * FROM lottery_results WHERE lottery_name LIKE '%老澳%' ORDER BY parsed_at DESC, id DESC LIMIT 1)
+    ";
     $stmt = $pdo->prepare($sql);
     $stmt->execute();
 

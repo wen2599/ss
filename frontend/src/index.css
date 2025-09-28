@@ -24,7 +24,7 @@
   --shadow-dark: 0 2px 20px 0 rgba(79, 140, 255, 0.22);
 }
 
-/* 自动深色模式支持 */
+/* Auto Dark Mode */
 @media (prefers-color-scheme: dark) {
   :root {
     --background-light: var(--background-dark);
@@ -60,115 +60,36 @@ a:hover {
   text-decoration: underline;
 }
 
-/* Tag Styles for Bet Slips */
-.time-tag {
-  background-color: #e0e0e0;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.8em;
-  margin-right: 8px;
-  color: #333;
+/* --- Lottery Banner --- */
+.lottery-banner {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 1rem;
+  background-color: var(--card-bg-light);
+  border-radius: 8px;
+  box-shadow: var(--shadow-light);
+  overflow: hidden;
 }
-
-.region-tag {
-  background-color: #ffc107;
-  color: #333;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.8em;
+.lottery-name-tag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: red;
   font-weight: bold;
-  margin-right: 8px;
+  padding: 0 15px;
+  font-size: 1rem;
+  background-color: transparent;
+}
+.lottery-name-tag.hk { background-color: #d72828; color: white; }
+.lottery-name-tag.om { background-color: #007bff; color: white; }
+.lottery-name-tag.nm { background-color: #28a745; color: white; }
+.lottery-details {
+  padding: 10px 15px;
+  flex-grow: 1;
 }
 
-/* JSON Editor and Save Result Styles */
-.json-editor {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-  background-color: #fdfdfd;
-  border: 1px solid #ccc;
-  color: #333;
-  width: 100%;
-  box-sizing: border-box;
-}
 
-.save-result {
-  margin-top: 8px;
-  padding: 8px;
-  border-radius: 4px;
-  font-size: 0.9em;
-}
-.save-result.success {
-  background-color: #e6f7ff;
-  border: 1px solid #91d5ff;
-  color: #096dd9;
-}
-.save-result.error {
-  background-color: #fff1f0;
-  border: 1px solid #ffa39e;
-  color: #cf1322;
-}
-.save-result.info {
-  background-color: #f0f0f0;
-  border: 1px solid #d9d9d9;
-  color: #595959;
-}
-
-/* Tag Styles for Bet Slips */
-.time-tag {
-  background-color: #e0e0e0;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.8em;
-  margin-right: 8px;
-  color: #333; /* Ensure text is readable */
-}
-
-/* JSON Editor and Save Result Styles */
-.json-editor {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-  background-color: #fdfdfd;
-  border: 1px solid #ccc;
-  color: #333;
-}
-
-.save-result {
-  margin-top: 8px;
-  padding: 8px;
-  border-radius: 4px;
-  font-size: 0.9em;
-}
-.save-result.success {
-  background-color: #e6f7ff;
-  border: 1px solid #91d5ff;
-  color: #096dd9;
-}
-.save-result.error {
-  background-color: #fff1f0;
-  border: 1px solid #ffa39e;
-  color: #cf1322;
-}
-.save-result.info {
-  background-color: #f0f0f0;
-  border: 1px solid #d9d9d9;
-  color: #595959;
-}
-
-.region-tag {
-  background-color: #ffc107; /* A distinct amber color */
-  color: #333;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.8em;
-  font-weight: bold;
-  margin-right: 8px;
-}
-
-.injected-result {
-  color: #e74c3c; /* Red */
-  font-weight: bold;
-  margin: 0 4px;
-}
-
-/* View Toggle Styles */
+/* --- Settlement Modal --- */
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -184,25 +105,14 @@ a:hover {
   color: #595959;
   transition: all 0.2s;
 }
-
-.view-toggle button:first-child {
-  border-top-left-radius: 4px;
-  border-bottom-left-radius: 4px;
-}
-
-.view-toggle button:last-child {
-  border-top-right-radius: 4px;
-  border-bottom-right-radius: 4px;
-  border-left: none;
-}
-
+.view-toggle button:first-child { border-radius: 4px 0 0 4px; }
+.view-toggle button:last-child { border-radius: 0 4px 4px 0; border-left: none; }
 .view-toggle button.active {
   background: var(--primary-color);
   color: white;
   border-color: var(--primary-color);
   z-index: 2;
 }
-
 .view-toggle button:not(.active):hover {
   background: #e6e6e6;
   color: var(--primary-color);
@@ -216,95 +126,58 @@ a:hover {
   align-items: center;
   gap: 1rem;
 }
-
 .summary-edit-button {
-  margin-left: auto; /* Pushes the button to the far right */
+  margin-left: auto;
 }
 
-/* Lottery Banner Styles */
-.lottery-banner {
-  display: flex;
-  align-items: stretch;
-  margin-bottom: 1rem;
-  background-color: var(--card-bg-light);
-  border-radius: 8px;
-  box-shadow: var(--shadow-light);
-  overflow: hidden;
-}
-
-.lottery-name-tag {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: red;
+.injected-result {
+  color: #e74c3c;
   font-weight: bold;
-  padding: 0 15px;
-  font-size: 1rem;
-  background-color: transparent; /* Ensure no background color */
+  margin: 0 4px;
 }
 
-/* Specific classes are no longer needed for color, but can be kept for future use */
-.lottery-name-tag.hk,
-.lottery-name-tag.om,
-.lottery-name-tag.nm {
-  /* No background color properties */
-}
-
-.lottery-details {
-  padding: 10px 15px;
-  flex-grow: 1;
-}
-
-/* Status Styles */
-.status-processed {
-  color: var(--success-color);
-  font-weight: bold;
-}
-.status-unrecognized {
-  color: var(--error-color);
-  font-weight: bold;
-}
-.status-settled {
-  color: #9c27b0; /* A distinct purple for settled state */
-  font-weight: bold;
-}
-.status-default {
-  color: var(--text-muted-light);
-}
-
-/* Settle Button Style */
-.settle-button {
-  background-color: var(--secondary-color);
-  color: white;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  margin-left: 4px; /* Add some space from other buttons */
-}
-.settle-button:hover {
-  background-color: #3dbaa2; /* A slightly darker shade */
-}
-
-/* Winnings Display Styles */
+/* --- Winnings Display --- */
 .winning-row {
   background-color: #fffbe6;
   color: #d46b08;
   font-weight: bold;
 }
-
 .winning-number {
-  background-color: #f1c40f; /* Yellow highlight for winning numbers */
+  background-color: #f1c40f;
   color: #333;
   padding: 2px 4px;
   border-radius: 3px;
   margin: 0 2px;
   font-weight: bold;
+  display: inline-block;
 }
-
 .winnings-amount {
   color: #e74c3c;
   font-weight: bold;
   margin-left: 8px;
 }
+
+/* --- General & Form --- */
+.json-editor {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  background-color: #fdfdfd;
+  border: 1px solid #ccc;
+  color: #333;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.save-result {
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.save-result.success { background-color: #e6f7ff; border: 1px solid #91d5ff; color: #096dd9; }
+.save-result.error { background-color: #fff1f0; border: 1px solid #ffa39e; color: #cf1322; }
+.save-result.info { background-color: #f0f0f0; border: 1px solid #d9d9d9; color: #595959; }
+
+.status-processed { color: var(--success-color); font-weight: bold; }
+.status-unrecognized { color: var(--error-color); font-weight: bold; }
+.status-settled { color: #9c27b0; font-weight: bold; }
+.status-default { color: var(--text-muted-light); }

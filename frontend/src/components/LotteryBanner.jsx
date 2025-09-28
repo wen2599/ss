@@ -13,15 +13,9 @@ function LotteryBanner({ latestResult, getNumberColorClass }) {
   const numberArray = numbers.split(',');
 
   const getLotteryInfo = (name) => {
-    if (name.includes('香港')) {
-      return { name: '香港', class: 'hk' };
-    }
-    if (name.includes('老澳')) {
-      return { name: '老澳', class: 'om' };
-    }
-    if (name.includes('新澳门')) {
-      return { name: '新澳', class: 'nm' };
-    }
+    if (name.includes('香港')) return { name: '香港', class: 'hk' };
+    if (name.includes('老澳')) return { name: '老澳', class: 'om' };
+    if (name.includes('新澳门')) return { name: '新澳', class: 'nm' };
     return null;
   };
 
