@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { getLotteryResults, getGameData } from '../api/client';
 
 export function useLotteryData() {
   const [results, setResults] = useState([]);
@@ -11,25 +12,14 @@ export function useLotteryData() {
       setIsLoading(true);
       setError('');
       try {
-        const [resultsResponse, gameDataResponse] = await Promise.all([
-          fetch('/get_lottery_results'),
-          fetch('/get_game_data')
+        // Use the new API client for fetching data
+        const [lotteryResults, gameData] = await Promise.all([
+          getLotteryResults(),
+          getGameData()
         ]);
 
-        const resultsData = await resultsResponse.json();
-        const gameData = await gameDataResponse.json();
-
-        if (resultsData.success) {
-          setResults(resultsData.results);
-        } else {
-          throw new Error(resultsData.error || 'Failed to fetch lottery results.');
-        }
-
-        if (gameData.success) {
-          setColorMap(gameData.colorMap);
-        } else {
-          throw new Error(gameData.error || 'Failed to fetch game data.');
-        }
+        setResults(lotteryResults);
+        setColorMap(gameData.colorMap);
 
       } catch (err) {
         setError(err.message || 'An error occurred while fetching data.');

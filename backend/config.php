@@ -26,10 +26,10 @@ define('UPLOAD_DIR', __DIR__ . '/uploads/');
 
 // 5. Database Connection Settings
 // Replace the following placeholders with your actual database credentials.
-$db_host = 'localhost';     // Database host (e.g., '127.0.0.1' or 'localhost')
-$db_name = 'your_database_name'; // The name of your database
-$db_user = 'your_username';       // Your database username
-$db_pass = 'your_password';       // Your database password
+$db_host = '127.0.0.1';     // Database host (e.g., '127.0.0.1' or 'localhost')
+$db_name = 'lottery_app'; // The name of your database
+$db_user = 'lottery_user';       // Your database username
+$db_pass = 'password';       // Your database password
 
 // 6. Database Schema
 // The authoritative database schema is located in the `data_table_schema.sql` file.
