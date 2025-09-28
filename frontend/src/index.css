@@ -220,3 +220,33 @@ a:hover {
 .summary-edit-button {
   margin-left: auto; /* Pushes the button to the far right */
 }
+
+/* Lottery Banner Styles */
+.lottery-banner {
+  display: flex;
+  align-items: stretch; /* Make children stretch to full height */
+  margin-bottom: 1rem;
+  background-color: var(--card-bg-light);
+  border-radius: 8px;
+  box-shadow: var(--shadow-light);
+  overflow: hidden; /* Important for border-radius to apply correctly */
+}
+
+.lottery-name-stamp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #c0392b; /* A rich red color */
+  color: white;
+  font-weight: bold;
+  padding: 0 10px;
+  writing-mode: vertical-rl; /* Vertical text */
+  text-orientation: mixed;
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+}
+
+.lottery-details {
+  padding: 10px 15px;
+  flex-grow: 1;
+}
