@@ -5,123 +5,89 @@ class BetCalculator {
 
     // 单条下注单结算，不去重
     public static function calculateSingle(string $betting_slip_text): ?array {
+        $original_length = mb_strlen($betting_slip_text, 'UTF-8');
+        if ($original_length === 0) return null;
+
         $settlement_slip = [
             'zodiac_bets' => [],
             'number_bets' => [],
             'summary' => ['number_count' => 0, 'total_cost' => 0]
         ];
-        $matches_to_remove = [];
+        $text = $betting_slip_text;
 
-        // --- "Zodiacs by Number" Parsing (e.g., "鼠马各数5元") ---
-        $zodiac_by_number_pattern = '/((?:[\p{Han}][,，\s]*)+)各数\s*([\p{Han}\d]+)\s*[元块]?/u';
-        preg_match_all($zodiac_by_number_pattern, $betting_slip_text, $zodiac_by_number_matches, PREG_SET_ORDER);
-        foreach ($zodiac_by_number_matches as $match) {
-            $zodiac_string = $match[1];
-            $cost_text = $match[2];
-            $cost_per_number = self::chineseToNumber($cost_text);
-            if ($cost_per_number === 0 && is_numeric($cost_text)) $cost_per_number = intval($cost_text);
+        // --- Parsing Logic ---
+        // Each block of logic will now parse its pattern and then replace the matches from the text.
 
-            if ($cost_per_number > 0) {
-                $cleaned_zodiac_string = preg_replace('/[,，\s]/u', '', $zodiac_string);
-                $mentioned_zodiacs = mb_str_split($cleaned_zodiac_string);
-                $all_numbers = [];
-                foreach ($mentioned_zodiacs as $zodiac) {
-                    if (isset(GameData::$zodiacMap[$zodiac])) {
-                        $all_numbers = array_merge($all_numbers, GameData::$zodiacMap[$zodiac]);
-                    }
-                }
-                $unique_numbers = array_values(array_unique($all_numbers));
-                if (!empty($unique_numbers)) {
-                    $settlement_slip['number_bets'][] = [
-                        'numbers' => $unique_numbers,
-                        'cost_per_number' => $cost_per_number,
-                        'cost' => count($unique_numbers) * $cost_per_number,
-                        'source_zodiacs' => $mentioned_zodiacs
-                    ];
-                    $matches_to_remove[] = $match[0];
-                }
-            }
-        }
-        if (!empty($matches_to_remove)) {
-            $betting_slip_text = str_replace($matches_to_remove, '', $betting_slip_text);
-            $matches_to_remove = [];
-        }
-
-        // --- "Zodiac Set" Parsing (e.g., "鼠数各20元") ---
-        $zodiac_pattern = '/((?:[\p{Han}][,，\s]*)+)数各\s*([\p{Han}\d]+)\s*[元块]?/u';
-        preg_match_all($zodiac_pattern, $betting_slip_text, $zodiac_matches, PREG_SET_ORDER);
-        foreach ($zodiac_matches as $match) {
-            $zodiac_string = $match[1];
-            $cost_text = $match[2];
-            $cost_per_zodiac = self::chineseToNumber($cost_text);
-            if ($cost_per_zodiac === 0 && is_numeric($cost_text)) $cost_per_zodiac = intval($cost_text);
-
-            if ($cost_per_zodiac > 0) {
-                $cleaned_zodiac_string = preg_replace('/[,，\s]/u', '', $zodiac_string);
-                $mentioned_zodiacs = mb_str_split($cleaned_zodiac_string);
-                foreach ($mentioned_zodiacs as $zodiac) {
-                    if (isset(GameData::$zodiacMap[$zodiac])) {
-                        $settlement_slip['zodiac_bets'][] = [
-                            'zodiac' => $zodiac,
-                            'numbers' => GameData::$zodiacMap[$zodiac],
-                            'cost' => $cost_per_zodiac
-                        ];
-                    }
-                }
-                $matches_to_remove[] = $match[0];
-            }
-        }
-        if (!empty($matches_to_remove)) {
-            $betting_slip_text = str_replace(array_unique($matches_to_remove), '', $betting_slip_text);
-            $matches_to_remove = [];
-        }
-
-        // --- Number Bets Parsing ---
-        $number_patterns = [
-            '/((?:[0-9]+[,，、\s]*)+)各\s*(\d+)\s*#/u',
-            '/((?:[0-9]+[.,，、\s]*)+)各\s*(\d+)\s*[元块]/u'
-        ];
-        foreach ($number_patterns as $pattern) {
-            preg_match_all($pattern, $betting_slip_text, $matches, PREG_SET_ORDER);
+        // Pattern 1: Zodiacs per number (e.g., "鼠马各数5元")
+        $zodiac_by_number_pattern = '/((?:[\p{Han}]+[,，\s]*)+?)各数\s*([\p{Han}\d]+)\s*[元块]?/u';
+        if (preg_match_all($zodiac_by_number_pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
-                $numbers_str = $match[1];
-                $cost_per_number = intval($match[2]);
-                $numbers = preg_split('/[.,，、\s]+/', $numbers_str);
-                $valid_numbers = array_values(array_filter(array_map('trim', $numbers), 'strlen'));
-                if (!empty($valid_numbers) && $cost_per_number > 0) {
-                    $settlement_slip['number_bets'][] = [
-                        'numbers' => $valid_numbers,
-                        'cost_per_number' => $cost_per_number,
-                        'cost' => count($valid_numbers) * $cost_per_number
-                    ];
-                    $matches_to_remove[] = $match[0];
+                $zodiac_string = $match[1];
+                $cost_text = $match[2];
+                $cost_per_number = self::chineseToNumber($cost_text) ?: (is_numeric($cost_text) ? intval($cost_text) : 0);
+                if ($cost_per_number > 0) {
+                    $cleaned_zodiac_string = preg_replace('/[,，\s]/u', '', $zodiac_string);
+                    $mentioned_zodiacs = mb_str_split($cleaned_zodiac_string);
+                    $all_numbers = [];
+                    foreach ($mentioned_zodiacs as $zodiac) {
+                        if (isset(GameData::$zodiacMap[$zodiac])) {
+                            $all_numbers = array_merge($all_numbers, GameData::$zodiacMap[$zodiac]);
+                        }
+                    }
+                    $unique_numbers = array_values(array_unique($all_numbers));
+                    if (!empty($unique_numbers)) {
+                        $settlement_slip['number_bets'][] = [ 'numbers' => $unique_numbers, 'cost_per_number' => $cost_per_number, 'cost' => count($unique_numbers) * $cost_per_number, 'source_zodiacs' => $mentioned_zodiacs ];
+                    }
                 }
             }
-        }
-        if (!empty($matches_to_remove)) {
-            $betting_slip_text = str_replace(array_unique($matches_to_remove), '', $betting_slip_text);
-            $matches_to_remove = [];
+            $text = preg_replace($zodiac_by_number_pattern, '', $text);
         }
 
-        $pattern_multiplier = '/(\d+)\s*[xX×\*]\s*(\d+)\s*[元块]?/u';
-        preg_match_all($pattern_multiplier, $betting_slip_text, $matches, PREG_SET_ORDER);
-        foreach ($matches as $match) {
-            $number = $match[1];
-            $cost = intval($match[2]);
-            if ($cost > 0) {
-                $settlement_slip['number_bets'][] = [
-                    'numbers' => [$number],
-                    'cost_per_number' => $cost,
-                    'cost' => $cost
-                ];
-                $matches_to_remove[] = $match[0];
+        // Pattern 2: Zodiac sets (e.g., "鼠数各20元")
+        $zodiac_set_pattern = '/((?:[\p{Han}]+[,，\s]*)+?)数各\s*([\p{Han}\d]+)\s*[元块]?/u';
+        if (preg_match_all($zodiac_set_pattern, $text, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $cost_text = $match[2];
+                $cost_per_zodiac = self::chineseToNumber($cost_text) ?: (is_numeric($cost_text) ? intval($cost_text) : 0);
+                if ($cost_per_zodiac > 0) {
+                    $cleaned_zodiac_string = preg_replace('/[,，\s]/u', '', $match[1]);
+                    $mentioned_zodiacs = mb_str_split($cleaned_zodiac_string);
+                    foreach ($mentioned_zodiacs as $zodiac) {
+                        if (isset(GameData::$zodiacMap[$zodiac])) {
+                            $settlement_slip['zodiac_bets'][] = [ 'zodiac' => $zodiac, 'numbers' => GameData::$zodiacMap[$zodiac], 'cost' => $cost_per_zodiac ];
+                        }
+                    }
+                }
             }
-        }
-        if (!empty($matches_to_remove)) {
-            $betting_slip_text = str_replace(array_unique($matches_to_remove), '', $betting_slip_text);
+            $text = preg_replace($zodiac_set_pattern, '', $text);
         }
 
-        // Final Calculation
+        // Pattern 3: Number lists (e.g., "06-36各5元", "36,48各30#")
+        $number_list_pattern = '/((?:[0-9]+[.,，、\s-]*)+)各\s*(\d+)\s*(?:#|[元块])/u';
+        if (preg_match_all($number_list_pattern, $text, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $numbers = preg_split('/[.,，、\s-]+/', $match[1]);
+                $valid_numbers = array_values(array_filter(array_map('trim', $numbers), 'strlen'));
+                $cost_per_number = intval($match[2]);
+                if (!empty($valid_numbers) && $cost_per_number > 0) {
+                    $settlement_slip['number_bets'][] = [ 'numbers' => $valid_numbers, 'cost_per_number' => $cost_per_number, 'cost' => count($valid_numbers) * $cost_per_number ];
+                }
+            }
+            $text = preg_replace($number_list_pattern, '', $text);
+        }
+
+        // Pattern 4: Multiplier numbers (e.g., "40x10元")
+        $multiplier_pattern = '/(\d+)\s*[xX×\*]\s*(\d+)\s*[元块]?/u';
+        if (preg_match_all($multiplier_pattern, $text, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                if (intval($match[2]) > 0) {
+                    $settlement_slip['number_bets'][] = [ 'numbers' => [$match[1]], 'cost_per_number' => intval($match[2]), 'cost' => intval($match[2]) ];
+                }
+            }
+            $text = preg_replace($multiplier_pattern, '', $text);
+        }
+
+        // --- Final Calculation ---
         $total_cost = 0;
         $total_number_count = 0;
         foreach ($settlement_slip['zodiac_bets'] as $bet) {
@@ -138,7 +104,16 @@ class BetCalculator {
         $settlement_slip['summary']['number_count'] = $total_number_count;
         $settlement_slip['summary']['total_cost'] = $total_cost;
 
-        return $settlement_slip;
+        // --- Confidence Score Calculation ---
+        $unparsed_text = trim(preg_replace('/\s+/', ' ', $text));
+        $unparsed_length = mb_strlen($unparsed_text, 'UTF-8');
+        $confidence = 1.0 - ($unparsed_length / $original_length);
+
+        return [
+            'settlement' => $settlement_slip,
+            'unparsed_text' => $unparsed_text,
+            'confidence' => round($confidence, 4)
+        ];
     }
 
     // 按地区、时间点/空行分段结算
@@ -172,73 +147,68 @@ class BetCalculator {
             $slips_in_block = [];
 
             if (count($parts) <= 1) {
-                // 如果没有时间点，则按空行分段
                 $sub_blocks = preg_split('/\n{2,}/u', $content, -1, PREG_SPLIT_NO_EMPTY);
                 foreach ($sub_blocks as $sub_block) {
-                    $sub_block = trim($sub_block);
                     if (mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $sub_block)) < 10) continue;
-
-                    $r = self::calculateSingle($sub_block);
-                    if ($r) {
-                        $slips_in_block[] = ['raw' => $sub_block, 'result' => $r, 'region' => $current_region];
-                    }
+                    $r = self::calculateSingle(trim($sub_block));
+                    if ($r) $slips_in_block[] = ['raw' => trim($sub_block), 'result' => $r, 'region' => $current_region];
                 }
             } else {
-                // 按时间点分段
-                $current_slip_content = '';
+                $current_slip_content = !preg_match($time_pattern, $parts[0]) ? array_shift($parts) : '';
                 $current_time = null;
-
-                // 处理第一个时间戳之前的内容（如果有）
-                if (!preg_match($time_pattern, $parts[0])) {
-                    $current_slip_content = array_shift($parts);
-                }
-
                 foreach ($parts as $part) {
                     if (preg_match($time_pattern, $part)) {
-                        // 这是一个时间戳, 它标志着上一个分段的结束和新分段的开始
-                        // 处理上一个分段
                         if (!empty(trim($current_slip_content))) {
                             $r = self::calculateSingle(trim($current_slip_content));
-                            if ($r) {
-                                $slips_in_block[] = ['time' => $current_time, 'raw' => trim($current_slip_content), 'result' => $r, 'region' => $current_region];
-                            }
+                            if ($r) $slips_in_block[] = ['time' => $current_time, 'raw' => trim($current_slip_content), 'result' => $r, 'region' => $current_region];
                         }
-                        // 开始新的分段
                         $current_time = $part;
                         $current_slip_content = '';
                     } else {
-                        // 这是内容, 将其附加到当前分段
                         $current_slip_content .= $part;
                     }
                 }
-
-                // 处理最后一个时间戳之后的内容
                 if (!empty(trim($current_slip_content))) {
                     $r = self::calculateSingle(trim($current_slip_content));
-                    if ($r) {
-                        $slips_in_block[] = ['time' => $current_time, 'raw' => trim($current_slip_content), 'result' => $r, 'region' => $current_region];
-                    }
+                    if ($r) $slips_in_block[] = ['time' => $current_time, 'raw' => trim($current_slip_content), 'result' => $r, 'region' => $current_region];
                 }
             }
             $all_slips = array_merge($all_slips, $slips_in_block);
         }
 
-        // 3. 重新编号并计算总计
+        // --- Aggregation and Final Calculation ---
+        if (empty($all_slips)) return null;
+
         $total_number_count = 0;
         $total_cost = 0;
-        foreach ($all_slips as $key => &$item) {
-            $item['index'] = $key + 1;
-            $total_number_count += $item['result']['summary']['number_count'];
-            $total_cost += $item['result']['summary']['total_cost'];
+        $total_confidence = 0;
+        $all_unparsed_text = [];
+
+        foreach ($all_slips as $key => &$slip) {
+            $slip['index'] = $key + 1;
+            $result = $slip['result'];
+            $total_number_count += $result['settlement']['summary']['number_count'];
+            $total_cost += $result['settlement']['summary']['total_cost'];
+            $total_confidence += $result['confidence'];
+            if (!empty($result['unparsed_text'])) {
+                $all_unparsed_text[] = $result['unparsed_text'];
+            }
+            // Restructure the slip to nest the settlement details correctly
+            $slip['settlement_details'] = $result['settlement'];
+            unset($slip['result']); // Clean up old structure
         }
-        unset($item);
+        unset($slip);
+
+        $average_confidence = !empty($all_slips) ? $total_confidence / count($all_slips) : 0;
 
         return [
             'slips' => $all_slips,
             'summary' => [
                 'total_number_count' => $total_number_count,
                 'total_cost' => $total_cost
-            ]
+            ],
+            'confidence' => round($average_confidence, 4),
+            'unparsed_text' => implode("\n", $all_unparsed_text)
         ];
     }
 
