@@ -12,17 +12,19 @@ function LotteryBanner({ latestResult, getNumberColorClass }) {
   const { lottery_name, issue_number, numbers } = latestResult;
   const numberArray = numbers.split(',');
 
-  // Map full names to shorter, stylized names
-  const displayNameMap = {
+  // Define which lotteries get a special stamp and their display names
+  const stampedLotteries = {
     '香港': '香港',
     '老澳门': '老澳',
     '新澳门': '新澳'
   };
-  const displayName = displayNameMap[lottery_name] || lottery_name;
+
+  const showStamp = Object.keys(stampedLotteries).includes(lottery_name);
+  const displayName = stampedLotteries[lottery_name];
 
   return (
     <div className="lottery-banner">
-      <div className="lottery-name-stamp">{displayName}</div>
+      {showStamp && <div className="lottery-name-stamp">{displayName}</div>}
       <div className="lottery-details">
         <h3>最新开奖: {lottery_name} - 第 {issue_number} 期</h3>
         <div className="banner-numbers">
