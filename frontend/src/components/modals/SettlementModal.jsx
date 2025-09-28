@@ -158,6 +158,7 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
               <div key={index} className={`bet-slip-card ${editingSlipIndex === index ? 'editing' : ''}`}>
                 <div className="slip-raw">
                   <div className="slip-card-header">
+                    {slip.region && <span className="region-tag">{slip.region}</span>}
                     {slip.time ? <span className="time-tag">{slip.time}</span> : `第 ${slip.index} 段`}
                   </div>
                   <pre className="slip-pre">{slip.raw}</pre>
