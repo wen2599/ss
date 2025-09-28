@@ -70,6 +70,7 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
   const [editedJsonText, setEditedJsonText] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState({ index: null, type: '', message: '' });
+  const [viewMode, setViewMode] = useState('card'); // 'card' or 'text'
 
   useEffect(() => {
     if (!open) {
@@ -77,6 +78,7 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
       setEditedJsonText('');
       setSaving(false);
       setSaveResult({ index: null, type: '', message: '' });
+      setViewMode('card'); // Reset to default view on close
     }
   }, [open]);
 
@@ -101,10 +103,7 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
     setSaveResult({ index: null, type: '', message: '' });
   };
 
-  const handleCancelClick = () => {
-    setEditingSlipIndex(null);
-    setEditedJsonText('');
-  };
+  const handleCancelClick = () => setEditingSlipIndex(null);
 
   const handleSaveEdit = async () => {
     let settlementResult;
@@ -114,19 +113,12 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
       setSaveResult({ index: editingSlipIndex, type: 'error', message: `JSON格式错误: ${e.message}` });
       return;
     }
-
     setSaving(true);
-    setSaveResult({ index: editingSlipIndex, type: 'info', message: '保存中...' });
-
     try {
       const response = await fetch('/update_settlement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bill_id: bill.id,
-          slip_index: editingSlipIndex,
-          settlement_result: settlementResult,
-        }),
+        body: JSON.stringify({ bill_id: bill.id, slip_index: editingSlipIndex, settlement_result: settlementResult }),
         credentials: 'include'
       });
       const data = await response.json();
@@ -143,73 +135,104 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
     setSaving(false);
   };
 
+  const renderInjectedContent = () => {
+    const { raw_content } = bill;
+    if (!slips.length) return <pre className="raw-content-panel">{raw_content}</pre>;
+    let lastIndex = 0;
+    const parts = [];
+    slips.forEach((slip, index) => {
+      const startIndex = raw_content.indexOf(slip.raw, lastIndex);
+      if (startIndex !== -1) {
+        parts.push(raw_content.substring(lastIndex, startIndex));
+        parts.push(slip.raw);
+        const result = slip.result;
+        if (result && result.summary) {
+          const resultString = `【总金额: ${result.summary.total_cost}元, 总号码数: ${result.summary.number_count}个】`;
+          parts.push(<span key={index} className="injected-result">{resultString}</span>);
+        }
+        lastIndex = startIndex + slip.raw.length;
+      }
+    });
+    if (lastIndex < raw_content.length) parts.push(raw_content.substring(lastIndex));
+    return <pre className="raw-content-panel">{parts}</pre>;
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content wide-modal" onClick={e => e.stopPropagation()}>
         <button className="modal-close-button" onClick={onClose}>&times;</button>
-        <h2>结算详情 (账单 #{bill.id})</h2>
-        {slips.length === 0 ? (
-          <div className="no-slips-message">没有解析到有效的分段下注单。</div>
-        ) : (
-          <div className="slips-card-container">
-            {slips.map((slip, index) => (
-              <div key={index} className={`bet-slip-card ${editingSlipIndex === index ? 'editing' : ''}`}>
-                <div className="slip-raw">
-                  <div className="slip-card-header">
-                    {slip.region && <span className="region-tag">{slip.region}</span>}
-                    {slip.time ? <span className="time-tag">{slip.time}</span> : `第 ${slip.index} 段`}
-                  </div>
-                  <pre className="slip-pre">{slip.raw}</pre>
-                </div>
-                <div className="slip-result">
-                  <SettlementDetails details={slip.result} />
-                  {editingSlipIndex === index && (
-                    <div className="editable-notes">
-                      <textarea
-                        value={editedJsonText}
-                        onChange={(e) => setEditedJsonText(e.target.value)}
-                        rows={15}
-                        className="notes-textarea json-editor"
-                        placeholder="在此编辑结算结果的JSON..."
-                        disabled={saving}
-                      />
-                      {saveResult.index === index && saveResult.message && (
-                        <div className={`save-result ${saveResult.type}`}>
-                          {saveResult.message}
+        <div className="modal-header">
+          <h2>结算详情 (账单 #{bill.id})</h2>
+          <div className="view-toggle">
+            <button onClick={() => setViewMode('card')} className={viewMode === 'card' ? 'active' : ''}>卡片视图</button>
+            <button onClick={() => setViewMode('text')} className={viewMode === 'text' ? 'active' : ''}>原文视图</button>
+          </div>
+        </div>
+
+        {viewMode === 'card' && (
+          slips.length === 0 ? (
+            <div className="no-slips-message">没有解析到有效的分段下注单。</div>
+          ) : (
+            <>
+              <div className="slips-card-container">
+                {slips.map((slip, index) => (
+                  <div key={index} className={`bet-slip-card ${editingSlipIndex === index ? 'editing' : ''}`}>
+                    <div className="slip-raw">
+                      <div className="slip-card-header">
+                        {slip.region && <span className="region-tag">{slip.region}</span>}
+                        {slip.time ? <span className="time-tag">{slip.time}</span> : `第 ${slip.index} 段`}
+                      </div>
+                      <pre className="slip-pre">{slip.raw}</pre>
+                    </div>
+                    <div className="slip-result">
+                      <SettlementDetails details={slip.result} />
+                      {editingSlipIndex === index && (
+                        <div className="editable-notes">
+                          <textarea
+                            value={editedJsonText}
+                            onChange={(e) => setEditedJsonText(e.target.value)}
+                            rows={15}
+                            className="notes-textarea json-editor"
+                            placeholder="在此编辑结算结果的JSON..."
+                            disabled={saving}
+                          />
+                          {saveResult.index === index && saveResult.message && (
+                            <div className={`save-result ${saveResult.type}`}>{saveResult.message}</div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-                <div className="slip-cost">
-                  <span>小计</span>
-                  <strong>{slip.result?.summary?.total_cost || 0} 元</strong>
-                  <div className="slip-actions">
-                    {editingSlipIndex === index ? (
-                      <>
-                        <button onClick={handleSaveEdit} disabled={saving} className="action-button save">
-                          {saving ? '保存中...' : '保存'}
-                        </button>
-                        <button onClick={handleCancelClick} disabled={saving} className="action-button cancel">
-                          取消
-                        </button>
-                      </>
-                    ) : (
-                      <button onClick={() => handleEditClick(index)} className="action-button edit">
-                        编辑结算
-                      </button>
-                    )}
+                    <div className="slip-cost">
+                      <span>小计</span>
+                      <strong>{slip.result?.summary?.total_cost || 0} 元</strong>
+                      <div className="slip-actions">
+                        {editingSlipIndex === index ? (
+                          <>
+                            <button onClick={handleSaveEdit} disabled={saving} className="action-button save">{saving ? '保存中...' : '保存'}</button>
+                            <button onClick={handleCancelClick} disabled={saving} className="action-button cancel">取消</button>
+                          </>
+                        ) : (
+                          <button onClick={() => handleEditClick(index)} className="action-button edit">编辑结算</button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-            <div className="multi-details-summary">
-              <strong>总计:</strong>
-              <span>{summary.total_cost || 0} 元</span>
-              <span className="summary-divider">|</span>
-              <strong>总号码数:</strong>
-              <span>{summary.total_number_count || 0} 个</span>
-            </div>
+              <div className="multi-details-summary">
+                <strong>总计:</strong>
+                <span>{summary.total_cost || 0} 元</span>
+                <span className="summary-divider">|</span>
+                <strong>总号码数:</strong>
+                <span>{summary.total_number_count || 0} 个</span>
+              </div>
+            </>
+          )
+        )}
+
+        {viewMode === 'text' && (
+          <div className="panel" style={{ background: '#f7f8fa', padding: '1em', marginTop: '1em' }}>
+            {renderInjectedContent()}
           </div>
         )}
       </div>
