@@ -16,61 +16,78 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = json_decode(file_get_contents("php://input"), true);
 
-if (!isset($data['bill_id']) || !isset($data['slip_index']) || !isset($data['settlement_text'])) {
+if (!isset($data['bill_id']) || !isset($data['slip_index']) || !isset($data['settlement_result'])) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Invalid input. Missing bill_id, slip_index, or settlement_text.']);
+    echo json_encode(['success' => false, 'error' => 'Invalid input. Missing bill_id, slip_index, or settlement_result.']);
     exit();
 }
 
 $bill_id = $data['bill_id'];
 $slip_index = $data['slip_index'];
-$settlement_text = $data['settlement_text'];
+$new_settlement_result = $data['settlement_result'];
 $user_id = $_SESSION['user_id'];
 
-try {
-    // The $pdo variable is inherited from index.php
+if (!is_array($new_settlement_result)) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'settlement_result must be a valid JSON object.']);
+    exit();
+}
 
-    // First, verify the user owns this bill and get the current details
-    $stmt = $pdo->prepare("SELECT settlement_details FROM bills WHERE id = :bill_id AND user_id = :user_id");
+try {
+    $pdo->beginTransaction();
+
+    // 1. Verify user owns the bill and lock the row for update
+    $stmt = $pdo->prepare("SELECT settlement_details FROM bills WHERE id = :bill_id AND user_id = :user_id FOR UPDATE");
     $stmt->execute([':bill_id' => $bill_id, ':user_id' => $user_id]);
     $bill = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$bill) {
         http_response_code(404);
         echo json_encode(['success' => false, 'error' => 'Bill not found or you do not have permission to edit it.']);
+        $pdo->rollBack();
         exit();
     }
 
-    $settlement_details = json_decode($bill['settlement_details'], true);
-
-    if (json_last_error() !== JSON_ERROR_NONE || !is_array($settlement_details)) {
+    $details = json_decode($bill['settlement_details'], true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($details) || !isset($details['slips'])) {
          http_response_code(500);
          echo json_encode(['success' => false, 'error' => 'Could not parse existing settlement details.']);
+         $pdo->rollBack();
          exit();
     }
 
-    // Check if the slip index is valid
-    if (!isset($settlement_details[$slip_index])) {
+    // 2. Check if the slip index is valid
+    if (!isset($details['slips'][$slip_index])) {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Invalid slip index.']);
+        $pdo->rollBack();
         exit();
     }
 
-    // Update the settlement text for the specific slip
-    $settlement_details[$slip_index]['settlement'] = $settlement_text;
+    // 3. Replace the old result with the new one
+    $details['slips'][$slip_index]['result'] = $new_settlement_result;
 
-    // Encode the updated array back to JSON
-    $new_settlement_details_json = json_encode($settlement_details, JSON_UNESCAPED_UNICODE);
+    // 4. Recalculate the bill's total cost
+    $new_total_cost = 0;
+    foreach ($details['slips'] as $slip) {
+        $new_total_cost += $slip['result']['summary']['total_cost'] ?? 0;
+    }
+    $details['summary']['total_cost'] = $new_total_cost;
+    $details['summary']['total_number_count'] = 0; // Recalculate if needed, omitted for now.
 
-    // Save the updated JSON back to the database
-    $update_stmt = $pdo->prepare("UPDATE bills SET settlement_details = :settlement_details WHERE id = :bill_id");
+    // 5. Save the updated details and total_cost back to the database
+    $new_details_json = json_encode($details, JSON_UNESCAPED_UNICODE);
+    $update_stmt = $pdo->prepare("UPDATE bills SET settlement_details = :details, total_cost = :cost WHERE id = :id");
     $update_stmt->execute([
-        ':settlement_details' => $new_settlement_details_json,
-        ':bill_id' => $bill_id
+        ':details' => $new_details_json,
+        ':cost' => $new_total_cost,
+        ':id' => $bill_id
     ]);
 
+    $pdo->commit();
+
     http_response_code(200);
-    echo json_encode(['success' => true, 'message' => 'Settlement updated successfully.']);
+    echo json_encode(['success' => true, 'message' => 'Settlement updated and total cost recalculated successfully.']);
 
 } catch (PDOException $e) {
     error_log("Update settlement DB error: " . $e->getMessage());
