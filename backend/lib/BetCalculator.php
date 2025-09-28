@@ -131,7 +131,6 @@ class BetCalculator {
         // 1. 按地区（澳门/香港）分割文本
         $regional_blocks = preg_split('/(?=澳门|香港)/u', $full_text, -1, PREG_SPLIT_NO_EMPTY);
         if (empty($regional_blocks)) {
-            // 如果没有地区标记，则将全部内容视为一个默认块
             $regional_blocks = [$full_text];
         }
 
@@ -139,7 +138,6 @@ class BetCalculator {
             $block = trim($block);
             $current_region = null;
 
-            // 识别并移除地区标记
             if (mb_strpos($block, '澳门', 0, 'UTF-8') === 0) {
                 $current_region = '澳门';
                 $content = trim(mb_substr($block, mb_strlen('澳门', 'UTF-8')));
@@ -147,18 +145,17 @@ class BetCalculator {
                 $current_region = '香港';
                 $content = trim(mb_substr($block, mb_strlen('香港', 'UTF-8')));
             } else {
-                $content = $block; // 没有地区标记的块
+                $content = $block;
             }
 
             // 2. 在地区内部，按时间或空行分割
-            $time_pattern = '/(?<=\n|^)\s*(\d{1,2}:\d{2})/u';
-            preg_match_all($time_pattern, $content, $matches, PREG_OFFSET_CAPTURE);
-            $timePoints = $matches[1];
+            $time_pattern = '/(\d{1,2}:\d{2})/u';
+            $parts = preg_split($time_pattern, $content, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
 
             $slips_in_block = [];
 
-            if (empty($timePoints)) {
-                // 按空行分段
+            if (count($parts) <= 1) {
+                // 如果没有时间点，则按空行分段
                 $sub_blocks = preg_split('/\n{2,}/u', $content, -1, PREG_SPLIT_NO_EMPTY);
                 foreach ($sub_blocks as $sub_block) {
                     $sub_block = trim($sub_block);
@@ -166,40 +163,43 @@ class BetCalculator {
 
                     $r = self::calculateSingle($sub_block);
                     if ($r) {
-                        $slips_in_block[] = [
-                            'raw' => $sub_block,
-                            'result' => $r,
-                            'region' => $current_region
-                        ];
+                        $slips_in_block[] = ['raw' => $sub_block, 'result' => $r, 'region' => $current_region];
                     }
                 }
             } else {
                 // 按时间点分段
-                $segments = [];
-                for ($i = 0; $i < count($timePoints); $i++) {
-                    $start = $timePoints[$i][1];
-                    $end = ($i + 1 < count($timePoints)) ? $timePoints[$i + 1][1] : mb_strlen($content, 'UTF-8');
-                    $segment_text = mb_substr($content, $start, $end - $start, 'UTF-8');
-                    $segment_text = preg_replace('/^\s*\d{1,2}:\d{2}/u', '', $segment_text);
-                    $segment_text = trim($segment_text);
+                $current_slip_content = '';
+                $current_time = null;
 
-                    if ($segment_text !== '' && mb_strlen(preg_replace('/[^\p{Han}0-9]/u', '', $segment_text)) >= 10) {
-                        $segments[] = [
-                            'time' => $timePoints[$i][0],
-                            'content' => $segment_text
-                        ];
+                // 处理第一个时间戳之前的内容（如果有）
+                if (!preg_match($time_pattern, $parts[0])) {
+                    $current_slip_content = array_shift($parts);
+                }
+
+                foreach ($parts as $part) {
+                    if (preg_match($time_pattern, $part)) {
+                        // 这是一个时间戳, 它标志着上一个分段的结束和新分段的开始
+                        // 处理上一个分段
+                        if (!empty(trim($current_slip_content))) {
+                            $r = self::calculateSingle(trim($current_slip_content));
+                            if ($r) {
+                                $slips_in_block[] = ['time' => $current_time, 'raw' => trim($current_slip_content), 'result' => $r, 'region' => $current_region];
+                            }
+                        }
+                        // 开始新的分段
+                        $current_time = $part;
+                        $current_slip_content = '';
+                    } else {
+                        // 这是内容, 将其附加到当前分段
+                        $current_slip_content .= $part;
                     }
                 }
 
-                foreach ($segments as $seg) {
-                    $r = self::calculateSingle($seg['content']);
+                // 处理最后一个时间戳之后的内容
+                if (!empty(trim($current_slip_content))) {
+                    $r = self::calculateSingle(trim($current_slip_content));
                     if ($r) {
-                        $slips_in_block[] = [
-                            'time' => $seg['time'],
-                            'raw' => $seg['content'],
-                            'result' => $r,
-                            'region' => $current_region
-                        ];
+                        $slips_in_block[] = ['time' => $current_time, 'raw' => trim($current_slip_content), 'result' => $r, 'region' => $current_region];
                     }
                 }
             }
@@ -210,11 +210,11 @@ class BetCalculator {
         $total_number_count = 0;
         $total_cost = 0;
         foreach ($all_slips as $key => &$item) {
-            $item['index'] = $key + 1; // Assign a global, sequential index
+            $item['index'] = $key + 1;
             $total_number_count += $item['result']['summary']['number_count'];
             $total_cost += $item['result']['summary']['total_cost'];
         }
-        unset($item); // Unset reference
+        unset($item);
 
         return [
             'slips' => $all_slips,
