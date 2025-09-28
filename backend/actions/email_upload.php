@@ -180,16 +180,38 @@ if (empty($calculation_content)) {
 }
 
 // 多段结算
-$multi_slip = BetCalculator::calculateMulti($calculation_content);
+$parsed_bill = BetCalculator::calculateMulti($calculation_content);
 $status = 'unrecognized';
 $settlement_details = null;
 $total_cost = null;
 
-// Only set status to 'processed' if the calculator found valid bet slips.
-if ($multi_slip !== null && !empty($multi_slip['slips'])) {
-    $status = 'processed';
-    $settlement_details = json_encode($multi_slip, JSON_UNESCAPED_UNICODE);
-    $total_cost = $multi_slip['summary']['total_cost'] ?? 0;
+// Only proceed if the calculator found valid bet slips.
+if ($parsed_bill !== null && !empty($parsed_bill['slips'])) {
+    // Fetch latest lottery results for automatic settlement
+    $lottery_types = ['香港', '新澳门'];
+    $lottery_results_map = [];
+    foreach ($lottery_types as $type) {
+        $sql = "SELECT numbers FROM lottery_results WHERE lottery_name LIKE :lottery_name ORDER BY parsed_at DESC, id DESC LIMIT 1";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':lottery_name' => '%' . $type . '%']);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($result) {
+            $lottery_results_map[$type] = explode(',', $result['numbers']);
+        }
+    }
+
+    // If we have results, perform auto-settlement
+    if (!empty($lottery_results_map)) {
+        $settled_bill = BetCalculator::settle($parsed_bill, $lottery_results_map);
+        $settlement_details = json_encode($settled_bill, JSON_UNESCAPED_UNICODE);
+        $status = 'settled'; // Mark as settled immediately
+    } else {
+        // If no lottery results, save as processed but not settled
+        $settlement_details = json_encode($parsed_bill, JSON_UNESCAPED_UNICODE);
+        $status = 'processed';
+    }
+
+    $total_cost = $parsed_bill['summary']['total_cost'] ?? 0;
 }
 
 try {
