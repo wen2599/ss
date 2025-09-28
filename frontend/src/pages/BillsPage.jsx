@@ -43,9 +43,7 @@ function BillsPage() {
   }, [isAuthenticated, user]);
 
   const handleDeleteBill = async (billId) => {
-    if (!window.confirm(`您确定要删除账单 #${billId} 吗？此操作无法撤销。`)) {
-      return;
-    }
+    if (!window.confirm(`您确定要删除账单 #${billId} 吗？此操作无法撤销。`)) return;
     try {
       const response = await fetch('/delete_bill', {
         method: 'POST',
@@ -67,24 +65,38 @@ function BillsPage() {
     }
   };
 
-  const renderStatus = (status) => {
-    switch (status) {
-      case 'processed':
-        return <span className="status-processed">已处理</span>;
-      case 'unrecognized':
-        return <span className="status-unrecognized">无法识别</span>;
-      default:
-        return <span className="status-default">{status}</span>;
+  const handleSettleBill = async (billId) => {
+    if (!window.confirm(`您确定要结算账单 #${billId} 吗？系统将使用最新的开奖结果进行计算。`)) return;
+    try {
+      const response = await fetch('/settle_bill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bill_id: billId }),
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert('账单结算成功！');
+        fetchBills();
+      } else {
+        alert(`结算失败: ${data.error}`);
+      }
+    } catch (err) {
+      alert('结算时发生错误。');
     }
   };
 
-  if (isLoading) {
-    return <div>正在加载您的账单...</div>;
-  }
+  const renderStatus = (status) => {
+    switch (status) {
+      case 'processed': return <span className="status-processed">已处理</span>;
+      case 'settled': return <span className="status-settled">已结算</span>;
+      case 'unrecognized': return <span className="status-unrecognized">无法识别</span>;
+      default: return <span className="status-default">{status}</span>;
+    }
+  };
 
-  if (error) {
-    return <div className="error">{error}</div>;
-  }
+  if (isLoading) return <div>正在加载您的账单...</div>;
+  if (error) return <div className="error">{error}</div>;
 
   const selectedBill = selectedBillIndex !== null ? bills[selectedBillIndex] : null;
 
@@ -106,25 +118,18 @@ function BillsPage() {
           </thead>
           <tbody>
             {bills.map((bill, index) => (
-              <tr
-                key={bill.id}
-                className={selectedBillIndex === index ? 'selected-row' : ''}
-              >
+              <tr key={bill.id} className={selectedBillIndex === index ? 'selected-row' : ''}>
                 <td>{bill.id}</td>
                 <td>{new Date(bill.created_at).toLocaleString()}</td>
                 <td>{bill.total_cost ? `${bill.total_cost} 元` : 'N/A'}</td>
                 <td>{renderStatus(bill.status)}</td>
                 <td className="action-buttons-cell">
-                  <button
-                    onClick={e => { e.stopPropagation(); setSelectedBillIndex(index); setShowRawModal(true); }}
-                  >原文</button>
-                  <button
-                    onClick={e => { e.stopPropagation(); setSelectedBillIndex(index); setShowSettlementModal(true); }}
-                  >结算详情</button>
-                  <button
-                    onClick={e => { e.stopPropagation(); handleDeleteBill(bill.id); }}
-                    className="delete-button"
-                  >删除</button>
+                  <button onClick={() => { setSelectedBillIndex(index); setShowRawModal(true); }}>原文</button>
+                  <button onClick={() => { setSelectedBillIndex(index); setShowSettlementModal(true); }}>结算详情</button>
+                  {bill.status === 'processed' && (
+                    <button onClick={() => handleSettleBill(bill.id)} className="action-button settle-button">结算</button>
+                  )}
+                  <button onClick={() => handleDeleteBill(bill.id)} className="delete-button">删除</button>
                 </td>
               </tr>
             ))}
