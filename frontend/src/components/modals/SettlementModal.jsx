@@ -138,6 +138,28 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
   const renderInjectedContent = () => {
     const { raw_content } = bill;
     if (!slips.length) return <pre className="raw-content-panel">{raw_content}</pre>;
+
+    const generateResultString = (result) => {
+      if (!result || !result.summary) return '';
+      const parts = [];
+
+      // The parser now unifies zodiac bets into number_bets, so we only need to iterate this.
+      if (result.number_bets && result.number_bets.length > 0) {
+        result.number_bets.forEach(bet => {
+          const numbersStr = bet.numbers.join(' ');
+          const costPerNum = bet.cost_per_number;
+          const totalCost = bet.cost;
+          parts.push(`${numbersStr}各${costPerNum}元共${totalCost}元`);
+        });
+      }
+
+      if (parts.length === 0) {
+        return `【总金额: ${result.summary.total_cost}元, 总号码数: ${result.summary.number_count}个】`;
+      }
+
+      return ` 结算结果 ${parts.join(' ')} `;
+    };
+
     let lastIndex = 0;
     const parts = [];
     slips.forEach((slip, index) => {
@@ -145,9 +167,8 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
       if (startIndex !== -1) {
         parts.push(raw_content.substring(lastIndex, startIndex));
         parts.push(slip.raw);
-        const result = slip.result;
-        if (result && result.summary) {
-          const resultString = `【总金额: ${result.summary.total_cost}元, 总号码数: ${result.summary.number_count}个】`;
+        const resultString = generateResultString(slip.result);
+        if (resultString) {
           parts.push(<span key={index} className="injected-result">{resultString}</span>);
         }
         lastIndex = startIndex + slip.raw.length;
@@ -233,6 +254,20 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
         {viewMode === 'text' && (
           <div className="panel" style={{ background: '#f7f8fa', padding: '1em', marginTop: '1em' }}>
             {renderInjectedContent()}
+            <div className="multi-details-summary text-view-summary">
+              <strong>总计:</strong>
+              <span>{summary.total_cost || 0} 元</span>
+              <span className="summary-divider">|</span>
+              <strong>总号码数:</strong>
+              <span>{summary.total_number_count || 0} 个</span>
+              <button
+                onClick={() => setViewMode('card')}
+                className="action-button edit summary-edit-button"
+                title="切换到卡片视图进行编辑"
+              >
+                编辑结算
+              </button>
+            </div>
           </div>
         )}
       </div>
