@@ -224,26 +224,33 @@ a:hover {
 /* Lottery Banner Styles */
 .lottery-banner {
   display: flex;
-  align-items: stretch; /* Make children stretch to full height */
+  align-items: stretch;
   margin-bottom: 1rem;
   background-color: var(--card-bg-light);
   border-radius: 8px;
   box-shadow: var(--shadow-light);
-  overflow: hidden; /* Important for border-radius to apply correctly */
+  overflow: hidden;
 }
 
-.lottery-name-stamp {
+.lottery-name-tag {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #c0392b; /* A rich red color */
   color: white;
   font-weight: bold;
-  padding: 0 10px;
-  writing-mode: vertical-rl; /* Vertical text */
-  text-orientation: mixed;
-  font-size: 1.1rem;
-  letter-spacing: 2px;
+  padding: 0 15px;
+  font-size: 1rem;
+}
+
+/* Color-coded tags */
+.lottery-name-tag.hk {
+  background-color: #d72828; /* Hong Kong Red */
+}
+.lottery-name-tag.om {
+  background-color: #007bff; /* Old Macau Blue */
+}
+.lottery-name-tag.nm {
+  background-color: #28a745; /* New Macau Green */
 }
 
 .lottery-details {
