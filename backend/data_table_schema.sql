@@ -35,8 +35,6 @@ CREATE TABLE IF NOT EXISTS `bills` (
   `settlement_details` LONGTEXT NULL,
   `total_cost` DECIMAL(10, 2) NULL,
   `status` VARCHAR(50) NOT NULL DEFAULT 'unrecognized',
-  `confidence` DECIMAL(5, 4) NULL COMMENT 'Confidence score of the parsing, from 0.0 to 1.0',
-  `unparsed_text` TEXT NULL COMMENT 'Any text that was not successfully parsed',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

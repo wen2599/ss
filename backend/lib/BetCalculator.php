@@ -5,18 +5,12 @@ class BetCalculator {
 
     // 单条下注单结算，不去重
     public static function calculateSingle(string $betting_slip_text): ?array {
-        $original_length = mb_strlen($betting_slip_text, 'UTF-8');
-        if ($original_length === 0) return null;
-
         $settlement_slip = [
             'zodiac_bets' => [],
             'number_bets' => [],
             'summary' => ['number_count' => 0, 'total_cost' => 0]
         ];
         $text = $betting_slip_text;
-
-        // --- Parsing Logic ---
-        // Each block of logic will now parse its pattern and then replace the matches from the text.
 
         // Pattern 1: Zodiacs per number (e.g., "鼠马各数5元")
         $zodiac_by_number_pattern = '/((?:[\p{Han}]+[,，\s]*)+?)各数\s*([\p{Han}\d]+)\s*[元块]?/u';
@@ -25,6 +19,7 @@ class BetCalculator {
                 $zodiac_string = $match[1];
                 $cost_text = $match[2];
                 $cost_per_number = self::chineseToNumber($cost_text) ?: (is_numeric($cost_text) ? intval($cost_text) : 0);
+
                 if ($cost_per_number > 0) {
                     $cleaned_zodiac_string = preg_replace('/[,，\s]/u', '', $zodiac_string);
                     $mentioned_zodiacs = mb_str_split($cleaned_zodiac_string);
@@ -36,7 +31,12 @@ class BetCalculator {
                     }
                     $unique_numbers = array_values(array_unique($all_numbers));
                     if (!empty($unique_numbers)) {
-                        $settlement_slip['number_bets'][] = [ 'numbers' => $unique_numbers, 'cost_per_number' => $cost_per_number, 'cost' => count($unique_numbers) * $cost_per_number, 'source_zodiacs' => $mentioned_zodiacs ];
+                        $settlement_slip['number_bets'][] = [
+                            'numbers' => $unique_numbers,
+                            'cost_per_number' => $cost_per_number,
+                            'cost' => count($unique_numbers) * $cost_per_number,
+                            'source_zodiacs' => $mentioned_zodiacs
+                        ];
                     }
                 }
             }
@@ -87,7 +87,7 @@ class BetCalculator {
             $text = preg_replace($multiplier_pattern, '', $text);
         }
 
-        // --- Final Calculation ---
+        // Final Calculation
         $total_cost = 0;
         $total_number_count = 0;
         foreach ($settlement_slip['zodiac_bets'] as $bet) {
@@ -104,16 +104,7 @@ class BetCalculator {
         $settlement_slip['summary']['number_count'] = $total_number_count;
         $settlement_slip['summary']['total_cost'] = $total_cost;
 
-        // --- Confidence Score Calculation ---
-        $unparsed_text = trim(preg_replace('/\s+/', ' ', $text));
-        $unparsed_length = mb_strlen($unparsed_text, 'UTF-8');
-        $confidence = 1.0 - ($unparsed_length / $original_length);
-
-        return [
-            'settlement' => $settlement_slip,
-            'unparsed_text' => $unparsed_text,
-            'confidence' => round($confidence, 4)
-        ];
+        return $settlement_slip;
     }
 
     // 按地区、时间点/空行分段结算
@@ -176,39 +167,22 @@ class BetCalculator {
             $all_slips = array_merge($all_slips, $slips_in_block);
         }
 
-        // --- Aggregation and Final Calculation ---
-        if (empty($all_slips)) return null;
-
+        // 3. 重新编号并计算总计
         $total_number_count = 0;
         $total_cost = 0;
-        $total_confidence = 0;
-        $all_unparsed_text = [];
-
-        foreach ($all_slips as $key => &$slip) {
-            $slip['index'] = $key + 1;
-            $result = $slip['result'];
-            $total_number_count += $result['settlement']['summary']['number_count'];
-            $total_cost += $result['settlement']['summary']['total_cost'];
-            $total_confidence += $result['confidence'];
-            if (!empty($result['unparsed_text'])) {
-                $all_unparsed_text[] = $result['unparsed_text'];
-            }
-            // Restructure the slip to nest the settlement details correctly
-            $slip['settlement_details'] = $result['settlement'];
-            unset($slip['result']); // Clean up old structure
+        foreach ($all_slips as $key => &$item) {
+            $item['index'] = $key + 1;
+            $total_number_count += $item['result']['summary']['number_count'];
+            $total_cost += $item['result']['summary']['total_cost'];
         }
-        unset($slip);
-
-        $average_confidence = !empty($all_slips) ? $total_confidence / count($all_slips) : 0;
+        unset($item);
 
         return [
             'slips' => $all_slips,
             'summary' => [
                 'total_number_count' => $total_number_count,
                 'total_cost' => $total_cost
-            ],
-            'confidence' => round($average_confidence, 4),
-            'unparsed_text' => implode("\n", $all_unparsed_text)
+            ]
         ];
     }
 
