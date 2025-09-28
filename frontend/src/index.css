@@ -236,7 +236,7 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: red;
   font-weight: bold;
   padding: 0 15px;
   font-size: 1rem;
