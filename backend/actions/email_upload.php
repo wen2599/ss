@@ -180,28 +180,43 @@ if (empty($calculation_content)) {
 }
 
 // 多段结算
-$multi_slip = BetCalculator::calculateMulti($calculation_content);
+$multi_slip_result = BetCalculator::calculateMulti($calculation_content);
+
+// Default values
 $status = 'unrecognized';
 $settlement_details = null;
 $total_cost = null;
+$confidence = 0.0;
+$unparsed_text = $calculation_content; // By default, everything is unparsed if calculation fails
 
 // Only set status to 'processed' if the calculator found valid bet slips.
-if ($multi_slip !== null && !empty($multi_slip['slips'])) {
+if ($multi_slip_result !== null && !empty($multi_slip_result['slips'])) {
     $status = 'processed';
-    $settlement_details = json_encode($multi_slip, JSON_UNESCAPED_UNICODE);
-    $total_cost = $multi_slip['summary']['total_cost'] ?? 0;
+    // We only need to store the slips and summary in the settlement_details column
+    $settlement_data_to_store = [
+        'slips' => $multi_slip_result['slips'],
+        'summary' => $multi_slip_result['summary']
+    ];
+    $settlement_details = json_encode($settlement_data_to_store, JSON_UNESCAPED_UNICODE);
+
+    $total_cost = $multi_slip_result['summary']['total_cost'] ?? 0;
+    $confidence = $multi_slip_result['confidence'] ?? 0.0;
+    $unparsed_text = $multi_slip_result['unparsed_text'] ?? '';
 }
 
 try {
-    $sql = "INSERT INTO bills (user_id, raw_content, settlement_details, total_cost, status)
-            VALUES (:user_id, :raw_content, :settlement_details, :total_cost, :status)";
+    // Note the added columns: confidence, unparsed_text
+    $sql = "INSERT INTO bills (user_id, raw_content, settlement_details, total_cost, status, confidence, unparsed_text)
+            VALUES (:user_id, :raw_content, :settlement_details, :total_cost, :status, :confidence, :unparsed_text)";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         ':user_id' => $user_id,
         ':raw_content' => $text_body . ($html_body ? "\n\n---HTML正文---\n" . $html_body : ''),
         ':settlement_details' => $settlement_details,
         ':total_cost' => $total_cost,
-        ':status' => $status
+        ':status' => $status,
+        ':confidence' => $confidence,
+        ':unparsed_text' => $unparsed_text
     ]);
     http_response_code(201);
     echo json_encode([

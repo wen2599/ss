@@ -10,7 +10,8 @@ $user_id = $_SESSION['user_id'];
 
 try {
     // The $pdo variable is inherited from index.php
-    $sql = "SELECT id, raw_content, total_cost, status, created_at, settlement_details FROM bills WHERE user_id = :user_id ORDER BY created_at DESC";
+    // Added `confidence` and `unparsed_text` to the selection
+    $sql = "SELECT id, raw_content, total_cost, status, created_at, settlement_details, confidence, unparsed_text FROM bills WHERE user_id = :user_id ORDER BY created_at DESC";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':user_id' => $user_id]);
 
