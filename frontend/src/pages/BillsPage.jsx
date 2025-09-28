@@ -69,33 +69,22 @@ function BillsPage() {
 
   const renderStatus = (status) => {
     switch (status) {
-      case 'processed': return <span className="status-processed">已处理</span>;
-      case 'unrecognized': return <span className="status-unrecognized">无法识别</span>;
-      default: return <span className="status-default">{status}</span>;
+      case 'processed':
+        return <span className="status-processed">已处理</span>;
+      case 'unrecognized':
+        return <span className="status-unrecognized">无法识别</span>;
+      default:
+        return <span className="status-default">{status}</span>;
     }
   };
 
-  const renderConfidence = (confidence) => {
-    if (confidence === null || confidence === undefined) {
-      return <span className="confidence-na">N/A</span>;
-    }
-    const percentage = Math.round(parseFloat(confidence) * 100);
-    let colorClass = 'low';
-    if (percentage >= 95) {
-      colorClass = 'high';
-    } else if (percentage >= 80) {
-      colorClass = 'medium';
-    }
-    return (
-      <div className="confidence-cell" title={`解析置信度: ${percentage}%`}>
-        <span className={`confidence-indicator ${colorClass}`}></span>
-        {`${percentage}%`}
-      </div>
-    );
-  };
+  if (isLoading) {
+    return <div>正在加载您的账单...</div>;
+  }
 
-  if (isLoading) return <div>正在加载您的账单...</div>;
-  if (error) return <div className="error">{error}</div>;
+  if (error) {
+    return <div className="error">{error}</div>;
+  }
 
   const selectedBill = selectedBillIndex !== null ? bills[selectedBillIndex] : null;
 
@@ -112,22 +101,30 @@ function BillsPage() {
               <th>创建时间</th>
               <th>总金额</th>
               <th>状态</th>
-              <th>置信度</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
             {bills.map((bill, index) => (
-              <tr key={bill.id} className={selectedBillIndex === index ? 'selected-row' : ''}>
+              <tr
+                key={bill.id}
+                className={selectedBillIndex === index ? 'selected-row' : ''}
+              >
                 <td>{bill.id}</td>
                 <td>{new Date(bill.created_at).toLocaleString()}</td>
                 <td>{bill.total_cost ? `${bill.total_cost} 元` : 'N/A'}</td>
                 <td>{renderStatus(bill.status)}</td>
-                <td>{renderConfidence(bill.confidence)}</td>
                 <td className="action-buttons-cell">
-                  <button onClick={() => { setSelectedBillIndex(index); setShowRawModal(true); }}>原文</button>
-                  <button onClick={() => { setSelectedBillIndex(index); setShowSettlementModal(true); }}>结算详情</button>
-                  <button onClick={() => handleDeleteBill(bill.id)} className="delete-button">删除</button>
+                  <button
+                    onClick={e => { e.stopPropagation(); setSelectedBillIndex(index); setShowRawModal(true); }}
+                  >原文</button>
+                  <button
+                    onClick={e => { e.stopPropagation(); setSelectedBillIndex(index); setShowSettlementModal(true); }}
+                  >结算详情</button>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleDeleteBill(bill.id); }}
+                    className="delete-button"
+                  >删除</button>
                 </td>
               </tr>
             ))}

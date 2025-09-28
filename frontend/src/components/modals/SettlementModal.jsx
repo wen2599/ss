@@ -95,9 +95,8 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
   const summary = parsedDetails?.summary || {};
 
   const handleEditClick = (index) => {
-    // Note: The structure from the backend is now nested under `settlement_details`
     setEditingSlipIndex(index);
-    setEditedText(slips[index]?.settlement_details?.settlement || '');
+    setEditedText(slips[index]?.result?.settlement || '');
     setSaveResult({ index: null, message: '' });
   };
 
@@ -134,20 +133,11 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
     setSaving(false);
   };
 
-  const confidence = bill.confidence ? parseFloat(bill.confidence) : 1.0;
-  const showWarning = confidence < 0.95 && bill.unparsed_text;
-
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content wide-modal" onClick={e => e.stopPropagation()}>
         <button className="modal-close-button" onClick={onClose}>&times;</button>
         <h2>结算详情 (账单 #{bill.id})</h2>
-        {showWarning && (
-          <div className="confidence-warning">
-            <strong>⚠️ 系统无法完全识别此邮件，请您仔细核对以下未识别内容：</strong>
-            <pre className="unparsed-text-panel">{bill.unparsed_text}</pre>
-          </div>
-        )}
         {slips.length === 0 ? (
           <div className="no-slips-message">没有解析到有效的分段下注单。</div>
         ) : (
@@ -162,7 +152,7 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
                   <pre className="slip-pre">{slip.raw}</pre>
                 </div>
                 <div className="slip-result">
-                  <SettlementDetails details={slip.settlement_details} />
+                  <SettlementDetails details={slip.result} />
                   {editingSlipIndex === index && (
                     <div className="editable-notes">
                       <textarea
@@ -183,7 +173,7 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
                 </div>
                 <div className="slip-cost">
                   <span>小计</span>
-                  <strong>{slip.settlement_details?.summary?.total_cost || 0} 元</strong>
+                  <strong>{slip.result?.summary?.total_cost || 0} 元</strong>
                   <div className="slip-actions">
                     {editingSlipIndex === index ? (
                       <>
