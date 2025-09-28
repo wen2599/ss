@@ -70,6 +70,36 @@ a:hover {
   color: #333; /* Ensure text is readable */
 }
 
+/* JSON Editor and Save Result Styles */
+.json-editor {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  background-color: #fdfdfd;
+  border: 1px solid #ccc;
+  color: #333;
+}
+
+.save-result {
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.save-result.success {
+  background-color: #e6f7ff;
+  border: 1px solid #91d5ff;
+  color: #096dd9;
+}
+.save-result.error {
+  background-color: #fff1f0;
+  border: 1px solid #ffa39e;
+  color: #cf1322;
+}
+.save-result.info {
+  background-color: #f0f0f0;
+  border: 1px solid #d9d9d9;
+  color: #595959;
+}
+
 .region-tag {
   background-color: #ffc107; /* A distinct amber color */
   color: #333;

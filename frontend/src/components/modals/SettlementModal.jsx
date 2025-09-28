@@ -67,16 +67,16 @@ function SettlementDetails({ details }) {
 
 function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
   const [editingSlipIndex, setEditingSlipIndex] = useState(null);
-  const [editedText, setEditedText] = useState('');
+  const [editedJsonText, setEditedJsonText] = useState('');
   const [saving, setSaving] = useState(false);
-  const [saveResult, setSaveResult] = useState({ index: null, message: '' });
+  const [saveResult, setSaveResult] = useState({ index: null, type: '', message: '' });
 
   useEffect(() => {
     if (!open) {
       setEditingSlipIndex(null);
-      setEditedText('');
+      setEditedJsonText('');
       setSaving(false);
-      setSaveResult({ index: null, message: '' });
+      setSaveResult({ index: null, type: '', message: '' });
     }
   }, [open]);
 
@@ -96,18 +96,28 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
 
   const handleEditClick = (index) => {
     setEditingSlipIndex(index);
-    setEditedText(slips[index]?.result?.settlement || '');
-    setSaveResult({ index: null, message: '' });
+    const resultJson = slips[index]?.result || {};
+    setEditedJsonText(JSON.stringify(resultJson, null, 2));
+    setSaveResult({ index: null, type: '', message: '' });
   };
 
   const handleCancelClick = () => {
     setEditingSlipIndex(null);
-    setEditedText('');
+    setEditedJsonText('');
   };
 
   const handleSaveEdit = async () => {
+    let settlementResult;
+    try {
+      settlementResult = JSON.parse(editedJsonText);
+    } catch (e) {
+      setSaveResult({ index: editingSlipIndex, type: 'error', message: `JSON格式错误: ${e.message}` });
+      return;
+    }
+
     setSaving(true);
-    setSaveResult({ index: editingSlipIndex, message: '' });
+    setSaveResult({ index: editingSlipIndex, type: 'info', message: '保存中...' });
+
     try {
       const response = await fetch('/update_settlement', {
         method: 'POST',
@@ -115,20 +125,20 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
         body: JSON.stringify({
           bill_id: bill.id,
           slip_index: editingSlipIndex,
-          settlement_text: editedText,
+          settlement_result: settlementResult,
         }),
         credentials: 'include'
       });
       const data = await response.json();
       if (data.success) {
-        setSaveResult({ index: editingSlipIndex, message: '保存成功！' });
+        setSaveResult({ index: editingSlipIndex, type: 'success', message: '保存成功！' });
         onSaveSuccess();
         setTimeout(() => setEditingSlipIndex(null), 1500);
       } else {
-        setSaveResult({ index: editingSlipIndex, message: `保存失败: ${data.error || '未知错误'}` });
+        setSaveResult({ index: editingSlipIndex, type: 'error', message: `保存失败: ${data.error || '未知错误'}` });
       }
     } catch (err) {
-      setSaveResult({ index: editingSlipIndex, message: '保存失败: 网络错误' });
+      setSaveResult({ index: editingSlipIndex, type: 'error', message: `保存失败: ${err.message || '网络错误'}` });
     }
     setSaving(false);
   };
@@ -156,15 +166,15 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
                   {editingSlipIndex === index && (
                     <div className="editable-notes">
                       <textarea
-                        value={editedText}
-                        onChange={(e) => setEditedText(e.target.value)}
-                        rows={3}
-                        className="notes-textarea"
-                        placeholder="可编辑结算说明..."
+                        value={editedJsonText}
+                        onChange={(e) => setEditedJsonText(e.target.value)}
+                        rows={15}
+                        className="notes-textarea json-editor"
+                        placeholder="在此编辑结算结果的JSON..."
                         disabled={saving}
                       />
                       {saveResult.index === index && saveResult.message && (
-                        <div className={`save-result ${saveResult.message.startsWith('保存成功') ? 'success' : 'error'}`}>
+                        <div className={`save-result ${saveResult.type}`}>
                           {saveResult.message}
                         </div>
                       )}
@@ -186,7 +196,7 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
                       </>
                     ) : (
                       <button onClick={() => handleEditClick(index)} className="action-button edit">
-                        编辑备注
+                        编辑结算
                       </button>
                     )}
                   </div>
