@@ -6,109 +6,106 @@ class BetCalculator {
     // 单条下注单结算，不去重
     public static function calculateSingle(string $betting_slip_text): ?array {
         $settlement_slip = [
-            'zodiac_bets' => [], // Array of groups, e.g., [['zodiac' => '鼠', 'numbers' => [...], 'cost' => 100]]
-            'number_bets' => [], // Array of groups, e.g., [['numbers' => ['1','2'], 'cost_per_number' => 5, 'cost' => 10]]
+            'zodiac_bets' => [],
+            'number_bets' => [],
             'summary' => ['number_count' => 0, 'total_cost' => 0]
         ];
+        $matches_to_remove = [];
 
-        // --- New "Zodiacs by Number" Parsing ---
-        // Format: "鼠马各数5元" (Each number in Rat and Horse costs 5)
+        // --- "Zodiacs by Number" Parsing (e.g., "鼠马各数5元") ---
         $zodiac_by_number_pattern = '/((?:[\p{Han}][,，\s]*)+)各数\s*([\p{Han}\d]+)\s*[元块]?/u';
         preg_match_all($zodiac_by_number_pattern, $betting_slip_text, $zodiac_by_number_matches, PREG_SET_ORDER);
-
         foreach ($zodiac_by_number_matches as $match) {
             $zodiac_string = $match[1];
             $cost_text = $match[2];
-
             $cost_per_number = self::chineseToNumber($cost_text);
-            if ($cost_per_number === 0 && is_numeric($cost_text)) {
-                $cost_per_number = intval($cost_text);
-            }
+            if ($cost_per_number === 0 && is_numeric($cost_text)) $cost_per_number = intval($cost_text);
 
             if ($cost_per_number > 0) {
                 $cleaned_zodiac_string = preg_replace('/[,，\s]/u', '', $zodiac_string);
                 $mentioned_zodiacs = mb_str_split($cleaned_zodiac_string);
-
                 $all_numbers = [];
                 foreach ($mentioned_zodiacs as $zodiac) {
                     if (isset(GameData::$zodiacMap[$zodiac])) {
                         $all_numbers = array_merge($all_numbers, GameData::$zodiacMap[$zodiac]);
                     }
                 }
-
                 $unique_numbers = array_values(array_unique($all_numbers));
-
                 if (!empty($unique_numbers)) {
                     $settlement_slip['number_bets'][] = [
                         'numbers' => $unique_numbers,
                         'cost_per_number' => $cost_per_number,
                         'cost' => count($unique_numbers) * $cost_per_number,
-                        'source_zodiacs' => $mentioned_zodiacs // Optional: for tracing
+                        'source_zodiacs' => $mentioned_zodiacs
                     ];
-                    // Remove the matched part from the text to avoid re-parsing
-                    $betting_slip_text = str_replace($match[0], '', $betting_slip_text);
+                    $matches_to_remove[] = $match[0];
                 }
             }
         }
+        if (!empty($matches_to_remove)) {
+            $betting_slip_text = str_replace($matches_to_remove, '', $betting_slip_text);
+            $matches_to_remove = [];
+        }
 
-        // --- Original Zodiac Bets Parsing ---
-        // Format: "鼠,鸡数各二十[元|块]" (The entire set of Rat numbers costs 20)
+        // --- "Zodiac Set" Parsing (e.g., "鼠数各20元") ---
         $zodiac_pattern = '/((?:[\p{Han}][,，\s]*)+)数各\s*([\p{Han}\d]+)\s*[元块]?/u';
         preg_match_all($zodiac_pattern, $betting_slip_text, $zodiac_matches, PREG_SET_ORDER);
-
         foreach ($zodiac_matches as $match) {
             $zodiac_string = $match[1];
             $cost_text = $match[2];
-
             $cost_per_zodiac = self::chineseToNumber($cost_text);
-            if ($cost_per_zodiac === 0 && is_numeric($cost_text)) {
-                $cost_per_zodiac = intval($cost_text);
-            }
+            if ($cost_per_zodiac === 0 && is_numeric($cost_text)) $cost_per_zodiac = intval($cost_text);
 
             if ($cost_per_zodiac > 0) {
                 $cleaned_zodiac_string = preg_replace('/[,，\s]/u', '', $zodiac_string);
                 $mentioned_zodiacs = mb_str_split($cleaned_zodiac_string);
-
                 foreach ($mentioned_zodiacs as $zodiac) {
                     if (isset(GameData::$zodiacMap[$zodiac])) {
-                        $numbers = GameData::$zodiacMap[$zodiac];
                         $settlement_slip['zodiac_bets'][] = [
                             'zodiac' => $zodiac,
-                            'numbers' => $numbers,
-                            'cost' => $cost_per_zodiac // Cost for the whole zodiac
+                            'numbers' => GameData::$zodiacMap[$zodiac],
+                            'cost' => $cost_per_zodiac
                         ];
                     }
                 }
-                // Remove the matched part from the text to avoid re-parsing
-                $betting_slip_text = str_replace($match[0], '', $betting_slip_text);
+                $matches_to_remove[] = $match[0];
             }
+        }
+        if (!empty($matches_to_remove)) {
+            $betting_slip_text = str_replace(array_unique($matches_to_remove), '', $betting_slip_text);
+            $matches_to_remove = [];
         }
 
         // --- Number Bets Parsing ---
-
-        // Pattern 1: Numbers with cost per number, ending with '#' (e.g., "36,48各30#")
-        $pattern1 = '/((?:[0-9]+[,，、\s]*)+)各\s*(\d+)\s*#/u';
-        preg_match_all($pattern1, $betting_slip_text, $matches1, PREG_SET_ORDER);
-        foreach ($matches1 as $match) {
-            $numbers_str = $match[1];
-            $cost_per_number = intval($match[2]);
-            $numbers = preg_split('/[,，、\s]+/', $numbers_str);
-            $valid_numbers = array_values(array_filter(array_map('trim', $numbers), 'strlen'));
-
-            if (!empty($valid_numbers) && $cost_per_number > 0) {
-                $settlement_slip['number_bets'][] = [
-                    'numbers' => $valid_numbers,
-                    'cost_per_number' => $cost_per_number,
-                    'cost' => count($valid_numbers) * $cost_per_number
-                ];
-                $betting_slip_text = str_replace($match[0], '', $betting_slip_text);
+        $number_patterns = [
+            '/((?:[0-9]+[,，、\s]*)+)各\s*(\d+)\s*#/u',
+            '/((?:[0-9]+[.,，、\s]*)+)各\s*(\d+)\s*[元块]/u'
+        ];
+        foreach ($number_patterns as $pattern) {
+            preg_match_all($pattern, $betting_slip_text, $matches, PREG_SET_ORDER);
+            foreach ($matches as $match) {
+                $numbers_str = $match[1];
+                $cost_per_number = intval($match[2]);
+                $numbers = preg_split('/[.,，、\s]+/', $numbers_str);
+                $valid_numbers = array_values(array_filter(array_map('trim', $numbers), 'strlen'));
+                if (!empty($valid_numbers) && $cost_per_number > 0) {
+                    $settlement_slip['number_bets'][] = [
+                        'numbers' => $valid_numbers,
+                        'cost_per_number' => $cost_per_number,
+                        'cost' => count($valid_numbers) * $cost_per_number
+                    ];
+                    $matches_to_remove[] = $match[0];
+                }
             }
         }
+        if (!empty($matches_to_remove)) {
+            $betting_slip_text = str_replace(array_unique($matches_to_remove), '', $betting_slip_text);
+            $matches_to_remove = [];
+        }
 
-        // Pattern 2: Numbers with multiplier (e.g., "40x10元", "40*10")
-        $pattern2 = '/(\d+)\s*[xX×\*]\s*(\d+)\s*[元块]?/u';
-        preg_match_all($pattern2, $betting_slip_text, $matches2, PREG_SET_ORDER);
-        foreach ($matches2 as $match) {
+        $pattern_multiplier = '/(\d+)\s*[xX×\*]\s*(\d+)\s*[元块]?/u';
+        preg_match_all($pattern_multiplier, $betting_slip_text, $matches, PREG_SET_ORDER);
+        foreach ($matches as $match) {
             $number = $match[1];
             $cost = intval($match[2]);
             if ($cost > 0) {
@@ -117,33 +114,16 @@ class BetCalculator {
                     'cost_per_number' => $cost,
                     'cost' => $cost
                 ];
-                $betting_slip_text = str_replace($match[0], '', $betting_slip_text);
+                $matches_to_remove[] = $match[0];
             }
         }
-
-        // Pattern 3: Numbers with cost per number, ending with unit (e.g., "04.16.28...各5块", "39、30、各5元")
-        $pattern3 = '/((?:[0-9]+[.,，、\s]*)+)各\s*(\d+)\s*[元块]/u';
-        preg_match_all($pattern3, $betting_slip_text, $matches3, PREG_SET_ORDER);
-        foreach ($matches3 as $match) {
-            $numbers_str = $match[1];
-            $cost_per_number = intval($match[2]);
-            $numbers = preg_split('/[.,，、\s]+/', $numbers_str);
-            $valid_numbers = array_values(array_filter(array_map('trim', $numbers), 'strlen'));
-
-            if (!empty($valid_numbers) && $cost_per_number > 0) {
-                $settlement_slip['number_bets'][] = [
-                    'numbers' => $valid_numbers,
-                    'cost_per_number' => $cost_per_number,
-                    'cost' => count($valid_numbers) * $cost_per_number
-                ];
-                $betting_slip_text = str_replace($match[0], '', $betting_slip_text);
-            }
+        if (!empty($matches_to_remove)) {
+            $betting_slip_text = str_replace(array_unique($matches_to_remove), '', $betting_slip_text);
         }
 
-        // c. Final Calculation
+        // Final Calculation
         $total_cost = 0;
         $total_number_count = 0;
-
         foreach ($settlement_slip['zodiac_bets'] as $bet) {
             $total_cost += $bet['cost'];
             $total_number_count += count($bet['numbers']);
@@ -153,10 +133,7 @@ class BetCalculator {
             $total_number_count += count($bet['numbers']);
         }
 
-        // If no valid bets were parsed, return null.
-        if ($total_number_count === 0) {
-            return null;
-        }
+        if ($total_number_count === 0) return null;
 
         $settlement_slip['summary']['number_count'] = $total_number_count;
         $settlement_slip['summary']['total_cost'] = $total_cost;
