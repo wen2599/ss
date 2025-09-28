@@ -11,8 +11,48 @@ class BetCalculator {
             'summary' => ['number_count' => 0, 'total_cost' => 0]
         ];
 
-        // --- Zodiac Bets Parsing ---
-        // Format: "鼠,鸡数各二十[元|块]"
+        // --- New "Zodiacs by Number" Parsing ---
+        // Format: "鼠马各数5元" (Each number in Rat and Horse costs 5)
+        $zodiac_by_number_pattern = '/((?:[\p{Han}][,，\s]*)+)各数\s*([\p{Han}\d]+)\s*[元块]?/u';
+        preg_match_all($zodiac_by_number_pattern, $betting_slip_text, $zodiac_by_number_matches, PREG_SET_ORDER);
+
+        foreach ($zodiac_by_number_matches as $match) {
+            $zodiac_string = $match[1];
+            $cost_text = $match[2];
+
+            $cost_per_number = self::chineseToNumber($cost_text);
+            if ($cost_per_number === 0 && is_numeric($cost_text)) {
+                $cost_per_number = intval($cost_text);
+            }
+
+            if ($cost_per_number > 0) {
+                $cleaned_zodiac_string = preg_replace('/[,，\s]/u', '', $zodiac_string);
+                $mentioned_zodiacs = mb_str_split($cleaned_zodiac_string);
+
+                $all_numbers = [];
+                foreach ($mentioned_zodiacs as $zodiac) {
+                    if (isset(GameData::$zodiacMap[$zodiac])) {
+                        $all_numbers = array_merge($all_numbers, GameData::$zodiacMap[$zodiac]);
+                    }
+                }
+
+                $unique_numbers = array_values(array_unique($all_numbers));
+
+                if (!empty($unique_numbers)) {
+                    $settlement_slip['number_bets'][] = [
+                        'numbers' => $unique_numbers,
+                        'cost_per_number' => $cost_per_number,
+                        'cost' => count($unique_numbers) * $cost_per_number,
+                        'source_zodiacs' => $mentioned_zodiacs // Optional: for tracing
+                    ];
+                    // Remove the matched part from the text to avoid re-parsing
+                    $betting_slip_text = str_replace($match[0], '', $betting_slip_text);
+                }
+            }
+        }
+
+        // --- Original Zodiac Bets Parsing ---
+        // Format: "鼠,鸡数各二十[元|块]" (The entire set of Rat numbers costs 20)
         $zodiac_pattern = '/((?:[\p{Han}][,，\s]*)+)数各\s*([\p{Han}\d]+)\s*[元块]?/u';
         preg_match_all($zodiac_pattern, $betting_slip_text, $zodiac_matches, PREG_SET_ORDER);
 

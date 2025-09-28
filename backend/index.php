@@ -1,7 +1,17 @@
 <?php
 // Centralized entry point for all API requests
 
-require_once __DIR__ . '/lib/utils.php';
+// Simple file-based logger for debugging
+function write_log($message) {
+    $log_file = __DIR__ . '/debug_log.txt';
+    $timestamp = date('Y-m-d H:i:s');
+    // Add a separator for new requests to make the log easier to read
+    if (strpos($message, '---') !== false) {
+        file_put_contents($log_file, "\n" . $message . "\n", FILE_APPEND);
+    } else {
+        file_put_contents($log_file, "[$timestamp] " . $message . "\n", FILE_APPEND);
+    }
+}
 
 write_log("--- New Request: " . ($_SERVER['REQUEST_URI'] ?? 'Unknown URI') . " ---");
 
