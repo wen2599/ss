@@ -25,10 +25,13 @@ function SettlementDetails({ details }) {
             <tr key={`number-${idx}`} className={bet.winnings > 0 ? 'winning-row' : ''}>
               <td className="type-number">号码投注</td>
               <td>
-                {bet.numbers.map(num => (
-                  <span key={num} className={bet.winning_numbers?.includes(num) ? 'winning-number' : ''}>
-                    {num}
-                  </span>
+                {bet.numbers.map((num, idx) => (
+                  <React.Fragment key={num}>
+                    <span className={bet.winning_numbers?.includes(num) ? 'winning-number' : ''}>
+                      {num}
+                    </span>
+                    {idx < bet.numbers.length - 1 && ' '}
+                  </React.Fragment>
                 ))}
               </td>
               <td className="amount">

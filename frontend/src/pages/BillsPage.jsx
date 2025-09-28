@@ -65,27 +65,6 @@ function BillsPage() {
     }
   };
 
-  const handleSettleBill = async (billId) => {
-    if (!window.confirm(`您确定要结算账单 #${billId} 吗？系统将使用最新的开奖结果进行计算。`)) return;
-    try {
-      const response = await fetch('/settle_bill', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bill_id: billId }),
-        credentials: 'include'
-      });
-      const data = await response.json();
-      if (data.success) {
-        alert('账单结算成功！');
-        fetchBills();
-      } else {
-        alert(`结算失败: ${data.error}`);
-      }
-    } catch (err) {
-      alert('结算时发生错误。');
-    }
-  };
-
   const renderStatus = (status) => {
     switch (status) {
       case 'processed': return <span className="status-processed">已处理</span>;
@@ -126,9 +105,6 @@ function BillsPage() {
                 <td className="action-buttons-cell">
                   <button onClick={() => { setSelectedBillIndex(index); setShowRawModal(true); }}>原文</button>
                   <button onClick={() => { setSelectedBillIndex(index); setShowSettlementModal(true); }}>结算详情</button>
-                  {bill.status === 'processed' && (
-                    <button onClick={() => handleSettleBill(bill.id)} className="action-button settle-button">结算</button>
-                  )}
                   <button onClick={() => handleDeleteBill(bill.id)} className="delete-button">删除</button>
                 </td>
               </tr>
