@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `username` VARCHAR(255) NULL UNIQUE,
   `email` VARCHAR(255) NOT NULL UNIQUE,
   `password` VARCHAR(255) NOT NULL,
+  `winning_rate` DECIMAL(5, 2) NOT NULL DEFAULT 45.00 COMMENT 'The winning rate for the user, e.g., 45.00 or 47.00',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
