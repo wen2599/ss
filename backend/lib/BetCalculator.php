@@ -12,7 +12,9 @@ class BetCalculator {
         $text = $betting_slip_text;
 
         // 1. Unified Zodiac "Per Number" Parsing (Handles both "数各" and "各数")
-        $pattern = '/([\p{Han},，\s]+?)(?:数各|各数)\s*([\p{Han}\d]+)\s*[元块]?/u';
+        // This regex uses a tempered greedy token to correctly handle multiple bet expressions on a single line.
+        // It matches any character `.` as long as it's not the start of the keywords `数各` or `各数`.
+        $pattern = '/((?:(?!数各|各数).)+?)(?:数各|各数)\s*([\p{Han}\d]+)\s*[元块]?/u';
         if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $zodiac_string = preg_replace('/[,，\s]/u', '', $match[1]);
