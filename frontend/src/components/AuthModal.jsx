@@ -56,9 +56,26 @@ function AuthModal({ onClose }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content auth-modal" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close-button" onClick={onClose}>&times;</button>
-        <h2>{isLoginView ? '登录' : '注册'}</h2>
+
+        <div className="view-toggle">
+          <button
+            type="button"
+            className={isLoginView ? 'active' : ''}
+            onClick={() => setIsLoginView(true)}
+          >
+            登录
+          </button>
+          <button
+            type="button"
+            className={!isLoginView ? 'active' : ''}
+            onClick={() => setIsLoginView(false)}
+          >
+            注册
+          </button>
+        </div>
+
         <form onSubmit={isLoginView ? handleLogin : handleRegister}>
           <div>
             <label htmlFor="email">邮箱：</label>
@@ -99,13 +116,6 @@ function AuthModal({ onClose }) {
         </form>
         {error && <p className="error">{error}</p>}
         {successMessage && <p className="success">{successMessage}</p>}
-        <div className="modal-toggle">
-          {isLoginView ? (
-            <p>还没有账户？ <button type="button" onClick={() => setIsLoginView(false)}>立即注册</button></p>
-          ) : (
-            <p>已有账户？ <button type="button" onClick={() => setIsLoginView(true)}>立即登录</button></p>
-          )}
-        </div>
       </div>
     </div>
   );
