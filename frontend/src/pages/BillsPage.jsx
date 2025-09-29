@@ -16,7 +16,7 @@ function BillsPage() {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch('/?action=get_bills', {
+      const response = await fetch('backend/index.php?action=get_bills', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
@@ -45,7 +45,7 @@ function BillsPage() {
   const handleDeleteBill = async (billId) => {
     if (!window.confirm(`您确定要删除账单 #${billId} 吗？此操作无法撤销。`)) return;
     try {
-      const response = await fetch('/?action=delete_bill', {
+      const response = await fetch('backend/index.php?action=delete_bill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bill_id: billId }),

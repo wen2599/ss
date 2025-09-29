@@ -19,17 +19,7 @@ write_log("--- New Request: " . ($_SERVER['REQUEST_URI'] ?? 'Unknown URI') . " -
 // NOTE: session_start() must be called before any output.
 session_start();
 
-// Handle CORS with credentials
-// The wildcard '*' is not allowed for 'Access-Control-Allow-Origin' when 'Access-Control-Allow-Credentials' is true.
-// We must specify the exact origin.
-$http_origin = $_SERVER['HTTP_ORIGIN'] ?? 'http://localhost:3000';
-// A whitelist of allowed origins would be more secure in production.
-$allowed_origins = ['http://localhost:3000', 'http://localhost:5173']; // Add other allowed origins here
-if (in_array($http_origin, $allowed_origins)) {
-    header("Access-Control-Allow-Origin: $http_origin");
-}
-
-header("Access-Control-Allow-Credentials: true");
+header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 
