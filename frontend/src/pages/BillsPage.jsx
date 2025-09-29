@@ -55,7 +55,8 @@ function BillsPage() {
   const fetchBills = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/get_bills', { credentials: 'include' });
+      // Using an explicit action parameter to ensure correct routing on the backend.
+      const response = await fetch('/?action=get_bills', { credentials: 'include' });
       const data = await response.json();
       if (data.success) {
         setBills(data.bills);
