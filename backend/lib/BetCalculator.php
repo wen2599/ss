@@ -12,8 +12,7 @@ class BetCalculator {
         $text = $betting_slip_text;
 
         // 1. Unified Zodiac "Per Number" Parsing (Handles both "数各" and "各数")
-        // This regex now correctly handles multiple bet expressions on a single line by looking for a start-of-string or separator before matching.
-        $pattern = '/(?:^|[,，\s])\s*([\p{Han},，\s]+?)(?:数各|各数)\s*([\p{Han}\d]+)\s*[元块]?/u';
+        $pattern = '/([\p{Han},，\s]+?)(?:数各|各数)\s*([\p{Han}\d]+)\s*[元块]?/u';
         if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $zodiac_string = preg_replace('/[,，\s]/u', '', $match[1]);
@@ -168,38 +167,25 @@ class BetCalculator {
         return 0;
     }
 
-    public static function settle(array $bill_details, array $lottery_results_map, float $winning_rate = 45.0): array {
+    public static function settle(array $bill_details, array $lottery_results_map): array {
         $settled_details = $bill_details;
         $total_winnings = 0;
-
-        // Get the arrays of winning numbers for each region
+        $winning_rate = 45;
         $hk_numbers = $lottery_results_map['香港'] ?? null;
         $nm_numbers = $lottery_results_map['新澳门'] ?? null;
 
-        // Extract the special number (7th number) for each region
-        $hk_special_number = isset($hk_numbers) && count($hk_numbers) >= 7 ? $hk_numbers[6] : null;
-        $nm_special_number = isset($nm_numbers) && count($nm_numbers) >= 7 ? $nm_numbers[6] : null;
-
         foreach ($settled_details['slips'] as &$slip) {
             $region = $slip['region'] ?? '';
+            $winning_numbers = (strpos($region, '香港') !== false || strpos($region, '港') !== false) ? $hk_numbers : $nm_numbers;
+            if ($winning_numbers === null) continue;
             $slip_winnings = 0;
-
-            // Determine which special number to use based on the slip's region
-            $special_number = (strpos($region, '香港') !== false || strpos($region, '港') !== false) ? $hk_special_number : $nm_special_number;
-
-            // If there's no special number for this region, skip settlement for this slip
-            if ($special_number === null) {
-                continue;
-            }
-
             if (isset($slip['result']['number_bets'])) {
                 foreach ($slip['result']['number_bets'] as &$bet) {
                     $bet['winning_numbers'] = [];
                     $bet['winnings'] = 0;
                     if (isset($bet['cost_per_number'])) {
                         foreach ($bet['numbers'] as $number) {
-                            // Check if the bet number matches the special number
-                            if ($number == $special_number) {
+                            if (in_array($number, $winning_numbers)) {
                                 $win_amount = $bet['cost_per_number'] * $winning_rate;
                                 $bet['winnings'] += $win_amount;
                                 $bet['winning_numbers'][] = $number;
@@ -214,12 +200,7 @@ class BetCalculator {
             $total_winnings += $slip_winnings;
         }
         unset($slip);
-
-        // Calculate total winnings and the net result (win/loss)
         $settled_details['summary']['total_winnings'] = $total_winnings;
-        $total_cost = $settled_details['summary']['total_cost'] ?? 0;
-        $settled_details['summary']['net_result'] = $total_winnings - $total_cost;
-
         return $settled_details;
     }
 }

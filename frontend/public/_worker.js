@@ -23,17 +23,14 @@ export default {
     if (apiRoutes.includes(pathname)) {
       // This is an API call. Proxy it to the backend.
 
-      const requestOrigin = request.headers.get('Origin');
-
       // Handle CORS pre-flight (OPTIONS) requests
       if (request.method === 'OPTIONS') {
         return new Response(null, {
           status: 204,
           headers: {
-            'Access-Control-Allow-Origin': requestOrigin,
+            'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-            'Access-Control-Allow-Credentials': 'true',
             'Access-Control-Max-Age': '86400',
           },
         });
@@ -57,7 +54,6 @@ export default {
         method: request.method,
         headers: newHeaders,
         redirect: 'follow',
-        credentials: 'include', // Forward credentials (cookies) to the backend
       };
 
       if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -73,9 +69,8 @@ export default {
       }
 
       const respHeaders = new Headers(backendResp.headers);
-      // Set the correct CORS headers for the actual response
-      respHeaders.set('Access-Control-Allow-Origin', requestOrigin);
-      respHeaders.set('Access-Control-Allow-Credentials', 'true');
+      respHeaders.set('Access-Control-Allow-Origin', '*');
+      respHeaders.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
 
       return new Response(backendResp.body, {
         status: backendResp.status,
