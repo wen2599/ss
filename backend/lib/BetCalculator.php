@@ -168,10 +168,9 @@ class BetCalculator {
         return 0;
     }
 
-    public static function settle(array $bill_details, array $lottery_results_map): array {
+    public static function settle(array $bill_details, array $lottery_results_map, float $winning_rate = 45.0): array {
         $settled_details = $bill_details;
         $total_winnings = 0;
-        $winning_rate = 45; // Standard rate for the special number
 
         // Get the arrays of winning numbers for each region
         $hk_numbers = $lottery_results_map['香港'] ?? null;
