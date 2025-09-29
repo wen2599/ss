@@ -1,0 +1,22 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Handle API calls by routing them to the backend's entry point.
+  # This rule specifically looks for requests to the root path that have an 'action' query parameter.
+  RewriteCond %{REQUEST_URI} ^/$
+  RewriteCond %{QUERY_STRING} action= [NC]
+  RewriteRule ^.*$ backend/index.php [L,QSA]
+
+  # Serve frontend assets if they exist.
+  # This checks if the requested file exists within the /frontend directory.
+  RewriteCond %{DOCUMENT_ROOT}/frontend%{REQUEST_URI} -f
+  RewriteRule ^(.*)$ /frontend/$1 [L]
+
+  # Handle client-side routing for the React application.
+  # For any other request that is not a real file or directory,
+  # serve the main index.html file and let the React Router take over.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /frontend/index.html [L]
+</IfModule>
