@@ -5,6 +5,7 @@ function AuthModal({ onClose }) {
   const [isLoginView, setIsLoginView] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [winningRate, setWinningRate] = useState(45); // Add state for winning rate
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const { login } = useAuth();
@@ -39,7 +40,7 @@ function AuthModal({ onClose }) {
       const response = await fetch('/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, winning_rate: winningRate }),
       });
       const data = await response.json();
       if (data.success) {
@@ -81,6 +82,19 @@ function AuthModal({ onClose }) {
               autoComplete={isLoginView ? "current-password" : "new-password"}
             />
           </div>
+          {!isLoginView && (
+            <div>
+              <label htmlFor="winning_rate">赔率选择：</label>
+              <select
+                id="winning_rate"
+                value={winningRate}
+                onChange={(e) => setWinningRate(e.target.value)}
+              >
+                <option value="45">45</option>
+                <option value="47">47</option>
+              </select>
+            </div>
+          )}
           <button type="submit">{isLoginView ? '登录' : '注册'}</button>
         </form>
         {error && <p className="error">{error}</p>}
