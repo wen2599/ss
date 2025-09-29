@@ -333,6 +333,11 @@ button:active {
   color: var(--primary-hover);
   font-weight: bold;
 }
+
+.losing-row {
+  color: var(--error) !important;
+  font-weight: bold;
+}
 .summary-divider {
   color: var(--border);
   font-weight: normal;
