@@ -1,5 +1,5 @@
 <?php
-// Action: Update the settlement result for a single slip and recalculate total cost.
+// Action: Update the settlement result for a single slip and recalculate the bill's summary.
 
 // Ensure the user is authenticated.
 if (!isset($_SESSION['user_id'])) {
@@ -14,26 +14,26 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
-$data = json_decode(file_get_contents("php://input"), true);
-$user_id = $_SESSION['user_id'];
-
-// Validate input
-if (!isset($data['bill_id']) || !isset($data['slip_index']) || !isset($data['settlement_result'])) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Invalid input. Missing bill_id, slip_index, or settlement_result.']);
-    exit();
-}
-if (!is_array($data['settlement_result'])) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'settlement_result must be a valid JSON object.']);
-    exit();
-}
-
-$bill_id = $data['bill_id'];
-$slip_index = $data['slip_index'];
-$new_settlement_result = $data['settlement_result'];
-
+// The main logic is wrapped in a try-catch block to handle all potential errors gracefully.
 try {
+    // Use JSON_THROW_ON_ERROR to turn JSON errors into catchable exceptions.
+    $data = json_decode(file_get_contents("php://input"), true, 512, JSON_THROW_ON_ERROR);
+    $user_id = $_SESSION['user_id'];
+
+    // Validate input
+    if (!isset($data['bill_id']) || !isset($data['slip_index']) || !isset($data['settlement_result'])) {
+        http_response_code(400);
+        throw new InvalidArgumentException('Invalid input. Missing bill_id, slip_index, or settlement_result.');
+    }
+    if (!is_array($data['settlement_result'])) {
+        http_response_code(400);
+        throw new InvalidArgumentException('settlement_result must be a valid JSON object.');
+    }
+
+    $bill_id = $data['bill_id'];
+    $slip_index = $data['slip_index'];
+    $new_settlement_result = $data['settlement_result'];
+
     $pdo->beginTransaction();
 
     // 1. Fetch and lock the bill to ensure data consistency
@@ -44,39 +44,32 @@ try {
     if (!$bill) {
         $pdo->rollBack();
         http_response_code(404);
-        echo json_encode(['success' => false, 'error' => 'Bill not found or you do not have permission to edit it.']);
-        exit();
+        throw new RuntimeException('Bill not found or you do not have permission to edit it.');
     }
 
-    // 2. Decode the existing details
-    $details = json_decode($bill['settlement_details'], true);
-    if (json_last_error() !== JSON_ERROR_NONE || !is_array($details) || !isset($details['slips'])) {
-        $pdo->rollBack();
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'Could not parse existing settlement details.']);
-        exit();
-    }
+    // 2. Decode the existing details with exception on error
+    $details = json_decode($bill['settlement_details'], true, 512, JSON_THROW_ON_ERROR);
 
     // 3. Validate the slip index
     if (!isset($details['slips'][$slip_index])) {
         $pdo->rollBack();
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Invalid slip index.']);
-        exit();
+        throw new RuntimeException('Invalid slip index.');
     }
 
     // 4. Replace the old result with the new one
     $details['slips'][$slip_index]['result'] = $new_settlement_result;
 
-    // 5. Recalculate the bill's total cost from all slips
+    // 5. Recalculate ALL summary fields to ensure data consistency after the edit
     $new_total_cost = 0;
+    $new_total_winnings = 0;
     foreach ($details['slips'] as $slip) {
-        if (isset($slip['result']['summary']['total_cost'])) {
-            $new_total_cost += $slip['result']['summary']['total_cost'];
-        }
+        $new_total_cost += $slip['result']['summary']['total_cost'] ?? 0;
+        $new_total_winnings += $slip['result']['summary']['winnings'] ?? 0;
     }
     $details['summary']['total_cost'] = $new_total_cost;
-    // Note: total_number_count could also be recalculated here if needed.
+    $details['summary']['total_winnings'] = $new_total_winnings;
+    $details['summary']['net_result'] = $new_total_winnings - $new_total_cost;
 
     // 6. Encode the updated details and save back to the database
     $new_details_json = json_encode($details, JSON_UNESCAPED_UNICODE);
@@ -91,12 +84,23 @@ try {
     $pdo->commit();
 
     http_response_code(200);
-    echo json_encode(['success' => true, 'message' => 'Settlement updated and total cost recalculated successfully.']);
+    echo json_encode(['success' => true, 'message' => 'Settlement updated and recalculated successfully.']);
 
+} catch (JsonException $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    error_log("Update settlement JSON error: " . $e->getMessage());
+    http_response_code(400); // Bad Request for malformed JSON
+    echo json_encode(['success' => false, 'error' => 'Invalid JSON format: ' . $e->getMessage()]);
 } catch (PDOException $e) {
-    $pdo->rollBack();
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log("Update settlement DB error: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'A server error occurred while updating the settlement.']);
+    echo json_encode(['success' => false, 'error' => 'A database error occurred during the update.']);
+} catch (Throwable $t) {
+    // Generic catch-all for any other errors (e.g., TypeError, InvalidArgumentException)
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    error_log("Critical error in update_settlement.php: " . $t->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'A critical server error occurred: ' . $t->getMessage()]);
 }
 ?>
