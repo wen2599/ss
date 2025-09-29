@@ -15,7 +15,7 @@ function AuthModal({ onClose }) {
     setError('');
     setSuccessMessage('');
     try {
-      const response = await fetch('/login', {
+      const response = await fetch('/?action=login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -37,7 +37,7 @@ function AuthModal({ onClose }) {
     setError('');
     setSuccessMessage('');
     try {
-      const response = await fetch('/register', {
+      const response = await fetch('/?action=register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, winning_rate: winningRate }),
