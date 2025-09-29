@@ -78,7 +78,7 @@ function BillsPage() {
   const handleDeleteBill = async (billId) => {
     if (!window.confirm(`您确定要删除账单 #${billId} 吗？此操作无法撤销。`)) return;
     try {
-      const response = await fetch('/delete_bill', {
+      const response = await fetch('/?action=delete_bill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bill_id: billId }),
