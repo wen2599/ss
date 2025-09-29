@@ -110,7 +110,7 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
     }
     setSaving(true);
     try {
-      const response = await fetch('backend/index.php?action=update_settlement', {
+      const response = await fetch('/update_settlement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bill_id: bill.id, slip_index: editingSlipIndex, settlement_result: settlementResult }),
