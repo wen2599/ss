@@ -5,7 +5,6 @@ function AuthModal({ onClose }) {
   const [isLoginView, setIsLoginView] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [winningRate, setWinningRate] = useState(45); // Add state for winning rate
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const { login } = useAuth();
@@ -19,7 +18,6 @@ function AuthModal({ onClose }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
-        credentials: 'include',
       });
       const data = await response.json();
       if (data.success) {
@@ -41,8 +39,7 @@ function AuthModal({ onClose }) {
       const response = await fetch('/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, winning_rate: winningRate }),
-        credentials: 'include',
+        body: JSON.stringify({ email, password }),
       });
       const data = await response.json();
       if (data.success) {
@@ -58,26 +55,9 @@ function AuthModal({ onClose }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content auth-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close-button" onClick={onClose}>&times;</button>
-
-        <div className="view-toggle">
-          <button
-            type="button"
-            className={isLoginView ? 'active' : ''}
-            onClick={() => setIsLoginView(true)}
-          >
-            登录
-          </button>
-          <button
-            type="button"
-            className={!isLoginView ? 'active' : ''}
-            onClick={() => setIsLoginView(false)}
-          >
-            注册
-          </button>
-        </div>
-
+        <h2>{isLoginView ? '登录' : '注册'}</h2>
         <form onSubmit={isLoginView ? handleLogin : handleRegister}>
           <div>
             <label htmlFor="email">邮箱：</label>
@@ -101,23 +81,17 @@ function AuthModal({ onClose }) {
               autoComplete={isLoginView ? "current-password" : "new-password"}
             />
           </div>
-          {!isLoginView && (
-            <div>
-              <label htmlFor="winning_rate">赔率选择：</label>
-              <select
-                id="winning_rate"
-                value={winningRate}
-                onChange={(e) => setWinningRate(e.target.value)}
-              >
-                <option value="45">45</option>
-                <option value="47">47</option>
-              </select>
-            </div>
-          )}
           <button type="submit">{isLoginView ? '登录' : '注册'}</button>
         </form>
         {error && <p className="error">{error}</p>}
         {successMessage && <p className="success">{successMessage}</p>}
+        <div className="modal-toggle">
+          {isLoginView ? (
+            <p>还没有账户？ <button type="button" onClick={() => setIsLoginView(false)}>立即注册</button></p>
+          ) : (
+            <p>已有账户？ <button type="button" onClick={() => setIsLoginView(true)}>立即登录</button></p>
+          )}
+        </div>
       </div>
     </div>
   );
