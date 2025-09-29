@@ -367,12 +367,96 @@ button:active {
 .bills-table tbody tr:last-child td {
   border-bottom: none;
 }
-.bills-table tbody tr:hover {
+.bills-table .bill-summary-row:hover {
   background-color: #f0f7ff;
   cursor: pointer;
 }
-.selected-row {
-  background: #eaf3ff;
+.bills-table .selected-row {
+  background-color: #eaf3ff;
+  font-weight: bold;
+}
+.bill-details-row td {
+  padding: 0;
+  border-top: none !important;
+}
+.bill-details-container {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  background-color: #f7f8fa;
+  border-top: 2px solid var(--primary-color);
+}
+.details-tile {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+.details-tile h4 {
+  margin-top: 0;
+  color: var(--primary-color);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+.raw-content-tile {
+  flex: 2; /* Takes more space */
+}
+.settlement-details-tile {
+  flex: 3; /* Takes the most space */
+}
+.actions-tile {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.raw-content-display {
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 400px;
+  overflow-y: auto;
+  background-color: #fdfdfd;
+  padding: 0.5rem;
+  border-radius: 6px;
+}
+.settlement-details-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.mini-slip-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+.mini-slip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.mini-slip-raw {
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 0.9em;
+  background-color: #f9f9f9;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+.mini-slip-winnings {
+  margin-top: 0.5rem;
+  font-weight: bold;
+  color: var(--success);
+  text-align: right;
+}
+@media (max-width: 1024px) {
+  .bill-details-container {
+    flex-direction: column;
+  }
 }
 .action-buttons-cell {
   display: flex;
