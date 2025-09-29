@@ -137,7 +137,7 @@ if ($raw_email_content === false) {
     echo json_encode(['success' => false, 'error' => 'Could not read uploaded email file.']);
     exit();
 }
-$stmt = $pdo->prepare("SELECT id, winning_rate FROM users WHERE email = :email");
+$stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
 $stmt->execute([':email' => $user_email]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$user) {
@@ -146,7 +146,6 @@ if (!$user) {
     exit();
 }
 $user_id = $user['id'];
-$user_winning_rate = (float)($user['winning_rate'] ?? 45.0);
 
 // 邮件正文处理
 $detected_charset = null;
@@ -203,8 +202,7 @@ if ($parsed_bill !== null && !empty($parsed_bill['slips'])) {
 
     // If we have results, perform auto-settlement
     if (!empty($lottery_results_map)) {
-        // Pass the user-specific winning rate to the settle method
-        $settled_bill = BetCalculator::settle($parsed_bill, $lottery_results_map, $user_winning_rate);
+        $settled_bill = BetCalculator::settle($parsed_bill, $lottery_results_map);
         $settlement_details = json_encode($settled_bill, JSON_UNESCAPED_UNICODE);
         $status = 'settled'; // Mark as settled immediately
     } else {

@@ -224,18 +224,6 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
                   <span className="winning-row">{summary.total_winnings} 元</span>
                 </>
               )}
-              {/* Display Net Result (Win/Loss) */}
-              {typeof summary.net_result === 'number' && (
-                  <>
-                      <span className="summary-divider">|</span>
-                      <strong className={summary.net_result >= 0 ? 'winning-row' : 'losing-row'}>
-                          {summary.net_result >= 0 ? '净赢' : '净输'}:
-                      </strong>
-                      <span className={summary.net_result >= 0 ? 'winning-row' : 'losing-row'}>
-                          {summary.net_result} 元
-                      </span>
-                  </>
-              )}
             </div>
           </>
         )}
@@ -255,18 +243,6 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
                   <strong className="winning-row">总计中奖:</strong>
                   <span className="winning-row">{summary.total_winnings} 元</span>
                 </>
-              )}
-              {/* Display Net Result (Win/Loss) in Text View */}
-              {typeof summary.net_result === 'number' && (
-                  <>
-                      <span className="summary-divider">|</span>
-                      <strong className={summary.net_result >= 0 ? 'winning-row' : 'losing-row'}>
-                          {summary.net_result >= 0 ? '净赢' : '净输'}:
-                      </strong>
-                      <span className={summary.net_result >= 0 ? 'winning-row' : 'losing-row'}>
-                          {summary.net_result} 元
-                      </span>
-                  </>
               )}
               <button onClick={() => setViewMode('card')} className="action-button edit summary-edit-button" title="切换到卡片视图进行编辑">编辑结算</button>
             </div>
