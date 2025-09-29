@@ -57,6 +57,7 @@ export default {
         method: request.method,
         headers: newHeaders,
         redirect: 'follow',
+        credentials: 'include', // Forward credentials (cookies) to the backend
       };
 
       if (request.method !== 'GET' && request.method !== 'HEAD') {
