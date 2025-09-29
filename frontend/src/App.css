@@ -528,17 +528,84 @@ form button {
   background: var(--primary-color);
   font-size: 1.15em;
 }
-.modal-toggle {
-  margin-top: 2vw;
-  text-align: center;
+
+/* ==============================
+   Auth Modal Redesign
+   ============================== */
+.auth-modal {
+  max-width: 400px; /* More constrained width for a login form */
+  padding: 2rem;
+}
+
+.auth-modal .view-toggle {
+  display: flex;
+  justify-content: center;
+  background-color: var(--background);
+  border-radius: 10px;
+  padding: 5px;
+  margin-bottom: 1.5rem;
+}
+
+.auth-modal .view-toggle button {
+  flex: 1;
+  padding: 0.75rem 0;
+  border: none;
+  background-color: transparent;
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.auth-modal .view-toggle button.active {
+  background-color: var(--card-bg);
+  color: var(--primary-color);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.auth-modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.auth-modal form div {
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-modal form label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
   color: var(--text-muted);
 }
-.modal-toggle button {
-  background: none;
-  border: none;
-  color: var(--primary-color);
-  text-decoration: underline;
-  font-size: inherit;
+
+.auth-modal form input,
+.auth-modal form select {
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 1rem;
+  background-color: var(--background);
+  transition: all 0.2s ease;
+}
+
+.auth-modal form input:focus,
+.auth-modal form select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.1);
+  background-color: var(--card-bg);
+}
+
+.auth-modal form button[type="submit"] {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  font-size: 1.1rem;
+  border-radius: 8px;
 }
 
 /* ==============================
