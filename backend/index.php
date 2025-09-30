@@ -19,7 +19,15 @@ write_log("--- New Request: " . ($_SERVER['REQUEST_URI'] ?? 'Unknown URI') . " -
 // NOTE: session_start() must be called before any output.
 session_start();
 
-header("Access-Control-Allow-Origin: *");
+// Dynamically set the origin to support credentials.
+// In a production environment, you should replace this with a strict whitelist of allowed origins.
+if (isset($_SERVER['HTTP_ORIGIN'])) {
+    header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
+} else {
+    // Fallback for requests without an origin header
+    header("Access-Control-Allow-Origin: *");
+}
+header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 
