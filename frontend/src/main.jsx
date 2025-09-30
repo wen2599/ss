@@ -8,6 +8,7 @@ import App from './App.jsx'
 import BillsPage from './pages/BillsPage.jsx';
 import LotteryResultsPage from './pages/LotteryResultsPage.jsx';
 import MainLayout from './components/MainLayout.jsx';
+import SettingsPage from './components/SettingsPage.js';
 import { AuthProvider } from './context/AuthContext.jsx';
 import './index.css'
 
@@ -26,6 +27,10 @@ const router = createBrowserRouter([
       {
         path: "lottery-results",
         element: <LotteryResultsPage />,
+      },
+      {
+        path: "settings",
+        element: <SettingsPage />,
       }
     ]
   }
