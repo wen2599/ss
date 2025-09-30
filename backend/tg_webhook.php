@@ -109,6 +109,77 @@ function listUsersFromDB($pdo) {
     }
 }
 
+function listTemplatesFromDB($pdo) {
+    try {
+        $stmt = $pdo->query("SELECT id, pattern, type, priority FROM parsing_templates ORDER BY priority ASC, id ASC");
+        $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($templates)) {
+            return "数据库中没有自定义模板。";
+        }
+        $templateList = "📝 *所有解析模板:*\n---------------------\n";
+        foreach ($templates as $template) {
+            $templateList .= "*ID:* `" . $template['id'] . "`\n"
+                          . "*类型:* `" . htmlspecialchars($template['type']) . "`\n"
+                          . "*优先级:* `" . $template['priority'] . "`\n"
+                          . "*格式:* `" . htmlspecialchars($template['pattern']) . "`\n"
+                          . "---------------------\n";
+        }
+        return $templateList;
+    } catch (PDOException $e) {
+        error_log("Error listing templates: " . $e->getMessage());
+        return "获取模板列表时出错。";
+    }
+}
+
+function deleteTemplateFromDB($pdo, $template_id) {
+    if (!is_numeric($template_id)) {
+        return "模板ID必须是一个数字。";
+    }
+    try {
+        $stmt = $pdo->prepare("DELETE FROM parsing_templates WHERE id = :id");
+        $stmt->execute([':id' => $template_id]);
+        if ($stmt->rowCount() > 0) {
+            return "✅ 模板 ID `{$template_id}` 已被删除。";
+        } else {
+            return "⚠️ 未找到模板 ID `{$template_id}`。";
+        }
+    } catch (PDOException $e) {
+        error_log("Error deleting template: " . $e->getMessage());
+        return "❌ 删除模板时发生数据库错误。";
+    }
+}
+
+function saveTemplateToDB($pdo, $templateData) {
+    if (empty($templateData['pattern']) || empty($templateData['type'])) {
+        return "模板格式或类型不能为空。";
+    }
+    if (!is_numeric($templateData['priority'])) {
+        return "优先级必须是一个数字。";
+    }
+    if (@preg_match($templateData['pattern'], '') === false) {
+        return "提供的格式不是有效的正则表达式。";
+    }
+
+    $sql = "INSERT INTO parsing_templates (pattern, type, priority, description) VALUES (:pattern, :type, :priority, :description)";
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':pattern' => $templateData['pattern'],
+            ':type' => $templateData['type'],
+            ':priority' => (int)$templateData['priority'],
+            ':description' => 'User-provided template via bot'
+        ]);
+        return "✅ 模板已成功保存。 ID: " . $pdo->lastInsertId();
+    } catch (PDOException $e) {
+        if ($e->errorInfo[1] == 1062) {
+            return "❌ 错误：具有该格式的模板已存在。";
+        }
+        error_log("Database error saving template: " . $e->getMessage());
+        return "❌ 保存模板时发生数据库错误。";
+    }
+}
+
+
 /**
  * Saves a parsed lottery result to the database.
  *
@@ -197,25 +268,67 @@ if ($message) {
     }
 
     // STATE-BASED INPUT HANDLING
-    $admin_state = get_admin_state($chat_id);
-    if ($admin_state === 'waiting_for_api_key') {
-        try {
-            $sql = "UPDATE application_settings SET setting_value = :api_key WHERE setting_name = 'gemini_api_key'";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([':api_key' => $text]);
-            $responseText = "✅ Gemini API密钥已成功更新。";
-        } catch (PDOException $e) {
-            error_log("Error updating Gemini API key: " . $e->getMessage());
-            $responseText = "❌ 更新Gemini API密钥时发生数据库错误。";
-        }
+    $raw_state = get_admin_state($chat_id);
+    $state_data = $raw_state ? json_decode($raw_state, true) : null;
+    $current_state = $state_data['state'] ?? ($raw_state ?: null);
+
+    // Universal command-based cancellation for any stateful operation
+    if (strpos($text, '/') === 0 && $current_state) {
         clear_admin_state($chat_id);
-        sendMessage($chat_id, $responseText);
-        http_response_code(200);
-        exit();
+        $current_state = null; // Unset state to proceed to normal command handling
+        sendMessage($chat_id, "操作已取消。");
+    }
+
+    if ($current_state) {
+        // Handle legacy string-based state for API key
+        if ($current_state === 'waiting_for_api_key') {
+            try {
+                $sql = "UPDATE application_settings SET setting_value = :api_key WHERE setting_name = 'gemini_api_key'";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([':api_key' => $text]);
+                $responseText = "✅ Gemini API密钥已成功更新。";
+            } catch (PDOException $e) {
+                error_log("Error updating Gemini API key: " . $e->getMessage());
+                $responseText = "❌ 更新Gemini API密钥时发生数据库错误。";
+            }
+            clear_admin_state($chat_id);
+            sendMessage($chat_id, $responseText, $system_settings_keyboard);
+            exit();
+        }
+
+        // Handle JSON-based state machine for adding templates
+        switch ($current_state) {
+            case 'waiting_for_template_pattern':
+                $state_data['data']['pattern'] = $text;
+                $state_data['state'] = 'waiting_for_template_type';
+                set_admin_state($chat_id, json_encode($state_data));
+                sendMessage($chat_id, "✅ 格式已保存。\n\n2/3: 现在，请输入模板类型 (例如: `lottery_result`)。");
+                exit();
+
+            case 'waiting_for_template_type':
+                $state_data['data']['type'] = $text;
+                $state_data['state'] = 'waiting_for_template_priority';
+                set_admin_state($chat_id, json_encode($state_data));
+                sendMessage($chat_id, "✅ 类型已保存。\n\n3/3: 现在，请输入模板的优先级 (数字, 越小越高, 默认 100)。");
+                exit();
+
+            case 'waiting_for_template_priority':
+                $state_data['data']['priority'] = $text;
+                $responseText = saveTemplateToDB($pdo, $state_data['data']);
+                clear_admin_state($chat_id);
+                sendMessage($chat_id, $responseText, $template_management_keyboard);
+                exit();
+
+            case 'waiting_for_template_id_to_delete':
+                $responseText = deleteTemplateFromDB($pdo, $text);
+                clear_admin_state($chat_id);
+                sendMessage($chat_id, $responseText, $template_management_keyboard);
+                exit();
+        }
     }
 
     // LOTTERY RESULT PARSING
-    $parsedResult = LotteryParser::parse($text);
+    $parsedResult = LotteryParser::parse($text, $pdo);
     if ($parsedResult) {
         $statusMessage = saveLotteryResultToDB($pdo, $parsedResult);
         $responseText = "成功识别到开奖结果：\n"
@@ -227,15 +340,50 @@ if ($message) {
     }
 
     // COMMAND AND BUTTON HANDLING
+    // Define keyboard layouts
+    $main_menu_keyboard = json_encode(['keyboard' => [
+        [['text' => '👤 用户管理'], ['text' => '📝 模板管理']],
+        [['text' => '⚙️ 系统设置']]
+    ], 'resize_keyboard' => true]);
+
+    $user_management_keyboard = json_encode(['keyboard' => [
+        [['text' => '➕ 添加用户'], ['text' => '➖ 删除用户']],
+        [['text' => '📋 列出所有用户']],
+        [['text' => '⬅️ 返回主菜单']]
+    ], 'resize_keyboard' => true]);
+
+    $template_management_keyboard = json_encode(['keyboard' => [
+        [['text' => '➕ 添加新模板'], ['text' => '📋 查看所有模板']],
+        [['text' => '🗑️ 删除模板']],
+        [['text' => '⬅️ 返回主菜单']]
+    ], 'resize_keyboard' => true]);
+
+    $system_settings_keyboard = json_encode(['keyboard' => [
+        [['text' => '🔑 设定API密钥'], ['text' => 'ℹ️ 检查密钥状态']],
+        [['text' => '⬅️ 返回主菜单']]
+    ], 'resize_keyboard' => true]);
+
+    // Command mapping
     $command_map = [
-        '添加用户' => '/adduser',
-        '删除用户' => '/deluser',
-        '列出所有用户' => '/listusers',
-        '分析文本' => '/analyze',
-        '⚙️ 设置' => '/settings',
+        // Main Menu
+        '👤 用户管理' => '/user_management',
+        '📝 模板管理' => '/template_management',
+        '⚙️ 系统设置' => '/system_settings',
+        // User Management
+        '➕ 添加用户' => '/adduser',
+        '➖ 删除用户' => '/deluser',
+        '📋 列出所有用户' => '/listusers',
+        // Template Management (placeholders)
+        '➕ 添加新模板' => '/add_template',
+        '📋 查看所有模板' => '/list_templates',
+        '🗑️ 删除模板' => '/delete_template',
+        // System Settings
+        '🔑 设定API密钥' => '/set_gemini_key',
+        'ℹ️ 检查密钥状态' => '/get_api_key_status',
+        // Common
         '⬅️ 返回主菜单' => '/start',
-        '设定API密钥' => '/set_gemini_key',
-        '检查密钥状态' => '/get_api_key_status',
+        // Legacy/Hidden commands for direct invocation
+        '分析文本' => '/analyze',
     ];
 
     $command = null;
@@ -251,14 +399,25 @@ if ($message) {
 
     if ($command) {
         switch ($command) {
+            // Main Menus
             case '/start':
-                $responseText = "欢迎回来，管理员！请使用下面的菜单或直接输入命令。";
-                $keyboard = json_encode(['keyboard' => [[['text' => '添加用户'], ['text' => '删除用户']], [['text' => '列出所有用户'], ['text' => '⚙️ 设置']]], 'resize_keyboard' => true]);
+                $responseText = "欢迎回来，管理员！请选择一个操作：";
+                $keyboard = $main_menu_keyboard;
                 break;
-            case '/settings':
-                $responseText = "⚙️ *设置菜单*\n\n请选择一个操作：";
-                $keyboard = json_encode(['keyboard' => [[['text' => '设定API密钥'], ['text' => '检查密钥状态']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
+            case '/user_management':
+                $responseText = "👤 *用户管理*\n\n请选择一个操作：";
+                $keyboard = $user_management_keyboard;
                 break;
+            case '/template_management':
+                $responseText = "📝 *模板管理*\n\n请选择一个操作：";
+                $keyboard = $template_management_keyboard;
+                break;
+            case '/system_settings':
+                $responseText = "⚙️ *系统设置*\n\n请选择一个操作：";
+                $keyboard = $system_settings_keyboard;
+                break;
+
+            // User Management Actions
             case '/adduser':
                 $responseText = !empty($args) ? addUserToDB($pdo, $args) : "用法：`/adduser <username>`";
                 break;
@@ -268,9 +427,22 @@ if ($message) {
             case '/listusers':
                 $responseText = listUsersFromDB($pdo);
                 break;
-            case '/analyze':
-                $responseText = !empty($args) ? analyzeText($args) : "用法：`/analyze <在此处输入您的文本>`";
+
+            // Template Management Actions
+            case '/add_template':
+                $state_payload = json_encode(['state' => 'waiting_for_template_pattern', 'data' => []]);
+                set_admin_state($chat_id, $state_payload);
+                $responseText = "1/3: 请发送新模板的正则表达式 (PCRE)。\n\n*重要*: 表达式必须有3个捕获组:\n1. (`lottery_name`)\n2. (`issue_number`)\n3. (`numbers_string`)\n\n例如: `/(香港六合彩)第(\d+)期开奖号码: ([\d\s,]+)/u`\n\n发送 `/start` 可随时取消。";
                 break;
+            case '/list_templates':
+                $responseText = listTemplatesFromDB($pdo);
+                break;
+            case '/delete_template':
+                set_admin_state($chat_id, json_encode(['state' => 'waiting_for_template_id_to_delete']));
+                $responseText = "请输入您想删除的模板的数字ID。\n\n发送 `/start` 可随时取消。";
+                break;
+
+            // System Settings Actions
             case '/set_gemini_key':
                 if (!empty($args)) { // Direct command with key
                     try {
@@ -300,6 +472,12 @@ if ($message) {
                     $responseText = "❌ 检查API密钥状态时发生数据库错误。";
                 }
                 break;
+
+            // Legacy/Hidden Actions
+            case '/analyze':
+                $responseText = !empty($args) ? analyzeText($args) : "用法：`/analyze <在此处输入您的文本>`";
+                break;
+
             default:
                 $responseText = "抱歉，我不理解该命令。";
                 break;
