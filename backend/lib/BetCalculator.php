@@ -91,6 +91,7 @@ class BetCalculator {
 
         $settlement_slip['summary']['number_count'] = $total_number_count;
         $settlement_slip['summary']['total_cost'] = $total_cost;
+        $settlement_slip['unparsed_text'] = trim($text); // Store any text that was not parsed
         return $settlement_slip;
     }
 
