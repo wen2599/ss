@@ -16,18 +16,6 @@ try {
 
     $bills = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Sanitize data to prevent JSON encoding errors from invalid characters.
-    // This ensures that even if the raw email content has encoding issues, the app won't crash.
-    foreach ($bills as &$bill) {
-        if (isset($bill['raw_content']) && is_string($bill['raw_content'])) {
-            $bill['raw_content'] = mb_convert_encoding($bill['raw_content'], 'UTF-8', 'UTF-8');
-        }
-        if (isset($bill['settlement_details']) && is_string($bill['settlement_details'])) {
-            $bill['settlement_details'] = mb_convert_encoding($bill['settlement_details'], 'UTF-8', 'UTF-8');
-        }
-    }
-    unset($bill); // Unset the reference to the last element
-
     http_response_code(200);
     echo json_encode(['success' => true, 'bills' => $bills]);
 

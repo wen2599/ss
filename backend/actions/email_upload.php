@@ -197,21 +197,34 @@ $total_cost = null;
 
 // Only proceed if the calculator found valid bet slips.
 if ($parsed_bill !== null && !empty($parsed_bill['slips'])) {
-    // --- AI-Assisted Parsing Correction ---
-    $ai_correction_made = false;
-    foreach ($parsed_bill['slips'] as &$slip) { // Use reference to modify the slip directly
-        if (!empty($slip['result']['unparsed_text'])) {
+    // --- AI-Assisted Parsing Correction and Finalization ---
+    $final_slips = [];
+    $geminiService = new GeminiCorrectionService($gemini_api_key);
+
+    foreach ($parsed_bill['slips'] as $original_slip) {
+        if (!empty($original_slip['result']['unparsed_text'])) {
             write_log("Unparsed text found for user {$user_id}. Calling Gemini for correction...");
-            $geminiService = new GeminiCorrectionService($gemini_api_key);
-            // Pass user_id to Gemini service if it can use it for context
-            $correction = $geminiService->getCorrection($slip['result']['unparsed_text'], $user_id);
+            $correction = $geminiService->getCorrection($original_slip['result']['unparsed_text'], $user_id);
 
             if ($correction && !empty($correction['corrected_data']['number_bets'])) {
-                // **Replace** the failed parser's results with Gemini's results.
-                $slip['result']['number_bets'] = $correction['corrected_data']['number_bets'];
-                $slip['result']['unparsed_text'] = ''; // Mark as parsed
-                $ai_correction_made = true;
                 write_log("Gemini successfully corrected a slip for user {$user_id}.");
+
+                // Create a new slip based on the corrected data
+                $corrected_slip = $original_slip;
+                $corrected_slip['result']['number_bets'] = $correction['corrected_data']['number_bets'];
+                $corrected_slip['result']['unparsed_text'] = ''; // Mark as parsed
+
+                // Recalculate summary for this single corrected slip
+                $slip_total_cost = 0;
+                $slip_number_count = 0;
+                foreach ($corrected_slip['result']['number_bets'] as $bet) {
+                    $slip_total_cost += $bet['cost'] ?? 0;
+                    $slip_number_count += isset($bet['numbers']) ? count($bet['numbers']) : 0;
+                }
+                $corrected_slip['result']['summary']['total_cost'] = $slip_total_cost;
+                $corrected_slip['result']['summary']['number_count'] = $slip_number_count;
+
+                $final_slips[] = $corrected_slip;
 
                 // If Gemini suggests a new template, save it for the user.
                 if (!empty($correction['suggested_regex']) && !empty($correction['type'])) {
@@ -231,42 +244,28 @@ if ($parsed_bill !== null && !empty($parsed_bill['slips'])) {
                     }
                 }
             } else {
-                // If Gemini fails, we leave the unparsed text for manual review in the DB.
-                // The 'raw' part of the slip already contains the original text.
+                // If Gemini fails, keep the original slip with the unparsed text for manual review.
                 write_log("Gemini could not correct the slip for user {$user_id}.");
+                $final_slips[] = $original_slip;
             }
+        } else {
+            // If the slip was parsed correctly by the standard parser, add it directly.
+            $final_slips[] = $original_slip;
         }
     }
-    unset($slip); // Unset the reference
 
-    // If any AI correction was made, the bill summary needs a full recalculation.
-    if ($ai_correction_made) {
-        $new_total_cost = 0;
-        $new_total_number_count = 0;
+    // Replace the old slips with the new, processed list of slips
+    $parsed_bill['slips'] = $final_slips;
 
-        // Recalculate summary for each slip first
-        foreach ($parsed_bill['slips'] as &$slip) {
-            $slip_total_cost = 0;
-            $slip_number_count = 0;
-            if (isset($slip['result']['number_bets'])) {
-                foreach ($slip['result']['number_bets'] as $bet) {
-                    $slip_total_cost += $bet['cost'] ?? 0;
-                    $slip_number_count += isset($bet['numbers']) ? count($bet['numbers']) : 0;
-                }
-            }
-            $slip['result']['summary']['total_cost'] = $slip_total_cost;
-            $slip['result']['summary']['number_count'] = $slip_number_count;
-
-            // Add to the overall total
-            $new_total_cost += $slip_total_cost;
-            $new_total_number_count += $slip_number_count;
-        }
-        unset($slip);
-
-        // Update the main summary object
-        $parsed_bill['summary']['total_cost'] = $new_total_cost;
-        $parsed_bill['summary']['total_number_count'] = $new_total_number_count;
+    // Perform a single, final recalculation of the overall bill summary.
+    $total_cost = 0;
+    $total_number_count = 0;
+    foreach ($parsed_bill['slips'] as $slip) {
+        $total_cost += $slip['result']['summary']['total_cost'] ?? 0;
+        $total_number_count += $slip['result']['summary']['number_count'] ?? 0;
     }
+    $parsed_bill['summary']['total_cost'] = $total_cost;
+    $parsed_bill['summary']['total_number_count'] = $total_number_count;
     // --- End of AI-Assisted Parsing ---
 
     // Fetch latest lottery results for automatic settlement
