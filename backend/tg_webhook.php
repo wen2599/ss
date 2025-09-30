@@ -40,7 +40,26 @@ function sendMessage($chat_id, $text, $reply_markup = null) {
     file_get_contents($url, false, $context);
 }
 
-// 4. User Management and Analysis Functions
+// 4. State Management Functions
+function get_admin_state_file($chat_id) {
+    return sys_get_temp_dir() . '/tg_admin_state_' . $chat_id . '.txt';
+}
+function set_admin_state($chat_id, $state) {
+    file_put_contents(get_admin_state_file($chat_id), $state);
+}
+function get_admin_state($chat_id) {
+    $file = get_admin_state_file($chat_id);
+    return file_exists($file) ? file_get_contents($file) : null;
+}
+function clear_admin_state($chat_id) {
+    $file = get_admin_state_file($chat_id);
+    if (file_exists($file)) {
+        unlink($file);
+    }
+}
+
+
+// 5. User Management and Analysis Functions
 function addUserToDB($pdo, $username) {
     if (!preg_match('/^[a-zA-Z0-9_]{3,32}$/', $username)) {
         return "用户名无效。它必须是3-32个字符长，并且只能包含字母、数字和下划线。";
@@ -170,105 +189,122 @@ if ($message) {
     $text = $message['text'] ?? '';
     $admin_id = intval($admin_id);
 
-    // First, try to parse the message as a lottery result
+    // If user is not admin, give a simple rejection and stop.
+    if ($chat_id !== $admin_id) {
+        sendMessage($chat_id, "您无权使用此机器人。");
+        http_response_code(403);
+        exit();
+    }
+
+    // STATE-BASED INPUT HANDLING
+    $admin_state = get_admin_state($chat_id);
+    if ($admin_state === 'waiting_for_api_key') {
+        try {
+            $sql = "UPDATE application_settings SET setting_value = :api_key WHERE setting_name = 'gemini_api_key'";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([':api_key' => $text]);
+            $responseText = "✅ Gemini API密钥已成功更新。";
+        } catch (PDOException $e) {
+            error_log("Error updating Gemini API key: " . $e->getMessage());
+            $responseText = "❌ 更新Gemini API密钥时发生数据库错误。";
+        }
+        clear_admin_state($chat_id);
+        sendMessage($chat_id, $responseText);
+        http_response_code(200);
+        exit();
+    }
+
+    // LOTTERY RESULT PARSING
     $parsedResult = LotteryParser::parse($text);
-
     if ($parsedResult) {
-        // If parsing is successful, save the result to the database.
         $statusMessage = saveLotteryResultToDB($pdo, $parsedResult);
+        $responseText = "成功识别到开奖结果：\n"
+                      . "`" . $parsedResult['lottery_name'] . " - " . $parsedResult['issue_number'] . "`\n\n"
+                      . "状态: *" . $statusMessage . "*";
+        sendMessage($chat_id, $responseText);
+        http_response_code(200);
+        exit();
+    }
 
-        // Send a confirmation back to the admin with the status.
-        if ($chat_id === $admin_id) {
-            $responseText = "成功识别到开奖结果：\n"
-                          . "`" . $parsedResult['lottery_name'] . " - " . $parsedResult['issue_number'] . "`\n\n"
-                          . "状态: *" . $statusMessage . "*";
-            sendMessage($chat_id, $responseText);
-        }
-    } else {
-        // If it's not a lottery result, process it as a command
-        $command_map = [
-            '添加用户' => '/adduser',
-            '删除用户' => '/deluser',
-            '列出所有用户' => '/listusers',
-            '分析文本' => '/analyze',
-        ];
+    // COMMAND AND BUTTON HANDLING
+    $command_map = [
+        '添加用户' => '/adduser',
+        '删除用户' => '/deluser',
+        '列出所有用户' => '/listusers',
+        '分析文本' => '/analyze',
+        '⚙️ 设置' => '/settings',
+        '⬅️ 返回主菜单' => '/start',
+        '设定API密钥' => '/set_gemini_key',
+        '检查密钥状态' => '/get_api_key_status',
+    ];
 
-        $command = null;
-        $args = '';
+    $command = null;
+    $args = '';
 
-        if (isset($command_map[$text])) {
-            $command = $command_map[$text];
-        } elseif (strpos($text, '/') === 0) {
-            $parts = explode(' ', $text, 2);
-            $command = $parts[0];
-            $args = isset($parts[1]) ? trim($parts[1]) : '';
-        }
+    if (isset($command_map[$text])) {
+        $command = $command_map[$text];
+    } elseif (strpos($text, '/') === 0) {
+        $parts = explode(' ', $text, 2);
+        $command = $parts[0];
+        $args = isset($parts[1]) ? trim($parts[1]) : '';
+    }
 
-        if ($command) {
-            if ($command === '/start') {
-                $responseText = "欢迎！我是您的用户管理机器人。\n\n";
-                $keyboard = null;
-                if ($chat_id === $admin_id) {
-                    $responseText .= "您是管理员。请使用下面的菜单或直接输入命令。";
-                    $keyboard_buttons = [
-                        [['text' => '添加用户'], ['text' => '删除用户']],
-                        [['text' => '列出所有用户'], ['text' => '分析文本']]
-                    ];
-                    $keyboard = json_encode(['keyboard' => $keyboard_buttons, 'resize_keyboard' => true, 'one_time_keyboard' => false]);
-                } else {
-                    $responseText .= "您无权执行任何操作。";
-                }
-                sendMessage($chat_id, $responseText, $keyboard);
-                http_response_code(200);
-                exit();
-            }
-
-            if ($chat_id !== $admin_id) {
-                sendMessage($chat_id, "您无权使用此命令。");
-                http_response_code(403);
-                exit();
-            }
-
-            switch ($command) {
-                case '/adduser':
-                    $responseText = !empty($args) ? addUserToDB($pdo, $args) : "用法：`/adduser <username>`";
-                    break;
-                case '/deluser':
-                    $responseText = !empty($args) ? deleteUserFromDB($pdo, $args) : "用法：`/deluser <username>`";
-                    break;
-                case '/listusers':
-                    $responseText = listUsersFromDB($pdo);
-                    break;
-                case '/analyze':
-                    $responseText = !empty($args) ? analyzeText($args) : "用法：`/analyze <在此处输入您的文本>`";
-                    break;
-                case '/set_gemini_key':
-                    if (empty($args)) {
-                        $responseText = "用法: `/set_gemini_key <your_api_key>`";
-                    } else {
-                        try {
-                            $sql = "UPDATE application_settings SET setting_value = :api_key WHERE setting_name = 'gemini_api_key'";
-                            $stmt = $pdo->prepare($sql);
-                            $stmt->execute([':api_key' => $args]);
-                            if ($stmt->rowCount() > 0) {
-                                $responseText = "✅ Gemini API密钥已成功更新。";
-                            } else {
-                                $responseText = "ℹ️ Gemini API密钥未更改（它可能已经是您提供的值）。";
-                            }
-                        } catch (PDOException $e) {
-                            error_log("Error updating Gemini API key: " . $e->getMessage());
-                            $responseText = "❌ 更新Gemini API密钥时发生数据库错误。";
-                        }
+    if ($command) {
+        switch ($command) {
+            case '/start':
+                $responseText = "欢迎回来，管理员！请使用下面的菜单或直接输入命令。";
+                $keyboard = json_encode(['keyboard' => [[['text' => '添加用户'], ['text' => '删除用户']], [['text' => '列出所有用户'], ['text' => '⚙️ 设置']]], 'resize_keyboard' => true]);
+                break;
+            case '/settings':
+                $responseText = "⚙️ *设置菜单*\n\n请选择一个操作：";
+                $keyboard = json_encode(['keyboard' => [[['text' => '设定API密钥'], ['text' => '检查密钥状态']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
+                break;
+            case '/adduser':
+                $responseText = !empty($args) ? addUserToDB($pdo, $args) : "用法：`/adduser <username>`";
+                break;
+            case '/deluser':
+                $responseText = !empty($args) ? deleteUserFromDB($pdo, $args) : "用法：`/deluser <username>`";
+                break;
+            case '/listusers':
+                $responseText = listUsersFromDB($pdo);
+                break;
+            case '/analyze':
+                $responseText = !empty($args) ? analyzeText($args) : "用法：`/analyze <在此处输入您的文本>`";
+                break;
+            case '/set_gemini_key':
+                if (!empty($args)) { // Direct command with key
+                    try {
+                        $sql = "UPDATE application_settings SET setting_value = :api_key WHERE setting_name = 'gemini_api_key'";
+                        $stmt = $pdo->prepare($sql);
+                        $stmt->execute([':api_key' => $args]);
+                        $responseText = "✅ Gemini API密钥已成功更新。";
+                    } catch (PDOException $e) {
+                        $responseText = "❌ 更新时发生数据库错误。";
                     }
-                    break;
-                default:
-                    $responseText = "抱歉，我不理解该命令。";
-                    break;
-            }
-            sendMessage($chat_id, $responseText);
+                } else { // Interactive mode
+                    set_admin_state($chat_id, 'waiting_for_api_key');
+                    $responseText = "请直接粘贴您的Gemini API密钥并发送。";
+                }
+                break;
+            case '/get_api_key_status':
+                try {
+                    $sql = "SELECT setting_value FROM application_settings WHERE setting_name = 'gemini_api_key'";
+                    $stmt = $pdo->query($sql);
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($result && !empty($result['setting_value']) && $result['setting_value'] !== 'YOUR_GEMINI_API_KEY') {
+                        $responseText = "ℹ️ Gemini API密钥状态: *已设置*。";
+                    } else {
+                        $responseText = "⚠️ Gemini API密钥状态: *未设置*。";
+                    }
+                } catch (PDOException $e) {
+                    $responseText = "❌ 检查API密钥状态时发生数据库错误。";
+                }
+                break;
+            default:
+                $responseText = "抱歉，我不理解该命令。";
+                break;
         }
-        // If it's not a lottery result and not a command, do nothing.
-        // We don't want to reply to every single message in the channel.
+        sendMessage($chat_id, $responseText, $keyboard ?? null);
     }
 }
 
