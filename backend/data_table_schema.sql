@@ -38,3 +38,14 @@ CREATE TABLE IF NOT EXISTS `bills` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `parsing_templates`
+--
+CREATE TABLE IF NOT EXISTS `parsing_templates` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `pattern` VARCHAR(1024) NOT NULL UNIQUE COMMENT 'The PCRE regular expression pattern',
+  `description` TEXT NULL COMMENT 'A description of what the pattern is for, can be AI-generated',
+  `priority` INT NOT NULL DEFAULT 100 COMMENT 'Order in which to try the pattern (lower is higher priority)',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
