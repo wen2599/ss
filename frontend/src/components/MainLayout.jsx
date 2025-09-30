@@ -21,9 +21,11 @@ function MainLayout() {
         </div>
         <div className="header-right">
           {isAuthenticated && (
-            location.pathname === '/bills'
-              ? <NavLink to="/" className="header-link">返回主页</NavLink>
-              : <NavLink to="/bills" className="header-link">我的账单</NavLink>
+            <>
+              <NavLink to="/bills" className="header-link">我的账单</NavLink>
+              <NavLink to="/settings" className="header-link">设置</NavLink>
+              <NavLink to="/" className="header-link">主页</NavLink>
+            </>
           )}
         </div>
       </header>
