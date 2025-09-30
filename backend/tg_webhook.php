@@ -40,6 +40,29 @@ function sendMessage($chat_id, $text, $reply_markup = null) {
     file_get_contents($url, false, $context);
 }
 
+function editMessageText($chat_id, $message_id, $text) {
+    global $bot_token;
+    $url = "https://api.telegram.org/bot" . $bot_token . "/editMessageText";
+    $data = [
+        'chat_id' => $chat_id,
+        'message_id' => $message_id,
+        'text' => $text,
+        'parse_mode' => 'Markdown'
+    ];
+    $options = ['http' => ['header'  => "Content-type: application/x-www-form-urlencoded\r\n", 'method'  => 'POST', 'content' => http_build_query($data)]];
+    $context  = stream_context_create($options);
+    file_get_contents($url, false, $context);
+}
+
+function answerCallbackQuery($callback_query_id) {
+    global $bot_token;
+    $url = "https://api.telegram.org/bot" . $bot_token . "/answerCallbackQuery";
+    $data = ['callback_query_id' => $callback_query_id];
+    $options = ['http' => ['header'  => "Content-type: application/x-www-form-urlencoded\r\n", 'method'  => 'POST', 'content' => http_build_query($data)]];
+    $context  = stream_context_create($options);
+    file_get_contents($url, false, $context);
+}
+
 // 4. State Management Functions
 function get_admin_state_file($chat_id) {
     return sys_get_temp_dir() . '/tg_admin_state_' . $chat_id . '.txt';
@@ -60,47 +83,49 @@ function clear_admin_state($chat_id) {
 
 
 // 5. User Management and Analysis Functions
-function addUserToDB($pdo, $username) {
-    if (!preg_match('/^[a-zA-Z0-9_]{3,32}$/', $username)) {
-        return "用户名无效。它必须是3-32个字符长，并且只能包含字母、数字和下划线。";
+function deleteUserFromDB($pdo, $telegram_id) {
+    if (!is_numeric($telegram_id)) {
+        return "Telegram ID 无效，必须是数字。";
     }
     try {
-        $stmt = $pdo->prepare("INSERT INTO users (username) VALUES (:username)");
-        $stmt->execute([':username' => $username]);
-        return "用户 `{$username}` 添加成功。";
-    } catch (PDOException $e) {
-        if ($e->errorInfo[1] == 1062) {
-            return "用户 `{$username}` 已存在。";
-        }
-        error_log("Error adding user: " . $e->getMessage());
-        return "添加用户时出错。";
-    }
-}
-function deleteUserFromDB($pdo, $username) {
-    try {
-        $stmt = $pdo->prepare("DELETE FROM users WHERE username = :username");
-        $stmt->execute([':username' => $username]);
+        $stmt = $pdo->prepare("DELETE FROM users WHERE telegram_id = :telegram_id");
+        $stmt->execute([':telegram_id' => $telegram_id]);
         if ($stmt->rowCount() > 0) {
-            return "用户 `{$username}` 已被删除。";
+            return "✅ 用户 ID `{$telegram_id}` 已被删除。";
         } else {
-            return "未找到用户 `{$username}`。";
+            return "⚠️ 未找到用户 ID `{$telegram_id}`。";
         }
     } catch (PDOException $e) {
         error_log("Error deleting user: " . $e->getMessage());
-        return "删除用户时出错。";
+        return "❌ 删除用户时发生数据库错误。";
     }
 }
+
 function listUsersFromDB($pdo) {
     try {
-        $stmt = $pdo->query("SELECT username, email FROM users ORDER BY created_at ASC");
+        $stmt = $pdo->query("SELECT telegram_id, username, status FROM users ORDER BY created_at ASC");
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (empty($users)) {
             return "数据库中没有用户。";
         }
-        $userList = "👤 *列出所有用户：*\n---------------------\n";
+        $userList = "👤 *所有用户列表:*\n---------------------\n";
         foreach ($users as $index => $user) {
-            $display_name = !empty($user['username']) ? $user['username'] : 'N/A';
-            $userList .= ($index + 1) . ". *Email:* `" . htmlspecialchars($user['email']) . "`\n   *Username:* `" . htmlspecialchars($display_name) . "`\n";
+            $username = !empty($user['username']) ? htmlspecialchars($user['username']) : 'N/A';
+            $status_icon = '';
+            switch ($user['status']) {
+                case 'approved':
+                    $status_icon = '✅';
+                    break;
+                case 'pending':
+                    $status_icon = '⏳';
+                    break;
+                case 'denied':
+                    $status_icon = '❌';
+                    break;
+            }
+            $userList .= ($index + 1) . ". *" . $username . "*\n"
+                      . "   ID: `" . $user['telegram_id'] . "`\n"
+                      . "   状态: " . $status_icon . " `" . htmlspecialchars($user['status']) . "`\n";
         }
         return $userList;
     } catch (PDOException $e) {
@@ -108,6 +133,68 @@ function listUsersFromDB($pdo) {
         return "获取用户列表时出错。";
     }
 }
+
+function updateUserStatus($pdo, $user_id, $status) {
+    try {
+        $sql = "UPDATE users SET status = :status WHERE telegram_id = :telegram_id";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':status' => $status, ':telegram_id' => $user_id]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log("Error updating user status: " . $e->getMessage());
+        return false;
+    }
+}
+
+function registerUser($pdo, $user_id, $username, $admin_id) {
+    // Check if user already exists
+    $stmt = $pdo->prepare("SELECT status FROM users WHERE telegram_id = :telegram_id");
+    $stmt->execute([':telegram_id' => $user_id]);
+    $existing_user = $stmt->fetch();
+
+    if ($existing_user) {
+        if ($existing_user['status'] === 'approved') {
+            return ['status' => 'info', 'message' => '您已经是注册用户。'];
+        } elseif ($existing_user['status'] === 'pending') {
+            return ['status' => 'info', 'message' => '您的注册申请正在等待批准。'];
+        } else { // denied or other statuses
+             return ['status' => 'info', 'message' => '您的注册申请已被拒绝。'];
+        }
+    }
+
+    // Add new user as pending
+    try {
+        $sql = "INSERT INTO users (telegram_id, username, status) VALUES (:telegram_id, :username, 'pending')";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':telegram_id' => $user_id,
+            ':username' => $username
+        ]);
+
+        // On successful registration, notify the admin
+        $notification_text = "新的用户注册请求：\n"
+                           . "---------------------\n"
+                           . "*用户:* `" . htmlspecialchars($username) . "`\n"
+                           . "*Telegram ID:* `" . $user_id . "`\n"
+                           . "---------------------\n"
+                           . "请批准或拒绝此请求。";
+
+        $approval_keyboard = json_encode([
+            'inline_keyboard' => [[
+                ['text' => '✅ 批准', 'callback_data' => 'approve_' . $user_id],
+                ['text' => '❌ 拒绝', 'callback_data' => 'deny_' . $user_id]
+            ]]
+        ]);
+
+        sendMessage($admin_id, $notification_text, $approval_keyboard);
+
+        return ['status' => 'success', 'message' => '您的注册申请已提交，请等待管理员批准。'];
+    } catch (PDOException $e) {
+        error_log("Error registering user: " . $e->getMessage());
+        return ['status' => 'error', 'message' => '注册时出错，请稍后再试。'];
+    }
+}
+
 
 /**
  * Saves a parsed lottery result to the database.
@@ -176,7 +263,42 @@ $update_json = file_get_contents('php://input');
 $update = json_decode($update_json, true);
 file_put_contents('webhook_log.txt', $update_json . "\n", FILE_APPEND);
 
-// 6. Process the Message
+// 6. Process the Message or Callback Query
+if (isset($update['callback_query'])) {
+    $callback_query = $update['callback_query'];
+    $callback_id = $callback_query['id'];
+    $callback_data = $callback_query['data'];
+    $admin_chat_id = $callback_query['message']['chat']['id'];
+    $message_id = $callback_query['message']['id'];
+    $original_message_text = $callback_query['message']['text'];
+
+    // Ensure the callback is from the admin
+    global $admin_id;
+    if ($callback_query['from']['id'] == $admin_id) {
+        list($action, $target_user_id) = explode('_', $callback_data);
+
+        if ($action === 'approve' || $action === 'deny') {
+            $new_status = ($action === 'approve') ? 'approved' : 'denied';
+            $success = updateUserStatus($pdo, $target_user_id, $new_status);
+
+            if ($success) {
+                // Notify the user
+                $user_message = ($new_status === 'approved') ? '您的注册申请已被批准！' : '抱歉，您的注册申请已被拒绝。';
+                sendMessage($target_user_id, $user_message);
+
+                // Update the admin's original message
+                $status_text = ($new_status === 'approved') ? '已批准' : '已拒绝';
+                $new_admin_text = $original_message_text . "\n\n---\n*处理结果: " . $status_text . "*";
+                editMessageText($admin_chat_id, $message_id, $new_admin_text);
+            }
+        }
+    }
+    answerCallbackQuery($callback_id); // Acknowledge the button press
+    http_response_code(200);
+    exit();
+}
+
+
 $message = null;
 if (isset($update['message'])) {
     $message = $update['message'];
@@ -186,56 +308,111 @@ if (isset($update['message'])) {
 
 if ($message) {
     $chat_id = $message['chat']['id'];
+    // Use the sender's ID for admin checks. For channel posts, 'from' is not set, so user_id will be null.
+    $user_id = $message['from']['id'] ?? null;
     $text = $message['text'] ?? '';
     $admin_id = intval($admin_id);
 
-    // If user is not admin, give a simple rejection and stop.
-    if ($chat_id !== $admin_id) {
-        sendMessage($chat_id, "您无权使用此机器人。");
-        http_response_code(403);
-        exit();
-    }
-
-    // STATE-BASED INPUT HANDLING
-    $admin_state = get_admin_state($chat_id);
-    if ($admin_state === 'waiting_for_api_key') {
-        try {
-            $sql = "UPDATE application_settings SET setting_value = :api_key WHERE setting_name = 'gemini_api_key'";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([':api_key' => $text]);
-            $responseText = "✅ Gemini API密钥已成功更新。";
-        } catch (PDOException $e) {
-            error_log("Error updating Gemini API key: " . $e->getMessage());
-            $responseText = "❌ 更新Gemini API密钥时发生数据库错误。";
-        }
-        clear_admin_state($chat_id);
-        sendMessage($chat_id, $responseText);
-        http_response_code(200);
-        exit();
-    }
-
-    // LOTTERY RESULT PARSING
+    // --- Step 1: Attempt to parse any message as a lottery result first. ---
+    // This allows the bot to process results from channels where it's a member,
+    // without needing any admin permissions for that action.
     $parsedResult = LotteryParser::parse($text);
     if ($parsedResult) {
         $statusMessage = saveLotteryResultToDB($pdo, $parsedResult);
-        $responseText = "成功识别到开奖结果：\n"
-                      . "`" . $parsedResult['lottery_name'] . " - " . $parsedResult['issue_number'] . "`\n\n"
-                      . "状态: *" . $statusMessage . "*";
-        sendMessage($chat_id, $responseText);
+
+        // Notify the admin that a result was parsed from a channel, but don't spam the channel.
+        if ($chat_id != $admin_id) {
+            $channel_title = isset($message['chat']['title']) ? " from channel \"" . htmlspecialchars($message['chat']['title']) . "\"" : "";
+            sendMessage($admin_id, "Successfully parsed a new result" . $channel_title . ":\n`" . $parsedResult['lottery_name'] . " - " . $parsedResult['issue_number'] . "`\n\nStatus: *" . $statusMessage . "*");
+        } else {
+            // If the admin sent the result directly, reply to the admin.
+            sendMessage($chat_id, "成功识别到开奖结果：\n`" . $parsedResult['lottery_name'] . " - " . $parsedResult['issue_number'] . "`\n\n状态: *" . $statusMessage . "*");
+        }
         http_response_code(200);
         exit();
+    }
+
+    // --- Step 2: Handle public commands like /register before the admin check ---
+    if (strpos($text, '/register') === 0) {
+        if ($user_id && $chat_id === $user_id) { // Ensure it's a direct message from a user
+            $username = $message['from']['username'] ?? ($message['from']['first_name'] ?? 'N/A');
+            $reg_result = registerUser($pdo, $user_id, $username, $admin_id);
+
+            sendMessage($chat_id, $reg_result['message']);
+
+        } else if ($chat_id !== $user_id) {
+            // Instruct user to message privately if they try to register in a group
+            sendMessage($chat_id, "请在与机器人的私聊中发送 /register 命令来注册。");
+        }
+        http_response_code(200);
+        exit();
+    }
+
+
+    // --- Step 3: If it's not a public command or parsable result, check if the sender is the admin. ---
+    // All following actions (commands, stateful conversations) are admin-only.
+    if ($user_id !== $admin_id) {
+        // Silently ignore non-admin messages in groups/channels that are not lottery results.
+        // Only send a "no permission" message if a user is messaging the bot directly.
+        if ($chat_id === $user_id) {
+            sendMessage($chat_id, "抱歉，此机器人功能仅限管理员使用。");
+        }
+        http_response_code(403); // Forbidden
+        exit();
+    }
+
+    // --- Step 4: Admin-only logic (commands and stateful conversations) ---
+
+    // Define keyboard layouts first, as they are used in state handling replies
+    $main_menu_keyboard = json_encode(['keyboard' => [[['text' => '👤 用户管理'], ['text' => '⚙️ 系统设置']]], 'resize_keyboard' => true]);
+    $user_management_keyboard = json_encode(['keyboard' => [[['text' => '📋 列出所有用户'], ['text' => '➖ 删除用户']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
+    $system_settings_keyboard = json_encode(['keyboard' => [[['text' => '🔑 设定API密钥'], ['text' => 'ℹ️ 检查密钥状态']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
+
+    // STATE-BASED INPUT HANDLING
+    $raw_state = get_admin_state($chat_id);
+    $state_data = $raw_state ? json_decode($raw_state, true) : null;
+    $current_state = $state_data['state'] ?? ($raw_state ?: null);
+
+    // Universal command-based cancellation for any stateful operation
+    if (strpos($text, '/') === 0 && $current_state) {
+        clear_admin_state($chat_id);
+        $current_state = null; // Unset state to proceed to normal command handling
+        sendMessage($chat_id, "操作已取消。");
+    }
+
+    if ($current_state) {
+        // Handle legacy string-based state for API key
+        if ($current_state === 'waiting_for_api_key') {
+            try {
+                $sql = "UPDATE application_settings SET setting_value = :api_key WHERE setting_name = 'gemini_api_key'";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([':api_key' => $text]);
+                $responseText = "✅ Gemini API密钥已成功更新。";
+            } catch (PDOException $e) {
+                error_log("Error updating Gemini API key: " . $e->getMessage());
+                $responseText = "❌ 更新Gemini API密钥时发生数据库错误。";
+            }
+            clear_admin_state($chat_id);
+            sendMessage($chat_id, $responseText, $system_settings_keyboard);
+            exit();
+        }
     }
 
     // COMMAND AND BUTTON HANDLING
     $command_map = [
-        '添加用户' => '/adduser',
-        '删除用户' => '/deluser',
-        '列出所有用户' => '/listusers',
-        '分析文本' => '/analyze',
-        '⚙️ 设置' => '/settings',
+        // Main Menu
+        '👤 用户管理' => '/user_management',
+        '⚙️ 系统设置' => '/system_settings',
+        // User Management
+        '➖ 删除用户' => '/deluser',
+        '📋 列出所有用户' => '/listusers',
+        // System Settings
+        '🔑 设定API密钥' => '/set_gemini_key',
+        'ℹ️ 检查密钥状态' => '/get_api_key_status',
+        // Common
         '⬅️ 返回主菜单' => '/start',
-        '设定API密钥' => '/set_gemini_key',
-        '检查密钥状态' => '/get_api_key_status',
+        // Legacy/Hidden commands for direct invocation
+        '分析文本' => '/analyze',
     ];
 
     $command = null;
@@ -251,26 +428,29 @@ if ($message) {
 
     if ($command) {
         switch ($command) {
+            // Main Menus
             case '/start':
-                $responseText = "欢迎回来，管理员！请使用下面的菜单或直接输入命令。";
-                $keyboard = json_encode(['keyboard' => [[['text' => '添加用户'], ['text' => '删除用户']], [['text' => '列出所有用户'], ['text' => '⚙️ 设置']]], 'resize_keyboard' => true]);
+                $responseText = "欢迎回来，管理员！请选择一个操作：";
+                $keyboard = $main_menu_keyboard;
                 break;
-            case '/settings':
-                $responseText = "⚙️ *设置菜单*\n\n请选择一个操作：";
-                $keyboard = json_encode(['keyboard' => [[['text' => '设定API密钥'], ['text' => '检查密钥状态']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
+            case '/user_management':
+                $responseText = "👤 *用户管理*\n\n请选择一个操作：";
+                $keyboard = $user_management_keyboard;
                 break;
-            case '/adduser':
-                $responseText = !empty($args) ? addUserToDB($pdo, $args) : "用法：`/adduser <username>`";
+            case '/system_settings':
+                $responseText = "⚙️ *系统设置*\n\n请选择一个操作：";
+                $keyboard = $system_settings_keyboard;
                 break;
+
+            // User Management Actions
             case '/deluser':
-                $responseText = !empty($args) ? deleteUserFromDB($pdo, $args) : "用法：`/deluser <username>`";
+                $responseText = !empty($args) ? deleteUserFromDB($pdo, $args) : "用法：`/deluser <telegram_id>`";
                 break;
             case '/listusers':
                 $responseText = listUsersFromDB($pdo);
                 break;
-            case '/analyze':
-                $responseText = !empty($args) ? analyzeText($args) : "用法：`/analyze <在此处输入您的文本>`";
-                break;
+
+            // System Settings Actions
             case '/set_gemini_key':
                 if (!empty($args)) { // Direct command with key
                     try {
@@ -300,6 +480,12 @@ if ($message) {
                     $responseText = "❌ 检查API密钥状态时发生数据库错误。";
                 }
                 break;
+
+            // Legacy/Hidden Actions
+            case '/analyze':
+                $responseText = !empty($args) ? analyzeText($args) : "用法：`/analyze <在此处输入您的文本>`";
+                break;
+
             default:
                 $responseText = "抱歉，我不理解该命令。";
                 break;
