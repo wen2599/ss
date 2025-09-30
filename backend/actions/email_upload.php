@@ -130,6 +130,12 @@ if ($_FILES['raw_email_file']['error'] !== UPLOAD_ERR_OK) {
     exit();
 }
 
+// Fetch Gemini API key from the database
+$stmt_key = $pdo->prepare("SELECT setting_value FROM application_settings WHERE setting_name = 'gemini_api_key'");
+$stmt_key->execute();
+$gemini_api_key_row = $stmt_key->fetch(PDO::FETCH_ASSOC);
+$gemini_api_key = $gemini_api_key_row ? $gemini_api_key_row['setting_value'] : null;
+
 $user_email = $_POST['user_email'];
 $file_tmp_path = $_FILES['raw_email_file']['tmp_name'];
 $raw_email_content = file_get_contents($file_tmp_path);
