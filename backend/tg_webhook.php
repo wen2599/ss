@@ -40,6 +40,29 @@ function sendMessage($chat_id, $text, $reply_markup = null) {
     file_get_contents($url, false, $context);
 }
 
+function editMessageText($chat_id, $message_id, $text) {
+    global $bot_token;
+    $url = "https://api.telegram.org/bot" . $bot_token . "/editMessageText";
+    $data = [
+        'chat_id' => $chat_id,
+        'message_id' => $message_id,
+        'text' => $text,
+        'parse_mode' => 'Markdown'
+    ];
+    $options = ['http' => ['header'  => "Content-type: application/x-www-form-urlencoded\r\n", 'method'  => 'POST', 'content' => http_build_query($data)]];
+    $context  = stream_context_create($options);
+    file_get_contents($url, false, $context);
+}
+
+function answerCallbackQuery($callback_query_id) {
+    global $bot_token;
+    $url = "https://api.telegram.org/bot" . $bot_token . "/answerCallbackQuery";
+    $data = ['callback_query_id' => $callback_query_id];
+    $options = ['http' => ['header'  => "Content-type: application/x-www-form-urlencoded\r\n", 'method'  => 'POST', 'content' => http_build_query($data)]];
+    $context  = stream_context_create($options);
+    file_get_contents($url, false, $context);
+}
+
 // 4. State Management Functions
 function get_admin_state_file($chat_id) {
     return sys_get_temp_dir() . '/tg_admin_state_' . $chat_id . '.txt';
@@ -60,47 +83,49 @@ function clear_admin_state($chat_id) {
 
 
 // 5. User Management and Analysis Functions
-function addUserToDB($pdo, $username) {
-    if (!preg_match('/^[a-zA-Z0-9_]{3,32}$/', $username)) {
-        return "用户名无效。它必须是3-32个字符长，并且只能包含字母、数字和下划线。";
+function deleteUserFromDB($pdo, $telegram_id) {
+    if (!is_numeric($telegram_id)) {
+        return "Telegram ID 无效，必须是数字。";
     }
     try {
-        $stmt = $pdo->prepare("INSERT INTO users (username) VALUES (:username)");
-        $stmt->execute([':username' => $username]);
-        return "用户 `{$username}` 添加成功。";
-    } catch (PDOException $e) {
-        if ($e->errorInfo[1] == 1062) {
-            return "用户 `{$username}` 已存在。";
-        }
-        error_log("Error adding user: " . $e->getMessage());
-        return "添加用户时出错。";
-    }
-}
-function deleteUserFromDB($pdo, $username) {
-    try {
-        $stmt = $pdo->prepare("DELETE FROM users WHERE username = :username");
-        $stmt->execute([':username' => $username]);
+        $stmt = $pdo->prepare("DELETE FROM users WHERE telegram_id = :telegram_id");
+        $stmt->execute([':telegram_id' => $telegram_id]);
         if ($stmt->rowCount() > 0) {
-            return "用户 `{$username}` 已被删除。";
+            return "✅ 用户 ID `{$telegram_id}` 已被删除。";
         } else {
-            return "未找到用户 `{$username}`。";
+            return "⚠️ 未找到用户 ID `{$telegram_id}`。";
         }
     } catch (PDOException $e) {
         error_log("Error deleting user: " . $e->getMessage());
-        return "删除用户时出错。";
+        return "❌ 删除用户时发生数据库错误。";
     }
 }
+
 function listUsersFromDB($pdo) {
     try {
-        $stmt = $pdo->query("SELECT username, email FROM users ORDER BY created_at ASC");
+        $stmt = $pdo->query("SELECT telegram_id, username, status FROM users ORDER BY created_at ASC");
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (empty($users)) {
             return "数据库中没有用户。";
         }
-        $userList = "👤 *列出所有用户：*\n---------------------\n";
+        $userList = "👤 *所有用户列表:*\n---------------------\n";
         foreach ($users as $index => $user) {
-            $display_name = !empty($user['username']) ? $user['username'] : 'N/A';
-            $userList .= ($index + 1) . ". *Email:* `" . htmlspecialchars($user['email']) . "`\n   *Username:* `" . htmlspecialchars($display_name) . "`\n";
+            $username = !empty($user['username']) ? htmlspecialchars($user['username']) : 'N/A';
+            $status_icon = '';
+            switch ($user['status']) {
+                case 'approved':
+                    $status_icon = '✅';
+                    break;
+                case 'pending':
+                    $status_icon = '⏳';
+                    break;
+                case 'denied':
+                    $status_icon = '❌';
+                    break;
+            }
+            $userList .= ($index + 1) . ". *" . $username . "*\n"
+                      . "   ID: `" . $user['telegram_id'] . "`\n"
+                      . "   状态: " . $status_icon . " `" . htmlspecialchars($user['status']) . "`\n";
         }
         return $userList;
     } catch (PDOException $e) {
@@ -109,67 +134,64 @@ function listUsersFromDB($pdo) {
     }
 }
 
-function generatePatternFromExample($data) {
-    if (empty($data['full_example']) || empty($data['lottery_name_part']) || empty($data['issue_number_part']) || empty($data['numbers_part'])) {
-        return null; // Not enough data
+function updateUserStatus($pdo, $user_id, $status) {
+    try {
+        $sql = "UPDATE users SET status = :status WHERE telegram_id = :telegram_id";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':status' => $status, ':telegram_id' => $user_id]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log("Error updating user status: " . $e->getMessage());
+        return false;
     }
-
-    $full_example = $data['full_example'];
-    $name_part = $data['lottery_name_part'];
-    $issue_part = $data['issue_number_part'];
-    $numbers_part = $data['numbers_part'];
-
-    // Check that all provided parts actually exist in the full example
-    if (strpos($full_example, $name_part) === false ||
-        strpos($full_example, $issue_part) === false ||
-        strpos($full_example, $numbers_part) === false) {
-        return null; // Parts don't match the example
-    }
-
-    // Escape the whole example to treat it as a literal string
-    $pattern = preg_quote($full_example, '/');
-
-    // Replace the user-provided parts with flexible capture groups
-    $pattern = str_replace(preg_quote($name_part, '/'), '(.*)', $pattern, $count1);
-    $pattern = str_replace(preg_quote($issue_part, '/'), '(\d+)', $pattern, $count2);
-    $pattern = str_replace(preg_quote($numbers_part, '/'), '([\\d,\\s+-]+)', $pattern, $count3);
-
-    if ($count1 !== 1 || $count2 !== 1 || $count3 !== 1) {
-        return null; // Something went wrong, maybe duplicate parts
-    }
-
-    $pattern = preg_replace('/\s+/', '\s+', $pattern);
-
-    return '/' . $pattern . '/u';
 }
 
-function saveTemplateToDB($pdo, $templateData) {
-    if (empty($templateData['pattern']) || empty($templateData['type'])) {
-        return "模板格式或类型不能为空。";
-    }
-    if (!is_numeric($templateData['priority'])) {
-        return "优先级必须是一个数字。";
-    }
-    if (@preg_match($templateData['pattern'], '') === false) {
-        return "提供的格式不是有效的正则表达式。";
+function registerUser($pdo, $user_id, $username, $admin_id) {
+    // Check if user already exists
+    $stmt = $pdo->prepare("SELECT status FROM users WHERE telegram_id = :telegram_id");
+    $stmt->execute([':telegram_id' => $user_id]);
+    $existing_user = $stmt->fetch();
+
+    if ($existing_user) {
+        if ($existing_user['status'] === 'approved') {
+            return ['status' => 'info', 'message' => '您已经是注册用户。'];
+        } elseif ($existing_user['status'] === 'pending') {
+            return ['status' => 'info', 'message' => '您的注册申请正在等待批准。'];
+        } else { // denied or other statuses
+             return ['status' => 'info', 'message' => '您的注册申请已被拒绝。'];
+        }
     }
 
-    $sql = "INSERT INTO parsing_templates (pattern, type, priority, description) VALUES (:pattern, :type, :priority, :description)";
+    // Add new user as pending
     try {
+        $sql = "INSERT INTO users (telegram_id, username, status) VALUES (:telegram_id, :username, 'pending')";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
-            ':pattern' => $templateData['pattern'],
-            ':type' => $templateData['type'],
-            ':priority' => (int)$templateData['priority'],
-            ':description' => 'User-provided template via bot'
+            ':telegram_id' => $user_id,
+            ':username' => $username
         ]);
-        return "✅ 模板已成功保存。 ID: " . $pdo->lastInsertId();
+
+        // On successful registration, notify the admin
+        $notification_text = "新的用户注册请求：\n"
+                           . "---------------------\n"
+                           . "*用户:* `" . htmlspecialchars($username) . "`\n"
+                           . "*Telegram ID:* `" . $user_id . "`\n"
+                           . "---------------------\n"
+                           . "请批准或拒绝此请求。";
+
+        $approval_keyboard = json_encode([
+            'inline_keyboard' => [[
+                ['text' => '✅ 批准', 'callback_data' => 'approve_' . $user_id],
+                ['text' => '❌ 拒绝', 'callback_data' => 'deny_' . $user_id]
+            ]]
+        ]);
+
+        sendMessage($admin_id, $notification_text, $approval_keyboard);
+
+        return ['status' => 'success', 'message' => '您的注册申请已提交，请等待管理员批准。'];
     } catch (PDOException $e) {
-        if ($e->errorInfo[1] == 1062) {
-            return "❌ 错误：具有该格式的模板已存在。";
-        }
-        error_log("Database error saving template: " . $e->getMessage());
-        return "❌ 保存模板时发生数据库错误。";
+        error_log("Error registering user: " . $e->getMessage());
+        return ['status' => 'error', 'message' => '注册时出错，请稍后再试。'];
     }
 }
 
@@ -241,7 +263,42 @@ $update_json = file_get_contents('php://input');
 $update = json_decode($update_json, true);
 file_put_contents('webhook_log.txt', $update_json . "\n", FILE_APPEND);
 
-// 6. Process the Message
+// 6. Process the Message or Callback Query
+if (isset($update['callback_query'])) {
+    $callback_query = $update['callback_query'];
+    $callback_id = $callback_query['id'];
+    $callback_data = $callback_query['data'];
+    $admin_chat_id = $callback_query['message']['chat']['id'];
+    $message_id = $callback_query['message']['id'];
+    $original_message_text = $callback_query['message']['text'];
+
+    // Ensure the callback is from the admin
+    global $admin_id;
+    if ($callback_query['from']['id'] == $admin_id) {
+        list($action, $target_user_id) = explode('_', $callback_data);
+
+        if ($action === 'approve' || $action === 'deny') {
+            $new_status = ($action === 'approve') ? 'approved' : 'denied';
+            $success = updateUserStatus($pdo, $target_user_id, $new_status);
+
+            if ($success) {
+                // Notify the user
+                $user_message = ($new_status === 'approved') ? '您的注册申请已被批准！' : '抱歉，您的注册申请已被拒绝。';
+                sendMessage($target_user_id, $user_message);
+
+                // Update the admin's original message
+                $status_text = ($new_status === 'approved') ? '已批准' : '已拒绝';
+                $new_admin_text = $original_message_text . "\n\n---\n*处理结果: " . $status_text . "*";
+                editMessageText($admin_chat_id, $message_id, $new_admin_text);
+            }
+        }
+    }
+    answerCallbackQuery($callback_id); // Acknowledge the button press
+    http_response_code(200);
+    exit();
+}
+
+
 $message = null;
 if (isset($update['message'])) {
     $message = $update['message'];
@@ -259,7 +316,7 @@ if ($message) {
     // --- Step 1: Attempt to parse any message as a lottery result first. ---
     // This allows the bot to process results from channels where it's a member,
     // without needing any admin permissions for that action.
-    $parsedResult = LotteryParser::parse($text, $pdo);
+    $parsedResult = LotteryParser::parse($text);
     if ($parsedResult) {
         $statusMessage = saveLotteryResultToDB($pdo, $parsedResult);
 
@@ -275,24 +332,40 @@ if ($message) {
         exit();
     }
 
-    // --- Step 2: If it's not a parsable result, check if the sender is the admin. ---
+    // --- Step 2: Handle public commands like /register before the admin check ---
+    if (strpos($text, '/register') === 0) {
+        if ($user_id && $chat_id === $user_id) { // Ensure it's a direct message from a user
+            $username = $message['from']['username'] ?? ($message['from']['first_name'] ?? 'N/A');
+            $reg_result = registerUser($pdo, $user_id, $username, $admin_id);
+
+            sendMessage($chat_id, $reg_result['message']);
+
+        } else if ($chat_id !== $user_id) {
+            // Instruct user to message privately if they try to register in a group
+            sendMessage($chat_id, "请在与机器人的私聊中发送 /register 命令来注册。");
+        }
+        http_response_code(200);
+        exit();
+    }
+
+
+    // --- Step 3: If it's not a public command or parsable result, check if the sender is the admin. ---
     // All following actions (commands, stateful conversations) are admin-only.
     if ($user_id !== $admin_id) {
+        // Silently ignore non-admin messages in groups/channels that are not lottery results.
         // Only send a "no permission" message if a user is messaging the bot directly.
-        // This prevents the bot from replying to random, non-result messages in channels.
         if ($chat_id === $user_id) {
-            sendMessage($chat_id, "您无权使用此机器人。");
+            sendMessage($chat_id, "抱歉，此机器人功能仅限管理员使用。");
         }
         http_response_code(403); // Forbidden
         exit();
     }
 
-    // --- Step 3: Admin-only logic (commands and stateful conversations) ---
+    // --- Step 4: Admin-only logic (commands and stateful conversations) ---
 
     // Define keyboard layouts first, as they are used in state handling replies
-    $main_menu_keyboard = json_encode(['keyboard' => [[['text' => '👤 用户管理'], ['text' => '📝 模板管理']], [['text' => '⚙️ 系统设置']]], 'resize_keyboard' => true]);
-    $user_management_keyboard = json_encode(['keyboard' => [[['text' => '➕ 添加用户'], ['text' => '➖ 删除用户']], [['text' => '📋 列出所有用户']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
-    $template_management_keyboard = json_encode(['keyboard' => [[['text' => '➕ 添加新模板']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
+    $main_menu_keyboard = json_encode(['keyboard' => [[['text' => '👤 用户管理'], ['text' => '⚙️ 系统设置']]], 'resize_keyboard' => true]);
+    $user_management_keyboard = json_encode(['keyboard' => [[['text' => '📋 列出所有用户'], ['text' => '➖ 删除用户']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
     $system_settings_keyboard = json_encode(['keyboard' => [[['text' => '🔑 设定API密钥'], ['text' => 'ℹ️ 检查密钥状态']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
 
     // STATE-BASED INPUT HANDLING
@@ -323,64 +396,16 @@ if ($message) {
             sendMessage($chat_id, $responseText, $system_settings_keyboard);
             exit();
         }
-
-        // Handle JSON-based state machine for "Teach by Example"
-        switch ($current_state) {
-            case 'waiting_for_full_example':
-                $state_data['data']['full_example'] = $text;
-                $state_data['state'] = 'waiting_for_lottery_name_part';
-                set_admin_state($chat_id, json_encode($state_data));
-                sendMessage($chat_id, "✅ 示例已收到。\n\n*步骤 2/4:* 现在，请从您的示例中复制并发送 *开奖名称*。");
-                exit();
-
-            case 'waiting_for_lottery_name_part':
-                $state_data['data']['lottery_name_part'] = $text;
-                $state_data['state'] = 'waiting_for_issue_number_part';
-                set_admin_state($chat_id, json_encode($state_data));
-                sendMessage($chat_id, "✅ 名称已收到。\n\n*步骤 3/4:* 现在，请从您的示例中复制并发送 *期号*。");
-                exit();
-
-            case 'waiting_for_issue_number_part':
-                $state_data['data']['issue_number_part'] = $text;
-                $state_data['state'] = 'waiting_for_numbers_part';
-                set_admin_state($chat_id, json_encode($state_data));
-                sendMessage($chat_id, "✅ 期号已收到。\n\n*步骤 4/4:* 最后，请从您的示例中复制并发送包含所有7个号码的 *那一部分文本*。");
-                exit();
-
-            case 'waiting_for_numbers_part':
-                $state_data['data']['numbers_part'] = $text;
-
-                $generated_pattern = generatePatternFromExample($state_data['data']);
-
-                if ($generated_pattern) {
-                    $newTemplateData = [
-                        'pattern' => $generated_pattern,
-                        'type' => 'lottery_result',
-                        'priority' => 90 // High priority for user-taught templates
-                    ];
-                    $responseText = saveTemplateToDB($pdo, $newTemplateData);
-                } else {
-                    $responseText = "❌ 模板生成失败。请确保您提供的所有部分都与原始示例完全匹配且不重复。";
-                }
-
-                clear_admin_state($chat_id);
-                sendMessage($chat_id, $responseText, $template_management_keyboard);
-                exit();
-        }
     }
 
     // COMMAND AND BUTTON HANDLING
     $command_map = [
         // Main Menu
         '👤 用户管理' => '/user_management',
-        '📝 模板管理' => '/template_management',
         '⚙️ 系统设置' => '/system_settings',
         // User Management
-        '➕ 添加用户' => '/adduser',
         '➖ 删除用户' => '/deluser',
         '📋 列出所有用户' => '/listusers',
-        // Template Management
-        '➕ 添加新模板' => '/add_template',
         // System Settings
         '🔑 设定API密钥' => '/set_gemini_key',
         'ℹ️ 检查密钥状态' => '/get_api_key_status',
@@ -412,31 +437,17 @@ if ($message) {
                 $responseText = "👤 *用户管理*\n\n请选择一个操作：";
                 $keyboard = $user_management_keyboard;
                 break;
-            case '/template_management':
-                $responseText = "📝 *模板管理*\n\n请选择一个操作：";
-                $keyboard = $template_management_keyboard;
-                break;
             case '/system_settings':
                 $responseText = "⚙️ *系统设置*\n\n请选择一个操作：";
                 $keyboard = $system_settings_keyboard;
                 break;
 
             // User Management Actions
-            case '/adduser':
-                $responseText = !empty($args) ? addUserToDB($pdo, $args) : "用法：`/adduser <username>`";
-                break;
             case '/deluser':
-                $responseText = !empty($args) ? deleteUserFromDB($pdo, $args) : "用法：`/deluser <username>`";
+                $responseText = !empty($args) ? deleteUserFromDB($pdo, $args) : "用法：`/deluser <telegram_id>`";
                 break;
             case '/listusers':
                 $responseText = listUsersFromDB($pdo);
-                break;
-
-            // Template Management Actions
-            case '/add_template':
-                $state_payload = json_encode(['state' => 'waiting_for_full_example', 'data' => []]);
-                set_admin_state($chat_id, $state_payload);
-                $responseText = "*步骤 1/4:* 请粘贴一个您想让机器人学习的 *完整* 开奖信息示例。\n\n发送 `/start` 可随时取消。";
                 break;
 
             // System Settings Actions
