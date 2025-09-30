@@ -8,7 +8,7 @@ import App from './App.jsx'
 import BillsPage from './pages/BillsPage.jsx';
 import LotteryResultsPage from './pages/LotteryResultsPage.jsx';
 import MainLayout from './components/MainLayout.jsx';
-import SettingsPage from './components/SettingsPage.js';
+import SettingsPage from './components/SettingsPage.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import './index.css'
 
