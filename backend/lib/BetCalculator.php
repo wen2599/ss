@@ -12,43 +12,45 @@ class BetCalculator {
         $text = $betting_slip_text;
 
         // 1. Unified Zodiac "Per Number" Parsing (Handles both "数各" and "各数")
-        // First, split the text by full-width or half-width commas to separate potential bet commands.
-        $bet_parts = preg_split('/[,，]/u', $text);
-        $unmatched_parts = [];
+        // This regex uses a non-greedy match to find one bet at a time.
+        $pattern = '/([\p{Han},，\s]+?)(?:数各|各数)\s*([\p{Han}\d]+)\s*[元块]?/u';
 
-        foreach ($bet_parts as $part) {
-            $part = trim($part);
-            if (empty($part)) continue;
+        // Use a loop to find and consume matches one by one, which is more robust.
+        $remaining_text = $text;
+        while (preg_match($pattern, $remaining_text, $match)) {
+            $full_match_str = $match[0];
 
-            $pattern = '/^([\p{Han}\s]+?)(?:数各|各数)\s*([\p{Han}\d]+)\s*[元块]?$/u';
+            // Trim leading/trailing commas (both half and full-width) and whitespace. This is the key fix.
+            $zodiac_string_with_commas = trim($match[1], " \t\n\r\0\x0B,，");
+            $zodiac_string = preg_replace('/[,，\s]/u', '', $zodiac_string_with_commas);
+            $zodiacs = mb_str_split($zodiac_string);
+            $cost_per_number = self::chineseToNumber($match[2]) ?: intval($match[2]);
 
-            if (preg_match($pattern, $part, $match)) {
-                $zodiac_string = preg_replace('/[\s]/u', '', $match[1]);
-                $zodiacs = mb_str_split($zodiac_string);
-                $cost_per_number = self::chineseToNumber($match[2]) ?: intval($match[2]);
-
-                if ($cost_per_number > 0 && !empty($zodiacs)) {
-                    $numbers = [];
-                    foreach ($zodiacs as $z) {
-                        if (isset(GameData::$zodiacMap[$z])) {
-                            $numbers = array_merge($numbers, GameData::$zodiacMap[$z]);
-                        }
-                    }
-                    $unique_numbers = array_values(array_unique($numbers));
-                    if (!empty($unique_numbers)) {
-                        $settlement_slip['number_bets'][] = [
-                            'numbers' => $unique_numbers, 'cost_per_number' => $cost_per_number, 'cost' => count($unique_numbers) * $cost_per_number, 'source_zodiacs' => $zodiacs
-                        ];
+            if ($cost_per_number > 0 && !empty($zodiacs)) {
+                $numbers = [];
+                foreach ($zodiacs as $z) {
+                    if (isset(GameData::$zodiacMap[$z])) {
+                        $numbers = array_merge($numbers, GameData::$zodiacMap[$z]);
                     }
                 }
-                // This part of the string was successfully parsed, so we don't add it to the unmatched list.
+                $unique_numbers = array_values(array_unique($numbers));
+                if (!empty($unique_numbers)) {
+                    $settlement_slip['number_bets'][] = [
+                        'numbers' => $unique_numbers, 'cost_per_number' => $cost_per_number, 'cost' => count($unique_numbers) * $cost_per_number, 'source_zodiacs' => $zodiacs
+                    ];
+                }
+            }
+
+            // Remove the processed part from the original string and continue the loop.
+            $pos = strpos($remaining_text, $full_match_str);
+            if ($pos !== false) {
+                $remaining_text = substr_replace($remaining_text, '', $pos, strlen($full_match_str));
             } else {
-                // If it doesn't match, it might be another type of bet, so we keep it for later processing.
-                $unmatched_parts[] = $part;
+                break; // Should not happen, but as a safeguard.
             }
         }
-        // Reconstruct the text with only the parts that did not match the zodiac bet pattern.
-        $text = implode(',', $unmatched_parts);
+        // After the loop, update the original $text variable with any non-matching text.
+        $text = $remaining_text;
 
         // 2. Number lists (e.g., "06-36各5元", "36,48各30#")
         $pattern = '/([0-9.,，、\s-]+)各\s*(\d+)\s*(?:#|[元块])/u';
