@@ -41,6 +41,25 @@ CREATE TABLE IF NOT EXISTS `bills` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
+-- Table structure for table `application_settings`
+--
+CREATE TABLE IF NOT EXISTS `application_settings` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `setting_name` VARCHAR(255) NOT NULL UNIQUE,
+  `setting_value` TEXT NULL,
+  `description` TEXT NULL,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Default application settings
+--
+INSERT INTO `application_settings` (`setting_name`, `setting_value`, `description`)
+VALUES
+  ('gemini_api_key', 'YOUR_GEMINI_API_KEY', 'The API key for the Gemini AI service used for parsing corrections.')
+ON DUPLICATE KEY UPDATE `setting_name` = `setting_name`; -- Do nothing if the key already exists
+
+--
 -- Table structure for table `parsing_templates`
 --
 CREATE TABLE IF NOT EXISTS `parsing_templates` (

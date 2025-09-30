@@ -35,7 +35,7 @@ $db_pass = 'your_password';       // Your database password
 // The authoritative database schema is located in the `data_table_schema.sql` file.
 
 // 7. Gemini API Key
-// Replace 'YOUR_GEMINI_API_KEY' with your actual Gemini API key from Google AI Studio.
-$gemini_api_key = 'YOUR_GEMINI_API_KEY';
+// This is now stored in the `application_settings` table in the database
+// and can be managed from within the application.
 
 ?>
