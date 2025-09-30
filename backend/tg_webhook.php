@@ -251,15 +251,49 @@ if (isset($update['message'])) {
 
 if ($message) {
     $chat_id = $message['chat']['id'];
+    // Use the sender's ID for admin checks. For channel posts, 'from' is not set, so user_id will be null.
+    $user_id = $message['from']['id'] ?? null;
     $text = $message['text'] ?? '';
     $admin_id = intval($admin_id);
 
-    // If user is not admin, give a simple rejection and stop.
-    if ($chat_id !== $admin_id) {
-        sendMessage($chat_id, "您无权使用此机器人。");
-        http_response_code(403);
+    // --- Step 1: Attempt to parse any message as a lottery result first. ---
+    // This allows the bot to process results from channels where it's a member,
+    // without needing any admin permissions for that action.
+    $parsedResult = LotteryParser::parse($text, $pdo);
+    if ($parsedResult) {
+        $statusMessage = saveLotteryResultToDB($pdo, $parsedResult);
+
+        // Notify the admin that a result was parsed from a channel, but don't spam the channel.
+        if ($chat_id != $admin_id) {
+            $channel_title = isset($message['chat']['title']) ? " a \"" . htmlspecialchars($message['chat']['title']) . "\"" : "";
+            sendMessage($admin_id, "成功从频道" . $channel_title . "识别到新的开奖结果:\n`" . $parsedResult['lottery_name'] . " - " . $parsedResult['issue_number'] . "`\n\n状态: *" . $statusMessage . "*");
+        } else {
+            // If the admin sent the result directly, reply to the admin.
+            sendMessage($chat_id, "成功识别到开奖结果：\n`" . $parsedResult['lottery_name'] . " - " . $parsedResult['issue_number'] . "`\n\n状态: *" . $statusMessage . "*");
+        }
+        http_response_code(200);
         exit();
     }
+
+    // --- Step 2: If it's not a parsable result, check if the sender is the admin. ---
+    // All following actions (commands, stateful conversations) are admin-only.
+    if ($user_id !== $admin_id) {
+        // Only send a "no permission" message if a user is messaging the bot directly.
+        // This prevents the bot from replying to random, non-result messages in channels.
+        if ($chat_id === $user_id) {
+            sendMessage($chat_id, "您无权使用此机器人。");
+        }
+        http_response_code(403); // Forbidden
+        exit();
+    }
+
+    // --- Step 3: Admin-only logic (commands and stateful conversations) ---
+
+    // Define keyboard layouts first, as they are used in state handling replies
+    $main_menu_keyboard = json_encode(['keyboard' => [[['text' => '👤 用户管理'], ['text' => '📝 模板管理']], [['text' => '⚙️ 系统设置']]], 'resize_keyboard' => true]);
+    $user_management_keyboard = json_encode(['keyboard' => [[['text' => '➕ 添加用户'], ['text' => '➖ 删除用户']], [['text' => '📋 列出所有用户']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
+    $template_management_keyboard = json_encode(['keyboard' => [[['text' => '➕ 添加新模板']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
+    $system_settings_keyboard = json_encode(['keyboard' => [[['text' => '🔑 设定API密钥'], ['text' => 'ℹ️ 检查密钥状态']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
 
     // STATE-BASED INPUT HANDLING
     $raw_state = get_admin_state($chat_id);
@@ -335,42 +369,7 @@ if ($message) {
         }
     }
 
-    // LOTTERY RESULT PARSING
-    $parsedResult = LotteryParser::parse($text, $pdo);
-    if ($parsedResult) {
-        $statusMessage = saveLotteryResultToDB($pdo, $parsedResult);
-        $responseText = "成功识别到开奖结果：\n"
-                      . "`" . $parsedResult['lottery_name'] . " - " . $parsedResult['issue_number'] . "`\n\n"
-                      . "状态: *" . $statusMessage . "*";
-        sendMessage($chat_id, $responseText);
-        http_response_code(200);
-        exit();
-    }
-
     // COMMAND AND BUTTON HANDLING
-    // Define keyboard layouts
-    $main_menu_keyboard = json_encode(['keyboard' => [
-        [['text' => '👤 用户管理'], ['text' => '📝 模板管理']],
-        [['text' => '⚙️ 系统设置']]
-    ], 'resize_keyboard' => true]);
-
-    $user_management_keyboard = json_encode(['keyboard' => [
-        [['text' => '➕ 添加用户'], ['text' => '➖ 删除用户']],
-        [['text' => '📋 列出所有用户']],
-        [['text' => '⬅️ 返回主菜单']]
-    ], 'resize_keyboard' => true]);
-
-    $template_management_keyboard = json_encode(['keyboard' => [
-        [['text' => '➕ 添加新模板']],
-        [['text' => '⬅️ 返回主菜单']]
-    ], 'resize_keyboard' => true]);
-
-    $system_settings_keyboard = json_encode(['keyboard' => [
-        [['text' => '🔑 设定API密钥'], ['text' => 'ℹ️ 检查密钥状态']],
-        [['text' => '⬅️ 返回主菜单']]
-    ], 'resize_keyboard' => true]);
-
-    // Command mapping
     $command_map = [
         // Main Menu
         '👤 用户管理' => '/user_management',
