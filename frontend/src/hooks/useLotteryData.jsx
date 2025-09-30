@@ -7,7 +7,8 @@ export function useLotteryData() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchInitialData = async () => {
+      // This function runs once to get all initial data, including the static color map.
       setIsLoading(true);
       setError('');
       try {
@@ -38,7 +39,26 @@ export function useLotteryData() {
       }
     };
 
-    fetchData();
+    const pollResults = async () => {
+        // This function runs repeatedly to only update the lottery results.
+        // It does not touch the loading or error states to avoid UI flashes.
+        try {
+            const resultsResponse = await fetch('/get_lottery_results');
+            const resultsData = await resultsResponse.json();
+            if (resultsData.success) {
+                setResults(resultsData.results);
+            } else {
+                console.error("Polling error:", resultsData.error);
+            }
+        } catch(err) {
+            console.error("Polling network error:", err.message);
+        }
+    };
+
+    fetchInitialData();
+    const intervalId = setInterval(pollResults, 10000); // Poll every 10 seconds
+
+    return () => clearInterval(intervalId); // Cleanup on unmount
   }, []);
 
   const numberColorCache = useMemo(() => {
