@@ -138,7 +138,7 @@ if ($raw_email_content === false) {
     echo json_encode(['success' => false, 'error' => 'Could not read uploaded email file.']);
     exit();
 }
-$stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
+$stmt = $pdo->prepare("SELECT id, winning_rate FROM users WHERE email = :email");
 $stmt->execute([':email' => $user_email]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$user) {
@@ -147,6 +147,8 @@ if (!$user) {
     exit();
 }
 $user_id = $user['id'];
+// Use the user's specific winning rate, or default to 47 if it's not set.
+$user_winning_rate = $user['winning_rate'] ?? 47.0;
 
 // 邮件正文处理
 $detected_charset = null;
@@ -181,7 +183,8 @@ if (empty($calculation_content)) {
 }
 
 // 多段结算
-$parsed_bill = BetCalculator::calculateMulti($calculation_content);
+$calculator = new BetCalculator($pdo, $user_id);
+$parsed_bill = $calculator->calculateMulti($calculation_content);
 $status = 'unrecognized';
 $settlement_details = null;
 $total_cost = null;
@@ -189,49 +192,75 @@ $total_cost = null;
 // Only proceed if the calculator found valid bet slips.
 if ($parsed_bill !== null && !empty($parsed_bill['slips'])) {
     // --- AI-Assisted Parsing Correction ---
+    $ai_correction_made = false;
     foreach ($parsed_bill['slips'] as &$slip) { // Use reference to modify the slip directly
         if (!empty($slip['result']['unparsed_text'])) {
-            write_log("Unparsed text found. Calling Gemini for correction...");
+            write_log("Unparsed text found for user {$user_id}. Calling Gemini for correction...");
             $geminiService = new GeminiCorrectionService($gemini_api_key);
-            $correction = $geminiService->getCorrection($slip['result']['unparsed_text']);
+            // Pass user_id to Gemini service if it can use it for context
+            $correction = $geminiService->getCorrection($slip['result']['unparsed_text'], $user_id);
 
             if ($correction && !empty($correction['corrected_data']['number_bets'])) {
-                // Merge Gemini's results into the slip
-                $slip['result']['number_bets'] = array_merge($slip['result']['number_bets'], $correction['corrected_data']['number_bets']);
+                // **Replace** the failed parser's results with Gemini's results.
+                $slip['result']['number_bets'] = $correction['corrected_data']['number_bets'];
+                $slip['result']['unparsed_text'] = ''; // Mark as parsed
+                $ai_correction_made = true;
+                write_log("Gemini successfully corrected a slip for user {$user_id}.");
 
-                // Recalculate summary for the slip
-                $slip_total_cost = 0;
-                $slip_number_count = 0;
-                foreach ($slip['result']['number_bets'] as $bet) {
-                    $slip_total_cost += $bet['cost'];
-                    $slip_number_count += count($bet['numbers']);
+                // If Gemini suggests a new template, save it for the user.
+                if (!empty($correction['suggested_regex']) && !empty($correction['type'])) {
+                    try {
+                        $sql = "INSERT INTO parsing_templates (user_id, pattern, type, priority, is_active)
+                                VALUES (:user_id, :pattern, :type, 50, 1)
+                                ON DUPLICATE KEY UPDATE is_active = 1, updated_at = NOW()";
+                        $stmt = $pdo->prepare($sql);
+                        $stmt->execute([
+                            ':user_id' => $user_id,
+                            ':pattern' => $correction['suggested_regex'],
+                            ':type'    => $correction['type']
+                        ]);
+                        write_log("Saved new template for user {$user_id}: " . $correction['suggested_regex']);
+                    } catch (PDOException $e) {
+                        write_log("Error saving new parsing template for user {$user_id}: " . $e->getMessage());
+                    }
                 }
-                $slip['result']['summary']['total_cost'] = $slip_total_cost;
-                $slip['result']['summary']['number_count'] = $slip_number_count;
-
-                write_log("Gemini successfully corrected the slip.");
+            } else {
+                // If Gemini fails, we leave the unparsed text for manual review in the DB.
+                // The 'raw' part of the slip already contains the original text.
+                write_log("Gemini could not correct the slip for user {$user_id}.");
             }
-
-            if ($correction && !empty($correction['suggested_regex'])) {
-                // Log the suggested regex for future improvement
-                write_log("Gemini suggested a new regex: " . $correction['suggested_regex']);
-            }
-
-            // Clear the unparsed text field after processing
-            $slip['result']['unparsed_text'] = '';
         }
     }
     unset($slip); // Unset the reference
 
-    // Recalculate the overall bill summary after potential corrections
-    $new_total_cost = 0;
-    $new_total_number_count = 0;
-    foreach ($parsed_bill['slips'] as $slip) {
-        $new_total_cost += $slip['result']['summary']['total_cost'] ?? 0;
-        $new_total_number_count += $slip['result']['summary']['number_count'] ?? 0;
+    // If any AI correction was made, the bill summary needs a full recalculation.
+    if ($ai_correction_made) {
+        $new_total_cost = 0;
+        $new_total_number_count = 0;
+
+        // Recalculate summary for each slip first
+        foreach ($parsed_bill['slips'] as &$slip) {
+            $slip_total_cost = 0;
+            $slip_number_count = 0;
+            if (isset($slip['result']['number_bets'])) {
+                foreach ($slip['result']['number_bets'] as $bet) {
+                    $slip_total_cost += $bet['cost'] ?? 0;
+                    $slip_number_count += isset($bet['numbers']) ? count($bet['numbers']) : 0;
+                }
+            }
+            $slip['result']['summary']['total_cost'] = $slip_total_cost;
+            $slip['result']['summary']['number_count'] = $slip_number_count;
+
+            // Add to the overall total
+            $new_total_cost += $slip_total_cost;
+            $new_total_number_count += $slip_number_count;
+        }
+        unset($slip);
+
+        // Update the main summary object
+        $parsed_bill['summary']['total_cost'] = $new_total_cost;
+        $parsed_bill['summary']['total_number_count'] = $new_total_number_count;
     }
-    $parsed_bill['summary']['total_cost'] = $new_total_cost;
-    $parsed_bill['summary']['total_number_count'] = $new_total_number_count;
     // --- End of AI-Assisted Parsing ---
 
     // Fetch latest lottery results for automatic settlement
@@ -249,7 +278,7 @@ if ($parsed_bill !== null && !empty($parsed_bill['slips'])) {
 
     // If we have results, perform auto-settlement
     if (!empty($lottery_results_map)) {
-        $settled_bill = BetCalculator::settle($parsed_bill, $lottery_results_map);
+        $settled_bill = BetCalculator::settle($parsed_bill, $lottery_results_map, $user_winning_rate);
         $settlement_details = json_encode($settled_bill, JSON_UNESCAPED_UNICODE);
         $status = 'settled'; // Mark as settled immediately
     } else {

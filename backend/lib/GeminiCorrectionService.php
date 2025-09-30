@@ -12,9 +12,10 @@ class GeminiCorrectionService {
      * Sends the unparsed text to the Gemini API to get a corrected parsing and a suggested regex.
      *
      * @param string $unparsedText The text that the original parser failed to understand.
-     * @return array|null An associative array with 'corrected_data' and 'suggested_regex', or null on failure.
+     * @param int|null $userId The ID of the user for whom the correction is being made (for future context).
+     * @return array|null An associative array with 'corrected_data', 'suggested_regex', and 'type', or null on failure.
      */
-    public function getCorrection(string $unparsedText): ?array {
+    public function getCorrection(string $unparsedText, ?int $userId = null): ?array {
         if (empty($this->apiKey) || $this->apiKey === 'YOUR_GEMINI_API_KEY') {
             error_log("Gemini API key is not configured.");
             return null;
@@ -61,27 +62,29 @@ class GeminiCorrectionService {
      */
     private function buildPrompt(string $unparsedText): string {
         // This prompt is carefully designed to instruct the AI on its role and desired output format.
-        return "You are an expert lottery bet slip parsing assistant. Your task is to analyze the following text, which our system failed to parse, and provide two things in a specific JSON format.
+        return "You are an expert lottery bet slip parsing assistant. Your task is to analyze the following text, which our system failed to parse, and provide a response in a specific JSON format. The JSON response must contain three top-level keys: `corrected_data`, `suggested_regex`, and `type`.
 
-        1.  `corrected_data`: A JSON object representing the bets found in the text. The format should be an array of 'number_bets', where each bet has 'numbers' (an array of strings), 'cost_per_number' (an integer), and 'cost' (an integer).
-        2.  `suggested_regex`: A single, PHP-compatible regular expression (as a JSON string) that could be used to parse this type of text in the future.
+1.  **`corrected_data`**: A JSON object representing the bets found in the text. The format should be an array of `number_bets`, where each bet has `numbers` (an array of strings), `cost_per_number` (an integer), and `cost` (an integer).
+2.  **`suggested_regex`**: A single, PHP-compatible regular expression (as a JSON string) that could be used to parse this type of text in the future. The regex should be designed to be used with PHP's `preg_match`.
+3.  **`type`**: A string that categorizes the `suggested_regex`. This is the most important part. The value for `type` **must** be one of the following three exact strings: `zodiac`, `number_list`, or `multiplier`. You must choose the type that best matches the regex you are providing.
 
-        Here is the text to analyze:
-        \"$unparsedText\"
+Here is the text to analyze:
+\"$unparsedText\"
 
-        Please provide your response inside a single JSON object, like this example:
-        {
-          \"corrected_data\": {
-            \"number_bets\": [
-              {
-                \"numbers\": [\"01\", \"02\"],
-                \"cost_per_number\": 10,
-                \"cost\": 20
-              }
-            ]
-          },
-          \"suggested_regex\": \"/your-regex-pattern/u\"
-        }";
+Please provide your response inside a single JSON object. Here is an example of the required format:
+{
+  \"corrected_data\": {
+    \"number_bets\": [
+      {
+        \"numbers\": [\"01\", \"02\", \"03\"],
+        \"cost_per_number\": 5,
+        \"cost\": 15
+      }
+    ]
+  },
+  \"suggested_regex\": \"/([0-9, ]+)各\\\\s*(\\\\d+)/u\",
+  \"type\": \"number_list\"
+}";
     }
 
     /**
@@ -106,7 +109,8 @@ class GeminiCorrectionService {
 
         return [
             'corrected_data' => $json_data['corrected_data'] ?? null,
-            'suggested_regex' => $json_data['suggested_regex'] ?? null
+            'suggested_regex' => $json_data['suggested_regex'] ?? null,
+            'type' => $json_data['type'] ?? null
         ];
     }
 }

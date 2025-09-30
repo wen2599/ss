@@ -3,24 +3,34 @@ require_once __DIR__ . '/GameData.php';
 
 class BetCalculator {
     private $pdo;
-    private $parsing_templates;
+    private $userId;
+    private $parsingTemplates;
 
-    public function __construct(PDO $pdo) {
+    public function __construct(PDO $pdo, ?int $userId = null) {
         $this->pdo = $pdo;
+        $this->userId = $userId;
         $this->loadParsingTemplates();
     }
 
     /**
      * Loads all active parsing templates from the database.
+     * It fetches global templates (user_id IS NULL) and templates specific to the current user.
      */
     private function loadParsingTemplates() {
         try {
-            $stmt = $this->pdo->query("SELECT pattern, type FROM parsing_templates ORDER BY priority ASC");
-            $this->parsing_templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            // If the table doesn't exist or there's an error, use a default fallback.
-            // This ensures the system can function even before the AI feature is fully set up.
-            $this->parsing_templates = [
+            // This query fetches global templates AND templates for the specific user.
+            $sql = "SELECT pattern, type FROM parsing_templates WHERE user_id IS NULL OR user_id = :user_id ORDER BY priority ASC";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([':user_id' => $this->userId]);
+            $this->parsingTemplates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // If no templates are found in the DB, use a default set.
+            if (empty($this->parsingTemplates)) {
+                throw new Exception("No templates found in DB, using fallback.");
+            }
+        } catch (Exception $e) {
+            // Fallback to hardcoded templates if the DB query fails (e.g., table doesn't exist yet).
+            $this->parsingTemplates = [
                 ['type' => 'zodiac', 'pattern' => '/([\p{Han},，\s]+?)(?:数各|各数)\s*([\p{Han}\d]+)\s*[元块]?/u'],
                 ['type' => 'number_list', 'pattern' => '/([0-9.,，、\s-]+)各\s*(\d+)\s*(?:#|[元块])/u'],
                 ['type' => 'multiplier', 'pattern' => '/(\d+)\s*[xX×\*]\s*(\d+)\s*[元块]?/u']
@@ -39,17 +49,16 @@ class BetCalculator {
         ];
         $text = $betting_slip_text;
 
-        // Use a loop to find and consume matches one by one, which is more robust.
         $remaining_text = $text;
 
-        foreach ($this->parsing_templates as $template) {
+        foreach ($this->parsingTemplates as $template) {
             $pattern = $template['pattern'];
             $type = $template['type'];
 
+            // Use a loop to find and consume all matches for the current pattern.
             while (preg_match($pattern, $remaining_text, $match)) {
                 $full_match_str = $match[0];
 
-                // Process the match based on its type
                 $bet_data = null;
                 if ($type === 'zodiac') {
                     $bet_data = $this->processZodiacBet($match);
@@ -63,7 +72,7 @@ class BetCalculator {
                     $settlement_slip['number_bets'][] = $bet_data;
                 }
 
-                // Remove the processed part from the original string and continue the loop.
+                // Remove the processed part from the string to avoid re-matching.
                 $pos = strpos($remaining_text, $full_match_str);
                 if ($pos !== false) {
                     $remaining_text = substr_replace($remaining_text, '', $pos, strlen($full_match_str));
@@ -108,7 +117,7 @@ class BetCalculator {
             $unique_numbers = array_values(array_unique($numbers));
             if (!empty($unique_numbers)) {
                 return [
-                    'numbers' => $unique_numbers, 'cost_per_number' => $cost_per_number, 'cost' => count($unique_numbers) * $cost_per_number, 'source_zodiacs' => $zodiacs
+                    'numbers' => $unique_numbers, 'cost_per_number' => $cost_per_number, 'cost' => count($unique_numbers) * $cost_per_number, 'source_zodiacs' => $zodiacs, 'type' => 'zodiac'
                 ];
             }
         }
@@ -119,7 +128,7 @@ class BetCalculator {
         $numbers = preg_split('/[.,，、\s-]+/', $match[1], -1, PREG_SPLIT_NO_EMPTY);
         $cost = intval($match[2]);
         if (!empty($numbers) && $cost > 0) {
-            return [ 'numbers' => $numbers, 'cost_per_number' => $cost, 'cost' => count($numbers) * $cost ];
+            return [ 'numbers' => $numbers, 'cost_per_number' => $cost, 'cost' => count($numbers) * $cost, 'type' => 'number_list' ];
         }
         return null;
     }
@@ -127,28 +136,71 @@ class BetCalculator {
     private function processMultiplierBet($match) {
         $cost = intval($match[2]);
         if ($cost > 0) {
-            return [ 'numbers' => [$match[1]], 'cost_per_number' => $cost, 'cost' => $cost ];
+            return [ 'numbers' => [$match[1]], 'cost_per_number' => $cost, 'cost' => $cost, 'type' => 'multiplier' ];
         }
         return null;
     }
 
-    // --- Static methods (unchanged) ---
+    // --- Instance and Static methods ---
 
-    public static function calculateMulti(PDO $pdo, string $full_text): ?array {
-        $calculator = new self($pdo);
+    public function calculateMulti(string $full_text): ?array {
         $all_slips = [];
-        // ... (rest of the multi-slip logic, but now it uses the instance)
-        // This part needs to be refactored to use the new class instance method.
-        // For simplicity, we assume calculateSingle will be called externally on text blocks.
-        // The logic below is a placeholder for a more complete refactoring.
-        $sub_blocks = preg_split('/\n{2,}/u', $full_text, -1, PREG_SPLIT_NO_EMPTY);
-        foreach ($sub_blocks as $sub_block) {
-            $r = $calculator->calculateSingle(trim($sub_block));
-            if ($r) $all_slips[] = ['raw' => trim($sub_block), 'result' => $r];
+        $full_text = trim(str_replace("\r\n", "\n", $full_text));
+        if (empty($full_text)) {
+            return null;
+        }
+
+        // This pattern splits the text by lines that act as headers (region or timestamp)
+        // and captures these headers as part of the output array.
+        $pattern = '/(^(?:香港|新澳门|澳门|港|(?:\d+\.|\d+、)).*)/mu';
+        $parts = preg_split($pattern, $full_text, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+
+        $current_region = '新澳门'; // Default region
+
+        $content_block = '';
+        if (count($parts) > 0 && !preg_match($pattern, $parts[0])) {
+            // The text does not start with a region marker, so the first part is content.
+            $content_block = array_shift($parts);
+        }
+
+        // Process the initial content block (if any) with the default region
+        if (!empty(trim($content_block))) {
+            $sub_slips_text = preg_split('/\n{2,}/u', trim($content_block), -1, PREG_SPLIT_NO_EMPTY);
+            foreach ($sub_slips_text as $sub_slip_text) {
+                $r = $this->calculateSingle(trim($sub_slip_text));
+                if ($r && !empty($r['number_bets'])) {
+                    $all_slips[] = ['raw' => trim($sub_slip_text), 'result' => $r, 'region' => $current_region];
+                }
+            }
+        }
+
+        // Process the remaining parts, which should be in [header, content, header, content...] sequence.
+        for ($i = 0; $i < count($parts); $i += 2) {
+            $header = trim($parts[$i]);
+            $content_block = isset($parts[$i + 1]) ? trim($parts[$i + 1]) : '';
+
+            // Determine region from the header
+            if (strpos($header, '香港') !== false || strpos($header, '港') !== false) {
+                $current_region = '香港';
+            } elseif (strpos($header, '新澳门') !== false || strpos($header, '澳门') !== false) {
+                $current_region = '新澳门';
+            }
+            // If it's just a numbered header, the region from the previous block is inherited.
+
+            if (!empty(trim($content_block))) {
+                $sub_slips_text = preg_split('/\n{2,}/u', $content_block, -1, PREG_SPLIT_NO_EMPTY);
+                foreach ($sub_slips_text as $sub_slip_text) {
+                    $r = $this->calculateSingle(trim($sub_slip_text));
+                    if ($r && !empty($r['number_bets'])) {
+                        $all_slips[] = ['raw' => trim($sub_slip_text), 'result' => $r, 'region' => $current_region];
+                    }
+                }
+            }
         }
 
         if (empty($all_slips)) return null;
 
+        // Final summary calculation
         $total_number_count = 0;
         $total_cost = 0;
         foreach ($all_slips as $key => &$item) {
@@ -181,10 +233,10 @@ class BetCalculator {
         return 0;
     }
 
-    public static function settle(array $bill_details, array $lottery_results_map): array {
+    public static function settle(array $bill_details, array $lottery_results_map, float $user_winning_rate): array {
         $settled_details = $bill_details;
         $total_winnings = 0;
-        $winning_rate = 45;
+
         $hk_numbers = $lottery_results_map['香港'] ?? null;
         $nm_numbers = $lottery_results_map['新澳门'] ?? null;
 
@@ -192,17 +244,15 @@ class BetCalculator {
             $region = $slip['region'] ?? '';
             $winning_numbers = (strpos($region, '香港') !== false || strpos($region, '港') !== false) ? $hk_numbers : $nm_numbers;
             if ($winning_numbers === null) continue;
+
             $slip_winnings = 0;
             if (isset($slip['result']['number_bets'])) {
                 foreach ($slip['result']['number_bets'] as &$bet) {
-                    $bet['winning_numbers'] = [];
                     $bet['winnings'] = 0;
                     if (isset($bet['cost_per_number'])) {
                         foreach ($bet['numbers'] as $number) {
                             if (in_array($number, $winning_numbers)) {
-                                $win_amount = $bet['cost_per_number'] * $winning_rate;
-                                $bet['winnings'] += $win_amount;
-                                $bet['winning_numbers'][] = $number;
+                                $bet['winnings'] += $bet['cost_per_number'] * $user_winning_rate;
                             }
                         }
                     }
@@ -214,6 +264,7 @@ class BetCalculator {
             $total_winnings += $slip_winnings;
         }
         unset($slip);
+
         $settled_details['summary']['total_winnings'] = $total_winnings;
         return $settled_details;
     }
