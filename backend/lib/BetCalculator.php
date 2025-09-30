@@ -12,12 +12,18 @@ class BetCalculator {
         $text = $betting_slip_text;
 
         // 1. Unified Zodiac "Per Number" Parsing (Handles both "数各" and "各数")
-        // This regex uses a tempered greedy token to correctly handle multiple bet expressions on a single line.
-        // It matches any character `.` as long as it's not the start of the keywords `数各` or `各数`.
-        $pattern = '/((?:(?!数各|各数).)+?)(?:数各|各数)\s*([\p{Han}\d]+)\s*[元块]?/u';
-        if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
-            foreach ($matches as $match) {
-                $zodiac_string = preg_replace('/[,，\s]/u', '', $match[1]);
+        // First, split the text by full-width or half-width commas to separate potential bet commands.
+        $bet_parts = preg_split('/[,，]/u', $text);
+        $unmatched_parts = [];
+
+        foreach ($bet_parts as $part) {
+            $part = trim($part);
+            if (empty($part)) continue;
+
+            $pattern = '/^([\p{Han}\s]+?)(?:数各|各数)\s*([\p{Han}\d]+)\s*[元块]?$/u';
+
+            if (preg_match($pattern, $part, $match)) {
+                $zodiac_string = preg_replace('/[\s]/u', '', $match[1]);
                 $zodiacs = mb_str_split($zodiac_string);
                 $cost_per_number = self::chineseToNumber($match[2]) ?: intval($match[2]);
 
@@ -35,9 +41,14 @@ class BetCalculator {
                         ];
                     }
                 }
+                // This part of the string was successfully parsed, so we don't add it to the unmatched list.
+            } else {
+                // If it doesn't match, it might be another type of bet, so we keep it for later processing.
+                $unmatched_parts[] = $part;
             }
-            $text = preg_replace($pattern, '', $text);
         }
+        // Reconstruct the text with only the parts that did not match the zodiac bet pattern.
+        $text = implode(',', $unmatched_parts);
 
         // 2. Number lists (e.g., "06-36各5元", "36,48各30#")
         $pattern = '/([0-9.,，、\s-]+)各\s*(\d+)\s*(?:#|[元块])/u';
