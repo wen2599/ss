@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/BetCalculator.php';
+require_once __DIR__ . '/../lib/GeminiCorrectionService.php';
 
 // Helper: Save attachments to disk and return their metadata
 function handle_attachments($user_id) {
@@ -187,6 +188,52 @@ $total_cost = null;
 
 // Only proceed if the calculator found valid bet slips.
 if ($parsed_bill !== null && !empty($parsed_bill['slips'])) {
+    // --- AI-Assisted Parsing Correction ---
+    foreach ($parsed_bill['slips'] as &$slip) { // Use reference to modify the slip directly
+        if (!empty($slip['result']['unparsed_text'])) {
+            write_log("Unparsed text found. Calling Gemini for correction...");
+            $geminiService = new GeminiCorrectionService($gemini_api_key);
+            $correction = $geminiService->getCorrection($slip['result']['unparsed_text']);
+
+            if ($correction && !empty($correction['corrected_data']['number_bets'])) {
+                // Merge Gemini's results into the slip
+                $slip['result']['number_bets'] = array_merge($slip['result']['number_bets'], $correction['corrected_data']['number_bets']);
+
+                // Recalculate summary for the slip
+                $slip_total_cost = 0;
+                $slip_number_count = 0;
+                foreach ($slip['result']['number_bets'] as $bet) {
+                    $slip_total_cost += $bet['cost'];
+                    $slip_number_count += count($bet['numbers']);
+                }
+                $slip['result']['summary']['total_cost'] = $slip_total_cost;
+                $slip['result']['summary']['number_count'] = $slip_number_count;
+
+                write_log("Gemini successfully corrected the slip.");
+            }
+
+            if ($correction && !empty($correction['suggested_regex'])) {
+                // Log the suggested regex for future improvement
+                write_log("Gemini suggested a new regex: " . $correction['suggested_regex']);
+            }
+
+            // Clear the unparsed text field after processing
+            $slip['result']['unparsed_text'] = '';
+        }
+    }
+    unset($slip); // Unset the reference
+
+    // Recalculate the overall bill summary after potential corrections
+    $new_total_cost = 0;
+    $new_total_number_count = 0;
+    foreach ($parsed_bill['slips'] as $slip) {
+        $new_total_cost += $slip['result']['summary']['total_cost'] ?? 0;
+        $new_total_number_count += $slip['result']['summary']['number_count'] ?? 0;
+    }
+    $parsed_bill['summary']['total_cost'] = $new_total_cost;
+    $parsed_bill['summary']['total_number_count'] = $new_total_number_count;
+    // --- End of AI-Assisted Parsing ---
+
     // Fetch latest lottery results for automatic settlement
     $lottery_types = ['香港', '新澳门'];
     $lottery_results_map = [];
