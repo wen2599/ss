@@ -82,7 +82,7 @@ function clear_admin_state($chat_id) {
 }
 
 
-// 5. User Management and Analysis Functions
+// 5. User Management Functions
 function deleteUserFromDB($pdo, $telegram_id) {
     if (!is_numeric($telegram_id)) {
         return "Telegram ID 无效，必须是数字。";
@@ -146,43 +146,43 @@ function updateUserStatus($pdo, $user_id, $status) {
     }
 }
 
-function registerUser($pdo, $user_id, $username, $admin_id) {
+function registerUser($pdo, $user_data, $admin_id) {
     // Check if user already exists
-    $stmt = $pdo->prepare("SELECT status FROM users WHERE telegram_id = :telegram_id");
-    $stmt->execute([':telegram_id' => $user_id]);
+    $stmt = $pdo->prepare("SELECT status FROM users WHERE telegram_id = :telegram_id OR email = :email");
+    $stmt->execute([':telegram_id' => $user_data['user_id'], ':email' => $user_data['email']]);
     $existing_user = $stmt->fetch();
 
     if ($existing_user) {
-        if ($existing_user['status'] === 'approved') {
-            return ['status' => 'info', 'message' => '您已经是注册用户。'];
-        } elseif ($existing_user['status'] === 'pending') {
-            return ['status' => 'info', 'message' => '您的注册申请正在等待批准。'];
-        } else { // denied or other statuses
-             return ['status' => 'info', 'message' => '您的注册申请已被拒绝。'];
-        }
+        return ['status' => 'info', 'message' => '您已经是注册用户，或该邮箱已被使用。'];
     }
+
+    // Hash the password
+    $hashed_password = password_hash($user_data['password'], PASSWORD_DEFAULT);
 
     // Add new user as pending
     try {
-        $sql = "INSERT INTO users (telegram_id, username, status) VALUES (:telegram_id, :username, 'pending')";
+        $sql = "INSERT INTO users (telegram_id, username, email, password, status) VALUES (:telegram_id, :username, :email, :password, 'pending')";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
-            ':telegram_id' => $user_id,
-            ':username' => $username
+            ':telegram_id' => $user_data['user_id'],
+            ':username' => $user_data['username'],
+            ':email' => $user_data['email'],
+            ':password' => $hashed_password
         ]);
 
         // On successful registration, notify the admin
         $notification_text = "新的用户注册请求：\n"
                            . "---------------------\n"
-                           . "*用户:* `" . htmlspecialchars($username) . "`\n"
-                           . "*Telegram ID:* `" . $user_id . "`\n"
+                           . "*用户:* `" . htmlspecialchars($user_data['username']) . "`\n"
+                           . "*Email:* `" . htmlspecialchars($user_data['email']) . "`\n"
+                           . "*Telegram ID:* `" . $user_data['user_id'] . "`\n"
                            . "---------------------\n"
                            . "请批准或拒绝此请求。";
 
         $approval_keyboard = json_encode([
             'inline_keyboard' => [[
-                ['text' => '✅ 批准', 'callback_data' => 'approve_' . $user_id],
-                ['text' => '❌ 拒绝', 'callback_data' => 'deny_' . $user_id]
+                ['text' => '✅ 批准', 'callback_data' => 'approve_' . $user_data['user_id']],
+                ['text' => '❌ 拒绝', 'callback_data' => 'deny_' . $user_data['user_id']]
             ]]
         ]);
 
@@ -227,34 +227,6 @@ function saveLotteryResultToDB($pdo, $result) {
         error_log("Database error saving lottery result: " . $e->getMessage());
         return "保存开奖结果时出错。";
     }
-}
-
-/**
- * Analyzes a given text and returns a formatted report.
- * @param string $text The text to analyze.
- * @return string The analysis report.
- */
-function analyzeText($text) {
-    // a. Calculate character count (multi-byte safe)
-    $char_count = mb_strlen($text, 'UTF-8');
-
-    // b. Calculate word count (handles punctuation and unicode)
-    $cleaned_text_for_words = preg_replace('/[\p{P}\p{S}\s]+/u', ' ', $text);
-    $word_count = str_word_count($cleaned_text_for_words);
-
-    // c. Extract keywords (long English words and Chinese phrases)
-    preg_match_all('/([a-zA-Z]{5,})|([\p{Han}]+)/u', $text, $matches);
-    $keywords = array_unique(array_filter($matches[0]));
-    $keywords_list = !empty($keywords) ? '`' . implode('`, `', array_values($keywords)) . '`' : '_未找到_';
-
-    // Format the response
-    $response = "*文本分析报告：*\n"
-              . "---------------------\n"
-              . "字符数： *{$char_count}*\n"
-              . "单词数： *{$word_count}*\n"
-              . "关键词： {$keywords_list}\n";
-
-    return $response;
 }
 
 
@@ -332,20 +304,59 @@ if ($message) {
         exit();
     }
 
-    // --- Step 2: Handle public commands like /register before the admin check ---
-    if (strpos($text, '/register') === 0) {
-        if ($user_id && $chat_id === $user_id) { // Ensure it's a direct message from a user
-            $username = $message['from']['username'] ?? ($message['from']['first_name'] ?? 'N/A');
-            $reg_result = registerUser($pdo, $user_id, $username, $admin_id);
+    // --- Step 2: Handle public commands and states (like /register) before the admin check ---
+    $public_state_raw = get_admin_state($chat_id); // Using same state func for all users
+    $public_state_data = $public_state_raw ? json_decode($public_state_raw, true) : null;
+    $current_public_state = $public_state_data['state'] ?? null;
 
-            sendMessage($chat_id, $reg_result['message']);
-
-        } else if ($chat_id !== $user_id) {
-            // Instruct user to message privately if they try to register in a group
-            sendMessage($chat_id, "请在与机器人的私聊中发送 /register 命令来注册。");
+    if (strpos($text, '/') === 0 && !$current_public_state) {
+        if ($text === '/register') {
+            if ($user_id && $chat_id === $user_id) { // Ensure it's a direct message
+                // Start registration flow
+                $state_payload = json_encode(['state' => 'register_waiting_for_email', 'data' => []]);
+                set_admin_state($chat_id, $state_payload);
+                sendMessage($chat_id, "您好！请输入您的邮箱地址以开始注册。");
+            } else {
+                sendMessage($chat_id, "请在与机器人的私聊中发送 /register 命令来注册。");
+            }
+            exit();
         }
-        http_response_code(200);
-        exit();
+    }
+
+    if ($current_public_state && $user_id !== $admin_id) {
+        if (strpos($text, '/') === 0) {
+            clear_admin_state($chat_id);
+            sendMessage($chat_id, "注册流程已取消。");
+            exit();
+        }
+        switch ($current_public_state) {
+            case 'register_waiting_for_email':
+                if (filter_var($text, FILTER_VALIDATE_EMAIL)) {
+                    $public_state_data['data']['email'] = $text;
+                    $public_state_data['state'] = 'register_waiting_for_password';
+                    set_admin_state($chat_id, json_encode($public_state_data));
+                    sendMessage($chat_id, "✅ 邮箱已保存。现在请输入您的密码（至少6位）。");
+                } else {
+                    sendMessage($chat_id, "邮箱格式无效，请重新输入。");
+                }
+                exit();
+
+            case 'register_waiting_for_password':
+                if (strlen($text) >= 6) {
+                    $user_data = [
+                        'user_id'  => $user_id,
+                        'username' => $message['from']['username'] ?? ($message['from']['first_name'] ?? 'N/A'),
+                        'email'    => $public_state_data['data']['email'],
+                        'password' => $text,
+                    ];
+                    $reg_result = registerUser($pdo, $user_data, $admin_id);
+                    sendMessage($chat_id, $reg_result['message']);
+                    clear_admin_state($chat_id);
+                } else {
+                    sendMessage($chat_id, "密码太短，请输入至少6位。");
+                }
+                exit();
+        }
     }
 
 
@@ -355,7 +366,7 @@ if ($message) {
         // Silently ignore non-admin messages in groups/channels that are not lottery results.
         // Only send a "no permission" message if a user is messaging the bot directly.
         if ($chat_id === $user_id) {
-            sendMessage($chat_id, "抱歉，此机器人功能仅限管理员使用。");
+            sendMessage($chat_id, "抱歉，此机器人功能仅限管理员使用。如需注册，请发送 /register。");
         }
         http_response_code(403); // Forbidden
         exit();
@@ -411,8 +422,6 @@ if ($message) {
         'ℹ️ 检查密钥状态' => '/get_api_key_status',
         // Common
         '⬅️ 返回主菜单' => '/start',
-        // Legacy/Hidden commands for direct invocation
-        '分析文本' => '/analyze',
     ];
 
     $command = null;
@@ -479,11 +488,6 @@ if ($message) {
                 } catch (PDOException $e) {
                     $responseText = "❌ 检查API密钥状态时发生数据库错误。";
                 }
-                break;
-
-            // Legacy/Hidden Actions
-            case '/analyze':
-                $responseText = !empty($args) ? analyzeText($args) : "用法：`/analyze <在此处输入您的文本>`";
                 break;
 
             default:
