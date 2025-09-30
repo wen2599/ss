@@ -109,44 +109,38 @@ function listUsersFromDB($pdo) {
     }
 }
 
-function listTemplatesFromDB($pdo) {
-    try {
-        $stmt = $pdo->query("SELECT id, pattern, type, priority FROM parsing_templates ORDER BY priority ASC, id ASC");
-        $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        if (empty($templates)) {
-            return "数据库中没有自定义模板。";
-        }
-        $templateList = "📝 *所有解析模板:*\n---------------------\n";
-        foreach ($templates as $template) {
-            $templateList .= "*ID:* `" . $template['id'] . "`\n"
-                          . "*类型:* `" . htmlspecialchars($template['type']) . "`\n"
-                          . "*优先级:* `" . $template['priority'] . "`\n"
-                          . "*格式:* `" . htmlspecialchars($template['pattern']) . "`\n"
-                          . "---------------------\n";
-        }
-        return $templateList;
-    } catch (PDOException $e) {
-        error_log("Error listing templates: " . $e->getMessage());
-        return "获取模板列表时出错。";
+function generatePatternFromExample($data) {
+    if (empty($data['full_example']) || empty($data['lottery_name_part']) || empty($data['issue_number_part']) || empty($data['numbers_part'])) {
+        return null; // Not enough data
     }
-}
 
-function deleteTemplateFromDB($pdo, $template_id) {
-    if (!is_numeric($template_id)) {
-        return "模板ID必须是一个数字。";
+    $full_example = $data['full_example'];
+    $name_part = $data['lottery_name_part'];
+    $issue_part = $data['issue_number_part'];
+    $numbers_part = $data['numbers_part'];
+
+    // Check that all provided parts actually exist in the full example
+    if (strpos($full_example, $name_part) === false ||
+        strpos($full_example, $issue_part) === false ||
+        strpos($full_example, $numbers_part) === false) {
+        return null; // Parts don't match the example
     }
-    try {
-        $stmt = $pdo->prepare("DELETE FROM parsing_templates WHERE id = :id");
-        $stmt->execute([':id' => $template_id]);
-        if ($stmt->rowCount() > 0) {
-            return "✅ 模板 ID `{$template_id}` 已被删除。";
-        } else {
-            return "⚠️ 未找到模板 ID `{$template_id}`。";
-        }
-    } catch (PDOException $e) {
-        error_log("Error deleting template: " . $e->getMessage());
-        return "❌ 删除模板时发生数据库错误。";
+
+    // Escape the whole example to treat it as a literal string
+    $pattern = preg_quote($full_example, '/');
+
+    // Replace the user-provided parts with flexible capture groups
+    $pattern = str_replace(preg_quote($name_part, '/'), '(.*)', $pattern, $count1);
+    $pattern = str_replace(preg_quote($issue_part, '/'), '(\d+)', $pattern, $count2);
+    $pattern = str_replace(preg_quote($numbers_part, '/'), '([\\d,\\s+-]+)', $pattern, $count3);
+
+    if ($count1 !== 1 || $count2 !== 1 || $count3 !== 1) {
+        return null; // Something went wrong, maybe duplicate parts
     }
+
+    $pattern = preg_replace('/\s+/', '\s+', $pattern);
+
+    return '/' . $pattern . '/u';
 }
 
 function saveTemplateToDB($pdo, $templateData) {
@@ -296,31 +290,45 @@ if ($message) {
             exit();
         }
 
-        // Handle JSON-based state machine for adding templates
+        // Handle JSON-based state machine for "Teach by Example"
         switch ($current_state) {
-            case 'waiting_for_template_pattern':
-                $state_data['data']['pattern'] = $text;
-                $state_data['state'] = 'waiting_for_template_type';
+            case 'waiting_for_full_example':
+                $state_data['data']['full_example'] = $text;
+                $state_data['state'] = 'waiting_for_lottery_name_part';
                 set_admin_state($chat_id, json_encode($state_data));
-                sendMessage($chat_id, "✅ 格式已保存。\n\n2/3: 现在，请输入模板类型 (例如: `lottery_result`)。");
+                sendMessage($chat_id, "✅ 示例已收到。\n\n*步骤 2/4:* 现在，请从您的示例中复制并发送 *开奖名称*。");
                 exit();
 
-            case 'waiting_for_template_type':
-                $state_data['data']['type'] = $text;
-                $state_data['state'] = 'waiting_for_template_priority';
+            case 'waiting_for_lottery_name_part':
+                $state_data['data']['lottery_name_part'] = $text;
+                $state_data['state'] = 'waiting_for_issue_number_part';
                 set_admin_state($chat_id, json_encode($state_data));
-                sendMessage($chat_id, "✅ 类型已保存。\n\n3/3: 现在，请输入模板的优先级 (数字, 越小越高, 默认 100)。");
+                sendMessage($chat_id, "✅ 名称已收到。\n\n*步骤 3/4:* 现在，请从您的示例中复制并发送 *期号*。");
                 exit();
 
-            case 'waiting_for_template_priority':
-                $state_data['data']['priority'] = $text;
-                $responseText = saveTemplateToDB($pdo, $state_data['data']);
-                clear_admin_state($chat_id);
-                sendMessage($chat_id, $responseText, $template_management_keyboard);
+            case 'waiting_for_issue_number_part':
+                $state_data['data']['issue_number_part'] = $text;
+                $state_data['state'] = 'waiting_for_numbers_part';
+                set_admin_state($chat_id, json_encode($state_data));
+                sendMessage($chat_id, "✅ 期号已收到。\n\n*步骤 4/4:* 最后，请从您的示例中复制并发送包含所有7个号码的 *那一部分文本*。");
                 exit();
 
-            case 'waiting_for_template_id_to_delete':
-                $responseText = deleteTemplateFromDB($pdo, $text);
+            case 'waiting_for_numbers_part':
+                $state_data['data']['numbers_part'] = $text;
+
+                $generated_pattern = generatePatternFromExample($state_data['data']);
+
+                if ($generated_pattern) {
+                    $newTemplateData = [
+                        'pattern' => $generated_pattern,
+                        'type' => 'lottery_result',
+                        'priority' => 90 // High priority for user-taught templates
+                    ];
+                    $responseText = saveTemplateToDB($pdo, $newTemplateData);
+                } else {
+                    $responseText = "❌ 模板生成失败。请确保您提供的所有部分都与原始示例完全匹配且不重复。";
+                }
+
                 clear_admin_state($chat_id);
                 sendMessage($chat_id, $responseText, $template_management_keyboard);
                 exit();
@@ -353,8 +361,7 @@ if ($message) {
     ], 'resize_keyboard' => true]);
 
     $template_management_keyboard = json_encode(['keyboard' => [
-        [['text' => '➕ 添加新模板'], ['text' => '📋 查看所有模板']],
-        [['text' => '🗑️ 删除模板']],
+        [['text' => '➕ 添加新模板']],
         [['text' => '⬅️ 返回主菜单']]
     ], 'resize_keyboard' => true]);
 
@@ -373,10 +380,8 @@ if ($message) {
         '➕ 添加用户' => '/adduser',
         '➖ 删除用户' => '/deluser',
         '📋 列出所有用户' => '/listusers',
-        // Template Management (placeholders)
+        // Template Management
         '➕ 添加新模板' => '/add_template',
-        '📋 查看所有模板' => '/list_templates',
-        '🗑️ 删除模板' => '/delete_template',
         // System Settings
         '🔑 设定API密钥' => '/set_gemini_key',
         'ℹ️ 检查密钥状态' => '/get_api_key_status',
@@ -430,16 +435,9 @@ if ($message) {
 
             // Template Management Actions
             case '/add_template':
-                $state_payload = json_encode(['state' => 'waiting_for_template_pattern', 'data' => []]);
+                $state_payload = json_encode(['state' => 'waiting_for_full_example', 'data' => []]);
                 set_admin_state($chat_id, $state_payload);
-                $responseText = "1/3: 请发送新模板的正则表达式 (PCRE)。\n\n*重要*: 表达式必须有3个捕获组:\n1. (`lottery_name`)\n2. (`issue_number`)\n3. (`numbers_string`)\n\n例如: `/(香港六合彩)第(\d+)期开奖号码: ([\d\s,]+)/u`\n\n发送 `/start` 可随时取消。";
-                break;
-            case '/list_templates':
-                $responseText = listTemplatesFromDB($pdo);
-                break;
-            case '/delete_template':
-                set_admin_state($chat_id, json_encode(['state' => 'waiting_for_template_id_to_delete']));
-                $responseText = "请输入您想删除的模板的数字ID。\n\n发送 `/start` 可随时取消。";
+                $responseText = "*步骤 1/4:* 请粘贴一个您想让机器人学习的 *完整* 开奖信息示例。\n\n发送 `/start` 可随时取消。";
                 break;
 
             // System Settings Actions
