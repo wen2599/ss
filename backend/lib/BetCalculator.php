@@ -13,23 +13,38 @@ class BetCalculator {
     }
 
     /**
-     * Loads all active parsing templates from the database.
-     * It fetches global templates (user_id IS NULL) and templates specific to the current user.
+     * Loads parsing templates from the database, prioritizing user-specific templates.
+     * If no user-specific templates are found, it falls back to global templates.
+     * If no templates are found in the database at all, it uses a hardcoded default set.
      */
     private function loadParsingTemplates() {
         try {
-            // This query fetches global templates AND templates for the specific user.
-            $sql = "SELECT pattern, type FROM parsing_templates WHERE user_id IS NULL OR user_id = :user_id ORDER BY priority ASC";
+            // First, try to load user-specific templates.
+            if ($this->userId !== null) {
+                $sql = "SELECT pattern, type FROM parsing_templates WHERE user_id = :user_id ORDER BY priority ASC";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([':user_id' => $this->userId]);
+                $userTemplates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                if (!empty($userTemplates)) {
+                    $this->parsingTemplates = $userTemplates;
+                    return; // User templates found and loaded, so we are done.
+                }
+            }
+
+            // If no user-specific templates were found (or if userId is null), load global templates.
+            $sql = "SELECT pattern, type FROM parsing_templates WHERE user_id IS NULL ORDER BY priority ASC";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([':user_id' => $this->userId]);
+            $stmt->execute();
             $this->parsingTemplates = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // If no templates are found in the DB, use a default set.
+            // If still no templates are found, throw an exception to trigger the fallback.
             if (empty($this->parsingTemplates)) {
-                throw new Exception("No templates found in DB, using fallback.");
+                throw new Exception("No user-specific or global templates found in DB, using fallback.");
             }
         } catch (Exception $e) {
-            // Fallback to hardcoded templates if the DB query fails (e.g., table doesn't exist yet).
+            // Fallback to hardcoded templates if the DB query fails or no templates exist.
+            error_log("Template loading info: " . $e->getMessage());
             $this->parsingTemplates = [
                 ['type' => 'zodiac', 'pattern' => '/([\p{Han},，\s]+?)(?:数各|各数)\s*([\p{Han}\d]+)\s*[元块]?/u'],
                 ['type' => 'number_list', 'pattern' => '/([0-9.,，、\s-]+)各\s*(\d+)\s*(?:#|[元块])/u'],
@@ -249,10 +264,12 @@ class BetCalculator {
             if (isset($slip['result']['number_bets'])) {
                 foreach ($slip['result']['number_bets'] as &$bet) {
                     $bet['winnings'] = 0;
+                    $bet['winning_numbers'] = []; // Initialize array to store winning numbers for this bet
                     if (isset($bet['cost_per_number'])) {
                         foreach ($bet['numbers'] as $number) {
                             if (in_array($number, $winning_numbers)) {
                                 $bet['winnings'] += $bet['cost_per_number'] * $user_winning_rate;
+                                $bet['winning_numbers'][] = $number; // Add the winning number to the list
                             }
                         }
                     }

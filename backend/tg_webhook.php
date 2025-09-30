@@ -15,7 +15,7 @@ require_once __DIR__ . '/lib/LotteryParser.php';
 
 // 2. Establish Database Connection
 try {
-    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8", $db_user, $db_pass);
+    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     error_log("Database connection failed: " . $e->getMessage());
@@ -241,6 +241,25 @@ if ($message) {
                     break;
                 case '/analyze':
                     $responseText = !empty($args) ? analyzeText($args) : "用法：`/analyze <在此处输入您的文本>`";
+                    break;
+                case '/set_gemini_key':
+                    if (empty($args)) {
+                        $responseText = "用法: `/set_gemini_key <your_api_key>`";
+                    } else {
+                        try {
+                            $sql = "UPDATE application_settings SET setting_value = :api_key WHERE setting_name = 'gemini_api_key'";
+                            $stmt = $pdo->prepare($sql);
+                            $stmt->execute([':api_key' => $args]);
+                            if ($stmt->rowCount() > 0) {
+                                $responseText = "✅ Gemini API密钥已成功更新。";
+                            } else {
+                                $responseText = "ℹ️ Gemini API密钥未更改（它可能已经是您提供的值）。";
+                            }
+                        } catch (PDOException $e) {
+                            error_log("Error updating Gemini API key: " . $e->getMessage());
+                            $responseText = "❌ 更新Gemini API密钥时发生数据库错误。";
+                        }
+                    }
                     break;
                 default:
                     $responseText = "抱歉，我不理解该命令。";
