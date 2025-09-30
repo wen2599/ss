@@ -24,7 +24,14 @@ try {
     $stmt->execute([':email' => $email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
+    // Check password and ensure the user's account is approved
     if ($user && password_verify($password, $user['password'])) {
+        if ($user['status'] !== 'approved') {
+            http_response_code(403); // Forbidden
+            echo json_encode(['success' => false, 'error' => '您的账户正在等待管理员批准。']);
+            exit();
+        }
+
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_email'] = $user['email'];
 
