@@ -2,7 +2,7 @@
 #
 # This workflow automates the deployment of the backend API to a remote server.
 # It is triggered on pushes to the 'main' branch that involve changes within the 'backend/' directory.
-# Crucially, it excludes the 'config.php' file from the synchronization process to protect server-specific configurations.
+# Crucially, it excludes server-specific configuration files like '.env' and 'config.php' from the synchronization process.
 
 name: Deploy Backend API
 
@@ -28,20 +28,21 @@ jobs:
         # It uses secrets to securely store credentials.
         uses: webfactory/ssh-agent@v0.5.3
         with:
-          ssh-private-key: ${{ secrets.SERV00_KEY }}
+          ssh-private-key: ${% raw %}{{ secrets.SERV00_KEY }}{% endraw %}
 
       - name: 3. Add Server to Known Hosts
         # This prevents the 'Host key verification failed' error by adding the server's host key.
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SERV00_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${% raw %}{{ secrets.SERV00_HOST }}{% endraw %} >> ~/.ssh/known_hosts
 
       - name: 4. Deploy Backend Files using rsync
         # This is the core deployment step.
         # It synchronizes the 'backend/' directory with the target directory on the server.
-        # The '--exclude' flag is critical: it prevents 'config.php' from being overwritten.
+        # The '--exclude' flags are critical: they prevent '.env', 'config.php', and logs from being overwritten or deleted.
         run: |
           rsync -avz --delete \
+            --exclude '.env' \
             --exclude 'config.php' \
             --exclude 'webhook_log.txt' \
-            ./backend/ ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}
+            ./backend/ ${% raw %}{{ secrets.SERV00_USER }}{% endraw %}@${% raw %}{{ secrets.SERV00_HOST }}{% endraw %}:${% raw %}{{ secrets.SERV00_PATH }}{% endraw %}
