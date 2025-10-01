@@ -24,9 +24,6 @@ jobs:
         uses: actions/checkout@v3
 
       - name: 2. Set up SSH
-        # IMPORTANT: Ensure that secrets.SERV00_KEY contains the ENTIRE private key
-        # including the "-----BEGIN RSA PRIVATE KEY-----" and "-----END RSA PRIVATE KEY-----" lines,
-        - name: 2. Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SERV00_KEY }}
