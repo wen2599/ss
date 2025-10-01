@@ -54,25 +54,8 @@ if (isset($update['callback_query'])) {
             $target_id = $parts[1];
         }
 
-        if (($action === 'approve' || $action === 'deny') && $target_id) {
-            $new_status = ($action === 'approve') ? 'approved' : 'denied';
-
-            $id_column = ($id_type === 'dbid') ? 'id' : 'telegram_id';
-
-            $success = User::updateUserStatusById($pdo, $target_id, $id_column, $new_status);
-
-            if ($success) {
-                $user_to_notify = User::getUserById($pdo, $target_id, $id_column);
-                if ($user_to_notify && !empty($user_to_notify['telegram_id'])) {
-                    $user_message = ($new_status === 'approved') ? '您的注册申请已被批准！' : '抱歉，您的注册申请已被拒绝。';
-                    Telegram::sendMessage($user_to_notify['telegram_id'], $user_message);
-                }
-
-                $status_text = ($new_status === 'approved') ? '已批准' : '已拒绝';
-                $new_admin_text = $original_message_text . "\n\n---\n*处理结果: " . $status_text . "*";
-                Telegram::editMessageText($admin_chat_id, $message_id, $new_admin_text);
-            }
-        }
+        // User approval functionality has been removed.
+        // The bot will no longer process 'approve' or 'deny' callbacks.
     }
     Telegram::answerCallbackQuery($callback_id);
     http_response_code(200);
@@ -108,17 +91,11 @@ if ($message) {
         exit();
     }
 
-    // --- Step 2: Handle public commands like /register before the admin check ---
-    if (strpos($text, '/register') === 0) {
-        Telegram::sendMessage($chat_id, "您好！请访问我们的网站进行注册。");
-        http_response_code(200);
-        exit();
-    }
-
-    // --- Step 3: If it's not a public command or parsable result, check if the sender is the admin. ---
+    // --- Step 2: If it's not a parsable result, check if the sender is the admin. ---
+    // Public commands like /register have been removed.
     if ($user_id !== $admin_id) {
         if ($chat_id === $user_id) {
-            Telegram::sendMessage($chat_id, "抱歉，此机器人功能仅限管理员使用。如需注册，请发送 /register。");
+            Telegram::sendMessage($chat_id, "抱歉，此机器人功能仅限管理员使用。");
         }
         http_response_code(403);
         exit();
