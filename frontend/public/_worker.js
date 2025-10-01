@@ -1,9 +1,9 @@
 export default {
   async fetch(request, env, ctx) {
+    // The backend is hosted on a specific, hardcoded domain.
+    // This prevents an infinite loop where the worker proxies requests to itself.
+    const backendHost = 'https://ss.wenxiuxiu.eu.org';
     const url = new URL(request.url);
-    // The backend is hosted on the same domain as the worker.
-    // We use the request's URL origin to dynamically determine the backend host.
-    const backendHost = url.origin;
     const { pathname } = url;
 
     // The origin of the frontend application making the request
