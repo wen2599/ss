@@ -50,8 +50,10 @@ export default {
       // Set the action for the backend PHP router
       searchParams.set('action', action);
 
-      // Construct the new URL to point to the single index.php endpoint
-      const backendUrl = new URL(`${backendHost}/index.php?${searchParams.toString()}`);
+      // Construct the new URL to point to the backend's root, which will
+      // handle the request via the index.php router. This avoids a redirect
+      // from /index.php to / that would change the request method from POST to GET.
+      const backendUrl = new URL(`${backendHost}/?${searchParams.toString()}`);
 
       const newHeaders = new Headers(request.headers);
       newHeaders.set('Host', new URL(backendHost).hostname);
