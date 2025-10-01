@@ -26,13 +26,10 @@ jobs:
       - name: 2. Set up SSH
         # IMPORTANT: Ensure that secrets.SERV00_KEY contains the ENTIRE private key
         # including the "-----BEGIN RSA PRIVATE KEY-----" and "-----END RSA PRIVATE KEY-----" lines,
-        # and no extra spaces or newlines.
-        # If your key has a passphrase, you need to provide it as a separate secret.
+        - name: 2. Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SERV00_KEY }}
-          # If your SSH key has a passphrase, uncomment the line below and provide the secret.
-          # passphrase: ${{ secrets.SERV00_KEY_PASSPHRASE }}
 
       - name: 3. Add Server to Known Hosts
         # This prevents the 'Host key verification failed' error by adding the server's host key.
@@ -42,14 +39,10 @@ jobs:
 
       - name: 4. Deploy Backend Files using rsync
         # This is the core deployment step.
-        # It synchronizes the 'backend/' directory with the target directory on the server.
-        # The '--exclude' flags are critical: they prevent '.env', 'config.php', and logs from being overwritten or deleted.
+        # It synchronizes the 'backend' directory itself to the target path on the server.
+        # Removing the trailing slash from './backend' ensures that rsync does not delete sibling directories like 'vendor/'.
         run: |
           rsync -avz --delete \
             --exclude '.env' \
             --exclude 'config.php' \
-            --exclude 'webhook_log.txt' \
-            --exclude 'phpinfo.php' \
-            --exclude '.htaccess' \
-            --exclude 'vendor/' \
-            ./backend/ ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}
+            ./backend ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}
