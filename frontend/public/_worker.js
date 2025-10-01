@@ -93,7 +93,9 @@ export default {
 
       } catch (error) {
         console.error('Error proxying to backend:', error.message);
-        return new Response(JSON.stringify({ success: false, error: 'API backend unavailable.' }), {
+        // **Crucial Fix:** Ensure the catch block also returns a valid JSON error.
+        const jsonError = { success: false, error: 'API backend unavailable.' };
+        return new Response(JSON.stringify(jsonError), {
           status: 503, // Service Unavailable
           headers: {
             'Content-Type': 'application/json',
@@ -105,7 +107,7 @@ export default {
 
       const respHeaders = new Headers(backendResp.headers);
       respHeaders.set('Access-Control-Allow-Origin', origin);
-      respHeaders.set('Access-control-allow-credentials', 'true');
+      respHeaders.set('Access-Control-Allow-Credentials', 'true');
 
       return new Response(backendResp.body, {
         status: backendResp.status,
