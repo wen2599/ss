@@ -1,41 +1,20 @@
 <?php
 
-/**
- * Configuration File
- *
- * This file contains the essential settings for the application,
- * including the Telegram bot token and database credentials.
- */
+require_once __DIR__ . '/vendor/autoload.php';
 
-// 1. Telegram Bot Token
-// Replace 'YOUR_TELEGRAM_BOT_TOKEN' with the token you get from BotFather on Telegram.
-$bot_token = 'YOUR_TELEGRAM_BOT_TOKEN';
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+$dotenv->load();
 
-// 2. Telegram Admin User ID
-// Replace 'YOUR_ADMIN_USER_ID' with your own numeric Telegram User ID.
-$admin_id = 'YOUR_ADMIN_USER_ID'; 
+$db_host = $_ENV['DB_HOST'] ?? 'localhost';
+$db_name = $_ENV['DB_NAME'] ?? 'lottery_app';
+$db_user = $_ENV['DB_USER'] ?? 'root';
+$db_pass = $_ENV['DB_PASS'] ?? '';
+$worker_secret = $_ENV['WORKER_SECRET'] ?? '';
+$log_level = $_ENV['LOG_LEVEL'] ?? 'INFO';
 
-// 3. Cloudflare Worker Secret
-// This secret must exactly match the WORKER_SECRET in your Cloudflare Worker script.
-$worker_secret = 'A_VERY_SECRET_KEY';
-
-// 4. Upload Directory
-// Defines the path where files uploaded from the worker will be stored.
-// Ensure this directory exists and is writable by the web server.
-define('UPLOAD_DIR', __DIR__ . '/uploads/');
-
-// 5. Database Connection Settings
-// Replace the following placeholders with your actual database credentials.
-$db_host = 'localhost';     // Database host (e.g., '127.0.0.1' or 'localhost')
-$db_name = 'your_database_name'; // The name of your database
-$db_user = 'your_username';       // Your database username
-$db_pass = 'your_password';       // Your database password
-
-// 6. Database Schema
-// The authoritative database schema is located in the `data_table_schema.sql` file.
-
-// 7. Gemini API Key
-// This is now stored in the `application_settings` table in the database
-// and can be managed from within the application.
+// Error reporting for development
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 ?>

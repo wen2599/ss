@@ -1,36 +1,15 @@
-import React, { useState } from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import AuthModal from './AuthModal';
+import React from 'react';
+import { Outlet } from 'react-router-dom';
+import Navbar from './Navbar';
 import '../App.css';
 
 function MainLayout() {
-  const { isAuthenticated, logout } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const location = useLocation();
-
   return (
-    <div className="container">
-      <header className="app-header">
-        <div className="header-left">
-          {!isAuthenticated ? (
-            <button onClick={() => setIsModalOpen(true)}>登录 / 注册</button>
-          ) : (
-            <button onClick={logout}>退出登录</button>
-          )}
-        </div>
-        <div className="header-right">
-          {isAuthenticated && (
-            location.pathname === '/bills'
-              ? <NavLink to="/" className="header-link">返回主页</NavLink>
-              : <NavLink to="/bills" className="header-link">我的账单</NavLink>
-          )}
-        </div>
-      </header>
-      <main>
+    <div className="app-container">
+      <Navbar />
+      <main className="main-content">
         <Outlet />
       </main>
-      {isModalOpen && <AuthModal onClose={() => setIsModalOpen(false)} />}
     </div>
   );
 }

@@ -1,712 +1,97 @@
-/* ==============================
-   全局主题变量与基础布局
-   ============================== */
 :root {
-  --primary-color: #4F8CFF;
-  --primary-hover: #3576e6;
-  --secondary-color: #46d6b6;
-  --background: #f7f8fa;
-  --card-bg: #fff;
-  --border: #e1e5ef;
-  --text: #222;
-  --text-muted: #7a8194;
-  --error: #e74c3c;
-  --success: #22bb66;
-  --shadow: 0 2px 20px 0 rgba(79, 140, 255, 0.08);
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body, #root {
+body {
   margin: 0;
-  padding: 0;
-  min-width: 0;
+  min-width: 320px;
   min-height: 100vh;
-  background: var(--background);
-  color: var(--text);
-  font-family: "Inter", "PingFang SC", Arial, sans-serif;
-  box-sizing: border-box;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex-grow: 1;
+  padding: 2rem;
 }
 
 .container {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
 }
 
-/* ==============================
-   顶部导航条
-   ============================== */
-.app-header {
-  background: linear-gradient(90deg, #4F8CFF 0%, #46d6b6 100%);
-  color: #fff;
-  border-radius: 18px;
-  padding: 1.2vw 2vw;
-  margin-bottom: 2vw;
+.error {
+  color: #ff4d4d;
+  background-color: #ffe8e8;
+  padding: 1rem;
+  border-radius: 5px;
+  border: 1px solid #ffb8b8;
+}
+
+/* Lottery Banner Styles */
+.lottery-banner {
+  background-color: #333;
+  color: white;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.lottery-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 4px 24px rgba(79,140,255,0.15);
+  margin-bottom: 15px;
 }
 
-.header-left, .header-right {
-  display: flex;
-  gap: 1.2vw;
-  align-items: center;
-}
-
-.header-link {
-  padding: 0.3em 1em;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.08);
-  color: #fff;
-  font-weight: 500;
-  transition: background 0.22s;
-}
-.header-link:hover, .header-link.active {
-  background: rgba(255,255,255,0.19);
-}
-
-/* ==============================
-   主内容卡片
-   ============================== */
-main {
-  background: var(--card-bg);
-  border-radius: 18px;
-  box-shadow: var(--shadow);
-  padding: 2vw;
-  margin-bottom: 2vw;
-  border: 1px solid var(--border);
-  min-width: 0;
-  width: 100%;
-  max-width: 880px;
-  margin: 0 auto;
-  box-sizing: border-box;
-  overflow-x: hidden;
-}
-
-.panel {
-  background: var(--card-bg);
-  border-radius: 14px;
-  box-shadow: var(--shadow);
-  padding: 2vw;
-  margin-bottom: 2vw;
-  border: 1px solid var(--border);
-  min-width: 0;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.panels-container {
-  display: flex;
-  gap: 2vw;
-  flex-wrap: wrap;
-  width: 100%;
-  min-width: 0;
-}
-
-@media (max-width: 900px) {
-  .panels-container { flex-direction: column; gap: 1vw; }
-  .panel { padding: 1vw; min-width: 0; }
-}
-
-@media (max-width: 600px) {
-  .panel { min-width: 0; padding: 1vw; }
-}
-
-/* ==============================
-   按钮风格
-   ============================== */
-button {
-  border: none;
-  border-radius: 8px;
-  padding: 0.7em 1.4em;
-  font-size: 1.1em;
-  background: var(--primary-color);
-  color: #fff;
-  font-weight: 500;
-  box-shadow: 0 1px 6px rgba(79,140,255,0.11);
-  cursor: pointer;
-  transition: background 0.22s, transform 0.12s;
-}
-button:hover {
-  background: var(--primary-hover);
-  transform: translateY(-2px) scale(1.03);
-}
-button:active {
-  background: #3759bf;
-}
-
-/* ==============================
-   邮件原文样式
-   ============================== */
-.raw-content-panel {
-  background: #f7f8fa;
-  border-radius: 10px;
-  padding: 1.2em;
-  margin: 0;
-  font-size: 1em;
-  font-family: 'Fira Mono', 'Consolas', monospace;
-  white-space: pre-wrap;
-  word-break: break-all;
-  max-width: 100%;
-  max-height: 300px;
-  overflow: auto;
-  color: #32445a;
-  box-sizing: border-box;
-  border: 1px solid #e1e5ef;
-}
-
-/* ==============================
-   结算内容卡片与表格
-   ============================== */
-.slips-card-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 0.5rem;
-}
-.bet-slip-card {
-  display: flex;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-.bet-slip-card > div {
-  padding: 1rem;
-}
-.slip-raw {
-  flex: 1.5;
-  background: #fcfdff;
-  border-right: 1px solid var(--border);
-}
-.slip-card-header {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-.slip-pre {
-  background: #f7fafc;
-  margin: 0;
-  padding: 0.5rem;
-  border-radius: 6px;
-  font-size: 0.9em;
-  font-family: 'Fira Mono', 'Consolas', monospace;
-  white-space: pre-wrap;
-  word-break: break-all;
-  max-height: 200px;
-  overflow-y: auto;
-  border: 1px solid #e9eef5;
-}
-.slip-result {
-  flex: 3;
-}
-.slip-cost {
-  flex: 1;
-  background: #fcfdff;
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 0.25rem;
-}
-.slip-cost span {
-  font-size: 0.9em;
-  color: var(--text-muted);
-}
-.slip-cost strong {
-  font-size: 1.5em;
-  color: var(--primary-color);
-}
-.slip-actions {
-  margin-top: 1rem;
-  display: flex;
-  gap: 0.5rem;
-}
-.action-button {
-  padding: 0.4em 0.8em;
-  font-size: 0.9em;
-  border-radius: 6px;
-}
-.action-button.save {
-  background-color: var(--success);
-}
-.action-button.cancel {
-  background-color: var(--text-muted);
-}
-.bet-slip-card.editing {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 12px rgba(79, 140, 255, 0.2);
-}
-
-/* 单条结算详情表格 */
-.settlement-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: #f8faff;
-  border-radius: 8px;
-  margin-top: 0.5em;
-  font-size: 0.97em;
-  box-shadow: 0 1px 6px rgba(79,140,255,0.06);
-  table-layout: fixed;
-}
-.settlement-table th,
-.settlement-table td {
-  border-bottom: 1px solid #e1e5ef;
-  padding: 0.4em 0.7em;
-  text-align: left;
-  word-break: break-word;
-}
-.settlement-table th {
-  background: #f3f6fd;
-  color: #2980b9;
-  font-weight: 600;
-}
-.details-container {
-  padding: 10px;
-}
-.settlement-notes-section {
-  margin-top: 1em;
-}
-.editable-notes .notes-textarea {
-  width: 100%;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  padding: 8px;
-  margin-top: 6px;
-  resize: vertical;
-  box-sizing: border-box;
-}
-.editable-notes button {
-  margin-top: 8px;
-}
-.save-result {
-  margin-top: 8px;
-}
-.save-result.success {
-  color: var(--success);
-}
-.save-result.error {
-  color: var(--error);
-}
-.readonly-notes {
-  background: #f7f8fa;
-  border-radius: 6px;
-  padding: 6px;
-  margin-top: 6px;
-}
-.no-notes {
-  color: #bbb;
-}
-.type-zodiac { color: #e74c3c; font-weight: bold; }
-.type-number { color: #3576e6; font-weight: bold; }
-.zodiac-tag {
-  display: inline-block; background: #ffe2e2; color: #e74c3c;
-  border-radius: 4px; padding: 1px 6px; margin-top: 2px;
-  font-size: 0.95em;
-}
-.amount { color: #007bff; font-weight: 500; }
-.summary-label { background: #f8f9fa; color: #6c757d; font-weight: 500; }
-.summary-value { background: #eaf3ff; font-weight: bold; color: #28a745; }
-.slip-time .time-tag {
-  display: inline-block; background: #d1e9ff; color: #0056b3;
-  border-radius: 4px; padding: 2px 8px; font-size: 0.98em;
-}
-
-/* 总计高亮 */
-.multi-details-summary {
-  margin-top: 1rem;
-  padding: 1rem;
-  border-top: 2px solid var(--primary-color);
-  background: #f0f8ff;
-  border-radius: 8px;
-  font-size: 1.1em;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
-  font-weight: 600;
-}
-.multi-details-summary span {
-  color: var(--primary-hover);
+.lottery-period {
+  font-size: 1.2em;
   font-weight: bold;
 }
-.summary-divider {
-  color: var(--border);
-  font-weight: normal;
+
+.lottery-date {
+  font-size: 0.9em;
+  color: #ccc;
 }
 
-/* ==============================
-   账单表格
-   ============================== */
-.bills-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
-  background-color: var(--card-bg);
-  table-layout: fixed;
-}
-.bills-table th,
-.bills-table td {
-  padding: 1rem;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-  word-break: break-word;
-}
-.bills-table th {
-  font-weight: 600;
-  color: var(--text-muted);
-}
-.bills-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.bills-table tbody tr:hover {
-  background-color: #f0f7ff;
-  cursor: pointer;
-}
-.selected-row {
-  background: #eaf3ff;
-}
-.action-buttons-cell {
+.lottery-numbers {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.action-buttons-cell button {
-  padding: 0.5em 1em;
-}
-
-/* ==============================
-   状态标签
-   ============================== */
-.status-processed {
-  background: #e1ffe1;
-  color: #22bb66;
-  border-radius: 6px;
-  padding: 2px 12px;
-  font-weight: 600;
-}
-.status-unrecognized {
-  background: #ffe2e2;
-  color: #e74c3c;
-  border-radius: 6px;
-  padding: 2px 12px;
-  font-weight: 600;
-}
-.status-default {
-  background: #f0f7ff;
-  color: #4F8CFF;
-  border-radius: 6px;
-  padding: 2px 12px;
-  font-weight: 500;
-}
-
-/* ==============================
-   modal弹窗（自适应屏幕，不溢出）
-   ============================== */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(79,140,255,0.18);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-}
-.modal-content {
-  background: var(--card-bg);
-  padding: 2.5vw;
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(79,140,255,0.2);
-  position: relative;
-  width: 96vw;
-  max-width: 600px;
-  min-width: 260px;
-  max-height: 96vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  box-sizing: border-box;
-}
-.modal-content.wide-modal {
-  max-width: 90vw;
-}
-.no-slips-message {
-  padding: 20px;
-  color: #888;
-}
-.modal-panel {
-  margin-bottom: 0;
-  padding: 1em;
-  background: #f7f8fa;
-}
-.modal-raw-content {
-  background: #fff;
-  border: 1px solid #e1e5ef;
-  border-radius: 8px;
-  padding: 10px;
-  margin-top: 10px;
-  font-family: inherit;
-  font-size: 1em;
-  max-height: 120px;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-.slip-navigation {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  margin: 1em 0;
-}
-
-@media (max-width: 900px) {
-  .modal-content {
-    padding: 1vw;
-    max-width: 100vw;
-    min-width: 0;
-    width: 100vw;
-  }
-}
-@media (max-width: 600px) {
-  .modal-content {
-    padding: 1vw;
-    max-width: 100vw;
-    min-width: 0;
-    width: 100vw;
-  }
-  .panel {
-    padding: 0.8em !important;
-    font-size: 0.96em;
-  }
-  .settlement-table {
-    font-size: 0.95em;
-  }
-  .action-buttons-cell {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-
-.modal-close-button {
-  position: absolute;
-  top: 12px;
-  right: 20px;
-  background: none;
-  border: none;
-  font-size: 2.2em;
-  color: var(--primary-color);
-  cursor: pointer;
-  transition: color 0.22s;
-}
-.modal-close-button:hover {
-  color: var(--primary-hover);
-}
-form input,
-textarea {
-  padding: 1em;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: #f7f8fa;
-  font-size: 1em;
-}
-form input:focus,
-textarea:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(79,140,255,0.09);
-}
-form button {
-  margin-top: 1vw;
-  padding: 1em 0;
-  background: var(--primary-color);
-  font-size: 1.15em;
-}
-.modal-toggle {
-  margin-top: 2vw;
-  text-align: center;
-  color: var(--text-muted);
-}
-.modal-toggle button {
-  background: none;
-  border: none;
-  color: var(--primary-color);
-  text-decoration: underline;
-  font-size: inherit;
-}
-
-/* ==============================
-   提示/错误/成功文本
-   ============================== */
-.error, p.error {
-  color: var(--error);
-  background: #ffe2e2;
-  border: 1px solid #ffd0d0;
-  padding: 1vw;
-  border-radius: 8px;
-  text-align: center;
-}
-p.success {
-  color: var(--success);
-  background: #e1ffe1;
-  border: 1px solid #bbf7bb;
-  padding: 1vw;
-  border-radius: 8px;
-  text-align: center;
-}
-
-/* ==============================
-   开奖号码横幅+球色彩
-   ============================== */
-.lottery-banner {
-  background: linear-gradient(90deg, #4f8cff 0%, #46d6b6 100%);
-  color: #fff;
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(79,140,255,0.15);
-  padding: 2vw 2vw;
-  margin-bottom: 2vw;
-  text-align: center;
-  width: 100%;
-  box-sizing: border-box;
-  overflow-x: hidden;
-}
-.lottery-banner h3 {
-  margin: 0 0 1vw 0;
-  font-size: 1.15em;
-  font-weight: 600;
-  opacity: 0.96;
-}
-.banner-numbers {
-  margin-top: 0.5vw;
-  display: flex;
-  justify-content: center;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
-.number-ball {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  line-height: 32px;
+.number-circle {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  color: #fff;
-  font-weight: bold;
-  font-size: 1.1em;
-  margin: 2px;
-  box-shadow: 0 1px 3px rgba(79,140,255,0.09);
-  transition: box-shadow 0.18s, transform 0.18s;
-}
-.number-ball-red { background-color: #e74c3c; }
-.number-ball-blue { background-color: #3576e6; }
-.number-ball-green { background-color: #22bb66; }
-.number-ball-default { background-color: #7a8194; }
-.special-number {
-  background: #ffd966 !important;
-  color: #222 !important;
-  border: 2px solid #ffd966;
-  font-weight: bold;
-  box-shadow: 0 0 0 2px #ffd966, 0 2px 8px rgba(79,140,255,0.09);
-}
-
-/* ==============================
-   Authentication Modal
-   ============================== */
-.modal-overlay {
-  backdrop-filter: blur(4px);
-}
-
-.modal-content h2 {
-  margin-top: 0;
-  margin-bottom: 1.5rem;
-  font-size: 1.8rem;
-}
-
-.modal-content form {
   display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.2em;
+  font-weight: bold;
+  color: white;
 }
 
-.modal-content form div {
-  text-align: left;
+.red-ball {
+  background-color: #e74c3c;
 }
 
-.modal-content form label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.modal-content form input {
-  width: 100%;
-  padding: 0.8rem 1rem;
-  font-size: 1rem;
-  color: var(--text);
-  box-sizing: border-box;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.modal-content form input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.15);
-}
-
-.modal-content form button[type="submit"] {
-  width: 100%;
-  margin-top: 1rem;
-  padding: 0.9rem;
-  font-size: 1.1rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-/* ==============================
-   响应式自适应优化
-   ============================== */
-@media (max-width: 900px) {
-  #root { padding: 2vw 1vw; }
-  .container { gap: 1.2rem; }
-  main { padding: 1vw; }
-  .panels-container { flex-direction: column; gap: 1vw; }
-  .panel { padding: 1vw; }
-  .modal-content { padding: 1.2vw; }
-}
-
-@media (max-width: 768px) {
-  .bet-slip-card {
-    flex-direction: column;
-  }
-  .slip-raw, .slip-cost {
-    border-right: none;
-    border-left: none;
-  }
-  .slip-raw, .slip-result {
-    border-bottom: 1px solid var(--border);
-  }
-  .slip-cost {
-    border-bottom: none;
-  }
-}
-
-@media (max-width: 600px) {
-  #root { padding: 1vw 0.5vw; }
-  main { padding: 0.5vw; }
-  .panel { min-width: 0; padding: 1vw; }
-  .multi-details-summary, .single-bet-section { padding: 1vw; }
-  .multi-slips-table, .settlement-table, .bills-table {
-    font-size: 0.96em;
-  }
-  .raw-content-panel { font-size: 0.96em; max-height: 180px; }
-  .lottery-banner { padding: 1vw; font-size: 0.98em; }
-  .number-ball { width: 24px; height: 24px; font-size: 0.98em; }
-  .banner-numbers { gap: 5px; }
+.blue-ball {
+  background-color: #3498db;
 }

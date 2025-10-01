@@ -1,67 +1,94 @@
 <?php
 
-class GeminiCorrectionService {
-    private $apiKey;
-    private $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+namespace App\\Lib;
 
-    public function __construct(string $apiKey) {
+use Monolog\\Logger;
+
+class GeminiCorrectionService {
+    private string $apiKey;
+    private Logger $logger;
+    private const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+
+    public function __construct(string $apiKey, Logger $logger) {
         $this->apiKey = $apiKey;
+        $this->logger = $logger;
     }
 
     /**
-     * Sends the unparsed text to the Gemini API to get a corrected parsing and a suggested regex.
-     *
-     * @param string $unparsedText The text that the original parser failed to understand.
-     * @param int|null $userId The ID of the user for whom the correction is being made (for future context).
-     * @return array|null An associative array with 'corrected_data', 'suggested_regex', and 'type', or null on failure.
+     * Sends unparsed text to the Gemini API for correction and regex suggestion.
      */
     public function getCorrection(string $unparsedText, ?int $userId = null): ?array {
         if (empty($this->apiKey) || $this->apiKey === 'YOUR_GEMINI_API_KEY') {
-            error_log("Gemini API key is not configured.");
+            $this->logger->warning("Gemini API key is not configured. Correction service is disabled.");
             return null;
         }
 
         $prompt = $this->buildPrompt($unparsedText);
+        $postData = ['contents' => [['parts' => [['text' => $prompt]]]]]];
 
-        $postData = [
-            'contents' => [
-                [
-                    'parts' => [
-                        ['text' => $prompt]
-                    ]
-                ]
-            ]
-        ];
+        $response = $this->makeRequest($postData);
 
-        $ch = curl_init($this->apiUrl . '?key=' . $this->apiKey);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
-
-        $response = curl_exec($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($http_code !== 200) {
-            error_log("Gemini API request failed with HTTP code $http_code: $response");
+        if ($response === null) {
+            // Error is already logged in makeRequest
             return null;
         }
 
-        $responseData = json_decode($response, true);
-        $geminiText = $responseData['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        $geminiText = $response['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        if (empty($geminiText)) {
+            $this->logger->error("Gemini response is missing the expected text content.", ['response' => $response]);
+            return null;
+        }
 
         return $this->parseGeminiResponse($geminiText);
     }
 
     /**
+     * Executes the API request using cURL.
+     */
+    private function makeRequest(array $postData): ?array {
+        $url = self::API_URL . '?key=' . $this->apiKey;
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30); // 30-second timeout
+
+        $responseBody = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlError) {
+            $this->logger->error("cURL error during Gemini API request: " . $curlError);
+            return null;
+        }
+
+        if ($httpCode !== 200) {
+            $this->logger->error("Gemini API request failed.", [
+                'http_code' => $httpCode,
+                'response_body' => $responseBody
+            ]);
+            return null;
+        }
+
+        $responseData = json_decode($responseBody, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->logger->error("Failed to decode JSON from Gemini API response.", [
+                'error' => json_last_error_msg(),
+                'response_body' => $responseBody
+            ]);
+            return null;
+        }
+
+        return $responseData;
+    }
+
+    /**
      * Builds the specific prompt to send to the Gemini API.
-     *
-     * @param string $unparsedText
-     * @return string
      */
     private function buildPrompt(string $unparsedText): string {
-        // This prompt is carefully designed to instruct the AI on its role and desired output format.
         return "You are an expert lottery bet slip parsing assistant. Your task is to analyze the following text, which our system failed to parse, and provide a response in a specific JSON format. The JSON response must contain three top-level keys: `corrected_data`, `suggested_regex`, and `type`.
 
 1.  **`corrected_data`**: A JSON object representing the bets found in the text. The format should be an array of `number_bets`, where each bet has `numbers` (an array of strings), `cost_per_number` (an integer), and `cost` (an integer).
@@ -72,6 +99,7 @@ Here is the text to analyze:
 \"$unparsedText\"
 
 Please provide your response inside a single JSON object. Here is an example of the required format:
+```json
 {
   \"corrected_data\": {
     \"number_bets\": [
@@ -84,34 +112,36 @@ Please provide your response inside a single JSON object. Here is an example of 
   },
   \"suggested_regex\": \"/([0-9, ]+)各\\\\s*(\\\\d+)/u\",
   \"type\": \"number_list\"
-}";
+}
+```";
     }
 
     /**
      * Parses the raw text response from Gemini into a structured array.
-     *
-     * @param string $geminiText
-     * @return array|null
      */
     private function parseGeminiResponse(string $geminiText): ?array {
-        // Find the JSON block in the response, in case the AI adds extra text.
+        // Find the JSON block in the response, in case the AI adds extra text (e.g., ```json ... ```).
         preg_match('/\{.*?\}/s', $geminiText, $matches);
         if (empty($matches[0])) {
-            error_log("Could not find a valid JSON block in the Gemini response.");
+            $this->logger->error("Could not find a valid JSON block in the Gemini response.", ['response_text' => $geminiText]);
             return null;
         }
 
-        $json_data = json_decode($matches[0], true);
+        $jsonData = json_decode($matches[0], true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log("Failed to decode JSON from Gemini response: " . json_last_error_msg());
+            $this->logger->error("Failed to decode JSON from Gemini response.", [
+                'error' => json_last_error_msg(),
+                'json_text' => $matches[0]
+            ]);
             return null;
         }
+        
+        // Validate the structure of the parsed JSON
+        if (!isset($jsonData['corrected_data'], $jsonData['suggested_regex'], $jsonData['type'])) {
+             $this->logger->warning("Gemini response JSON is missing one or more required keys.", ['parsed_json' => $jsonData]);
+             return null;
+        }
 
-        return [
-            'corrected_data' => $json_data['corrected_data'] ?? null,
-            'suggested_regex' => $json_data['suggested_regex'] ?? null,
-            'type' => $json_data['type'] ?? null
-        ];
+        return $jsonData;
     }
 }
-?>
