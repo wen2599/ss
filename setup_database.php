@@ -2,18 +2,14 @@
 
 require_once __DIR__ . '/vendor/autoload.php';
 
-use Monolog\\Logger;
-use Monolog\\Handler\\StreamHandler;
-use Dotenv\\Dotenv;
-
 // Load .env variables
-$dotenv = Dotenv::createImmutable(__DIR__);
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
 // Logger Setup
-$logLevel = Logger::toMonologLevel($_ENV['LOG_LEVEL'] ?? 'INFO');
-$log = new Logger('setup_db');
-$log->pushHandler(new StreamHandler(__DIR__ . '/app.log', $logLevel));
+$logLevel = Monolog\Logger::toMonologLevel($_ENV['LOG_LEVEL'] ?? 'INFO');
+$log = new Monolog\Logger('setup_db');
+$log->pushHandler(new Monolog\Handler\StreamHandler(__DIR__ . '/app.log', $logLevel));
 
 // Database credentials from environment variables
 $db_host = $_ENV['DB_HOST'] ?? 'localhost';
