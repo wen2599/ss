@@ -28,17 +28,17 @@ jobs:
         # including the "-----BEGIN RSA PRIVATE KEY-----" and "-----END RSA PRIVATE KEY-----" lines,
         # and no extra spaces or newlines.
         # If your key has a passphrase, you need to provide it as a separate secret.
-        uses: webfactory/ssh-agent@v0.5.3
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${% raw %}{{ secrets.SERV00_KEY }}{% endraw %}
+          ssh-private-key: ${{ secrets.SERV00_KEY }}
           # If your SSH key has a passphrase, uncomment the line below and provide the secret.
-          # passphrase: ${% raw %}{{ secrets.SERV00_KEY_PASSPHRASE }}{% endraw %}
+          # passphrase: ${{ secrets.SERV00_KEY_PASSPHRASE }}
 
       - name: 3. Add Server to Known Hosts
         # This prevents the 'Host key verification failed' error by adding the server's host key.
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${% raw %}{{ secrets.SERV00_HOST }}{% endraw %} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.SERV00_HOST }} >> ~/.ssh/known_hosts
 
       - name: 4. Deploy Backend Files using rsync
         # This is the core deployment step.
@@ -51,4 +51,4 @@ jobs:
             --exclude 'webhook_log.txt' \
             --exclude 'phpinfo.php' \
             --exclude '.htaccess' \
-            ./backend/ ${% raw %}{{ secrets.SERV00_USER }}{% endraw %}@${% raw %}{{ secrets.SERV00_HOST }}{% endraw %}:${% raw %}{{ secrets.SERV00_PATH }}{% endraw %}
+            ./backend/ ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}

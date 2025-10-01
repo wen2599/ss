@@ -85,7 +85,8 @@ ON DUPLICATE KEY UPDATE `setting_name` = `setting_name`;
 --
 INSERT INTO `parsing_templates` (`user_id`, `type`, `pattern`, `priority`, `description`)
 VALUES
-  (NULL, 'zodiac', '/([\\p{Han},，\\s]+?)(?:数各|各数)\\s*([\\p{Han}\\d]+)\\s*[元块]?/u', 10, 'Parses zodiac bets like "龙虎数各十元"'),
-  (NULL, 'number_list', '/([0-9.,，、\\s-]+)各\\s*(\\d+)\\s*(?:#|[元块])/u', 20, 'Parses number list bets like "01,02,03各10元"'),
-  (NULL, 'multiplier', '/(\\d+)\\s*[xX×\\*]\\s*(\\d+)\\s*[元块]?/u', 30, 'Parses multiplier bets like "49x100元"')
+  (NULL, 'zodiac', '/([\p{Han},，\s]+?)(?:数各|各数)\s*([\p{Han}\d]+)\s*[元块]?/u', 10, 'Parses zodiac bets like "龙虎数各十元"'),
+  (NULL, 'number_list', '/([0-9.,，、\s-]+)各\s*(\d+)\s*(?:#|[元块])/u', 20, 'Parses number list bets like "01,02,03各10元"'),
+  (NULL, 'multiplier', '/(\d+)\s*[xX×\*]\s*(\d+)\s*[元块]?/u', 30, 'Parses multiplier bets like "49x100元"')
 ON DUPLICATE KEY UPDATE `pattern` = VALUES(`pattern`);
+
