@@ -51,4 +51,5 @@ jobs:
             --exclude 'webhook_log.txt' \
             --exclude 'phpinfo.php' \
             --exclude '.htaccess' \
+            --exclude 'vendor/' \
             ./backend/ ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}
