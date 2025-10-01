@@ -93,13 +93,19 @@ export default {
 
       } catch (error) {
         console.error('Error proxying to backend:', error.message);
-        return new Response('API backend unavailable.', { status: 503 });
+        return new Response(JSON.stringify({ success: false, error: 'API backend unavailable.' }), {
+          status: 503, // Service Unavailable
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': origin,
+            'Access-Control-Allow-Credentials': 'true',
+          },
+        });
       }
 
       const respHeaders = new Headers(backendResp.headers);
       respHeaders.set('Access-Control-Allow-Origin', origin);
-      respHeaders.set('Access-Control-Allow-Credentials', 'true');
-      respHeaders.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+      respHeaders.set('Access-control-allow-credentials', 'true');
 
       return new Response(backendResp.body, {
         status: backendResp.status,
