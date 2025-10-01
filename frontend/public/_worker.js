@@ -35,7 +35,7 @@ export default {
           headers: {
             'Access-Control-Allow-Origin': origin, // Use the dynamic origin
             'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Worker-Secret',
             'Access-Control-Allow-Credentials': 'true', // Allow credentials
             'Access-Control-Max-Age': '86400',
           },
@@ -57,6 +57,10 @@ export default {
 
       const newHeaders = new Headers(request.headers);
       newHeaders.set('Host', new URL(backendHost).hostname);
+      // Add the worker secret to the request headers for backend verification.
+      if (env.WORKER_SECRET) {
+        newHeaders.set('X-Worker-Secret', env.WORKER_SECRET);
+      }
 
       const init = {
         method: request.method,
