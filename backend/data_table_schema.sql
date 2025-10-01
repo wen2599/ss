@@ -60,3 +60,12 @@ INSERT INTO `application_settings` (`setting_name`, `setting_value`, `descriptio
 VALUES
   ('gemini_api_key', 'YOUR_GEMINI_API_KEY', 'The API key for the Gemini AI service used for parsing corrections.')
 ON DUPLICATE KEY UPDATE `setting_name` = `setting_name`; -- Do nothing if the key already exists
+
+--
+-- Table structure for table `allowed_emails`
+--
+CREATE TABLE IF NOT EXISTS `allowed_emails` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `email` VARCHAR(255) NOT NULL UNIQUE,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
