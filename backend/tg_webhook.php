@@ -1,6 +1,6 @@
 <?php
 
-// Version 1.2 - Removed WORKER_SECRET check for Telegram Webhook.
+// Version 11.2 - Removed WORKER_SECRET check for Telegram Webhook.
 
 require_once __DIR__ . '/vendor/autoload.php';
 
