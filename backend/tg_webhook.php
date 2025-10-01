@@ -103,7 +103,7 @@ if ($message) {
 
     // --- Step 4: Admin-only logic ---
     $main_menu_keyboard = json_encode(['keyboard' => [[['text' => '👤 用户管理'], ['text' => '⚙️ 系统设置']]], 'resize_keyboard' => true]);
-    $user_management_keyboard = json_encode(['keyboard' => [[['text' => '📋 列出所有用户'], ['text' => '➖ 删除用户']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
+    $user_management_keyboard = json_encode(['keyboard' => [[['text' => '📋 列出所有用户'], ['text' => '➖ 删除用户']], [['text' => '➕ 添加邮箱'], ['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
     $system_settings_keyboard = json_encode(['keyboard' => [[['text' => '🔑 设定API密钥'], ['text' => 'ℹ️ 检查密钥状态']], [['text' => '⬅️ 返回主菜单']]], 'resize_keyboard' => true]);
 
     $command_map = [
@@ -111,6 +111,7 @@ if ($message) {
         '⚙️ 系统设置' => '/system_settings',
         '➖ 删除用户' => '/deluser',
         '📋 列出所有用户' => '/listusers',
+        '➕ 添加邮箱' => '/addemail',
         '🔑 设定API密钥' => '/set_gemini_key',
         'ℹ️ 检查密钥状态' => '/get_api_key_status',
         '⬅️ 返回主菜单' => '/start',
@@ -143,6 +144,25 @@ if ($message) {
                 break;
             case '/listusers':
                 Telegram::sendMessage($chat_id, User::listUsersFromDB($pdo));
+                break;
+            case '/addemail':
+                if (!empty($args) && filter_var($args, FILTER_VALIDATE_EMAIL)) {
+                    try {
+                        $stmt = $pdo->prepare("INSERT INTO allowed_emails (email) VALUES (:email)");
+                        $stmt->execute([':email' => $args]);
+                        $responseText = "✅ 邮箱 `" . htmlspecialchars($args) . "` 已被授权。";
+                    } catch (PDOException $e) {
+                        // Check for duplicate entry error
+                        if ($e->errorInfo[1] == 1062) {
+                            $responseText = "⚠️ 邮箱 `" . htmlspecialchars($args) . "` 已存在，无需重复添加。";
+                        } else {
+                            $responseText = "数据库错误：" . $e->getMessage();
+                        }
+                    }
+                } else {
+                    $responseText = "用法：`/addemail <要授权的邮箱地址>`";
+                }
+                Telegram::sendMessage($chat_id, $responseText);
                 break;
             // Note: The set/get API key logic is removed as it's not fully implemented
             // and was part of the dead code. It can be re-added later if needed.
