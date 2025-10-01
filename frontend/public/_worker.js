@@ -33,10 +33,10 @@ export default {
         return new Response(null, {
           status: 204,
           headers: {
-            'Access-Control-Allow-Origin': origin, // Use the dynamic origin
+            'Access-Control-Allow-Origin': origin,
             'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Worker-Secret',
-            'Access-Control-Allow-Credentials': 'true', // Allow credentials
+            'Access-Control-Allow-Credentials': 'true',
             'Access-Control-Max-Age': '86400',
           },
         });
@@ -47,12 +47,10 @@ export default {
 
       // Preserve original search parameters from the frontend request
       const searchParams = new URLSearchParams(url.search);
-      // Set the action for the backend PHP router
       searchParams.set('action', action);
 
-      // Construct the new URL to point to the backend API, which is located
-      // under the /backend/ path.
-      const backendUrl = new URL(`${backendHost}/backend/?${searchParams.toString()}`);
+      // Construct the new URL to point directly to the backend API entry point.
+      const backendUrl = new URL(`${backendHost}/backend/index.php?${searchParams.toString()}`);
 
       const newHeaders = new Headers(request.headers);
       newHeaders.set('Host', new URL(backendHost).hostname);
@@ -74,16 +72,33 @@ export default {
       let backendResp;
       try {
         backendResp = await fetch(backendUrl, init);
+
+        // **Enhanced Error Handling:** Check if the backend returned an HTML error page.
+        const contentType = backendResp.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          // The backend returned a non-JSON response, likely an error page.
+          // We return a structured JSON error to the frontend to prevent a crash.
+          const errorBody = await backendResp.text();
+          console.error(`Backend returned non-JSON response. Status: ${backendResp.status}. Body: ${errorBody.substring(0, 500)}`);
+          const jsonError = { success: false, error: `Backend error: Received non-JSON response with status ${backendResp.status}.` };
+          return new Response(JSON.stringify(jsonError), {
+            status: 502, // Bad Gateway
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': origin,
+              'Access-Control-Allow-Credentials': 'true',
+            },
+          });
+        }
+
       } catch (error) {
         console.error('Error proxying to backend:', error.message);
-        return new Response('API backend unavailable.', { status: 502 });
+        return new Response('API backend unavailable.', { status: 503 });
       }
 
       const respHeaders = new Headers(backendResp.headers);
-      // IMPORTANT: For credentialed requests, the origin cannot be a wildcard.
-      // It must match the origin of the frontend request.
       respHeaders.set('Access-Control-Allow-Origin', origin);
-      respHeaders.set('Access-Control-Allow-Credentials', 'true'); // Allow credentials
+      respHeaders.set('Access-Control-Allow-Credentials', 'true');
       respHeaders.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
 
       return new Response(backendResp.body, {
@@ -97,8 +112,6 @@ export default {
     try {
       return await env.ASSETS.fetch(request);
     } catch (e) {
-      // If the asset is not found, fall back to the main index.html page
-      // This is crucial for SPA routing to work correctly.
       let notFoundResponse = await env.ASSETS.fetch(new URL('/', url).toString());
       return new Response(notFoundResponse.body, {
         ...notFoundResponse,

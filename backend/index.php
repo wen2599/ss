@@ -28,7 +28,7 @@ if (isset($_SERVER['HTTP_ORIGIN'])) {
     header("Access-Control-Allow-Origin: *");
 }
 header("Access-Control-Allow-Credentials: true");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Worker-Secret");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 
 // Handle pre-flight OPTIONS request
@@ -40,6 +40,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/config.php';
+
+// Security Check: Validate the secret header from the Cloudflare Worker.
+// This ensures that requests are coming from the worker and not directly from the public internet.
+if (!isset($_SERVER['HTTP_X_WORKER_SECRET']) || $_SERVER['HTTP_X_WORKER_SECRET'] !== $worker_secret) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Forbidden: Missing or invalid secret.']);
+    exit();
+}
 
 // 2. Database Connection (passed to action scripts)
 try {
