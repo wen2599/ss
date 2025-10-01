@@ -50,10 +50,9 @@ export default {
       // Set the action for the backend PHP router
       searchParams.set('action', action);
 
-      // Construct the new URL to point to the backend's root, which will
-      // handle all requests via the index.php router. This avoids all
-      // server-side redirects that were causing method and connection errors.
-      const backendUrl = new URL(`${backendHost}/?${searchParams.toString()}`);
+      // Construct the new URL to point to the backend API, which is located
+      // under the /backend/ path.
+      const backendUrl = new URL(`${backendHost}/backend/?${searchParams.toString()}`);
 
       const newHeaders = new Headers(request.headers);
       newHeaders.set('Host', new URL(backendHost).hostname);
