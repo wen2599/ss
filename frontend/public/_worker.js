@@ -50,14 +50,10 @@ export default {
       // Set the action for the backend PHP router
       searchParams.set('action', action);
 
-      // Conditional routing based on the request method to handle server quirks.
-      // POST requests must go to the root to avoid a redirect that breaks the method.
-      // GET requests must go to index.php to avoid other routing issues.
-      let targetPath = '/index.php';
-      if (request.method === 'POST') {
-          targetPath = '/';
-      }
-      const backendUrl = new URL(`${backendHost}${targetPath}?${searchParams.toString()}`);
+      // Construct the new URL to point to the backend's root, which will
+      // handle all requests via the index.php router. This avoids all
+      // server-side redirects that were causing method and connection errors.
+      const backendUrl = new URL(`${backendHost}/?${searchParams.toString()}`);
 
       const newHeaders = new Headers(request.headers);
       newHeaders.set('Host', new URL(backendHost).hostname);
