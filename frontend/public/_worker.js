@@ -4,7 +4,10 @@ export default {
     const url = new URL(request.url);
     const { pathname } = url;
 
-    // Define all known API routes (actions) that should be proxied to the backend
+    // The origin of the frontend application making the request
+    const origin = request.headers.get('Origin');
+
+    // Define all known API routes that should be proxied to the backend
     const apiRoutes = [
       '/check_session',
       '/email_upload',
@@ -28,9 +31,10 @@ export default {
         return new Response(null, {
           status: 204,
           headers: {
-            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Origin': origin, // Use the dynamic origin
             'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+            'Access-Control-Allow-Credentials': 'true', // Allow credentials
             'Access-Control-Max-Age': '86400',
           },
         });
@@ -54,7 +58,6 @@ export default {
         method: request.method,
         headers: newHeaders,
         redirect: 'follow',
-        credentials: 'include', // Forward credentials (cookies) to the backend
       };
 
       if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -70,7 +73,10 @@ export default {
       }
 
       const respHeaders = new Headers(backendResp.headers);
-      respHeaders.set('Access-Control-Allow-Origin', '*');
+      // IMPORTANT: For credentialed requests, the origin cannot be a wildcard.
+      // It must match the origin of the frontend request.
+      respHeaders.set('Access-Control-Allow-Origin', origin);
+      respHeaders.set('Access-Control-Allow-Credentials', 'true'); // Allow credentials
       respHeaders.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
 
       return new Response(backendResp.body, {
@@ -80,12 +86,7 @@ export default {
       });
     }
 
-    // For all other requests, assume it's a static asset or a SPA route.
-    // Let Cloudflare Pages' asset handling take over.
-    // It will serve the file if it exists, or serve the SPA fallback (index.html)
-    // if a _redirects file with `/* /index.html 200` is configured,
-    // or if SPA fallback is enabled in the Pages settings.
-    // A simple try-catch can also work as a fallback.
+    // For all other requests, serve from static assets.
     try {
       return await env.ASSETS.fetch(request);
     } catch (e) {
