@@ -50,25 +50,32 @@ try {
 
     $new_user_db_id = $pdo->lastInsertId();
 
-    // On successful registration, notify the admin via Telegram
-    $notification_text = "新的网站用户注册请求：\n"
-                       . "---------------------\n"
-                       . "*用户:* `" . htmlspecialchars($username) . "`\n"
-                       . "*Email:* `" . htmlspecialchars($email) . "`\n"
-                       . "*数据库 ID:* `" . $new_user_db_id . "`\n"
-                       . "---------------------\n"
-                       . "请批准或拒绝此请求。";
+    // On successful registration, notify the admin via Telegram.
+    // This is in a separate try-catch so that a notification failure
+    // does not prevent the user from receiving a success response.
+    try {
+        $notification_text = "新的网站用户注册请求：\n"
+                           . "---------------------\n"
+                           . "*用户:* `" . htmlspecialchars($username) . "`\n"
+                           . "*Email:* `" . htmlspecialchars($email) . "`\n"
+                           . "*数据库 ID:* `" . $new_user_db_id . "`\n"
+                           . "---------------------\n"
+                           . "请批准或拒绝此请求。";
 
-    // The callback data for web users must be different to distinguish them.
-    // We will use the database ID (`dbid`) for these users.
-    $approval_keyboard = json_encode([
-        'inline_keyboard' => [[
-            ['text' => '✅ 批准', 'callback_data' => 'approve_dbid_' . $new_user_db_id],
-            ['text' => '❌ 拒绝', 'callback_data' => 'deny_dbid_' . $new_user_db_id]
-        ]]
-    ]);
+        // The callback data for web users must be different to distinguish them.
+        // We will use the database ID (`dbid`) for these users.
+        $approval_keyboard = json_encode([
+            'inline_keyboard' => [[
+                ['text' => '✅ 批准', 'callback_data' => 'approve_dbid_' . $new_user_db_id],
+                ['text' => '❌ 拒绝', 'callback_data' => 'deny_dbid_' . $new_user_db_id]
+            ]]
+        ]);
 
-    Telegram::sendMessage($admin_id, $notification_text, $approval_keyboard);
+        Telegram::sendMessage($admin_id, $notification_text, $approval_keyboard);
+    } catch (Throwable $e) {
+        // Log the error, but don't prevent the user from getting a success response.
+        error_log("Failed to send Telegram notification for new user " . $new_user_db_id . ": " . $e->getMessage());
+    }
 
     http_response_code(200);
     echo json_encode(['success' => true, 'message' => '您的注册申请已提交，请等待管理员批准。']);
