@@ -29,6 +29,11 @@ jobs:
         uses: webfactory/ssh-agent@v0.5.3
         with:
           ssh-private-key: ${% raw %}{{ secrets.SERV00_KEY }}{% endraw %}
+          # IMPORTANT: If your SSH key has a passphrase, add it here:
+          # passphrase: ${% raw %}{{ secrets.SSH_KEY_PASSPHRASE }}{% endraw %} 
+          # If your key does NOT have a passphrase, leaving this blank or omitting it is usually fine.
+          # However, sometimes explicitly setting it to an empty string can help with libcrypto errors.
+          passphrase: '' # Explicitly set to empty string if no passphrase
 
       - name: 3. Add Server to Known Hosts
         # This prevents the 'Host key verification failed' error by adding the server's host key.
