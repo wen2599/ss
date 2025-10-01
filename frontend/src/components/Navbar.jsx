@@ -13,7 +13,7 @@ function Navbar() {
     <>
       <nav className="navbar">
         <div className="navbar-left">
-          <NavLink to="/" className="navbar-brand">Lottery App</NavLink>
+          <NavLink to="/" className="navbar-brand">彩票助手</NavLink>
         </div>
         <div className="navbar-right">
           {isAuthenticated ? (
