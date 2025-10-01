@@ -42,4 +42,4 @@ jobs:
           rsync -avz --delete \
             --exclude '.env' \
             --exclude 'config.php' \
-            ./backend ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}
+            ./backend/ ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}

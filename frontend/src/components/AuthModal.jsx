@@ -24,10 +24,10 @@ function AuthModal({ onClose }) {
         login(data.user);
         onClose(); // Close modal on successful login
       } else {
-        setError(data.error || '登录失败。');
+        setError(data.error || '登录失败，请检查您的邮箱和密码。');
       }
     } catch (err) {
-      setError('发生错误，请重试。');
+      setError('网络或服务器错误，请稍后重试。');
     }
   };
 
@@ -43,13 +43,17 @@ function AuthModal({ onClose }) {
       });
       const data = await response.json();
       if (data.success) {
-        setSuccessMessage('注册成功！请登录。');
-        setIsLoginView(true); // Switch to login view
+        // Set a more accurate success message based on the backend flow
+        setSuccessMessage('注册申请已提交，请等待管理员批准。');
+        // Clear form fields after successful submission
+        setEmail('');
+        setPassword('');
+        // Optional: Do not switch to login view automatically, let the user close the modal.
       } else {
-        setError(data.error || '注册失败。');
+        setError(data.error || '注册失败，该邮箱可能已被注册或输入无效。');
       }
     } catch (err) {
-      setError('发生错误，请重试。');
+      setError('网络或服务器错误，请稍后重试。');
     }
   };
 

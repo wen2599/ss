@@ -25,10 +25,10 @@ function BillsPage() {
       if (data.success) {
         setBills(data.bills);
       } else {
-        setError(data.error || 'Failed to fetch bills.');
+        setError(data.error || '获取账单失败。');
       }
     } catch (err) {
-      setError('An error occurred while fetching bills. Please try again later.');
+      setError('获取账单时发生错误，请稍后重试。');
     } finally {
       setIsLoading(false);
     }

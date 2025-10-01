@@ -23,17 +23,17 @@ export function useLotteryData() {
         if (resultsData.success) {
           setResults(resultsData.results);
         } else {
-          throw new Error(resultsData.error || 'Failed to fetch lottery results.');
+          throw new Error(resultsData.error || '获取开奖结果失败。');
         }
 
         if (gameData.success) {
           setColorMap(gameData.colorMap);
         } else {
-          throw new Error(gameData.error || 'Failed to fetch game data.');
+          throw new Error(gameData.error || '获取游戏数据失败。');
         }
 
       } catch (err) {
-        setError(err.message || 'An error occurred while fetching data.');
+        setError(err.message || '获取数据时发生错误。');
       } finally {
         setIsLoading(false);
       }
