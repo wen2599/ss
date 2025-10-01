@@ -1,6 +1,6 @@
 <?php
 
-// Version 1.1 - Added a comment to trigger deployment
+// Version 1.2 - Removed WORKER_SECRET check for Telegram Webhook.
 
 require_once __DIR__ . '/vendor/autoload.php';
 
@@ -49,6 +49,16 @@ if (empty($botToken) || empty($adminId)) {
 }
 
 $telegram = new Telegram($botToken, $log);
+
+// IMPORTANT: Telegram Webhook requests do NOT contain X-Worker-Secret.
+// Removing this check for tg_webhook.php specifically.
+// The main index.php (for frontend API calls) still requires it.
+// if (!isset($_SERVER['HTTP_X_WORKER_SECRET']) || $_SERVER['HTTP_X_WORKER_SECRET'] !== ($_ENV['WORKER_SECRET'] ?? '')) {
+//     $log->warning("Forbidden access attempt to tg_webhook. Worker secret missing or invalid.");
+//     http_response_code(403);
+//     echo json_encode(['success' => false, 'error' => 'Forbidden: Missing or invalid secret.']);
+//     exit();
+// }
 
 // Get and Decode the Incoming Update
 $update_json = file_get_contents('php://input');
