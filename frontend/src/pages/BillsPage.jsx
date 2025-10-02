@@ -10,6 +10,7 @@ function BillsPage() {
   const [selectedBillIndex, setSelectedBillIndex] = useState(null);
   const [showRawModal, setShowRawModal] = useState(false);
   const [showSettlementModal, setShowSettlementModal] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const { user, isAuthenticated } = useAuth();
 
   const fetchBills = async () => {
@@ -44,6 +45,7 @@ function BillsPage() {
 
   const handleDeleteBill = async (billId) => {
     if (!window.confirm(`您确定要删除账单 #${billId} 吗？此操作无法撤销。`)) return;
+    setDeletingId(billId);
     try {
       const response = await fetch('/delete_bill', {
         method: 'POST',
@@ -62,6 +64,8 @@ function BillsPage() {
       }
     } catch (err) {
       alert('删除时发生错误。');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -105,7 +109,13 @@ function BillsPage() {
                 <td className="action-buttons-cell">
                   <button onClick={() => { setSelectedBillIndex(index); setShowRawModal(true); }}>原文</button>
                   <button onClick={() => { setSelectedBillIndex(index); setShowSettlementModal(true); }}>结算详情</button>
-                  <button onClick={() => handleDeleteBill(bill.id)} className="delete-button">删除</button>
+                  <button
+                    onClick={() => handleDeleteBill(bill.id)}
+                    className="delete-button"
+                    disabled={deletingId === bill.id}
+                  >
+                    {deletingId === bill.id ? '正在删除...' : '删除'}
+                  </button>
                 </td>
               </tr>
             ))}
