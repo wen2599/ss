@@ -1,6 +1,8 @@
 <?php
 // Action: Get static game data (e.g., color maps)
 
+require_once __DIR__ . '/../init.php';
+
 // The GameData library is already included by the index.php router
 // but for clarity and potential standalone use, we can include it again.
 require_once __DIR__ . '/../lib/GameData.php';

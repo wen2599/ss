@@ -1,6 +1,8 @@
 <?php
 // Action: Get all lottery results
 
+require_once __DIR__ . '/../init.php';
+
 try {
     // This query ensures we get exactly one, the most recent, result for each of the three lottery types.
     $sql = "

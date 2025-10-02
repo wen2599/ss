@@ -51,10 +51,10 @@ class BetCalculator {
                 return;
             }
             
-            throw new Exception("No templates found in the database.");
+            throw new Exception("No parsing templates found in the database for this user or globally.");
 
         } catch (Exception $e) {
-            $this->logger->warning("Could not load parsing templates from DB: " . $e->getMessage() . ". Falling back to hardcoded templates.");
+            $this->logger->warning("Could not load parsing templates from DB. Reason: " . $e->getMessage() . ". Falling back to hardcoded default templates.");
             // Fallback to hardcoded templates if DB query fails or no templates exist.
             $this->parsingTemplates = [
                 ['type' => 'zodiac', 'pattern' => '/([\\p{Han},，\\s]+?)(?:数各|各数)\\s*([\\p{Han}\\d]+)\\s*[元块]?/u'],
@@ -76,7 +76,6 @@ class BetCalculator {
             $type = $template['type'];
 
             while (preg_match($pattern, $remaining_text, $match)) {
-                $full_match_str = $match[0];
                 $bet_data = null;
 
                 switch ($type) {
@@ -95,13 +94,9 @@ class BetCalculator {
                     $settlement_slip['number_bets'][] = $bet_data;
                 }
 
-                // Consume the matched part from the text to prevent re-matching.
-                $pos = strpos($remaining_text, $full_match_str);
-                if ($pos !== false) {
-                    $remaining_text = substr_replace($remaining_text, '', $pos, strlen($full_match_str));
-                } else {
-                    break; 
-                }
+                // Safely consume the matched part from the text using preg_replace with a limit of 1.
+                // This prevents issues if the matched string appears multiple times.
+                $remaining_text = preg_replace('/' . preg_quote($match[0], '/') . '/', '', $remaining_text, 1);
             }
         }
 
@@ -252,7 +247,7 @@ class BetCalculator {
         $zodiac_string_with_commas = trim($match[1], " \t\n\r\0\x0B,，");
         $zodiac_string = preg_replace('/[,，\\s]/u', '', $zodiac_string_with_commas);
         $zodiacs = mb_str_split($zodiac_string);
-        $cost_per_number = self::chineseToNumber($match[2]) ?: (int)$match[2];
+        $cost_per_number = self::chineseToNumber($match[2]);
 
         if ($cost_per_number <= 0 || empty($zodiacs)) return null;
 
@@ -299,28 +294,32 @@ class BetCalculator {
     }
     
     /**
-     * Converts Chinese number characters to an integer.
+     * Converts Chinese number characters (up to 99) or a numeric string to an integer.
      */
     private static function chineseToNumber(string $text): int {
+        $text = trim($text);
+        if (is_numeric($text)) {
+            return (int)$text;
+        }
+
         $map = ['零'=>0, '一'=>1, '二'=>2, '三'=>3, '四'=>4, '五'=>5, '六'=>6, '七'=>7, '八'=>8, '九'=>9, '两'=>2];
-        $text = trim(str_replace('两', '二', $text));
+        $text = str_replace('两', '二', $text);
         
-        if (isset($map[$text])) return $map[$text];
-        if ($text === '十') return 10;
-        
-        if (mb_substr($text, 0, 1) === '十') {
-            return 10 + ($map[mb_substr($text, 1, 1)] ?? 0);
+        $total = 0;
+        if (str_contains($text, '十')) {
+            $parts = explode('十', $text);
+            if ($parts[0] === '') { // Case: "十一" (starts with ten)
+                $total = 10;
+            } else { // Case: "二十" (starts with a digit)
+                $total = ($map[$parts[0]] ?? 0) * 10;
+            }
+            if (!empty($parts[1])) { // Case: "二十一" (has a digit after ten)
+                $total += ($map[$parts[1]] ?? 0);
+            }
+        } else { // Case: "五" (single digit)
+            $total = $map[$text] ?? 0;
         }
         
-        if (mb_substr($text, -1, 1) === '十') {
-            return ($map[mb_substr($text, 0, 1)] ?? 0) * 10;
-        }
-        
-        $parts = mb_split('十', $text);
-        if (count($parts) === 2 && isset($map[$parts[0]], $map[$parts[1]])) {
-            return $map[$parts[0]] * 10 + $map[$parts[1]];
-        }
-        
-        return 0;
+        return $total;
     }
 }

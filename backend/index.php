@@ -1,1 +1,82 @@
-<?php\n\nrequire_once __DIR__ . \'/vendor/autoload.php\';\n\nuse Monolog\\Logger;\nuse Monolog\\Handler\\StreamHandler;\nuse Dotenv\\Dotenv;\n\n// Load .env variables\n$dotenv = Dotenv::createImmutable(__DIR__);\n$dotenv->load();\n\n// Determine environment and error reporting\n$isDevelopment = ($_ENV[\'APP_ENV\'] ?? \'production\') === \'development\';\nif ($isDevelopment) {\n    ini_set(\'display_errors\', 1);\n    ini_set(\'display_startup_errors\', 1);\n    error_reporting(E_ALL);\n} else {\n    ini_set(\'display_errors\', 0);\n    ini_set(\'display_startup_errors\', 0);\n    error_reporting(0);\n}\n\n// 1. Logger Setup\n$logLevel = Logger::toMonologLevel($_ENV[\'LOG_LEVEL\'] ?? \'INFO\');\n$log = new Logger(\'app\');\n$log->pushHandler(new StreamHandler(__DIR__ . \'/app.log\', $logLevel));\n\n$log->info(\"--- New Request: \" . ($_SERVER[\'REQUEST_URI\'] ?? \'Unknown URI\') . \" ---\");\n\n// 2. Common Setup\nsession_start();\n\n// CORS Headers\nif (isset($_SERVER[\'HTTP_ORIGIN\'])) {\n    header(\"Access-Control-Allow-Origin: {$_SERVER[\'HTTP_ORIGIN\']}\");\n} else {\n    header(\"Access-Control-Allow-Origin: *\"); // Fallback, consider tightening in production\n}\nheader(\"Access-Control-Allow-Credentials: true\");\nheader(\"Access-Control-Allow-Headers: Content-Type, Authorization, X-Worker-Secret\");\nheader(\"Access-Control-Allow-Methods: GET, POST, OPTIONS\");\n\n// Handle pre-flight OPTIONS request\nif ($_SERVER[\'REQUEST_METHOD\'] == \'OPTIONS\') {\n    http_response_code(204);\n    exit;\n}\n\nheader(\'Content-Type: application/json\');\n\n// Security Check: Validate the secret header from the Cloudflare Worker.\n$workerSecret = $_ENV[\'WORKER_SECRET\'] ?? \'\';\nif (!$workerSecret || !isset($_SERVER[\'HTTP_X_WORKER_SECRET\']) || $_SERVER[\'HTTP_X_WORKER_SECRET\'] !== $workerSecret) {\n    $log->warning(\"Forbidden access attempt. Worker secret missing or invalid.\");\n    http_response_code(403);\n    echo json_encode([\'success\' => false, \'error\' => \'Forbidden: Missing or invalid secret.\']);\n    exit();\n}\n\n// 3. Database Connection\ntry {\n    $dsn = \"mysql:host={\$_ENV[\'DB_HOST\']};dbname={\$_ENV[\'DB_NAME\']};charset=utf8mb4\";\n    $options = [\n        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,\n        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,\n        PDO::ATTR_EMULATE_PREPARES   => false,\n    ];\n    $pdo = new PDO($dsn, $_ENV[\'DB_USER\'], $_ENV[\'DB_PASS\'], $options);\n} catch (PDOException $e) {\n    $log->error(\"DB connection error in router: \" . $e->getMessage());\n    http_response_code(500);\n    echo json_encode([\'success\' => false, \'error\' => \'Database connection failed.\']);\n    exit();\n}\n\n// 4. Routing with Whitelist\n$action = $_GET[\'action\'] ?? \'\';\n\n// Define a whitelist of allowed actions\n$allowedActions = [\n    \'check_session\',\n    \'delete_bill\',\n    \'email_upload\',\n    \'get_bills\',\n    \'get_game_data\',\n    \'get_lottery_results\',\n    \'is_user_registered\',\n    \'login\',\n    \'logout\',\n    \'process_text\',\n    \'register\',\n    \'update_settlement\',\n];\n\nif ($action && in_array($action, $allowedActions)) {\n    $action_file = __DIR__ . \'/actions/\' . $action . \'.php\';\n    if (file_exists($action_file)) {\n        require $action_file;\n    } else {\n        $log->error(\"Action file for \'{$action}\' not found despite being in whitelist.\");\n        http_response_code(500);\n        echo json_encode([\'success\' => false, \'error\' => \'Internal server error.\']);\n    }\n} else {\n    $log->warning(\"Attempted to access unknown or disallowed action: \'{$action}\'\");\n    http_response_code(404);\n    echo json_encode([\'success\' => false, \'error\' => \'Endpoint not found.\']);\n}\n\n?>
+<?php
+
+// index.php
+// This file is the central router for all API requests.
+
+// Use the centralized initialization script
+require_once __DIR__ . '/init.php';
+
+// Composer autoloader
+require_once __DIR__ . '/vendor/autoload.php';
+
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+
+// Note: Dotenv is not needed here anymore if config.php handles it.
+// We will assume config.php, included by init.php, manages environment variables.
+
+// --- All the setup below is now handled by init.php ---
+// - Error reporting
+// - Session start
+// - CORS headers
+// - Content-Type header
+// - Database connection ($pdo)
+// - Global exception handler
+// ----------------------------------------------------
+
+// 1. Logger Setup (can be kept here or moved to init.php if preferred)
+// For now, let's keep it here to allow route-specific logging setup.
+$logLevel = Logger::toMonologLevel($_ENV['LOG_LEVEL'] ?? 'INFO');
+$log = new Logger('app');
+$log->pushHandler(new StreamHandler(__DIR__ . '/app.log', $logLevel));
+
+$log->info("--- New Request: " . ($_SERVER['REQUEST_URI'] ?? 'Unknown URI') . " ---");
+
+
+// 2. Security Check: Validate the secret header from the Cloudflare Worker.
+// This is specific to the entry point, so it stays here.
+$workerSecret = $_ENV['WORKER_SECRET'] ?? '';
+if (!$workerSecret || !isset($_SERVER['HTTP_X_WORKER_SECRET']) || $_SERVER['HTTP_X_WORKER_SECRET'] !== $workerSecret) {
+    $log->warning("Forbidden access attempt. Worker secret missing or invalid.");
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Forbidden: Missing or invalid secret.']);
+    exit();
+}
+
+// 3. Routing with Whitelist
+$action = $_GET['action'] ?? '';
+
+// Define a whitelist of allowed actions
+$allowedActions = [
+    'check_session',
+    'delete_bill',
+    'email_upload',
+    'get_bills',
+    'get_game_data',
+    'get_lottery_results',
+    'is_user_registered',
+    'login',
+    'logout',
+    'process_text',
+    'register',
+    'update_settlement',
+];
+
+if ($action && in_array($action, $allowedActions)) {
+    $action_file = __DIR__ . '/actions/' . $action . '.php';
+    if (file_exists($action_file)) {
+        // The action file will have its own error handling, but the global
+        // handler in init.php will catch anything it doesn't.
+        require $action_file;
+    } else {
+        $log->error("Action file for '{$action}' not found despite being in whitelist.");
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Internal server error: Action file missing.']);
+    }
+} else {
+    $log->warning("Attempted to access unknown or disallowed action: '{$action}'");
+    http_response_code(404);
+    echo json_encode(['success' => false, 'error' => 'Endpoint not found.']);
+}
+
+?>
