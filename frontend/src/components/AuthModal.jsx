@@ -7,12 +7,16 @@ function AuthModal({ onClose }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
 
   const handleLogin = async (event) => {
     event.preventDefault();
+    if (isLoading) return;
+
     setError('');
     setSuccessMessage('');
+    setIsLoading(true);
     try {
       const response = await fetch('/login', {
         method: 'POST',
@@ -28,13 +32,18 @@ function AuthModal({ onClose }) {
       }
     } catch (err) {
       setError('网络或服务器错误，请稍后重试。');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleRegister = async (event) => {
     event.preventDefault();
+    if (isLoading) return;
+
     setError('');
     setSuccessMessage('');
+    setIsLoading(true);
     try {
       const response = await fetch('/register', {
         method: 'POST',
@@ -54,6 +63,8 @@ function AuthModal({ onClose }) {
       }
     } catch (err) {
       setError('网络或服务器错误，请稍后重试。');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -85,7 +96,11 @@ function AuthModal({ onClose }) {
               autoComplete={isLoginView ? "current-password" : "new-password"}
             />
           </div>
-          <button type="submit">{isLoginView ? '登录' : '注册'}</button>
+          <button type="submit" disabled={isLoading}>
+            {isLoading
+              ? (isLoginView ? '正在登录...' : '正在注册...')
+              : (isLoginView ? '登录' : '注册')}
+          </button>
         </form>
         {error && <p className="error">{error}</p>}
         {successMessage && <p className="success">{successMessage}</p>}
