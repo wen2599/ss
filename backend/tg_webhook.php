@@ -1,135 +1,101 @@
 <?php
 
-// Version 11.2 - Removed WORKER_SECRET check for Telegram Webhook.
-
-require_once __DIR__ . '/vendor/autoload.php';
-
 use App\\Lib\\LotteryParser;
 use App\\Lib\\User;
 use App\\Lib\\Telegram;
 use App\\Lib\\Lottery;
 use Monolog\\Logger;
 use Monolog\\Handler\\StreamHandler;
-use Dotenv\\Dotenv;
 
-// Load .env variables
-$dotenv = Dotenv::createImmutable(__DIR__);
-$dotenv->load();
+// Centralized initialization
+require_once __DIR__ . '/init.php';
+// Composer autoloader
+require_once __DIR__ . '/vendor/autoload.php';
 
-// Logger Setup
+// --- Logger Setup ---
+// The logger is now set up similarly to index.php for consistency.
 $logLevel = Logger::toMonologLevel($_ENV['LOG_LEVEL'] ?? 'INFO');
 $log = new Logger('telegram_webhook');
 $log->pushHandler(new StreamHandler(__DIR__ . '/app.log', $logLevel));
 
-// Database Connection
 try {
-    $dsn = "mysql:host={$_ENV['DB_HOST']};dbname={$_ENV['DB_NAME']};charset=utf8mb4";
-    $options = [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-    ];
-    $pdo = new PDO($dsn, $_ENV['DB_USER'], $_ENV['DB_PASS'], $options);
-} catch (PDOException $e) {
-    $log->error("Database connection failed in tg_webhook: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'Database connection failed.']);
-    exit();
-}
+    // --- Configuration ---
+    $botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? '';
+    $adminId = $_ENV['TELEGRAM_ADMIN_ID'] ?? '';
 
-// Telegram Bot Token and Admin ID from environment variables
-$botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? '';
-$adminId = $_ENV['TELEGRAM_ADMIN_ID'] ?? '';
-
-if (empty($botToken) || empty($adminId)) {
-    $log->error("Telegram BOT_TOKEN or ADMIN_ID is not set in environment variables.");
-    http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'Bot configuration error.']);
-    exit();
-}
-
-$telegram = new Telegram($botToken, $log);
-
-// IMPORTANT: Telegram Webhook requests do NOT contain X-Worker-Secret.
-// Removing this check for tg_webhook.php specifically.
-// The main index.php (for frontend API calls) still requires it.
-// if (!isset($_SERVER['HTTP_X_WORKER_SECRET']) || $_SERVER['HTTP_X_WORKER_SECRET'] !== ($_ENV['WORKER_SECRET'] ?? '')) {
-//     $log->warning("Forbidden access attempt to tg_webhook. Worker secret missing or invalid.");
-//     http_response_code(403);
-//     echo json_encode(['success' => false, 'error' => 'Forbidden: Missing or invalid secret.']);
-//     exit();
-// }
-
-// Get and Decode the Incoming Update
-$update_json = file_get_contents('php://input');
-$update = json_decode($update_json, true);
-$log->info("Incoming Telegram update: " . $update_json);
-
-// 4. Process Callback Queries (Button Presses)
-if (isset($update['callback_query'])) {
-    $callback_query = $update['callback_query'];
-    $callback_id = $callback_query['id'];
-    $callback_data = $callback_query['data'];
-    $query_from_id = $callback_query['from']['id'] ?? null;
-
-    if ($query_from_id == $adminId) {
-        $parts = explode('_', $callback_data);
-        $action = $parts[0];
-        // Existing user approval/denial logic is commented out as per previous note.
-        // It can be re-enabled or removed based on final requirements.
-
-        // For now, just answer the callback to remove the loading state in Telegram
-        $telegram->answerCallbackQuery($callback_id, '功能暂未启用或已废弃.');
-    } else {
-        $telegram->answerCallbackQuery($callback_id, '抱歉，您无权执行此操作。', true);
-        $log->warning("Unauthorized callback query from user ID: " . $query_from_id);
+    if (empty($botToken) || empty($adminId)) {
+        throw new Exception("Telegram BOT_TOKEN or ADMIN_ID is not set in environment variables.", 500);
     }
-    http_response_code(200);
-    exit();
-}
 
-// 5. Process Regular Messages
-$message = null;
-if (isset($update['message'])) {
-    $message = $update['message'];
-} elseif (isset($update['channel_post'])) {
-    $message = $update['channel_post'];
-}
+    $telegram = new Telegram($botToken, $log);
 
-if ($message) {
+    // --- Process Incoming Update ---
+    $update_json = file_get_contents('php://input');
+    if (empty($update_json)) {
+        throw new Exception("No input received.", 200); // Changed to 200 as it might be an empty POST from TG, not necessarily an error
+    }
+    $update = json_decode($update_json, true);
+    $log->info("Incoming Telegram update: " . $update_json);
+    
+    // --- Callback Query Processing ---
+    if (isset($update['callback_query'])) {
+        $callback_query = $update['callback_query'];
+        $callback_id = $callback_query['id'];
+        $query_from_id = $callback_query['from']['id'] ?? null;
+
+        if ($query_from_id == $adminId) {
+            $telegram->answerCallbackQuery($callback_id, '功能暂未启用或已废弃.');
+        } else {
+            $telegram->answerCallbackQuery($callback_id, '抱歉，您无权执行此操作。', true);
+            $log->warning("Unauthorized callback query from user ID: " . $query_from_id);
+        }
+        // Respond and exit cleanly for callbacks.
+        http_response_code(200);
+        echo json_encode(['status' => 'ok', 'message' => 'Callback processed.']);
+        exit();
+    }
+    
+    // --- Message Processing ---
+    $message = $update['message'] ?? $update['channel_post'] ?? null;
+
+    if (!$message) {
+        throw new Exception("No valid message or channel post found in the update.", 200); // 200 OK as we've received the webhook, just nothing to do.
+    }
+    
     $chat_id = $message['chat']['id'];
     $user_id = $message['from']['id'] ?? null;
     $text = trim($message['text'] ?? '');
 
-    // --- Step 1: Attempt to parse any message as a lottery result first. ---
+    // 1. Attempt to parse as a lottery result first (from any source)
     $parsedResult = LotteryParser::parse($text);
     if ($parsedResult) {
         $statusMessage = Lottery::saveLotteryResultToDB($pdo, $parsedResult);
+        $log->info("Parsed lottery result from chat_id: $chat_id. Status: $statusMessage");
+
         if ($chat_id != $adminId) {
-            // Optionally notify the admin if a public channel posts a result
-            $channel_title = isset($message['chat']['title']) ? " from channel \"" . htmlspecialchars($message['chat']['title']) . "\"" : "";
-            $telegram->sendMessage($adminId, "Successfully parsed a new result" . $channel_title . ":\n`" . $parsedResult['lottery_name'] . " - " . $parsedResult['issue_number'] . "`\n\nStatus: *" . $statusMessage . "*");
+            $telegram->sendMessage($adminId, "A new result was parsed from a channel/group:\n`" . $parsedResult['lottery_name'] . "`\nStatus: *" . $statusMessage . "*");
         } else {
-            $telegram->sendMessage($chat_id, "成功识别到开奖结果：\n`" . $parsedResult['lottery_name'] . " - " . $parsedResult['issue_number'] . "`\n\n状态: *" . $statusMessage . "*");
+            $telegram->sendMessage($chat_id, "Result parsed successfully.\nStatus: *" . $statusMessage . "*");
         }
+        
         http_response_code(200);
+        echo json_encode(['status' => 'ok', 'message' => 'Lottery result processed.']);
         exit();
     }
 
-    // --- Step 2: If it's not a parsable result, check if the sender is the admin. ---
-    if ($user_id !== (int)$adminId) {
-        if ($chat_id === $user_id) { // Only respond to private chats from non-admins
+    // 2. Admin-only command processing
+    if ($user_id != (int)$adminId) {
+        if ($chat_id === $user_id) { // Private chat with a non-admin
             $telegram->sendMessage($chat_id, "抱歉，此机器人功能仅限管理员使用。");
         }
-        $log->warning("Unauthorized message from user ID: " . $user_id . " in chat ID: " . $chat_id . " with text: " . $text);
-        http_response_code(403); // Forbidden for non-admins trying to use commands
-        exit();
+        $log->warning("Unauthorized message from user_id: $user_id in chat_id: $chat_id");
+        throw new Exception("User is not authorized.", 403);
     }
 
-    // --- Step 3: Admin-only logic ---
+    // --- Admin-only logic ---
     $main_menu_keyboard = ['keyboard' => [['text' => '👤 用户管理'], ['text' => '⚙️ 系统设置']], 'resize_keyboard' => true];
-    $user_management_keyboard = ['keyboard' => [['text' => '📋 列出所有用户'], ['text' => '➖ 删除用户']], ['text' => '⬅️ 返回主菜单']], 'resize_keyboard' => true];
-    $system_settings_keyboard = ['keyboard' => [['text' => '🔑 设定API密钥'], ['text' => 'ℹ️ 检查密钥状态']], ['text' => '⬅️ 返回主菜单']], 'resize_keyboard' => true];
+    $user_management_keyboard = ['keyboard' => [['text' => '📋 列出所有用户'], ['text' => '➖ 删除用户'], ['text' => '⬅️ 返回主菜单']], 'resize_keyboard' => true];
+    $system_settings_keyboard = ['keyboard' => [['text' => '🔑 设定API密钥'], ['text' => 'ℹ️ 检查密钥状态'], ['text' => '⬅️ 返回主菜单']], 'resize_keyboard' => true];
 
     $command_map = [
         '👤 用户管理' => '/user_management',
@@ -171,11 +137,9 @@ if ($message) {
                 $telegram->sendMessage($chat_id, User::listUsersFromDB($pdo));
                 break;
             case '/set_gemini_key':
-                // Placeholder for Gemini API Key setting logic
                 $telegram->sendMessage($chat_id, "此功能暂未完全实现。");
                 break;
             case '/get_api_key_status':
-                // Placeholder for Gemini API Key status checking logic
                 $telegram->sendMessage($chat_id, "此功能暂未完全实现。");
                 break;
             default:
@@ -183,11 +147,17 @@ if ($message) {
                 break;
         }
     } else if ($chat_id == $adminId && !empty($text)) {
-        // If it's the admin and not a command, try to parse as lottery result (already done above)
-        // Or handle other admin-specific free text input if needed.
         $telegram->sendMessage($chat_id, "抱歉，我无法识别您的输入。请使用菜单或有效命令。");
     }
+
+    http_response_code(200);
+    echo json_encode(['status' => 'ok', 'message' => 'Admin command processed or no action taken.']);
+
+} catch (Exception $e) {
+    $log->error("Error in tg_webhook.php: " . $e->getMessage(), ['exception' => $e]);
+    $code = ($e->getCode() >= 400 && $e->getCode() < 600) ? $e->getCode() : 500;
+    http_response_code($code);
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
 
-http_response_code(200);
-echo json_encode(['status' => 'ok']);
+?>
