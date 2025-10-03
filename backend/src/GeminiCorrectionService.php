@@ -104,32 +104,37 @@ class GeminiCorrectionService {
      * @return string The fully constructed prompt.
      */
     private function buildPrompt(string $unparsedText): string {
-        // The prompt text remains the same as it's highly specific to the task.
-        return "You are an expert lottery bet slip parsing assistant. Your task is to analyze the following text, which our system failed to parse, and provide a response in a specific JSON format. The JSON response must contain three top-level keys: `corrected_data`, `suggested_regex`, and `type`.
+        $jsonExample = <<<JSON
+{
+  "corrected_data": {
+    "number_bets": [
+      {
+        "numbers": ["01", "02", "03"],
+        "cost_per_number": 5,
+        "cost": 15
+      }
+    ]
+  },
+  "suggested_regex": "/([0-9, ]+)各\\\\s*(\\\\d+)/u",
+  "type": "number_list"
+}
+JSON;
+
+        return <<<PROMPT
+You are an expert lottery bet slip parsing assistant. Your task is to analyze the following text, which our system failed to parse, and provide a response in a specific JSON format. The JSON response must contain three top-level keys: `corrected_data`, `suggested_regex`, and `type`.
 
 1.  **`corrected_data`**: A JSON object representing the bets found in the text. The format should be an array of `number_bets`, where each bet has `numbers` (an array of strings), `cost_per_number` (an integer), and `cost` (an integer).
 2.  **`suggested_regex`**: A single, PHP-compatible regular expression (as a JSON string) that could be used to parse this type of text in the future. The regex should be designed to be used with PHP's `preg_match`.
 3.  **`type`**: A string that categorizes the `suggested_regex`. This is the most important part. The value for `type` **must** be one of the following three exact strings: `zodiac`, `number_list`, or `multiplier`. You must choose the type that best matches the regex you are providing.
 
 Here is the text to analyze:
-\"$unparsedText\"
+"$unparsedText"
 
 Please provide your response inside a single JSON object. Here is an example of the required format:
 ```json
-{
-  \"corrected_data\": {
-    \"number_bets\": [
-      {
-        \"numbers\": [\"01\", \"02\", \"03\"],
-        \"cost_per_number\": 5,
-        \"cost\": 15
-      }
-    ]
-  },
-  \"suggested_regex\": \"/([0-9, ]+)各\\\\s*(\\\\d+)/u\",
-  \"type\": \"number_list\"
-}
-```";
+$jsonExample
+```
+PROMPT;
     }
 
     /**
