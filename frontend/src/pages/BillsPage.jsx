@@ -1,93 +1,119 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { getBills, deleteBill } from '../services/api';
 import RawModal from '../components/modals/RawModal';
 import SettlementModal from '../components/modals/SettlementModal';
 
+/**
+ * Renders a status badge based on the bill's status string.
+ * @param {{status: string}} props
+ */
+const StatusBadge = ({ status }) => {
+  const statusClasses = {
+    processed: 'status-processed',
+    settled: 'status-settled',
+    unrecognized: 'status-unrecognized',
+  };
+  const className = `status-badge ${statusClasses[status] || 'status-default'}`;
+  const statusText = {
+    processed: '已处理',
+    settled: '已结算',
+    unrecognized: '无法识别',
+  }[status] || status;
+
+  return <span className={className}>{statusText}</span>;
+};
+
+/**
+ * Renders a single row in the bills table.
+ * @param {{bill: object, onSelect: () => void, onDelete: () => void, isDeleting: boolean, isSelected: boolean}} props
+ */
+const BillRow = ({ bill, onSelect, onDelete, isDeleting, isSelected }) => (
+  <tr className={isSelected ? 'selected-row' : ''}>
+    <td>{bill.id}</td>
+    <td>{new Date(bill.created_at).toLocaleString()}</td>
+    <td>{bill.total_cost ? `${bill.total_cost} 元` : 'N/A'}</td>
+    <td><StatusBadge status={bill.status} /></td>
+    <td className="action-buttons-cell">
+      <button onClick={() => onSelect('raw')}>原文</button>
+      <button onClick={() => onSelect('settlement')}>结算详情</button>
+      <button onClick={onDelete} className="delete-button" disabled={isDeleting}>
+        {isDeleting ? '正在删除...' : '删除'}
+      </button>
+    </td>
+  </tr>
+);
+
+/**
+ * A page for displaying and managing a user's bills.
+ */
 function BillsPage() {
   const [bills, setBills] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedBillIndex, setSelectedBillIndex] = useState(null);
-  const [showRawModal, setShowRawModal] = useState(false);
-  const [showSettlementModal, setShowSettlementModal] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
-  const { user, isAuthenticated } = useAuth();
+  const [activeModal, setActiveModal] = useState({ type: null, bill: null });
+  const { isAuthenticated } = useAuth();
 
-  const fetchBills = async () => {
+  const fetchBills = useCallback(async () => {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch('/get_bills', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include'
-      });
-      const data = await response.json();
-      if (data.success) {
-        setBills(data.bills);
-      } else {
-        setError(data.error || '获取账单失败。');
-      }
+      const data = await getBills();
+      setBills(data.bills);
     } catch (err) {
-      setError('获取账单时发生错误，请稍后重试。');
+      setError(err.message || '获取账单时发生未知错误。');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchBills();
     } else {
       setBills([]);
+      setIsLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, fetchBills]);
 
   const handleDeleteBill = async (billId) => {
     if (!window.confirm(`您确定要删除账单 #${billId} 吗？此操作无法撤销。`)) return;
+
     setDeletingId(billId);
     try {
-      const response = await fetch('/delete_bill', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bill_id: billId }),
-        credentials: 'include'
-      });
-      const data = await response.json();
-      if (data.success) {
-        setBills(prevBills => prevBills.filter(bill => bill.id !== billId));
-        if (selectedBillIndex !== null && bills[selectedBillIndex]?.id === billId) {
-          setSelectedBillIndex(null);
-        }
-      } else {
-        alert(`删除失败: ${data.error}`);
+      await deleteBill(billId);
+      setBills(prevBills => prevBills.filter(bill => bill.id !== billId));
+      // If the deleted bill was open in a modal, close it.
+      if (activeModal.bill?.id === billId) {
+        setActiveModal({ type: null, bill: null });
       }
     } catch (err) {
-      alert('删除时发生错误。');
+      alert(`删除失败: ${err.message}`);
     } finally {
       setDeletingId(null);
     }
   };
 
-  const renderStatus = (status) => {
-    switch (status) {
-      case 'processed': return <span className="status-processed">已处理</span>;
-      case 'settled': return <span className="status-settled">已结算</span>;
-      case 'unrecognized': return <span className="status-unrecognized">无法识别</span>;
-      default: return <span className="status-default">{status}</span>;
-    }
+  const handleSelectBill = (bill, modalType) => {
+    setActiveModal({ type: modalType, bill });
   };
 
-  if (isLoading) return <div>正在加载您的账单...</div>;
-  if (error) return <div className="error">{error}</div>;
-
-  const selectedBill = selectedBillIndex !== null ? bills[selectedBillIndex] : null;
+  if (!isAuthenticated) {
+    return <div className="info-container">请先登录以查看您的账单。</div>;
+  }
+  if (isLoading) {
+    return <div className="loading-container">正在加载您的账单...</div>;
+  }
+  if (error) {
+    return <div className="error-container">{error}</div>;
+  }
 
   return (
     <div className="bills-container">
       <h2>我的账单</h2>
       {bills.length === 0 ? (
-        <p>您还没有任何账单记录。</p>
+        <p className="empty-state">您还没有任何账单记录。</p>
       ) : (
         <table className="bills-table">
           <thead>
@@ -100,37 +126,29 @@ function BillsPage() {
             </tr>
           </thead>
           <tbody>
-            {bills.map((bill, index) => (
-              <tr key={bill.id} className={selectedBillIndex === index ? 'selected-row' : ''}>
-                <td>{bill.id}</td>
-                <td>{new Date(bill.created_at).toLocaleString()}</td>
-                <td>{bill.total_cost ? `${bill.total_cost} 元` : 'N/A'}</td>
-                <td>{renderStatus(bill.status)}</td>
-                <td className="action-buttons-cell">
-                  <button onClick={() => { setSelectedBillIndex(index); setShowRawModal(true); }}>原文</button>
-                  <button onClick={() => { setSelectedBillIndex(index); setShowSettlementModal(true); }}>结算详情</button>
-                  <button
-                    onClick={() => handleDeleteBill(bill.id)}
-                    className="delete-button"
-                    disabled={deletingId === bill.id}
-                  >
-                    {deletingId === bill.id ? '正在删除...' : '删除'}
-                  </button>
-                </td>
-              </tr>
+            {bills.map((bill) => (
+              <BillRow
+                key={bill.id}
+                bill={bill}
+                onSelect={(modalType) => handleSelectBill(bill, modalType)}
+                onDelete={() => handleDeleteBill(bill.id)}
+                isDeleting={deletingId === bill.id}
+                isSelected={activeModal.bill?.id === bill.id}
+              />
             ))}
           </tbody>
         </table>
       )}
+
       <RawModal
-        open={showRawModal && selectedBill}
-        rawContent={selectedBill ? selectedBill.raw_content : ''}
-        onClose={() => setShowRawModal(false)}
+        open={activeModal.type === 'raw'}
+        rawContent={activeModal.bill?.raw_content || ''}
+        onClose={() => setActiveModal({ type: null, bill: null })}
       />
       <SettlementModal
-        open={showSettlementModal && selectedBill}
-        bill={selectedBill}
-        onClose={() => setShowSettlementModal(false)}
+        open={activeModal.type === 'settlement'}
+        bill={activeModal.bill}
+        onClose={() => setActiveModal({ type: null, bill: null })}
         onSaveSuccess={fetchBills}
       />
     </div>

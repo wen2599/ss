@@ -1,14 +1,19 @@
+/**
+ * @file Centralized API service for the application.
+ * This file exports functions for all interactions with the backend API.
+ */
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 /**
- * A helper function to handle fetch requests and responses, routing through the worker.
- * @param {string} endpoint The API endpoint to call (e.g., '/login', '/get_bills').
- * @param {RequestInit} options The options for the fetch request.
- * @returns {Promise<any>} The JSON response from the API.
+ * A generic helper function to handle all fetch requests and responses.
+ * It centralizes error handling and JSON parsing.
+ * @param {string} endpoint The API endpoint to call (e.g., '/login').
+ * @param {RequestInit} [options={}] The options for the fetch request.
+ * @returns {Promise<any>} The JSON response data from the API.
  * @throws {Error} If the network request fails or the API returns an error.
  */
 async function apiService(endpoint, options = {}) {
-    // The URL is now just the base URL + the endpoint, which the worker will intercept.
     const url = `${API_BASE_URL}${endpoint}`;
     
     const headers = {
@@ -19,14 +24,16 @@ async function apiService(endpoint, options = {}) {
     try {
         const response = await fetch(url, { ...options, headers });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: `Request failed with status ${response.status}` }));
-            throw new Error(errorData.error);
-        }
-
+        // Try to parse the JSON response, even for errors, as the backend provides error details.
         const data = await response.json();
+
+        if (!response.ok) {
+            // Throw an error with the message from the backend, or a generic one.
+            throw new Error(data.error || `Request failed with status ${response.status}`);
+        }
         
-        // The worker and backend provide a consistent { success: boolean, ... } structure
+        // The backend should consistently provide a { success: boolean, ... } structure.
+        // This check is a safeguard.
         if (data.success) {
             return data;
         } else {
@@ -35,52 +42,86 @@ async function apiService(endpoint, options = {}) {
 
     } catch (error) {
         console.error(`API service error calling ${endpoint}:`, error.message);
+        // Re-throw the error so UI components can handle it.
         throw error;
     }
 }
 
-// --- Specific API functions ---
+// --- API Service Functions ---
 
-// Note: The endpoints are now root paths that the Cloudflare Worker will intercept.
-export const getLotteryResults = () => {
-    return apiService('/get_lottery_results');
-};
+/** Fetches the latest lottery results. */
+export const getLotteryResults = () => apiService('/get_lottery_results');
 
-export const getGameData = () => {
-    return apiService('/get_game_data');
-};
+/** Fetches static game data, like the color map. */
+export const getGameData = () => apiService('/get_game_data');
 
-export const checkSession = () => {
-    return apiService('/check_session', {
-        credentials: 'include',
-    });
-};
+/** Checks if the user has an active session. */
+export const checkSession = () => apiService('/check_session', { credentials: 'include' });
 
-export const login = (email, password) => {
-    return apiService('/login', {
-        method: 'POST',
-        credentials: 'include',
-        body: JSON.stringify({ email, password }),
-    });
-};
+/**
+ * Logs a user in.
+ * @param {string} email The user's email.
+ * @param {string} password The user's password.
+ */
+export const login = (email, password) => apiService('/login', {
+    method: 'POST',
+    credentials: 'include',
+    body: JSON.stringify({ email, password }),
+});
 
-export const logout = () => {
-    return apiService('/logout', {
-        method: 'POST',
-        credentials: 'include',
-    });
-};
+/** Logs the current user out. */
+export const logout = () => apiService('/logout', {
+    method: 'POST',
+    credentials: 'include',
+});
 
-export const register = (email, password) => {
-    return apiService('/register', {
-        method: 'POST',
-        credentials: 'include',
-        body: JSON.stringify({ email, password }),
-    });
-};
+/**
+ * Registers a new user.
+ * @param {string} email The new user's email.
+ * @param {string} password The new user's password.
+ * @param {string} [username] The new user's optional username.
+ */
+export const register = (email, password, username) => apiService('/register', {
+    method: 'POST',
+    credentials: 'include',
+    body: JSON.stringify({ email, password, username }),
+});
 
-export const getBills = () => {
-    return apiService('/get_bills', {
-        credentials: 'include',
-    });
-};
+/** Fetches all bills for the authenticated user. */
+export const getBills = () => apiService('/get_bills', { credentials: 'include' });
+
+/**
+ * Deletes a specific bill.
+ * @param {number} billId The ID of the bill to delete.
+ */
+export const deleteBill = (billId) => apiService('/delete_bill', {
+    method: 'POST',
+    credentials: 'include',
+    body: JSON.stringify({ bill_id: billId }),
+});
+
+/**
+ * Updates a settlement slip within a bill.
+ * @param {number} billId The ID of the bill.
+ * @param {number} slipIndex The index of the slip to update.
+ * @param {object} settlementResult The new settlement result object.
+ */
+export const updateSettlement = (billId, slipIndex, settlementResult) => apiService('/update_settlement', {
+    method: 'POST',
+    credentials: 'include',
+    body: JSON.stringify({
+        bill_id: billId,
+        slip_index: slipIndex,
+        settlement_result: settlementResult,
+    }),
+});
+
+/**
+ * Processes a block of text for stats.
+ * @param {string} text The text to process.
+ */
+export const processText = (text) => apiService('/process_text', {
+    method: 'POST',
+    credentials: 'include',
+    body: JSON.stringify({ emailText: text }),
+});

@@ -1,27 +1,28 @@
 import React from 'react';
+import './RawModal.css';
 
+/**
+ * A simple modal component for displaying raw, pre-formatted text content.
+ *
+ * @param {{
+ *   open: boolean,
+ *   rawContent: string,
+ *   onClose: () => void
+ * }} props
+ */
 function RawModal({ open, rawContent, onClose }) {
-  if (!open) return null;
+  if (!open) {
+    return null;
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-content"
-        style={{
-          maxWidth: 600,
-          width: '98vw',
-          minWidth: 260,
-          maxHeight: '98vh',
-          overflowY: 'auto',
-          boxSizing: 'border-box'
-        }}
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="modal-content raw-modal-content" onClick={e => e.stopPropagation()}>
         <button className="modal-close-button" onClick={onClose}>&times;</button>
         <h2>邮件原文</h2>
-        <div className="panel" style={{ background: '#f7f8fa', padding: '1em' }}>
-          <pre className="raw-content-panel" style={{ fontSize: '1em', maxHeight: 400, overflow: 'auto' }}>
-            {rawContent}
+        <div className="raw-modal-panel">
+          <pre className="raw-content-pre">
+            {rawContent || '没有内容可显示。'}
           </pre>
         </div>
       </div>

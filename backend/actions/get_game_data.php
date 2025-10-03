@@ -1,21 +1,37 @@
 <?php
-// Action: Get static game data (e.g., color maps)
+/**
+ * Action: get_game_data
+ *
+ * This script retrieves static data required for the game, such as the color map
+ * for lottery numbers. This data is used by the frontend to render UI elements correctly.
+ *
+ * HTTP Method: GET
+ *
+ * Response:
+ * - On success: { "success": true, "colorMap": { ... } }
+ * - On error: { "success": false, "error": "Error message." }
+ */
 
-require_once __DIR__ . '/../init.php';
+// The main router (index.php) handles initialization.
+// Global variables $pdo and $log are available.
 
-// The GameData library is already included by the index.php router
-// but for clarity and potential standalone use, we can include it again.
+// Although the autoloader might handle this in a PSR-4 setup, for a simple lib structure,
+// a direct require is reliable.
 require_once __DIR__ . '/../lib/GameData.php';
 
 try {
-    // We only need the color map for this feature
+    // Access the static color map from the GameData class.
     $colorMap = GameData::$colorMap;
 
     http_response_code(200);
+    $log->info("Successfully retrieved game data (color map).");
     echo json_encode(['success' => true, 'colorMap' => $colorMap]);
 
-} catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Failed to retrieve game data.']);
+} catch (Throwable $e) {
+    // Use Throwable to catch both Errors (e.g., class not found) and Exceptions.
+    $log->error("Failed to retrieve game data.", ['error' => $e->getMessage()]);
+
+    // Let the global exception handler in init.php manage the final response.
+    throw $e;
 }
 ?>

@@ -1,10 +1,22 @@
+/*
+ * ====================================================================
+ * Global Stylesheet (index.css)
+ *
+ * This file contains the foundational styles for the entire application,
+ * including CSS variables for theming, base typography, and essential
+ * utility classes that are used across multiple components.
+ *
+ * Component-specific styles should be in their own dedicated CSS files.
+ * ====================================================================
+ */
+
 :root {
   font-family: "Inter", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
   line-height: 1.6;
   font-size: 16px;
   font-weight: 400;
 
-  /* Color Theme: Modern blue & gray, auto dark mode */
+  /* --- Color Theme --- */
   --primary-color: #4F8CFF;
   --primary-color-hover: #3576e6;
   --secondary-color: #46d6b6;
@@ -24,7 +36,7 @@
   --shadow-dark: 0 2px 20px 0 rgba(79, 140, 255, 0.22);
 }
 
-/* Auto Dark Mode */
+/* --- Auto Dark Mode --- */
 @media (prefers-color-scheme: dark) {
   :root {
     --background-light: var(--background-dark);
@@ -35,6 +47,7 @@
   }
 }
 
+/* --- Base Element Styles --- */
 body {
   margin: 0;
   padding: 0;
@@ -60,162 +73,72 @@ a:hover {
   text-decoration: underline;
 }
 
-/* --- Lottery Banner --- */
-.lottery-banner {
-  display: flex;
-  align-items: stretch;
-  margin-bottom: 1rem;
-  background-color: var(--card-bg-light);
-  border-radius: 8px;
-  box-shadow: var(--shadow-light);
-  overflow: hidden;
+/* --- Shared Utility & Component Classes --- */
+
+/* For tables used in BillsPage and LotteryResultsPage */
+.bills-table, .lottery-results-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    box-shadow: var(--shadow-light);
 }
-.lottery-name-tag {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: red;
-  font-weight: bold;
-  padding: 0 15px;
-  font-size: 1rem;
-  background-color: transparent;
+.bills-table th, .lottery-results-table th {
+    background-color: var(--background-light);
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 2px solid var(--primary-color);
 }
-.lottery-name-tag.hk { background-color: #d72828; color: white; }
-.lottery-name-tag.om { background-color: #007bff; color: white; }
-.lottery-name-tag.nm { background-color: #28a745; color: white; }
-.lottery-details {
-  padding: 10px 15px;
-  flex-grow: 1;
+.bills-table td, .lottery-results-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-light);
+}
+.bills-table tr:last-child td, .lottery-results-table tr:last-child td {
+    border-bottom: none;
+}
+.bills-table tr.selected-row {
+    background-color: #e6f7ff;
 }
 
-/* --- Modal Base Styles --- */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+/* For lottery number balls */
+.number-ball {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: white;
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin: 2px;
+}
+.number-ball-red { background-color: #e74c3c; }
+.number-ball-blue { background-color: #3498db; }
+.number-ball-green { background-color: #2ecc71; }
+.number-ball-default { background-color: #95a5a6; }
+.special-number {
+    border: 2px solid gold;
 }
 
-.modal-content {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  position: relative;
-  max-height: 90vh;
-  overflow-y: auto;
+/* For status badges used in BillsPage */
+.status-badge {
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
 }
+.status-processed { background-color: #e6f7ff; color: #096dd9; }
+.status-unrecognized { background-color: #fff1f0; color: #cf1322; }
+.status-settled { background-color: #f9f0ff; color: #531dab; }
+.status-default { background-color: #fafafa; color: #595959; }
 
-.modal-close-button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: transparent;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-}
-
-.wide-modal {
-  width: 95vw;
-  max-width: 1100px;
-}
-
-
-/* --- Settlement Modal --- */
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.view-toggle button {
-  background: #f0f0f0;
-  border: 1px solid #d9d9d9;
-  padding: 6px 12px;
-  cursor: pointer;
-  color: #595959;
-  transition: all 0.2s;
-}
-.view-toggle button:first-child { border-radius: 4px 0 0 4px; }
-.view-toggle button:last-child { border-radius: 0 4px 4px 0; border-left: none; }
-.view-toggle button.active {
-  background: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
-  z-index: 2;
-}
-.view-toggle button:not(.active):hover {
-  background: #e6e6e6;
-  color: var(--primary-color);
-}
-
-.text-view-summary {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e0e0e0;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-.summary-edit-button {
-  margin-left: auto;
-}
-
-.injected-result {
-  color: #e74c3c;
-  font-weight: bold;
-  margin: 0 4px;
-}
-
-/* --- Winnings Display --- */
+/* For winning rows/numbers in settlement tables */
 .winning-row {
-  background-color: #fffbe6;
+  background-color: #fffbe6 !important;
   color: #d46b08;
-  font-weight: bold;
-}
-.winning-number {
-  background-color: #f1c40f;
-  color: #333;
-  padding: 2px 4px;
-  border-radius: 3px;
-  margin: 0 2px;
-  font-weight: bold;
-  display: inline-block;
 }
 .winnings-amount {
-  color: #e74c3c;
+  color: var(--error-color);
   font-weight: bold;
   margin-left: 8px;
 }
-
-/* --- General & Form --- */
-.json-editor {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-  background-color: #fdfdfd;
-  border: 1px solid #ccc;
-  color: #333;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.save-result {
-  margin-top: 8px;
-  padding: 8px;
-  border-radius: 4px;
-  font-size: 0.9em;
-}
-.save-result.success { background-color: #e6f7ff; border: 1px solid #91d5ff; color: #096dd9; }
-.save-result.error { background-color: #fff1f0; border: 1px solid #ffa39e; color: #cf1322; }
-.save-result.info { background-color: #f0f0f0; border: 1px solid #d9d9d9; color: #595959; }
-
-.status-processed { color: var(--success-color); font-weight: bold; }
-.status-unrecognized { color: var(--error-color); font-weight: bold; }
-.status-settled { color: #9c27b0; font-weight: bold; }
-.status-default { color: var(--text-muted-light); }

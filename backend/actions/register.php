@@ -1,88 +1,115 @@
 <?php
-// Action: Handle web-based user registration
+/**
+ * Action: register
+ *
+ * This script handles new user registration. It validates the provided user data,
+ * creates a new user with a 'pending' status, and sends a notification to the
+ * admin via Telegram for approval.
+ *
+ * HTTP Method: POST
+ *
+ * Request Body (JSON):
+ * - "email" (string): The user's email address.
+ * - "password" (string): The user's desired password (min 8 characters).
+ * - "username" (string, optional): The user's desired username.
+ *
+ * Response:
+ * - On success: { "success": true, "message": "Your registration application has been submitted..." }
+ * - On error (e.g., invalid input, email exists): { "success": false, "error": "Error message." }
+ */
 
-// This script is included by index.php, so it has access to $pdo and $admin_id.
-global $pdo, $admin_id;
+// The main router (index.php) handles initialization.
+// Global variables $pdo, $log, and $admin_id are available.
 
-// We must require the libraries as they are not loaded by the router.
-require_once __DIR__ . '/../lib/Telegram.php';
-require_once __DIR__ . '/../lib/User.php';
+use App\Lib\Telegram; // Use the namespaced Telegram class
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['success' => false, 'error' => 'Only POST method is allowed for registration.']);
+    http_response_code(405); // Method Not Allowed
+    $log->warning("Method not allowed for register.", ['method' => $_SERVER['REQUEST_METHOD']]);
+    echo json_encode(['success' => false, 'error' => 'Method Not Allowed']);
     exit();
 }
 
 $data = json_decode(file_get_contents("php://input"), true);
 
-if (!isset($data['email']) || !filter_var($data['email'], FILTER_VALIDATE_EMAIL) || !isset($data['password']) || strlen($data['password']) < 6) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Invalid input. A valid email and a password of at least 6 characters are required.']);
+// 1. Validation
+if (
+    !isset($data['email']) || !filter_var($data['email'], FILTER_VALIDATE_EMAIL) ||
+    !isset($data['password']) || mb_strlen($data['password']) < 8
+) {
+    http_response_code(400); // Bad Request
+    $log->warning("Bad request to register: Invalid or missing fields.", ['data' => $data]);
+    echo json_encode(['success' => false, 'error' => 'A valid email and a password of at least 8 characters are required.']);
     exit();
 }
 
 $email = $data['email'];
 $password = $data['password'];
-$username = $data['username'] ?? 'WebApp User';
+$username = !empty($data['username']) ? trim($data['username']) : 'WebApp User';
 
-// Check if user already exists
-$stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
-$stmt->execute([':email' => $email]);
-if ($stmt->fetch()) {
-    http_response_code(409); // Conflict
-    echo json_encode(['success' => false, 'error' => 'This email address is already registered.']);
-    exit();
-}
-
-// Hash the password
-$hashed_password = password_hash($password, PASSWORD_DEFAULT);
-
+// 2. Check if user already exists
 try {
-    // Add new user as pending
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
+    $stmt->execute([':email' => $email]);
+    if ($stmt->fetch()) {
+        http_response_code(409); // Conflict
+        $log->warning("Registration attempt for existing email.", ['email' => $email]);
+        echo json_encode(['success' => false, 'error' => 'This email address is already registered.']);
+        exit();
+    }
+
+    // 3. Create new user
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
     $sql = "INSERT INTO users (email, password, username, status) VALUES (:email, :password, :username, 'pending')";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         ':email' => $email,
-        ':password' => $hashed_password,
+        ':password' => $hashedPassword,
         ':username' => $username
     ]);
+    $newUserId = $pdo->lastInsertId();
+    $log->info("New user registered with pending status.", ['user_id' => $newUserId, 'email' => $email]);
 
-    $new_user_db_id = $pdo->lastInsertId();
-
-    // On successful registration, notify the admin via Telegram.
-    // This is in a separate try-catch so that a notification failure
-    // does not prevent the user from receiving a success response.
+    // 4. Send Telegram notification to admin for approval
+    // This is in a separate try-catch so a notification failure doesn't break registration.
     try {
-        $notification_text = "新的网站用户注册请求：\n"
+        if (empty($admin_id)) {
+            throw new Exception("Admin Telegram ID is not configured.");
+        }
+
+        $notificationText = "新的网站用户注册请求：\n"
                            . "---------------------\n"
                            . "*用户:* `" . htmlspecialchars($username) . "`\n"
                            . "*Email:* `" . htmlspecialchars($email) . "`\n"
-                           . "*数据库 ID:* `" . $new_user_db_id . "`\n"
+                           . "*数据库 ID:* `" . $newUserId . "`\n"
                            . "---------------------\n"
                            . "请批准或拒绝此请求。";
 
-        // The callback data for web users must be different to distinguish them.
-        // We will use the database ID (`dbid`) for these users.
-        $approval_keyboard = json_encode([
+        $approvalKeyboard = json_encode([
             'inline_keyboard' => [[
-                ['text' => '✅ 批准', 'callback_data' => 'approve_dbid_' . $new_user_db_id],
-                ['text' => '❌ 拒绝', 'callback_data' => 'deny_dbid_' . $new_user_db_id]
+                ['text' => '✅ 批准', 'callback_data' => 'approve_dbid_' . $newUserId],
+                ['text' => '❌ 拒绝', 'callback_data' => 'deny_dbid_' . $newUserId]
             ]]
         ]);
 
-        Telegram::sendMessage($admin_id, $notification_text, $approval_keyboard);
+        Telegram::sendMessage($admin_id, $notificationText, $approvalKeyboard);
+        $log->info("Sent registration approval notification to admin.", ['user_id' => $newUserId, 'admin_id' => $admin_id]);
+
     } catch (Throwable $e) {
-        // Log the error, but don't prevent the user from getting a success response.
-        error_log("Failed to send Telegram notification for new user " . $new_user_db_id . ": " . $e->getMessage());
+        // Log the notification error but don't prevent the user from getting a success response.
+        $log->error("Failed to send Telegram notification for new user.", [
+            'user_id' => $newUserId,
+            'error' => $e->getMessage()
+        ]);
     }
 
-    http_response_code(200);
+    // 5. Send success response to the user
+    http_response_code(201); // Created
     echo json_encode(['success' => true, 'message' => '您的注册申请已提交，请等待管理员批准。']);
 
 } catch (PDOException $e) {
-    error_log("Error registering web user: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => '注册时发生数据库错误。']);
+    // The global exception handler in init.php will catch this.
+    $log->error("Database error during registration.", ['email' => $email, 'error' => $e->getMessage()]);
+    throw $e;
 }
 ?>
