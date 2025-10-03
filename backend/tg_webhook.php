@@ -3,7 +3,8 @@
 
 require_once __DIR__ . '/init.php'; // Provides $pdo, $log, $admin_id, etc.
 
-use App; // Use the App namespace for Telegram, User, etc.
+use App\Telegram;
+use App\User;
 
 // The global $log is available from init.php
 $log->info("--- Telegram Webhook Triggered ---");
