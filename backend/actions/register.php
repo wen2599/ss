@@ -21,7 +21,7 @@
 // The main router (index.php) handles initialization.
 // Global variables $pdo, $log, and $admin_id are available.
 
-use App\Lib\Telegram; // Use the namespaced Telegram class
+use App; // Use the App namespace for Telegram, User, etc.
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405); // Method Not Allowed

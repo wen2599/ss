@@ -15,12 +15,10 @@
 // The main router (index.php) handles initialization.
 // Global variables $pdo and $log are available.
 
-// Although the autoloader might handle this in a PSR-4 setup, for a simple lib structure,
-// a direct require is reliable.
-require_once __DIR__ . '/../lib/GameData.php';
+use App\GameData;
 
 try {
-    // Access the static color map from the GameData class.
+    // Access the static color map from the GameData class, now handled by the autoloader.
     $colorMap = GameData::$colorMap;
 
     http_response_code(200);

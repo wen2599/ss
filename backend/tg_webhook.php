@@ -2,8 +2,8 @@
 // This script handles callbacks from the Telegram bot, e.g., for user registration approval.
 
 require_once __DIR__ . '/init.php'; // Provides $pdo, $log, $admin_id, etc.
-require_once __DIR__ . '/lib/User.php';
-require_once __DIR__ . '/lib/Telegram.php';
+
+use App; // Use the App namespace for Telegram, User, etc.
 
 // The global $log is available from init.php
 $log->info("--- Telegram Webhook Triggered ---");

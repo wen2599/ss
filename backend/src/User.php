@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Lib;
+namespace App;
 
 use PDO;
 use PDOException;
