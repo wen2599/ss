@@ -10,6 +10,42 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+// --- 1.5. Simple Logger Implementation ---
+// A basic logger to standardize logging output.
+class SimpleLogger {
+    private function log($level, $message, $context = []) {
+        // Ensure context is an array
+        if (!is_array($context)) {
+            $context = [];
+        }
+
+        $log_message = sprintf(
+            "[%s] [%s] %s %s",
+            date('Y-m-d H:i:s'),
+            strtoupper($level),
+            $message,
+            $context ? json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : ''
+        );
+
+        // Use PHP's built-in error_log function to handle the logging.
+        // This will send the message to the web server's error log file.
+        error_log(trim($log_message));
+    }
+
+    public function info($message, $context = []) {
+        $this->log('info', $message, $context);
+    }
+
+    public function warning($message, $context = []) {
+        $this->log('warning', $message, $context);
+    }
+
+    public function error($message, $context = []) {
+        $this->log('error', $message, $context);
+    }
+}
+$log = new SimpleLogger();
+
 // --- 2. Manual .env file loading ---
 // Since composer is not available, we manually parse the .env file.
 $env_path = __DIR__ . '/.env';
@@ -79,8 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 header('Content-Type: application/json');
 
 
-// --- 6. Database Connection (DISABLED) ---
-/*
+// --- 6. Database Connection ---
 $db_host = $_ENV['DB_HOST'] ?? 'localhost';
 $db_name = $_ENV['DB_NAME'] ?? 'lottery_app';
 $db_user = $_ENV['DB_USER'] ?? 'root';
@@ -94,10 +129,12 @@ $options = [
 try {
     $pdo = new PDO($dsn, $db_user, $db_pass, $options);
 } catch (PDOException $e) {
-    throw new PDOException("Database connection failed: " . $e->getMessage(), (int)$e->getCode());
+    // Use the global logger to log the critical database connection error.
+    $log->error("Database connection failed", ['error' => $e->getMessage()]);
+    // Throw a generic exception to be caught by the global exception handler.
+    // This prevents leaking sensitive database details in the public error response.
+    throw new Exception("Could not connect to the database.");
 }
-*/
-$pdo = null; // Set pdo to null to avoid errors in other files that might use it.
 
 
 // --- 7. Start Session ---
