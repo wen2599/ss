@@ -106,6 +106,59 @@ async function forwardToBackend(userEmail, textContent, env) {
 
 export default {
     /**
+     * The main entry point for HTTP requests.
+     * This acts as a proxy to the backend API.
+     * @param {Request} request The incoming HTTP request.
+     * @param {object} env The worker's environment variables.
+     * @param {object} ctx The execution context.
+     * @returns {Promise<Response>}
+     */
+    async fetch(request, env, ctx) {
+        const { PUBLIC_API_ENDPOINT, WORKER_SECRET } = env;
+
+        if (!PUBLIC_API_ENDPOINT || !WORKER_SECRET) {
+            console.error("CRITICAL: Worker environment variables for API proxying are not set.");
+            return new Response(JSON.stringify({
+                success: false,
+                error: "Worker is not configured to handle API requests."
+            }), {
+                status: 503,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        // 1. Construct the target URL for the backend API.
+        const url = new URL(request.url);
+        const targetUrl = new URL(url.pathname + url.search, PUBLIC_API_ENDPOINT);
+
+        // 2. Create a new request to forward to the backend.
+        // Copy method, headers, and body from the original request.
+        const backendRequest = new Request(targetUrl, {
+            method: request.method,
+            headers: request.headers,
+            body: request.body,
+            redirect: 'follow'
+        });
+
+        // 3. Add the required secret header for backend authentication.
+        backendRequest.headers.set('X-Worker-Secret', WORKER_SECRET);
+        // Ensure the Host header points to the backend, not the worker's URL.
+        backendRequest.headers.set('Host', new URL(PUBLIC_API_ENDPOINT).host);
+
+
+        // 4. Send the request to the backend and return the response.
+        try {
+            return await fetch(backendRequest);
+        } catch (error) {
+            console.error('Error forwarding request to backend:', error);
+            return new Response(JSON.stringify({ success: false, error: 'Failed to connect to the backend service.' }), {
+                status: 502, // Bad Gateway
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    },
+
+    /**
      * The main entry point for the email worker.
      * @param {EmailMessage} message The incoming email message object.
      * @param {object} env The worker's environment variables.
