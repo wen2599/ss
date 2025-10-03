@@ -18,6 +18,22 @@
  */
 async function handleApiRequest(request, env) {
   const { BACKEND_HOST, WORKER_SECRET } = env;
+
+  // Check for required environment variables *before* attempting to proxy.
+  if (!BACKEND_HOST || !WORKER_SECRET) {
+    console.error("CRITICAL: BACKEND_HOST and WORKER_SECRET environment variables must be set for API proxying.");
+    const jsonError = { success: false, error: 'Worker is not configured to handle API requests.' };
+    return new Response(JSON.stringify(jsonError), {
+      status: 503, // Service Unavailable
+      headers: {
+        'Content-Type': 'application/json',
+        // Add CORS headers to error response for frontend visibility
+        'Access-Control-Allow-Origin': request.headers.get('Origin') || '*',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+    });
+  }
+
   const url = new URL(request.url);
   const origin = request.headers.get('Origin');
 
@@ -124,12 +140,6 @@ async function handleStaticAsset(request, env) {
 
 export default {
   async fetch(request, env, ctx) {
-    // Check for required environment variables
-    if (!env.BACKEND_HOST || !env.WORKER_SECRET) {
-        console.error("CRITICAL: BACKEND_HOST and WORKER_SECRET environment variables must be set.");
-        return new Response("Worker is not configured correctly. Missing environment variables.", { status: 500 });
-    }
-
     const { pathname } = new URL(request.url);
 
     // Whitelist of all known API routes
