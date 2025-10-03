@@ -12,16 +12,30 @@ export const AuthProvider = ({ children }) => {
         // Check for an active session when the app loads
         const checkUserSession = async () => {
             try {
-                // The '/check_session' path will be handled by the worker/proxy
                 const response = await fetch('/check_session');
+
+                // If the server returns a non-2xx status, treat it as a failure.
+                if (!response.ok) {
+                    throw new Error(`Server responded with status: ${response.status}`);
+                }
+
+                // Try to parse the response as JSON. This will fail for HTML error pages.
                 const data = await response.json();
-                if (response.ok && data.is_logged_in) {
+
+                // If parsing succeeds and user is logged in, set the user.
+                if (data.is_logged_in) {
                     setUser(data.user);
+                } else {
+                    setUser(null);
                 }
             } catch (error) {
-                console.error("Session check failed:", error);
-                // Handle error, maybe show a notification to the user
+                // This block catches network errors, non-OK responses, and JSON parsing errors.
+                // In all these cases, we assume the user is not logged in.
+                // We can log this for debugging, but it's not a critical error for the user.
+                console.log("Session check failed, user is not logged in:", error.message);
+                setUser(null);
             } finally {
+                // Always ensure loading state is turned off.
                 setIsLoading(false);
             }
         };
