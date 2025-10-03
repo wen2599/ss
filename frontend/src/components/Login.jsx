@@ -26,7 +26,7 @@ const Login = () => {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || 'Login failed.');
+                throw new Error(data.error || '登录失败。');
             }
 
             // Update auth context
@@ -44,10 +44,10 @@ const Login = () => {
     return (
         <div className="auth-form-container">
             <form onSubmit={handleSubmit} className="auth-form">
-                <h2>Login</h2>
+                <h2>登录</h2>
                 {error && <p className="error-message">{error}</p>}
                 <div className="form-group">
-                    <label htmlFor="username">Username</label>
+                    <label htmlFor="username">用户名</label>
                     <input
                         type="text"
                         id="username"
@@ -57,7 +57,7 @@ const Login = () => {
                     />
                 </div>
                 <div className="form-group">
-                    <label htmlFor="password">Password</label>
+                    <label htmlFor="password">密码</label>
                     <input
                         type="password"
                         id="password"
@@ -67,10 +67,10 @@ const Login = () => {
                     />
                 </div>
                 <button type="submit" className="btn btn-primary" disabled={isLoading}>
-                    {isLoading ? 'Logging in...' : 'Login'}
+                    {isLoading ? '正在登录...' : '登录'}
                 </button>
                 <p className="switch-form-text">
-                    Don't have an account? <Link to="/register">Register here</Link>
+                    还没有账户？ <Link to="/register">点此注册</Link>
                 </p>
             </form>
         </div>

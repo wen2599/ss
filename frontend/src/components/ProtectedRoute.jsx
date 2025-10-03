@@ -9,7 +9,7 @@ const ProtectedRoute = ({ children }) => {
     // If the authentication status is still loading, don't render anything yet
     // This prevents a flash of the login page before the session is checked
     if (isLoading) {
-        return <div>Loading...</div>; // Or a spinner component
+        return <div>正在加载...</div>; // Or a spinner component
     }
 
     // If the user is not authenticated, redirect them to the login page

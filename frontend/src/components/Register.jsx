@@ -17,7 +17,7 @@ const Register = () => {
         setSuccess('');
 
         if (password.length < 8) {
-            setError('Password must be at least 8 characters long.');
+            setError('密码长度至少为8位。');
             setIsLoading(false);
             return;
         }
@@ -32,10 +32,10 @@ const Register = () => {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || 'Registration failed.');
+                throw new Error(data.error || '注册失败。');
             }
 
-            setSuccess('Registration successful! Redirecting to login...');
+            setSuccess('注册成功！正在跳转到登录页面...');
             setTimeout(() => {
                 navigate('/login');
             }, 2000); // Wait 2 seconds before redirecting
@@ -50,11 +50,11 @@ const Register = () => {
     return (
         <div className="auth-form-container">
             <form onSubmit={handleSubmit} className="auth-form">
-                <h2>Register</h2>
+                <h2>注册</h2>
                 {error && <p className="error-message">{error}</p>}
                 {success && <p className="success-message">{success}</p>}
                 <div className="form-group">
-                    <label htmlFor="username">Username</label>
+                    <label htmlFor="username">用户名</label>
                     <input
                         type="text"
                         id="username"
@@ -64,7 +64,7 @@ const Register = () => {
                     />
                 </div>
                 <div className="form-group">
-                    <label htmlFor="password">Password</label>
+                    <label htmlFor="password">密码</label>
                     <input
                         type="password"
                         id="password"
@@ -74,10 +74,10 @@ const Register = () => {
                     />
                 </div>
                 <button type="submit" className="btn btn-primary" disabled={isLoading}>
-                    {isLoading ? 'Registering...' : 'Register'}
+                    {isLoading ? '正在注册...' : '注册'}
                 </button>
                 <p className="switch-form-text">
-                    Already have an account? <Link to="/login">Login here</Link>
+                    已经有账户了？ <Link to="/login">点此登录</Link>
                 </p>
             </form>
         </div>
