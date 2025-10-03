@@ -17,18 +17,6 @@ CREATE TABLE IF NOT EXISTS `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Table structure for table `lottery_results`
---
-CREATE TABLE IF NOT EXISTS `lottery_results` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `lottery_name` VARCHAR(255) NOT NULL,
-  `issue_number` VARCHAR(255) NOT NULL,
-  `numbers` VARCHAR(255) NOT NULL COMMENT 'Comma-separated winning numbers',
-  `parsed_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY `unique_result` (`lottery_name`, `issue_number`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
 -- Table structure for table `bills`
 --
 CREATE TABLE IF NOT EXISTS `bills` (
