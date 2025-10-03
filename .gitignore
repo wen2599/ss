@@ -19,6 +19,7 @@ npm_dev.log
 
 # User-uploaded content
 /backend/uploads/
+/backend/sessions/
 
 # Environment variables
 .env
