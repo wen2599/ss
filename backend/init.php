@@ -26,7 +26,7 @@ if (file_exists($env_path)) {
 
             if (preg_match('/^"(.*)"$/', $value, $matches)) {
                 $value = $matches[1];
-            } elseif (preg_match("/^'(.*)'$/", $value, $matches)) {
+            } elseif (preg_match("/^\'(.*)\'$/", $value, $matches)) {
                 $value = $matches[1];
             }
 
@@ -79,7 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 header('Content-Type: application/json');
 
 
-// --- 6. Database Connection ---
+// --- 6. Database Connection (DISABLED) ---
+/*
 $db_host = $_ENV['DB_HOST'] ?? 'localhost';
 $db_name = $_ENV['DB_NAME'] ?? 'lottery_app';
 $db_user = $_ENV['DB_USER'] ?? 'root';
@@ -95,6 +96,8 @@ try {
 } catch (PDOException $e) {
     throw new PDOException("Database connection failed: " . $e->getMessage(), (int)$e->getCode());
 }
+*/
+$pdo = null; // Set pdo to null to avoid errors in other files that might use it.
 
 
 // --- 7. Start Session ---
