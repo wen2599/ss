@@ -2,7 +2,7 @@
 /**
  * Namespace for application library files.
  */
-namespace App\Lib;
+namespace App;
 
 /**
  * Class Telegram

@@ -1,5 +1,10 @@
 <?php
 /**
+ * Defines the namespace for the application's library classes.
+ */
+namespace App;
+
+/**
  * Class GameData
  *
  * Provides static data related to the lottery games, such as color mappings.
