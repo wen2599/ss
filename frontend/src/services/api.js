@@ -49,12 +49,6 @@ async function apiService(endpoint, options = {}) {
 
 // --- API Service Functions ---
 
-/** Fetches the latest lottery results. */
-export const getLotteryResults = () => apiService('/get_lottery_results');
-
-/** Fetches static game data, like the color map. */
-export const getGameData = () => apiService('/get_game_data');
-
 /** Checks if the user has an active session. */
 export const checkSession = () => apiService('/check_session', { credentials: 'include' });
 
