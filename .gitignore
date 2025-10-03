@@ -10,6 +10,9 @@
 /node_modules/
 /vendor/
 
+# Configuration
+/backend/config.php
+
 # Build output
 /frontend/dist/
 
