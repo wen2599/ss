@@ -1,2 +1,0 @@
-# Force the use of PHP 8.1
-AddHandler application/x-httpd-php81 .php
