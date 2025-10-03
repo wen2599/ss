@@ -24,14 +24,14 @@ function TextProcessor() {
 
   return (
     <div>
-      <h1>文本处理器</h1>
+      <h1>邮件文本处理器</h1>
       <form onSubmit={handleSubmit}>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows="10"
           cols="50"
-          placeholder="在此处输入您的文本..."
+          placeholder="在此处粘贴您的邮件文本..."
         />
         <br />
         <button type="submit" disabled={isLoading}>
