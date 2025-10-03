@@ -1,6 +1,23 @@
 <?php
+// --- Custom Session Handling for Shared Hosting ---
+// Define a dedicated, writable directory for session files within our project.
+$session_path = __DIR__ . '/sessions';
+
+// Ensure the directory exists. This is a safeguard.
+if (!is_dir($session_path)) {
+    // Attempt to create it if it doesn't exist.
+    // The @ suppresses errors if the directory already exists from a race condition.
+    @mkdir($session_path, 0755, true);
+}
+
+// Set the session save path *before* starting the session.
+// This is the crucial step to fix the 502 error on the server.
+session_save_path($session_path);
+
+
 // Start session
 if (session_status() == PHP_SESSION_NONE) {
+    // Now, session_start() will use the reliable path we just defined.
     session_start();
 }
 
