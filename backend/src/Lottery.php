@@ -40,13 +40,13 @@ class Lottery {
                 ':issue_number' => $result['issue_number'],
                 ':numbers' => $numbersStr
             ]);
-            
+
             // In MySQL with ON DUPLICATE KEY UPDATE, rowCount() returns:
             // 0 if no change was made (the record was identical).
             // 1 if a new row was inserted.
             // 2 if an existing row was updated.
             $rowCount = $stmt->rowCount();
-            
+
             if ($rowCount === 1) {
                 $log->info("New lottery result saved.", ['result' => $result]);
                 return "新开奖结果已成功存入数据库。";

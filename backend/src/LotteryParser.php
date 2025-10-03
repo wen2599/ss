@@ -34,16 +34,16 @@ class LotteryParser {
         $pattern = '/
             # Lottery Name (Group 1)
             (新澳门六合彩|香港六合彩|老澳\d{2}\.\d{2})
-            
+
             # "第" character followed by optional spaces and colon
             \s*第\s*[:：]?\s*
-            
+
             # Issue Number (Group 2)
             (\d+)
-            
+
             # "期开奖结果" text with optional spaces and colon
             \s*期\s*开奖结果\s*[:：]?\s*
-            
+
             # Winning Numbers (Group 3) - Captures sequences of 1-2 digits, separated by various symbols.
             (
                 (?:\d{1,2}\s*[,+:\s]*){6,7}\d{1,2}
@@ -54,7 +54,7 @@ class LotteryParser {
             $lotteryName = trim($matches[1]);
             $issueNumber = trim($matches[2]);
             $numbersStr = trim($matches[3]);
-            
+
             // Extract all 1 or 2-digit numbers from the captured number string.
             preg_match_all('/\d{1,2}/', $numbersStr, $numberMatches);
             $numbers = array_map('intval', $numberMatches[0]);
@@ -68,7 +68,7 @@ class LotteryParser {
                     'text' => $text
                 ]);
             }
-            
+
             // Assign main and special numbers, assuming the last one is the special number.
             $mainNumbers = array_slice($numbers, 0, 6);
             $specialNumber = $numbers[6] ?? null; // Null-coalescing handles cases with fewer than 7 numbers.
