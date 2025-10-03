@@ -1,9 +1,12 @@
 <?php
 require_once __DIR__ . '/init.php';
 
-// Security check: Ensure requests come from our Cloudflare Worker
-$request_secret = $_SERVER['HTTP_X_WORKER_SECRET'] ?? '';
-if ($request_secret !== $_ENV['WORKER_SECRET']) {
+// Security check: Allow secret via header (for user actions) or GET param (for worker actions)
+$worker_secret = $_ENV['WORKER_SECRET'];
+$request_secret_header = $_SERVER['HTTP_X_WORKER_SECRET'] ?? '';
+$request_secret_param = $_GET['worker_secret'] ?? '';
+
+if ($request_secret_header !== $worker_secret && $request_secret_param !== $worker_secret) {
     json_response(['error' => 'Unauthorized access.'], 403);
 }
 
@@ -14,6 +17,8 @@ $allowed_actions = [
     'logout',
     'check_session',
     'process_email',
+    'is_user_registered',
+    'email_upload',
 ];
 
 $action = $_GET['action'] ?? '';
