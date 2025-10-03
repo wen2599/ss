@@ -1,28 +1,58 @@
 <?php
-// Action: Get all lottery results
+/**
+ * Action: get_lottery_results
+ *
+ * This script retrieves the single most recent lottery result for each of the major
+ * lottery types (香港, 新澳门, 老澳). It is designed to provide a quick overview
+ * of the latest results, not a full history.
+ *
+ * HTTP Method: GET
+ *
+ * Response:
+ * - On success: { "success": true, "results": [ { "id": int, "lottery_name": string, ... } ] }
+ * - On error: { "success": false, "error": "Error message." }
+ */
 
-require_once __DIR__ . '/../init.php';
+// The main router (index.php) handles initialization.
+// Global variables $pdo and $log are available.
 
 try {
-    // This query ensures we get exactly one, the most recent, result for each of the three lottery types.
+    // This SQL query uses a Common Table Expression (CTE) to find the most recent
+    // result for each lottery type. It's more efficient and scalable than multiple UNIONs.
+    // It partitions the data by lottery name and assigns a row number to each record,
+    // ordered by date. We then select only the #1 row from each partition.
     $sql = "
-        (SELECT * FROM lottery_results WHERE lottery_name LIKE '%香港%' ORDER BY parsed_at DESC, id DESC LIMIT 1)
-        UNION
-        (SELECT * FROM lottery_results WHERE lottery_name LIKE '%新澳门%' ORDER BY parsed_at DESC, id DESC LIMIT 1)
-        UNION
-        (SELECT * FROM lottery_results WHERE lottery_name LIKE '%老澳%' ORDER BY parsed_at DESC, id DESC LIMIT 1)
+        WITH RankedResults AS (
+            SELECT
+                *,
+                ROW_NUMBER() OVER(PARTITION BY
+                    CASE
+                        WHEN lottery_name LIKE '%香港%' THEN '香港'
+                        WHEN lottery_name LIKE '%新澳门%' THEN '新澳门'
+                        WHEN lottery_name LIKE '%老澳%' THEN '老澳'
+                        ELSE 'other'
+                    END
+                ORDER BY parsed_at DESC, id DESC) as rn
+            FROM lottery_results
+            WHERE lottery_name LIKE '%香港%' OR lottery_name LIKE '%新澳门%' OR lottery_name LIKE '%老澳%'
+        )
+        SELECT id, lottery_name, issue_number, numbers, parsed_at
+        FROM RankedResults
+        WHERE rn = 1;
     ";
+
     $stmt = $pdo->prepare($sql);
     $stmt->execute();
 
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     http_response_code(200);
+    $log->info("Successfully retrieved latest lottery results.", ['result_count' => count($results)]);
     echo json_encode(['success' => true, 'results' => $results]);
 
 } catch (PDOException $e) {
-    error_log("Get Lottery Results DB query error: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Failed to retrieve lottery results.']);
+    // The global exception handler in init.php will catch this.
+    $log->error("Database error while retrieving lottery results.", ['error' => $e->getMessage()]);
+    throw $e;
 }
 ?>

@@ -1,51 +1,56 @@
 <?php
-// Action: Check if a user is registered (for email worker)
-write_log("is_user_registered.php: Script started.");
+/**
+ * Action: is_user_registered
+ *
+ * This script checks if a user is registered in the database based on their email address.
+ * It is intended to be used by external services (like an email processing worker)
+ * to verify a user's existence before performing further actions.
+ *
+ * HTTP Method: GET
+ *
+ * Query Parameters:
+ * - "email" (string): The email address to check.
+ *
+ * Response:
+ * - On success: { "success": true, "is_registered": boolean }
+ * - On error (e.g., missing email): { "success": false, "error": "Error message." }
+ */
 
-if (!isset($_GET['worker_secret']) || $_GET['worker_secret'] !== $worker_secret) {
-    write_log("is_user_registered.php: CRITICAL - Worker secret mismatch or not provided.");
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Access denied. Invalid secret.']);
-    exit();
-}
-write_log("is_user_registered.php: Worker secret check passed.");
+// The main router (index.php) handles initialization and security checks,
+// including validating the X-Worker-Secret header.
+// Global variables $pdo and $log are available.
 
+// 1. Validation: Check if the email parameter is provided and valid.
 if (!isset($_GET['email']) || !filter_var($_GET['email'], FILTER_VALIDATE_EMAIL)) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Invalid or missing email parameter.']);
+    http_response_code(400); // Bad Request
+    $log->warning("Bad request to is_user_registered: email is missing or invalid.", ['query' => $_GET]);
+    echo json_encode(['success' => false, 'error' => 'A valid email address is required.']);
     exit();
 }
 
 $email = $_GET['email'];
-$is_registered = false;
-write_log("is_user_registered.php: Checking email: " . $email);
 
+// 2. Database Operation
 try {
-    // The $pdo variable is inherited from index.php
-    write_log("is_user_registered.php: Preparing DB query.");
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = :email");
-
-    write_log("is_user_registered.php: Executing DB query.");
+    $sql = "SELECT COUNT(*) FROM users WHERE email = :email";
+    $stmt = $pdo->prepare($sql);
     $stmt->execute([':email' => $email]);
-    write_log("is_user_registered.php: Query executed.");
 
-    if ($stmt->fetchColumn() > 0) {
-        $is_registered = true;
-        write_log("is_user_registered.php: User was found in database.");
-    } else {
-        write_log("is_user_registered.php: User was NOT found in database.");
-    }
+    $isRegistered = ($stmt->fetchColumn() > 0);
+
+    http_response_code(200);
+    $log->info("User registration check completed.", ['email' => $email, 'is_registered' => $isRegistered]);
+    echo json_encode([
+        'success' => true,
+        'is_registered' => $isRegistered
+    ]);
+
 } catch (PDOException $e) {
-    write_log("is_user_registered.php: CRITICAL - PDOException: " . $e->getMessage());
-    error_log("User verification DB error: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'A server error occurred during verification.']);
-    exit();
+    // The global exception handler in init.php will catch this.
+    $log->error("Database error during user registration check.", [
+        'email' => $email,
+        'error' => $e->getMessage()
+    ]);
+    throw $e;
 }
-
-http_response_code(200);
-echo json_encode([
-    'success' => true,
-    'is_registered' => $is_registered
-]);
 ?>

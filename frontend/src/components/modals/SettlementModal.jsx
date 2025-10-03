@@ -1,85 +1,160 @@
 import React, { useState, useEffect } from 'react';
+import { updateSettlement } from '../../services/api';
+import './SettlementModal.css';
 
-function SettlementDetails({ details }) {
-  if (!details) return <div className="details-container">没有详细信息。</div>;
-
-  const { number_bets, summary } = details || {};
-  const safe_number_bets = Array.isArray(number_bets) ? number_bets : [];
-
-  if (safe_number_bets.length === 0) {
-    return <div className="details-container">没有解析到投注。</div>;
-  }
+/**
+ * Displays the structured details of a settlement result.
+ * @param {{details: object}} props
+ */
+const SettlementDetails = ({ details }) => {
+  if (!details || !details.summary) return <div className="details-container">没有详细结算信息。</div>;
+  const { number_bets = [], summary } = details;
 
   return (
     <div className="details-container">
       <table className="settlement-table">
-        <thead>
-          <tr>
-            <th>类型</th>
-            <th>内容</th>
-            <th>投注 / 中奖</th>
-          </tr>
-        </thead>
+        {/* Table Head */}
+        <thead><tr><th>类型</th><th>内容</th><th>投注 / 中奖</th></tr></thead>
+        {/* Table Body */}
         <tbody>
-          {safe_number_bets.map((bet, idx) => (
-            <tr key={`number-${idx}`} className={bet.winnings > 0 ? 'winning-row' : ''}>
-              <td className="type-number">号码投注</td>
-              <td>
-                {bet.numbers.map((num, i) => (
-                  <React.Fragment key={i}>
-                    <span className={bet.winning_numbers?.includes(num) ? 'winning-number' : ''}>
-                      {num}
-                    </span>
-                    {i < bet.numbers.length - 1 && ' '}
-                  </React.Fragment>
-                ))}
-              </td>
+          {number_bets.map((bet, idx) => (
+            <tr key={idx} className={bet.winnings > 0 ? 'winning-row' : ''}>
+              <td>号码投注</td>
+              <td>{bet.numbers?.join(' ')}</td>
               <td className="amount">
                 {bet.cost} 元
-                {bet.winnings > 0 && (
-                  <span className="winnings-amount"> 赢: {bet.winnings} 元</span>
-                )}
+                {bet.winnings > 0 && <span className="winnings-amount"> 赢: {bet.winnings} 元</span>}
               </td>
             </tr>
           ))}
         </tbody>
-        {summary && (
-          <tfoot>
-            <tr>
-              <td colSpan="2" className="summary-label">号码总数</td>
-              <td className="summary-value">{summary.number_count ?? 0} 个</td>
-            </tr>
-            <tr>
-              <td colSpan="2" className="summary-label">总金额</td>
-              <td className="summary-value">{summary.total_cost ?? 0} 元</td>
-            </tr>
-            {summary.winnings > 0 && (
-              <tr>
-                <td colSpan="2" className="summary-label winning-row">总计中奖</td>
-                <td className="summary-value winning-row">{summary.winnings} 元</td>
-              </tr>
-            )}
-          </tfoot>
-        )}
+        {/* Table Foot */}
+        <tfoot>
+          <tr><td colSpan={2}>号码总数</td><td>{summary.number_count ?? 0} 个</td></tr>
+          <tr><td colSpan={2}>总金额</td><td>{summary.total_cost ?? 0} 元</td></tr>
+          {summary.winnings > 0 && (
+            <tr><td colSpan={2} className="winning-row">总计中奖</td><td className="winning-row">{summary.winnings} 元</td></tr>
+          )}
+        </tfoot>
       </table>
     </div>
   );
-}
+};
 
+/**
+ * A JSON editor component with save/cancel functionality.
+ * @param {{
+ *   initialJson: object,
+ *   onSave: (editedJson: object) => Promise<void>,
+ *   onCancel: () => void
+ * }} props
+ */
+const JsonEditor = ({ initialJson, onSave, onCancel }) => {
+  const [jsonText, setJsonText] = useState(JSON.stringify(initialJson, null, 2));
+  const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    let parsedJson;
+    try {
+      parsedJson = JSON.parse(jsonText);
+      setError('');
+    } catch (e) {
+      setError(`JSON 格式错误: ${e.message}`);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await onSave(parsedJson);
+    } catch (e) {
+      setError(`保存失败: ${e.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="json-editor-container">
+      <textarea
+        value={jsonText}
+        onChange={(e) => setJsonText(e.target.value)}
+        rows={15}
+        className="json-editor-textarea"
+        disabled={isSaving}
+      />
+      {error && <div className="save-result error">{error}</div>}
+      <div className="slip-actions">
+        <button onClick={handleSave} disabled={isSaving} className="action-button save">
+          {isSaving ? '保存中...' : '保存'}
+        </button>
+        <button onClick={onCancel} disabled={isSaving} className="action-button cancel">
+          取消
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Displays a single bet slip card with editing capabilities.
+ * @param {{
+ *  billId: number,
+ *  slip: object,
+ *  index: number,
+ *  onSaveSuccess: () => void
+ * }} props
+ */
+const SlipCard = ({ billId, slip, index, onSaveSuccess }) => {
+    const [isEditing, setIsEditing] = useState(false);
+
+    const handleSave = async (editedJson) => {
+        await updateSettlement(billId, index, editedJson);
+        setIsEditing(false);
+        onSaveSuccess(); // Trigger parent to refetch data
+    };
+
+    return (
+        <div className={`bet-slip-card ${isEditing ? 'editing' : ''}`}>
+            <div className="slip-raw">
+                <div className="slip-card-header">
+                    <span className="slip-index-tag">第 {slip.index + 1} 段</span>
+                    <pre className="slip-pre">{slip.raw}</pre>
+                </div>
+            </div>
+            <div className="slip-result">
+                {isEditing ? (
+                    <JsonEditor initialJson={slip.result} onSave={handleSave} onCancel={() => setIsEditing(false)} />
+                ) : (
+                    <>
+                        <SettlementDetails details={slip.result} />
+                        <div className="slip-actions">
+                            <button onClick={() => setIsEditing(true)} className="action-button edit">编辑结算</button>
+                        </div>
+                    </>
+                )}
+            </div>
+            <div className="slip-cost">
+                <span>小计</span>
+                <strong>{slip.result?.summary?.total_cost || 0} 元</strong>
+            </div>
+        </div>
+    );
+};
+
+/**
+ * The main modal component for viewing and editing settlement details.
+ * @param {{
+ *   open: boolean,
+ *   bill: object | null,
+ *   onClose: () => void,
+ *   onSaveSuccess: () => void
+ * }} props
+ */
 function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
-  const [editingSlipIndex, setEditingSlipIndex] = useState(null);
-  const [editedJsonText, setEditedJsonText] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saveResult, setSaveResult] = useState({ index: null, type: '', message: '' });
-  const [viewMode, setViewMode] = useState('text'); // 'text' is now the default
-
   useEffect(() => {
     if (!open) {
-      setEditingSlipIndex(null);
-      setEditedJsonText('');
-      setSaving(false);
-      setSaveResult({ index: null, type: '', message: '' });
-      setViewMode('text'); // Reset to default view on close
+      // Reset any state if needed when modal closes
     }
   }, [open]);
 
@@ -89,80 +164,7 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
     ? JSON.parse(bill.settlement_details)
     : bill.settlement_details || { slips: [], summary: {} };
 
-  const slips = parsedDetails?.slips || [];
-  const summary = parsedDetails?.summary || {};
-
-  const handleEditClick = (index) => {
-    setEditingSlipIndex(index);
-    const resultJson = slips[index]?.result || {};
-    setEditedJsonText(JSON.stringify(resultJson, null, 2));
-  };
-
-  const handleCancelClick = () => setEditingSlipIndex(null);
-
-  const handleSaveEdit = async () => {
-    let settlementResult;
-    try {
-      settlementResult = JSON.parse(editedJsonText);
-    } catch (e) {
-      setSaveResult({ index: editingSlipIndex, type: 'error', message: `JSON格式错误: ${e.message}` });
-      return;
-    }
-    setSaving(true);
-    try {
-      const response = await fetch('/update_settlement', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bill_id: bill.id, slip_index: editingSlipIndex, settlement_result: settlementResult }),
-        credentials: 'include'
-      });
-      const data = await response.json();
-      if (data.success) {
-        setSaveResult({ index: editingSlipIndex, type: 'success', message: '保存成功！' });
-        onSaveSuccess();
-        setTimeout(() => setEditingSlipIndex(null), 1500);
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (err) {
-      setSaveResult({ index: editingSlipIndex, type: 'error', message: `保存失败: ${err.message || '网络错误'}` });
-    }
-    setSaving(false);
-  };
-
-  const generateResultString = (result) => {
-      if (!result || !result.summary) return '';
-      const parts = [];
-      if (result.number_bets && result.number_bets.length > 0) {
-        result.number_bets.forEach(bet => {
-          const numbersStr = bet.numbers.join(' ');
-          const costPerNum = bet.cost_per_number;
-          const totalCost = bet.cost;
-          parts.push(`${numbersStr}各${costPerNum}元共${totalCost}元`);
-        });
-      }
-      if (parts.length === 0) return `【总金额: ${result.summary.total_cost}元, 总号码数: ${result.summary.number_count}个】`;
-      return ` 结算结果 ${parts.join(' ')} `;
-  };
-
-  const renderInjectedContent = () => {
-    const { raw_content } = bill;
-    if (!slips.length) return <pre className="raw-content-panel">{raw_content}</pre>;
-    let lastIndex = 0;
-    const contentParts = [];
-    slips.forEach((slip, index) => {
-      const startIndex = raw_content.indexOf(slip.raw, lastIndex);
-      if (startIndex !== -1) {
-        contentParts.push(raw_content.substring(lastIndex, startIndex));
-        contentParts.push(slip.raw);
-        const resultString = generateResultString(slip.result);
-        if (resultString) contentParts.push(<span key={index} className="injected-result">{resultString}</span>);
-        lastIndex = startIndex + slip.raw.length;
-      }
-    });
-    if (lastIndex < raw_content.length) contentParts.push(raw_content.substring(lastIndex));
-    return <pre className="raw-content-panel">{contentParts}</pre>;
-  };
+  const { slips = [], summary = {} } = parsedDetails;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -172,81 +174,27 @@ function SettlementModal({ open, bill, onClose, onSaveSuccess }) {
           <h2>结算详情 (账单 #{bill.id})</h2>
         </div>
 
-        {viewMode === 'card' && (
-          slips.length === 0 ? <div className="no-slips-message">没有解析到有效的分段下注单。</div> :
+        {slips.length === 0 ? (
+          <div className="no-slips-message">没有解析到有效的分段下注单。</div>
+        ) : (
           <>
             <div className="slips-card-container">
               {slips.map((slip, index) => (
-                <div key={index} className={`bet-slip-card ${editingSlipIndex === index ? 'editing' : ''}`}>
-                  <div className="slip-raw">
-                    <div className="slip-card-header">
-                      {slip.region && <span className="region-tag">{slip.region}</span>}
-                      {slip.time ? <span className="time-tag">{slip.time}</span> : `第 ${slip.index} 段`}
-                    </div>
-                    <pre className="slip-pre">{slip.raw}</pre>
-                  </div>
-                  <div className="slip-result">
-                    <SettlementDetails details={slip.result} />
-                    {editingSlipIndex === index && (
-                      <div className="editable-notes">
-                        <textarea value={editedJsonText} onChange={(e) => setEditedJsonText(e.target.value)} rows={15} className="notes-textarea json-editor" placeholder="在此编辑结算结果的JSON..." disabled={saving} />
-                        {saveResult.index === index && saveResult.message && <div className={`save-result ${saveResult.type}`}>{saveResult.message}</div>}
-                      </div>
-                    )}
-                  </div>
-                  <div className="slip-cost">
-                    <span>小计</span>
-                    <strong>{slip.result?.summary?.total_cost || 0} 元</strong>
-                    <div className="slip-actions">
-                      {editingSlipIndex === index ? (
-                        <>
-                          <button onClick={handleSaveEdit} disabled={saving} className="action-button save">{saving ? '保存中...' : '保存'}</button>
-                          <button onClick={handleCancelClick} disabled={saving} className="action-button cancel">取消</button>
-                        </>
-                      ) : (
-                        <button onClick={() => handleEditClick(index)} className="action-button edit">编辑结算</button>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <SlipCard key={index} billId={bill.id} slip={slip} index={index} onSaveSuccess={onSaveSuccess} />
               ))}
             </div>
             <div className="multi-details-summary">
-              <strong>总计:</strong>
-              <span>{summary.total_cost || 0} 元</span>
+              <strong>总计:</strong> <span>{summary.total_cost || 0} 元</span>
               <span className="summary-divider">|</span>
-              <strong>总号码数:</strong>
-              <span>{summary.total_number_count || 0} 个</span>
+              <strong>总号码数:</strong> <span>{summary.total_number_count || 0} 个</span>
               {summary.total_winnings > 0 && (
                 <>
                   <span className="summary-divider">|</span>
-                  <strong className="winning-row">总计中奖:</strong>
-                  <span className="winning-row">{summary.total_winnings} 元</span>
+                  <strong className="winning-row">总计中奖:</strong> <span className="winning-row">{summary.total_winnings} 元</span>
                 </>
               )}
             </div>
           </>
-        )}
-
-        {viewMode === 'text' && (
-          <div className="panel" style={{ background: '#f7f8fa', padding: '1em', marginTop: '1em' }}>
-            {renderInjectedContent()}
-            <div className="multi-details-summary text-view-summary">
-              <strong>总计:</strong>
-              <span>{summary.total_cost || 0} 元</span>
-              <span className="summary-divider">|</span>
-              <strong>总号码数:</strong>
-              <span>{summary.total_number_count || 0} 个</span>
-              {summary.total_winnings > 0 && (
-                <>
-                  <span className="summary-divider">|</span>
-                  <strong className="winning-row">总计中奖:</strong>
-                  <span className="winning-row">{summary.total_winnings} 元</span>
-                </>
-              )}
-              <button onClick={() => setViewMode('card')} className="action-button edit summary-edit-button" title="切换到卡片视图进行编辑">编辑结算</button>
-            </div>
-          </div>
         )}
       </div>
     </div>
