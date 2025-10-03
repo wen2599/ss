@@ -16,18 +16,18 @@ const Navbar = () => {
         <nav className="navbar">
             <div className="navbar-container">
                 <NavLink to="/" className="navbar-logo">
-                    EmailParser
+                    邮件解析器
                 </NavLink>
                 <ul className="nav-menu">
                     <li className="nav-item">
                         <NavLink to="/" className="nav-links" end>
-                            Home
+                            首页
                         </NavLink>
                     </li>
                     {isAuthenticated && (
                         <li className="nav-item">
                             <NavLink to="/parser" className="nav-links">
-                                Parser
+                                解析器
                             </NavLink>
                         </li>
                     )}
@@ -35,18 +35,18 @@ const Navbar = () => {
                 <div className="nav-auth">
                     {isAuthenticated ? (
                         <>
-                            <span className="navbar-user">Welcome, {user.username}</span>
+                            <span className="navbar-user">欢迎, {user.username}</span>
                             <button onClick={handleLogout} className="btn btn-outline">
-                                Logout
+                                登出
                             </button>
                         </>
                     ) : (
                         <>
                             <NavLink to="/login" className="btn btn-secondary">
-                                Login
+                                登录
                             </NavLink>
                             <NavLink to="/register" className="btn btn-primary">
-                                Sign Up
+                                注册
                             </NavLink>
                         </>
                     )}
