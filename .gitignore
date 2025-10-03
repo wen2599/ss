@@ -1,12 +1,25 @@
-# Ignore Composer dependencies
-# /vendor/
+# IDE and OS specific
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
 
-# Ignore log files
+# Dependencies
+/node_modules/
+/vendor/
+
+# Configuration
+/backend/config.php
+
+# Build output
+/frontend/dist/
+
+# Logs
 *.log
-webhook_log.txt
 
-# Ignore local development configurations
+# Other
 .env
-
-# Ignore upload directories
-/backend/uploads/
+.env.*
+!/.env.example
