@@ -1,17 +1,18 @@
-/* --- Global Theme & Variables --- */
+/* --- Dark Theme & Variables --- */
 :root {
-    --primary-color: #007bff;
-    --primary-hover-color: #0056b3;
-    --secondary-color: #6c757d;
-    --background-color: #f8f9fa;
-    --surface-color: #ffffff;
-    --text-color: #333;
-    --border-color: #dee2e6;
-    --error-color: #dc3545;
-    --success-color: #28a745;
-    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --border-radius: 8px;
-    --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --primary-color: #28a745; /* Vibrant Green */
+    --primary-hover-color: #218838;
+    --background-color: #121212; /* Very dark grey, almost black */
+    --surface-color: #1e1e1e; /* Dark grey for cards, forms */
+    --text-color: #e0e0e0; /* Light grey for text */
+    --text-color-secondary: #a0a0a0; /* Dimmer text */
+    --border-color: #333333; /* Subtle border color */
+    --error-color: #f44336;
+    --success-color: #4caf50;
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --border-radius: 6px;
+    --box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --box-shadow-light: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* --- Base & Layout --- */
@@ -20,7 +21,7 @@ body {
     background-color: var(--background-color);
     color: var(--text-color);
     margin: 0;
-    line-height: 1.6;
+    line-height: 1.7;
 }
 
 #root {
@@ -29,36 +30,33 @@ body {
     min-height: 100vh;
 }
 
-.container {
-    width: 90%;
-    max-width: 1200px;
-    margin: 2rem auto;
-    padding: 0 1rem;
-}
-
 main {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 2rem 0;
+    padding: 2rem 1rem;
 }
 
 /* --- Navbar Styling --- */
 .navbar {
-    background-color: var(--surface-color);
-    box-shadow: var(--box-shadow);
+    background-color: rgba(30, 30, 30, 0.8); /* Semi-transparent surface color */
+    backdrop-filter: blur(10px);
+    box-shadow: var(--box-shadow-light);
     padding: 1rem 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
 }
 
 .navbar-brand {
     font-size: 1.5rem;
-    font-weight: bold;
+    font-weight: 600;
     color: var(--primary-color);
     text-decoration: none;
 }
@@ -68,12 +66,13 @@ main {
     margin: 0;
     padding: 0;
     display: flex;
+    align-items: center;
     gap: 1.5rem;
 }
 
-.navbar-links a, .navbar-links button {
+.navbar-links a, .navbar-links button, .navbar-links span {
     text-decoration: none;
-    color: var(--text-color);
+    color: var(--text-color-secondary);
     font-weight: 500;
     font-size: 1rem;
     background: none;
@@ -83,7 +82,11 @@ main {
 }
 
 .navbar-links a:hover, .navbar-links button:hover {
-    color: var(--primary-color);
+    color: var(--text-color);
+}
+
+.navbar-links span {
+    cursor: default;
 }
 
 /* --- Button Styling --- */
@@ -94,25 +97,31 @@ main {
     border: none;
     border-radius: var(--border-radius);
     font-size: 1rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
 .btn:hover {
     background-color: var(--primary-hover-color);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .btn:disabled {
-    background-color: var(--secondary-color);
+    background-color: #555;
+    color: #999;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 /* --- Authentication Form Styling --- */
 .auth-container {
     width: 100%;
-    max-width: 450px;
+    max-width: 420px;
     background-color: var(--surface-color);
     padding: 2.5rem;
     border-radius: var(--border-radius);
@@ -122,8 +131,9 @@ main {
 
 .auth-form h2 {
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
     color: var(--text-color);
+    font-weight: 600;
 }
 
 .form-group {
@@ -134,32 +144,36 @@ main {
     display: block;
     margin-bottom: 0.5rem;
     font-weight: 500;
+    color: var(--text-color-secondary);
 }
 
 .form-group input {
     width: 100%;
-    padding: 0.75rem;
+    padding: 0.8rem;
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     font-size: 1rem;
     box-sizing: border-box;
+    background-color: #2c2c2c;
+    color: var(--text-color);
 }
 
 .form-group input:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.2);
 }
 
 .switch-form-text {
     text-align: center;
     margin-top: 1.5rem;
+    color: var(--text-color-secondary);
 }
 
 .switch-form-text a {
     color: var(--primary-color);
     text-decoration: none;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .switch-form-text a:hover {
@@ -172,18 +186,19 @@ main {
     border-radius: var(--border-radius);
     margin-bottom: 1.5rem;
     text-align: center;
+    border: 1px solid transparent;
 }
 
 .error-message {
-    background-color: rgba(220, 53, 69, 0.1);
+    background-color: rgba(244, 67, 54, 0.1);
     color: var(--error-color);
-    border: 1px solid var(--error-color);
+    border-color: var(--error-color);
 }
 
 .success-message {
-    background-color: rgba(40, 167, 69, 0.1);
+    background-color: rgba(76, 175, 80, 0.1);
     color: var(--success-color);
-    border: 1px solid var(--success-color);
+    border-color: var(--success-color);
 }
 
 /* --- Home & Email Parser Styling --- */
@@ -193,28 +208,32 @@ main {
     padding: 3rem;
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow);
+    border: 1px solid var(--border-color);
     width: 100%;
     max-width: 800px;
 }
 
 .home-container h1, .parser-container h1 {
     margin-bottom: 1rem;
+    font-weight: 600;
 }
 
 .parser-container textarea {
     width: 100%;
-    min-height: 200px;
+    min-height: 250px;
     padding: 1rem;
     border-radius: var(--border-radius);
     border: 1px solid var(--border-color);
-    font-family: monospace;
+    font-family: 'Fira Code', monospace;
     font-size: 0.9rem;
     margin-bottom: 1.5rem;
     box-sizing: border-box;
+    background-color: #2c2c2c;
+    color: var(--text-color);
 }
 
 .parser-results {
-    margin-top: 2rem;
+    margin-top: 2.5rem;
     text-align: left;
     background-color: var(--background-color);
     padding: 1.5rem;
@@ -226,14 +245,27 @@ main {
     margin-top: 0;
     border-bottom: 2px solid var(--primary-color);
     padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
 }
 
 .parser-results pre {
     white-space: pre-wrap;
     word-wrap: break-word;
-    background-color: var(--surface-color);
+    background-color: #2c2c2c;
     padding: 1rem;
     border-radius: var(--border-radius);
+    color: var(--text-color-secondary);
+}
+
+.home-actions {
+    margin-top: 2rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1rem;
 }
 
 /* --- Responsive Design --- */
@@ -243,11 +275,7 @@ main {
         gap: 1rem;
     }
 
-    .container {
-        width: 95%;
-    }
-
-    .auth-container {
+    .home-container, .parser-container, .auth-container {
         padding: 1.5rem;
     }
 }
