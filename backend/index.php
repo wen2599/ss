@@ -6,7 +6,19 @@ $worker_secret = $_ENV['WORKER_SECRET'];
 $request_secret_header = $_SERVER['HTTP_X_WORKER_SECRET'] ?? '';
 $request_secret_param = $_GET['worker_secret'] ?? '';
 
-if ($request_secret_header !== $worker_secret && $request_secret_param !== $worker_secret) {
+// Whitelist of actions allowed to use the worker_secret via GET param
+$worker_actions = ['email_upload', 'process_email'];
+$action = $_GET['action'] ?? '';
+
+// Refined security validation
+$is_authorized = false;
+if ($request_secret_header === $worker_secret) {
+    $is_authorized = true;
+} elseif (in_array($action, $worker_actions) && $request_secret_param === $worker_secret) {
+    $is_authorized = true;
+}
+
+if (!$is_authorized) {
     json_response(['error' => 'Unauthorized access.'], 403);
 }
 
@@ -20,8 +32,6 @@ $allowed_actions = [
     'is_user_registered',
     'email_upload',
 ];
-
-$action = $_GET['action'] ?? '';
 
 // Validate if the action is in the whitelist
 if (!in_array($action, $allowed_actions)) {

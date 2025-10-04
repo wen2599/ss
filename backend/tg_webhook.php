@@ -48,8 +48,8 @@ if ((string)$chat_id !== (string)$admin_chat_id) {
 }
 
 // --- Command Parsing: /deleteuser <username> ---
-if (preg_match('/^\/deleteuser\s+(.+)$/', $message_text, $matches)) {
-    $username_to_delete = trim($matches[1]);
+if (preg_match('/^\/deleteuser\s+([a-zA-Z0-9_.-]+)$/', $message_text, $matches)) {
+    $username_to_delete = $matches[1];
 
     try {
         // Find the user first to prevent SQL injection and check existence
