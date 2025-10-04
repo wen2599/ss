@@ -1,9 +1,4 @@
-// --- Constants ---
-// This secret must be consistent and match the one in the backend .env file.
-const WORKER_SECRET = "816429fb-1649-4e48-9288-7629893311a6";
-const PUBLIC_API_ENDPOINT = "https://ss.wenxiuxiu.eu.org";
-
-// --- Utility Functions for Email Parsing ---
+// --- Utility Functions for Email Parsing (Unchanged) ---
 
 function detectEncoding(uint8arr) {
   try {
@@ -144,20 +139,24 @@ export default {
    * Handles incoming HTTP requests (for the website and API proxy).
    */
   async fetch(request, env, ctx) {
+    // --- Environment Variable Check ---
+    if (!env.WORKER_SECRET || !env.PUBLIC_API_ENDPOINT) {
+      return new Response('Worker is not configured. Required environment variables are missing.', { status: 500 });
+    }
+
     const url = new URL(request.url);
     const pathname = url.pathname;
 
-    // API routes that the frontend will call
     const API_ROUTES = [
         '/register', '/login', '/logout',
         '/check_session', '/process_email'
     ];
 
     if (API_ROUTES.some(route => pathname.startsWith(route))) {
-        const backendUrl = new URL(pathname + url.search, PUBLIC_API_ENDPOINT);
+        const backendUrl = new URL(pathname + url.search, env.PUBLIC_API_ENDPOINT);
         const backendRequest = new Request(backendUrl, request);
-        backendRequest.headers.set('X-Worker-Secret', WORKER_SECRET);
-        backendRequest.headers.set('Host', new URL(PUBLIC_API_ENDPOINT).host);
+        backendRequest.headers.set('X-Worker-Secret', env.WORKER_SECRET);
+        backendRequest.headers.set('Host', new URL(env.PUBLIC_API_ENDPOINT).host);
 
         try {
             const response = await fetch(backendRequest);
@@ -178,6 +177,12 @@ export default {
    * Handles incoming emails.
    */
   async email(message, env, ctx) {
+    // --- Environment Variable Check ---
+    if (!env.WORKER_SECRET || !env.PUBLIC_API_ENDPOINT) {
+        console.error('Worker is not configured for email processing. Required environment variables are missing.');
+        return;
+    }
+
     const MAX_BODY_LENGTH = 32 * 1024;
     const MAX_ATTACHMENT_COUNT = 10;
     const MAX_ATTACHMENT_SIZE = 8 * 1024 * 1024;
@@ -187,7 +192,7 @@ export default {
     if (!senderEmail) return;
 
     try {
-      const verificationUrl = `${PUBLIC_API_ENDPOINT}/is_user_registered?worker_secret=${WORKER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
+      const verificationUrl = `${env.PUBLIC_API_ENDPOINT}/is_user_registered?worker_secret=${env.WORKER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
       const verificationResponse = await fetch(verificationUrl);
       if (!verificationResponse.ok) return;
       const verificationData = await verificationResponse.json();
@@ -213,14 +218,14 @@ export default {
     const filename = `email-${safeEmail}-${Date.now()}${messageId ? "-" + messageId : ""}.txt`;
 
     const formData = new FormData();
-    formData.append("worker_secret", WORKER_SECRET);
+    formData.append("worker_secret", env.WORKER_SECRET);
     formData.append("user_email", senderEmail);
     formData.append("raw_email_file", new Blob([chatContent], { type: "text/plain" }), filename);
     if (htmlContent) formData.append("html_body", new Blob([htmlContent], { type: "text/html" }), filename.replace(".txt", ".html"));
     for (const att of attachments) formData.append("attachment", att.blob, att.filename);
 
     try {
-      const uploadUrl = `${PUBLIC_API_ENDPOINT}/email_upload`;
+      const uploadUrl = `${env.PUBLIC_API_ENDPOINT}/email_upload`;
       await fetch(uploadUrl, { method: "POST", body: formData });
     } catch (error) {}
   },
