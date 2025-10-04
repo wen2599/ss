@@ -1,6 +1,35 @@
 <?php
 // --- Start of Inlined Initialization Logic ---
 
+// --- Error and Exception Handling ---
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
+
+function log_telegram_error($message) {
+    $log_file = __DIR__ . '/tg_errors.log';
+    $timestamp = date('Y-m-d H:i:s');
+    // Ensure the message is a string
+    if (!is_string($message)) {
+        $message = print_r($message, true);
+    }
+    file_put_contents($log_file, "[$timestamp] " . $message . "\n", FILE_APPEND);
+}
+
+set_exception_handler(function(Throwable $e) {
+    log_telegram_error("Uncaught Exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine() . "\nStack trace:\n" . $e->getTraceAsString());
+    exit();
+});
+
+set_error_handler(function($severity, $message, $file, $line) {
+    if (!(error_reporting() & $severity)) {
+        return false;
+    }
+    log_telegram_error("Error [$severity]: $message in $file:$line");
+    // Don't execute the PHP internal error handler
+    return true;
+});
+
+
 // --- Environment Variable Loading ---
 function load_env($path) {
     if (!file_exists($path)) { return; } // Silently fail if .env is not found
@@ -31,7 +60,9 @@ if (class_exists('PDO')) {
             $pdo = new PDO($dsn, $user, $pass, $options);
         }
     } catch (PDOException $e) {
-        // Fail silently. The command handler below will check for a valid $pdo object.
+        // Log the DB connection error and exit
+        log_telegram_error("Database Connection Error: " . $e->getMessage());
+        exit();
     }
 }
 
@@ -43,7 +74,10 @@ if (class_exists('PDO')) {
 // --- Helper function to send a message back to Telegram ---
 function sendTelegramMessage($chat_id, $text) {
     $token = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
-    if (!$token) { return; } // Cannot send message if token is not set
+    if (!$token) {
+        log_telegram_error("TELEGRAM_BOT_TOKEN is not set. Cannot send message.");
+        return;
+    }
     $url = "https://api.telegram.org/bot{$token}/sendMessage";
     $data = [
         'chat_id' => $chat_id,
@@ -54,10 +88,19 @@ function sendTelegramMessage($chat_id, $text) {
             'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
             'method'  => 'POST',
             'content' => http_build_query($data),
+            'ignore_errors' => true, // Get response body even on HTTP errors
         ],
     ];
     $context  = stream_context_create($options);
-    @file_get_contents($url, false, $context); // Use @ to suppress errors if the API call fails
+
+    $result = file_get_contents($url, false, $context);
+
+    if ($result === false) {
+        log_telegram_error("Failed to make request to Telegram API. URL: $url");
+    } else {
+        // Log the response from the API for debugging purposes.
+        log_telegram_error("Telegram API Response: " . $result);
+    }
 }
 
 // Get the update from Telegram
