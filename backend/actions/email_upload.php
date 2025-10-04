@@ -21,7 +21,7 @@ if (!$user_email || !filter_var($user_email, FILTER_VALIDATE_EMAIL)) {
 // --- Directory and File Handling ---
 
 // Sanitize the email to create a safe directory name
-$user_dir_name = preg_replace('/[^a-zA-Z0-9_.-]/', '_', $user_email);
+$user_dir_name = basename(preg_replace('/[^a-zA-Z0-9_.-]/', '_', $user_email));
 $upload_base_dir = __DIR__ . '/../uploads';
 $user_upload_dir = $upload_base_dir . '/' . $user_dir_name;
 
