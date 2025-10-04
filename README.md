@@ -1,11 +1,18 @@
 # Lottery Number Display App
 
-This is a full-stack application that displays lottery numbers. The frontend is built with React and Vite, and the backend is a simple PHP application. It also includes a Telegram bot integration for updating the lottery numbers.
+This is a full-stack application that displays lottery numbers. The frontend is built with React and Vite, and the backend is a simple PHP application. It also includes a Telegram bot integration for updating the lottery numbers and a user authentication system.
+
+This project uses a modern architecture:
+- **Backend**: A PHP application using a "front controller" pattern (`index.php`) to route all API requests.
+- **Frontend**: A React application that leverages a Cloudflare Worker (`_worker.js`) to proxy API requests, solving CORS issues and simplifying deployment.
 
 ## Project Structure
 
 - `frontend/`: Contains the React + Vite frontend application.
-- `backend/`: Contains the PHP backend, including the API and data storage.
+  - `public/_worker.js`: Cloudflare Worker script for proxying requests.
+- `backend/`: Contains the PHP backend.
+  - `index.php`: The single entry point (front controller) for all API requests.
+  - `api_handler.php`: Contains the logic for all API endpoints.
 
 ## How to Set Up
 
@@ -30,11 +37,11 @@ This is a full-stack application that displays lottery numbers. The frontend is 
     ```
 
 4.  **Run the PHP server**:
-    You can use the built-in PHP development server.
+    From the project root directory, run:
     ```bash
-    php -S localhost:8000 -t .
+    php -S localhost:8000 -t backend
     ```
-    This will serve the `api` and `data` directories correctly from the root of the backend folder.
+    This command starts a local development server where all requests are handled by `backend/index.php`.
 
 ### Frontend
 
@@ -52,7 +59,7 @@ This is a full-stack application that displays lottery numbers. The frontend is 
     ```bash
     npm run dev
     ```
-    The application will be available at `http://localhost:5173` (or another port if 5173 is in use). The Vite development server is configured to proxy requests to `/api` to your backend at `http://localhost:8000`.
+    The application will be available at `http://localhost:5173` (or another port if 5173 is in use). The Vite development server is configured to proxy requests starting with `/api/` to your local PHP backend at `http://localhost:8000`.
 
 ## Telegram Bot Integration
 
@@ -61,12 +68,12 @@ This is a full-stack application that displays lottery numbers. The frontend is 
     - It will give you a unique token. Add this token to your `backend/.env` file.
 
 2.  **Set the Webhook**:
-    You need to tell Telegram where to send messages that your bot receives. You can do this by making a GET request to the Telegram API.
+    You need to tell Telegram where to send messages. The URL should point to your deployed backend.
     Replace `YOUR_TELEGRAM_BOT_TOKEN` and `YOUR_SERVER_URL` in the URL below:
     ```
     https://api.telegram.org/bot<YOUR_TELEGRAM_BOT_TOKEN>/setWebhook?url=<YOUR_SERVER_URL>/api/telegram_webhook.php
     ```
-    For local testing, you can use a tool like `ngrok` to expose your local server to the internet.
+    **Note**: `YOUR_SERVER_URL` should be the base URL of your deployed backend (e.g., `https://your-username.serv00.net`).
 
 3.  **Update Lottery Numbers**:
     Send a message to your bot in the following format:
@@ -78,19 +85,31 @@ This is a full-stack application that displays lottery numbers. The frontend is 
 
 ### Backend on Serv00
 
-1.  **Upload the `backend` directory** to your Serv00 server.
-2.  Ensure your web server (e.g., Apache) is configured to serve PHP files.
-3.  Set up the `.env` file on the server with your production secrets. **Do not upload your `.env` file directly.**
-4.  Set the Telegram webhook to point to your live server URL.
+1.  **Upload the `backend` directory** to your Serv00 server's public web directory (e.g., `public_html`).
+2.  **Configure URL Rewriting**: You need to configure your web server (e.g., Apache) to route all requests for non-existent files to `index.php`. Create a `.htaccess` file in the `backend` directory with the following content:
+    ```apache
+    RewriteEngine On
+    RewriteBase /
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule . /index.php [L]
+    ```
+3.  **Set up the `.env` file** on the server with your production secrets. **Do not upload your `.env` file directly.**
+4.  Set the Telegram webhook to point to your live server URL as described above.
 
 ### Frontend on Cloudflare Pages
 
 1.  **Push your code** to a GitHub repository.
-2.  **Create a new project** on Cloudflare Pages and connect it to your GitHub repository.
-3.  **Configure the build settings**:
+2.  **Configure the Backend URL in the Worker**:
+    - Open `frontend/public/_worker.js`.
+    - Change the `backendUrl` constant to your live backend URL (e.g., `https://your-username.serv00.net`).
+    ```javascript
+    const backendUrl = 'https://your-serv00-backend.com'; // CHANGE THIS
+    ```
+3.  **Create a new project** on Cloudflare Pages and connect it to your GitHub repository.
+4.  **Configure the build settings**:
     - **Framework preset**: `Vite`
     - **Build command**: `npm run build`
     - **Build output directory**: `dist`
     - **Root directory**: `frontend`
-4.  **Deploy the site**. Cloudflare will automatically build and deploy your React application.
-5.  You may need to configure proxying or redirects in your Cloudflare Pages settings if you want to serve the backend from the same domain. A simpler approach is to use the full backend URL in your frontend code for production builds.
+5.  **Deploy the site**. Cloudflare Pages will automatically find the `_worker.js` file and use it to handle requests. This setup proxies all `/api/` calls to your backend, eliminating any CORS issues.
