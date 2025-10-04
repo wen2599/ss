@@ -1,20 +1,21 @@
 <?php
 require_once __DIR__ . '/init.php';
 
-// Security check: Allow secret via header (for user actions) or GET param (for worker actions)
+// Security check: Allow secret via header, GET param, or POST body
 $worker_secret = $_ENV['WORKER_SECRET'];
 $request_secret_header = $_SERVER['HTTP_X_WORKER_SECRET'] ?? '';
 $request_secret_param = $_GET['worker_secret'] ?? '';
+$request_secret_post = $_POST['worker_secret'] ?? '';
 
-// Whitelist of actions allowed to use the worker_secret via GET param
-$worker_actions = ['email_upload', 'process_email'];
-$action = $_GET['action'] ?? '';
+// Whitelist of actions allowed to use the worker_secret via GET param or POST body
+$worker_actions = ['email_upload', 'process_email', 'is_user_registered'];
+$action = $_GET['action'] ?? $_POST['action'] ?? '';
 
 // Refined security validation
 $is_authorized = false;
 if ($request_secret_header === $worker_secret) {
     $is_authorized = true;
-} elseif (in_array($action, $worker_actions) && $request_secret_param === $worker_secret) {
+} elseif (in_array($action, $worker_actions) && ($request_secret_param === $worker_secret || $request_secret_post === $worker_secret)) {
     $is_authorized = true;
 }
 
