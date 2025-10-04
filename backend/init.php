@@ -1,52 +1,28 @@
 <?php
-// --- Custom Session Handling & Logging ---
-$log_file = __DIR__ . '/debug.log';
-// Clear the log for each new request to get clean data
-file_put_contents($log_file, "--- NEW REQUEST AT " . date('Y-m-d H:i:s') . " ---\n");
+// --- Ultimate Session Handling for Difficult Hosting Environments ---
 
-try {
-    file_put_contents($log_file, "Step 1: init.php script started.\n", FILE_APPEND);
+// Use PHP's built-in function to get a guaranteed-writable temporary directory.
+$temp_dir = sys_get_temp_dir();
+// Create a unique, application-specific subdirectory within the temp directory.
+$session_path = $temp_dir . '/php_sessions_wenge95222';
 
-    // Define a dedicated, writable directory for session files.
-    $session_path = __DIR__ . '/sessions';
-    file_put_contents($log_file, "Step 2: Session path defined as: " . $session_path . "\n", FILE_APPEND);
-
-    // Check if the session directory exists.
-    if (!is_dir($session_path)) {
-        file_put_contents($log_file, "Step 3: Session directory does not exist. Attempting to create it.\n", FILE_APPEND);
-        // The third parameter 'true' allows the creation of nested directories.
-        if (!mkdir($session_path, 0755, true) && !is_dir($session_path)) {
-            throw new RuntimeException(sprintf('Fatal: Could not create session directory "%s".', $session_path));
-        }
-        file_put_contents($log_file, "Step 4: Session directory created successfully.\n", FILE_APPEND);
-    } else {
-        file_put_contents($log_file, "Step 3: Session directory already exists.\n", FILE_APPEND);
-    }
-
-    // Set the session save path.
-    session_save_path($session_path);
-    file_put_contents($log_file, "Step 5: Session save path set successfully.\n", FILE_APPEND);
-
-    // Start session
-    if (session_status() == PHP_SESSION_NONE) {
-        file_put_contents($log_file, "Step 6: Attempting to start session...\n", FILE_APPEND);
-        session_start();
-        file_put_contents($log_file, "Step 7: session_start() completed.\n", FILE_APPEND);
-    } else {
-        file_put_contents($log_file, "Step 6: Session already active.\n", FILE_APPEND);
-    }
-
-} catch (Throwable $e) {
-    // If any of the above steps fail, log the error and exit cleanly.
-    file_put_contents($log_file, "FATAL ERROR in session handling: " . $e->getMessage() . "\n", FILE_APPEND);
-    // Exit with a JSON response even in this critical path
-    http_response_code(500);
-    header('Content-Type: application/json');
-    echo json_encode(['error' => 'Server configuration error during session initialization.']);
-    exit;
+// Ensure the directory exists. This is a final safeguard.
+if (!is_dir($session_path)) {
+    // Attempt to create it. This has a very high chance of success in a temp dir.
+    @mkdir($session_path, 0755, true);
 }
 
-// --- Standard Headers & Handlers (from here on, things should be safe) ---
+// Set the session save path *before* starting the session.
+// This is the most robust way to ensure session handling works.
+session_save_path($session_path);
+
+
+// Start session
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// --- Standard Headers & Handlers ---
 
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Credentials: true");
@@ -65,8 +41,6 @@ function json_response($data, $statusCode = 200) {
 }
 
 set_exception_handler(function(Throwable $e) {
-    global $log_file;
-    file_put_contents($log_file, "GLOBAL EXCEPTION: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n", FILE_APPEND);
     json_response(['error' => 'An internal server error occurred.'], 500);
 });
 
@@ -89,7 +63,6 @@ function load_env($path) {
 }
 
 load_env(__DIR__ . '/.env');
-file_put_contents($log_file, "Step 8: .env file loaded.\n", FILE_APPEND);
 
 $pdo = null;
 try {
@@ -105,7 +78,6 @@ try {
         PDO::ATTR_EMULATE_PREPARES   => false,
     ];
     $pdo = new PDO($dsn, $user, $pass, $options);
-    file_put_contents($log_file, "Step 9: Database connection successful.\n", FILE_APPEND);
 } catch (Throwable $e) {
     throw $e;
 }
