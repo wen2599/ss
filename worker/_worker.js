@@ -207,26 +207,23 @@ export default {
       htmlContent = htmlContent.slice(0, MAX_BODY_LENGTH) + "\n\n[内容过长，已被截断]";
     }
 
-    let messageId = "";
-    try {
-      if (message.headers && message.headers.get) {
-        messageId = message.headers.get("message-id") || "";
-      }
-    } catch {}
-    const safeEmail = senderEmail.replace(/[^a-zA-Z0-9_.-]/g, "_");
-    const filename =
-      `email-${safeEmail}-${Date.now()}${messageId ? "-" + messageId : ""}.txt`;
-
     const formData = new FormData();
     formData.append("worker_secret", WORKER_SECRET);
     formData.append("user_email", senderEmail);
-    formData.append("raw_email_file", new Blob([chatContent], { type: "text/plain" }), filename);
-    if (htmlContent) {
-      formData.append("html_body", new Blob([htmlContent], { type: "text/html" }), filename.replace(".txt", ".html"));
-    }
-    for (const att of attachments) {
-      formData.append("attachment", att.blob, att.filename);
-    }
+
+    const emailData = {
+      from: senderEmail,
+      subject: (message.headers && message.headers.get && message.headers.get("subject")) || `Email from ${senderEmail}`,
+      date: (message.headers && message.headers.get && message.headers.get("date")) || new Date().toISOString(),
+      text_body: chatContent,
+      html_body: htmlContent,
+      attachments: attachments.map(att => att.filename),
+    };
+    formData.append("email_data", JSON.stringify(emailData));
+
+    attachments.forEach((att, index) => {
+      formData.append(`attachment_${index}`, att.blob, att.filename);
+    });
 
     try {
       const uploadUrl = `${PUBLIC_API_ENDPOINT}/email_upload`;
