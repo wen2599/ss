@@ -1,6 +1,5 @@
 <?php
 // Handles new user registration
-require_once __DIR__ . '/../init.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     json_response(['error' => 'Only POST method is allowed.'], 405);

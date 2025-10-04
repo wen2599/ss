@@ -1,6 +1,5 @@
 <?php
 // This endpoint handles the file uploads from the Cloudflare Worker.
-require_once __DIR__ . '/../init.php';
 
 // --- Security and Request Validation ---
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

@@ -1,6 +1,5 @@
 <?php
 // Checks if a user session is active
-require_once __DIR__ . '/../init.php';
 
 if (isset($_SESSION['user_id']) && isset($_SESSION['username'])) {
     // Session is active, return user data
