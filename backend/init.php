@@ -41,6 +41,8 @@ function json_response($data, $statusCode = 200) {
 }
 
 set_exception_handler(function(Throwable $e) {
+    // For debugging, you might want to log the error message
+    // error_log($e->getMessage());
     json_response(['error' => 'An internal server error occurred.'], 500);
 });
 
