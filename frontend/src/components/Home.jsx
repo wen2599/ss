@@ -19,7 +19,7 @@ const Home = () => {
             ) : (
                 <div className="home-actions">
                     <p>请登录或注册后开始使用。</p>
-                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1rem' }}>
+                    <div className="action-buttons">
                         <Link to="/login" className="btn">登录</Link>
                         <Link to="/register" className="btn">注册</Link>
                     </div>
