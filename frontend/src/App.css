@@ -257,17 +257,6 @@ main {
     color: var(--text-color-secondary);
 }
 
-.home-actions {
-    margin-top: 2rem;
-}
-
-.action-buttons {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin-top: 1rem;
-}
-
 /* --- Responsive Design --- */
 @media (max-width: 768px) {
     .navbar {
