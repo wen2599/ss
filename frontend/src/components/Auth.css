@@ -1,0 +1,29 @@
+.auth-container {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 1000;
+}
+
+.auth-loggedOut button,
+.auth-loggedIn button {
+    background-color: #d9534f;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin-left: 0.5rem;
+    transition: background-color 0.2s;
+}
+
+.auth-loggedOut button:hover,
+.auth-loggedIn button:hover {
+    background-color: #c9302c;
+}
+
+.auth-loggedIn span {
+    font-weight: bold;
+    color: #333;
+}
