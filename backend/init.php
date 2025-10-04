@@ -22,9 +22,22 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
+function load_env($path) {
+    if (!file_exists($path)) { throw new Exception(".env file not found at " . $path); }
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) continue;
+        list($name, $value) = explode('=', $line, 2);
+        $_ENV[trim($name)] = trim($value);
+    }
+}
+
+load_env(__DIR__ . '/.env');
+
 // --- Standard Headers & Handlers ---
 
-header("Access-Control-Allow-Origin: *");
+$allowed_origin = $_ENV['FRONTEND_URL'] ?? '*';
+header("Access-Control-Allow-Origin: " . $allowed_origin);
 header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Worker-Secret");
@@ -53,18 +66,6 @@ set_error_handler(function($severity, $message, $file, $line) {
 
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
-
-function load_env($path) {
-    if (!file_exists($path)) { throw new Exception(".env file not found at " . $path); }
-    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) continue;
-        list($name, $value) = explode('=', $line, 2);
-        $_ENV[trim($name)] = trim($value);
-    }
-}
-
-load_env(__DIR__ . '/.env');
 
 $pdo = null;
 try {
