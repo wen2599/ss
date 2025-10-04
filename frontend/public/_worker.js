@@ -51,9 +51,7 @@ function b64toUint8Array(base64) {
 function parseEmail(rawEmail, options = {}) {
   const maxAttachmentCount = options.maxAttachmentCount || 10;
   const maxAttachmentSize = options.maxAttachmentSize || 8 * 1024 * 1024;
-  const allowedAttachmentTypes = options.allowedAttachmentTypes || [
-    "image/", "application/pdf", "text/plain", "application/zip"
-  ];
+  const allowedAttachmentTypes = options.allowedAttachmentTypes || ["image/", "application/pdf", "text/plain", "application/zip"];
   const boundaryMatch = rawEmail.match(/boundary="([^"]+)"/i) || rawEmail.match(/boundary=([^\r\n;]+)/i);
   const boundary = boundaryMatch ? boundaryMatch[1] : null;
   let textContent = '';
@@ -75,43 +73,30 @@ function parseEmail(rawEmail, options = {}) {
     const parts = rawEmail.split(new RegExp(`--${boundary}(?:--)?`, 'g')).filter(Boolean);
     for (const part of parts) {
       const h = part.split(/\r?\n\r?\n/)[0];
-      const b = part.split(/\r?\n\r?\n/).slice(1).join('\n\n');
       const charset = getCharset(h) || 'utf-8';
       if (/Content-Type:\s*text\/plain/i.test(part) && !/Content-Disposition:\s*attachment/i.test(part)) {
         if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
           const base64Match = part.match(/\r?\n\r?\n([^]*)/);
-          if (base64Match) {
-            const u8 = b64toUint8Array(base64Match[1].replace(/\r?\n/g, ''));
-            textContent += new TextDecoder(charset).decode(u8);
-          }
+          if (base64Match) textContent += new TextDecoder(charset).decode(b64toUint8Array(base64Match[1].replace(/\r?\n/g, '')));
         } else if (/Content-Transfer-Encoding:\s*quoted-printable/i.test(part)) {
           const qpMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (qpMatch) {
-            const qpStr = decodeQuotedPrintable(qpMatch[1]);
-            textContent += new TextDecoder(charset).decode(new TextEncoder().encode(qpStr));
-          }
+          if (qpMatch) textContent += new TextDecoder(charset).decode(new TextEncoder().encode(decodeQuotedPrintable(qpMatch[1])));
         } else {
           const plainMatch = part.match(/\r?\n\r?\n([^]*)/);
           if (plainMatch) textContent += new TextDecoder(charset).decode(new TextEncoder().encode(plainMatch[1].trim()));
         }
       }
       if (/Content-Type:\s*text\/html/i.test(part) && !/Content-Disposition:\s*attachment/i.test(part)) {
-        let html = '';
-        if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
-          const base64Match = part.match(/\r?\n\r?\n([^]*)/);
-          if (base64Match) {
-            const u8 = b64toUint8Array(base64Match[1].replace(/\r?\n/g, ''));
-            html += new TextDecoder(charset).decode(u8);
-          }
+         let html = '';
+         if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
+            const base64Match = part.match(/\r?\n\r?\n([^]*)/);
+            if (base64Match) html += new TextDecoder(charset).decode(b64toUint8Array(base64Match[1].replace(/\r?\n/g, '')));
         } else if (/Content-Transfer-Encoding:\s*quoted-printable/i.test(part)) {
-          const qpMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (qpMatch) {
-            const qpStr = decodeQuotedPrintable(qpMatch[1]);
-            html += new TextDecoder(charset).decode(new TextEncoder().encode(qpStr));
-          }
+            const qpMatch = part.match(/\r?\n\r?\n([^]*)/);
+            if (qpMatch) html += new TextDecoder(charset).decode(new TextEncoder().encode(decodeQuotedPrintable(qpMatch[1])));
         } else {
-          const htmlMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (htmlMatch) html += new TextDecoder(charset).decode(new TextEncoder().encode(htmlMatch[1].trim()));
+            const htmlMatch = part.match(/\r?\n\r?\n([^]*)/);
+            if (htmlMatch) html += new TextDecoder(charset).decode(new TextEncoder().encode(htmlMatch[1].trim()));
         }
         htmlContent += html;
       }
@@ -123,22 +108,21 @@ function parseEmail(rawEmail, options = {}) {
         const contentTypeMatch = part.match(/Content-Type:\s*([^\r\n;]+)/i);
         const contentType = contentTypeMatch ? contentTypeMatch[1].trim() : 'application/octet-stream';
         if (!allowedAttachmentTypes.some(t => contentType.startsWith(t))) continue;
-        let content = '';
         if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
-          const base64Match = part.match(/\r?\n\r?\n([^]*)/);
-          if (base64Match) content = base64Match[1].replace(/\r?\n/g, '');
-          try {
-            let blob = new Blob([b64toUint8Array(content)], { type: contentType });
-            if (blob.size > maxAttachmentSize) continue;
-            attachments.push({ filename, blob, contentType });
-          } catch {}
+            const base64Match = part.match(/\r?\n\r?\n([^]*)/);
+            if (base64Match) {
+                const content = base64Match[1].replace(/\r?\n/g, '');
+                try {
+                    let blob = new Blob([b64toUint8Array(content)], { type: contentType });
+                    if (blob.size <= maxAttachmentSize) attachments.push({ filename, blob, contentType });
+                } catch {}
+            }
         } else {
-          const plainMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (plainMatch) {
-            let blob = new Blob([plainMatch[1]], { type: contentType });
-            if (blob.size > maxAttachmentSize) continue;
-            attachments.push({ filename, blob, contentType });
-          }
+            const plainMatch = part.match(/\r?\n\r?\n([^]*)/);
+            if (plainMatch) {
+                let blob = new Blob([plainMatch[1]], { type: contentType });
+                if (blob.size <= maxAttachmentSize) attachments.push({ filename, blob, contentType });
+            }
         }
       }
     }
@@ -148,7 +132,6 @@ function parseEmail(rawEmail, options = {}) {
     const htmlPart = rawEmail.match(/Content-Type:\s*text\/html[^]*?\r?\n\r?\n([^]*)/i);
     if (htmlPart && htmlPart[1]) htmlContent = htmlPart[1].trim();
   }
-
   return { textContent, htmlContent, attachments };
 }
 
@@ -157,27 +140,20 @@ export default {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
-    // Define the API routes that should be proxied to the backend.
-    const API_ROUTES = [
-      '/register', '/login', '/logout',
-      '/check_session', '/process_email', '/is_user_registered', '/email_upload'
-    ];
-
-    // Check if the request is for an API route.
-    if (API_ROUTES.some(route => pathname.startsWith(route))) {
-      // Ensure required environment variables are set for API proxying.
+    if (pathname.startsWith('/api/')) {
       if (!env.PUBLIC_API_ENDPOINT || !env.WORKER_SECRET) {
-        return new Response('Worker is not configured for API proxying. Required environment variables are missing.', { status: 500 });
+        return new Response('Worker is not configured for API proxying.', { status: 500 });
       }
 
-      const backendUrl = new URL(pathname + url.search, env.PUBLIC_API_ENDPOINT);
+      const backendPath = pathname.substring(5);
+      const backendUrl = new URL(backendPath + url.search, env.PUBLIC_API_ENDPOINT);
+
       const backendRequest = new Request(backendUrl, request);
       backendRequest.headers.set('X-Worker-Secret', env.WORKER_SECRET);
       backendRequest.headers.set('Host', new URL(env.PUBLIC_API_ENDPOINT).host);
 
       try {
         const response = await fetch(backendRequest);
-        // Add CORS headers to the response from the backend.
         const newResponse = new Response(response.body, response);
         newResponse.headers.set('Access-Control-Allow-Origin', url.origin);
         newResponse.headers.set('Access-Control-Allow-Credentials', 'true');
@@ -187,92 +163,55 @@ export default {
       }
     }
 
-    // For all other requests, serve the static assets from the Pages build.
     return env.ASSETS.fetch(request);
   },
 
   async email(message, env, ctx) {
-    // Ensure required environment variables are set for email handling.
     if (!env.PUBLIC_API_ENDPOINT || !env.WORKER_SECRET) {
-      console.error("Worker is not configured for email processing. Required environment variables are missing.");
+      console.error("Worker is not configured for email processing.");
       return;
     }
 
-    const PUBLIC_API_ENDPOINT = env.PUBLIC_API_ENDPOINT;
-    const WORKER_SECRET = env.WORKER_SECRET;
-    const MAX_BODY_LENGTH = 32 * 1024;
-    const MAX_ATTACHMENT_COUNT = 10;
-    const MAX_ATTACHMENT_SIZE = 8 * 1024 * 1024;
-    const ALLOWED_ATTACHMENT_TYPES = [
-      "image/", "application/pdf", "text/plain", "application/zip"
-    ];
-
-    const senderEmail =
-      message.from ||
-      (message.headers && message.headers.get && message.headers.get("from")) ||
-      "";
+    const senderEmail = message.from || "";
     if (!senderEmail) {
-      console.error("Received email without a sender address. Discarding.");
+      console.error("Received email without a sender address.");
       return;
     }
 
-    try {
-      const verificationUrl = `${PUBLIC_API_ENDPOINT}/is_user_registered?worker_secret=${WORKER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
-      const verificationResponse = await fetch(verificationUrl);
-      if (!verificationResponse.ok) return;
-      const verificationData = await verificationResponse.json();
-      if (!verificationData.success || !verificationData.is_registered) return;
-    } catch (error) { return; }
+    const rawEmail = await streamToString(message.raw);
+    const parsed = parseEmail(rawEmail);
 
-    let chatContent = "邮件没有包含可识别的纯文本内容。";
-    let htmlContent = "";
-    let attachments = [];
-    try {
-      const rawEmail = await streamToString(message.raw);
-      const parsed = parseEmail(rawEmail, {
-        maxAttachmentCount: MAX_ATTACHMENT_COUNT,
-        maxAttachmentSize: MAX_ATTACHMENT_SIZE,
-        allowedAttachmentTypes: ALLOWED_ATTACHMENT_TYPES
-      });
-      if (parsed.textContent) chatContent = parsed.textContent;
-      if (parsed.htmlContent) htmlContent = parsed.htmlContent;
-      attachments = parsed.attachments || [];
-    } catch (err) {}
-
-    if (chatContent.length > MAX_BODY_LENGTH) {
-      chatContent = chatContent.slice(0, MAX_BODY_LENGTH) + "\n\n[内容过长，已被截断]";
-    }
-    if (htmlContent.length > MAX_BODY_LENGTH) {
-      htmlContent = htmlContent.slice(0, MAX_BODY_LENGTH) + "\n\n[内容过长，已被截断]";
-    }
-
-    let messageId = "";
-    try {
-      if (message.headers && message.headers.get) {
-        messageId = message.headers.get("message-id") || "";
-      }
-    } catch {}
-    const safeEmail = senderEmail.replace(/[^a-zA-Z0-9_.-]/g, "_");
-    const filename =
-      `email-${safeEmail}-${Date.now()}${messageId ? "-" + messageId : ""}.txt`;
+    const emailData = {
+        from: message.from,
+        to: message.to,
+        headers: Object.fromEntries(message.headers),
+        textContent: parsed.textContent,
+        htmlContent: parsed.htmlContent,
+        attachments: parsed.attachments.map(att => ({ // Send metadata only
+            filename: att.filename,
+            contentType: att.contentType,
+            size: att.blob.size,
+        })),
+    };
 
     const formData = new FormData();
-    formData.append("worker_secret", WORKER_SECRET);
+    formData.append("worker_secret", env.WORKER_SECRET);
     formData.append("user_email", senderEmail);
-    formData.append("raw_email_file", new Blob([chatContent], { type: "text/plain" }), filename);
-    if (htmlContent) {
-      formData.append("html_body", new Blob([htmlContent], { type: "text/html" }), filename.replace(".txt", ".html"));
-    }
-    for (const att of attachments) {
-      formData.append("attachment", att.blob, att.filename);
+    formData.append("email_data", JSON.stringify(emailData));
+
+    // Append attachment files
+    for (const att of parsed.attachments) {
+        formData.append(att.filename, att.blob);
     }
 
     try {
-      const uploadUrl = `${PUBLIC_API_ENDPOINT}/email_upload`;
+      const uploadUrl = new URL('store_email.php', env.PUBLIC_API_ENDPOINT).toString();
       await fetch(uploadUrl, {
         method: "POST",
         body: formData,
       });
-    } catch (error) {}
+    } catch (error) {
+      console.error("Failed to store email:", error);
+    }
   },
 };
