@@ -1,12 +1,10 @@
-// 不依赖 npm 包，兼容 Cloudflare Worker
+// --- Utility Functions for Email Parsing ---
 
 function detectEncoding(uint8arr) {
-  // 尝试用UTF-8解码，能成功就说明是UTF-8
   try {
     new TextDecoder('utf-8', { fatal: true }).decode(uint8arr);
     return 'utf-8';
   } catch {}
-  // 只剩GBK/GB2312/GB18030（绝大多数中国邮件）
   return 'gb18030';
 }
 
@@ -79,7 +77,6 @@ function parseEmail(rawEmail, options = {}) {
       const h = part.split(/\r?\n\r?\n/)[0];
       const b = part.split(/\r?\n\r?\n/).slice(1).join('\n\n');
       const charset = getCharset(h) || 'utf-8';
-      // text/plain
       if (/Content-Type:\s*text\/plain/i.test(part) && !/Content-Disposition:\s*attachment/i.test(part)) {
         if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
           const base64Match = part.match(/\r?\n\r?\n([^]*)/);
@@ -98,7 +95,6 @@ function parseEmail(rawEmail, options = {}) {
           if (plainMatch) textContent += new TextDecoder(charset).decode(new TextEncoder().encode(plainMatch[1].trim()));
         }
       }
-      // text/html
       if (/Content-Type:\s*text\/html/i.test(part) && !/Content-Disposition:\s*attachment/i.test(part)) {
         let html = '';
         if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
@@ -119,7 +115,6 @@ function parseEmail(rawEmail, options = {}) {
         }
         htmlContent += html;
       }
-      // attachment
       if (/Content-Disposition:\s*attachment/i.test(part)) {
         if (attachmentCount++ >= maxAttachmentCount) continue;
         let filename = 'unnamed';
@@ -158,9 +153,22 @@ function parseEmail(rawEmail, options = {}) {
 }
 
 export default {
+  async fetch(request, env, ctx) {
+    // This fetch handler is essential for serving the static assets of the Pages site.
+    // All requests that are not for the email handler will be passed here.
+    return env.ASSETS.fetch(request);
+  },
+
   async email(message, env, ctx) {
-    const PUBLIC_API_ENDPOINT = "https://ss.wenxiuxiu.eu.org";
-    const WORKER_SECRET = "816429fb-1649-4e48-9288-7629893311a6";
+    // Use environment variables for configuration
+    const PUBLIC_API_ENDPOINT = env.PUBLIC_API_ENDPOINT;
+    const WORKER_SECRET = env.WORKER_SECRET;
+
+    if (!PUBLIC_API_ENDPOINT || !WORKER_SECRET) {
+      console.error("Worker is not configured. PUBLIC_API_ENDPOINT and WORKER_SECRET environment variables are required.");
+      return;
+    }
+
     const MAX_BODY_LENGTH = 32 * 1024;
     const MAX_ATTACHMENT_COUNT = 10;
     const MAX_ATTACHMENT_SIZE = 8 * 1024 * 1024;
@@ -173,7 +181,7 @@ export default {
       (message.headers && message.headers.get && message.headers.get("from")) ||
       "";
     if (!senderEmail) {
-      console.error("收到的邮件没有发件人地址，终止处理。");
+      console.error("Received email without a sender address. Discarding.");
       return;
     }
 
