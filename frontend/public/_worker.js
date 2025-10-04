@@ -154,21 +154,52 @@ function parseEmail(rawEmail, options = {}) {
 
 export default {
   async fetch(request, env, ctx) {
-    // This fetch handler is essential for serving the static assets of the Pages site.
-    // All requests that are not for the email handler will be passed here.
+    const url = new URL(request.url);
+    const pathname = url.pathname;
+
+    // Define the API routes that should be proxied to the backend.
+    const API_ROUTES = [
+      '/register', '/login', '/logout',
+      '/check_session', '/process_email', '/is_user_registered', '/email_upload'
+    ];
+
+    // Check if the request is for an API route.
+    if (API_ROUTES.some(route => pathname.startsWith(route))) {
+      // Ensure required environment variables are set for API proxying.
+      if (!env.PUBLIC_API_ENDPOINT || !env.WORKER_SECRET) {
+        return new Response('Worker is not configured for API proxying. Required environment variables are missing.', { status: 500 });
+      }
+
+      const backendUrl = new URL(pathname + url.search, env.PUBLIC_API_ENDPOINT);
+      const backendRequest = new Request(backendUrl, request);
+      backendRequest.headers.set('X-Worker-Secret', env.WORKER_SECRET);
+      backendRequest.headers.set('Host', new URL(env.PUBLIC_API_ENDPOINT).host);
+
+      try {
+        const response = await fetch(backendRequest);
+        // Add CORS headers to the response from the backend.
+        const newResponse = new Response(response.body, response);
+        newResponse.headers.set('Access-Control-Allow-Origin', url.origin);
+        newResponse.headers.set('Access-Control-Allow-Credentials', 'true');
+        return newResponse;
+      } catch (e) {
+        return new Response(`Error proxying to backend: ${e.message}`, { status: 502 });
+      }
+    }
+
+    // For all other requests, serve the static assets from the Pages build.
     return env.ASSETS.fetch(request);
   },
 
   async email(message, env, ctx) {
-    // Use environment variables for configuration
-    const PUBLIC_API_ENDPOINT = env.PUBLIC_API_ENDPOINT;
-    const WORKER_SECRET = env.WORKER_SECRET;
-
-    if (!PUBLIC_API_ENDPOINT || !WORKER_SECRET) {
-      console.error("Worker is not configured. PUBLIC_API_ENDPOINT and WORKER_SECRET environment variables are required.");
+    // Ensure required environment variables are set for email handling.
+    if (!env.PUBLIC_API_ENDPOINT || !env.WORKER_SECRET) {
+      console.error("Worker is not configured for email processing. Required environment variables are missing.");
       return;
     }
 
+    const PUBLIC_API_ENDPOINT = env.PUBLIC_API_ENDPOINT;
+    const WORKER_SECRET = env.WORKER_SECRET;
     const MAX_BODY_LENGTH = 32 * 1024;
     const MAX_ATTACHMENT_COUNT = 10;
     const MAX_ATTACHMENT_SIZE = 8 * 1024 * 1024;
