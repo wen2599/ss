@@ -1,6 +1,5 @@
 <?php
 // Handles user logout
-require_once __DIR__ . '/../init.php';
 
 // Unset all of the session variables
 $_SESSION = array();

@@ -1,6 +1,4 @@
 <?php
-require_once __DIR__ . '/../init.php';
-
 // --- Authentication Check ---
 if (!isset($_SESSION['user_id'])) {
     json_response(['error' => 'You must be logged in to process emails.'], 401);

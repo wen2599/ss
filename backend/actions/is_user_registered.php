@@ -1,7 +1,6 @@
 <?php
 // This endpoint is called by the Cloudflare Worker to check if an email address
 // belongs to a registered user before processing and uploading the email.
-require_once __DIR__ . '/../init.php';
 
 // This action is public in the sense that it's called by the worker,
 // not a logged-in user. The security is handled by the worker_secret.
