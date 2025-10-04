@@ -3,15 +3,18 @@
 // Define a dedicated, writable directory for session files within our project.
 $session_path = __DIR__ . '/sessions';
 
-// Ensure the directory exists. This is a safeguard.
+// Check if the session directory exists. If not, try to create it.
 if (!is_dir($session_path)) {
-    // Attempt to create it if it doesn't exist.
-    // The @ suppresses errors if the directory already exists from a race condition.
-    @mkdir($session_path, 0755, true);
+    // The third parameter 'true' allows the creation of nested directories if needed.
+    // The mode 0755 is a common permission setting for web directories.
+    if (!mkdir($session_path, 0755, true) && !is_dir($session_path)) {
+        // If mkdir fails, throw a clear exception.
+        // This will be caught by our global exception handler and returned as a clean JSON error.
+        throw new RuntimeException(sprintf('错误：无法创建Session目录 "%s"。请检查服务器权限。', $session_path));
+    }
 }
 
 // Set the session save path *before* starting the session.
-// This is the crucial step to fix the 502 error on the server.
 session_save_path($session_path);
 
 
