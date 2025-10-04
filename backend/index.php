@@ -56,23 +56,25 @@ set_error_handler(function($severity, $message, $file, $line) {
 
 // --- Database Connection ---
 $pdo = null;
-try {
-    $host = $_ENV['DB_HOST'] ?? null;
-    $dbname = $_ENV['DB_NAME'] ?? null;
-    $user = $_ENV['DB_USER'] ?? null;
-    $pass = $_ENV['DB_PASS'] ?? '';
-    if ($host && $dbname && $user) {
-        $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8mb4";
-        $options = [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
-        ];
-        $pdo = new PDO($dsn, $user, $pass, $options);
+if (class_exists('PDO')) {
+    try {
+        $host = $_ENV['DB_HOST'] ?? null;
+        $dbname = $_ENV['DB_NAME'] ?? null;
+        $user = $_ENV['DB_USER'] ?? null;
+        $pass = $_ENV['DB_PASS'] ?? '';
+        if ($host && $dbname && $user) {
+            $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8mb4";
+            $options = [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+            ];
+            $pdo = new PDO($dsn, $user, $pass, $options);
+        }
+    } catch (PDOException $e) {
+        // If the database connection fails, the app can still run.
+        // Actions that require the DB will fail gracefully if they check for $pdo.
     }
-} catch (PDOException $e) {
-    // If the database connection fails, the app can still run.
-    // Actions that require the DB will fail gracefully if they check for $pdo.
 }
 
 // --- End of Inlined Initialization Logic ---
