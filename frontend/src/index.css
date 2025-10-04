@@ -1,103 +1,38 @@
-/* Global Styles */
+/* --- Modern CSS Reset --- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
 body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: #2a344d;
-  color: #f8f8f2;
+  margin: 0;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
 }
 
-.container {
-  width: 100%;
-  max-width: 1300px;
-  margin: 0 auto;
-  padding: 0 2rem;
+input, button, textarea, select {
+  font: inherit;
 }
 
-/* Button Styles */
-.btn {
-  display: inline-block;
-  padding: 10px 20px;
-  border-radius: 4px;
-  border: none;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  text-decoration: none;
-  text-align: center;
-  transition: all 0.3s ease;
+p, h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+  margin: 0;
 }
 
-.btn-primary {
-  background-color: #61dafb;
-  color: #1c2237;
+#root {
+  isolation: isolate;
 }
 
-.btn-primary:hover {
-  background-color: #88eaff;
-}
-
-.btn-secondary {
-  background-color: transparent;
-  color: #61dafb;
-  border: 2px solid #61dafb;
-}
-
-.btn-secondary:hover {
-  background-color: #61dafb;
-  color: #1c2237;
-}
-
-.btn-outline {
-    background: transparent;
-    color: #fff;
-    border: 1px solid #fff;
-}
-
-.btn-outline:hover {
-    background: #fff;
-    color: #1c2237;
-}
-
-
-.btn:disabled {
-  background-color: #ccc;
-  color: #666;
-  cursor: not-allowed;
-  border-color: #ccc;
-}
-
-/* Home Page Specific Styles */
-.home-container {
-  text-align: center;
-  padding: 4rem 0;
-}
-
-.home-container h1 {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-}
-
-.home-container p {
-  font-size: 1.2rem;
-  color: #ccc;
-  margin-bottom: 2rem;
-}
-
-.welcome-back, .call-to-action {
-    margin-top: 2rem;
-}
-
-.call-to-action div {
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-}
+/* --- Import the main application styles --- */
+/* This is intentionally left empty as App.css will be imported directly in App.jsx */
+/* The reset provides the foundation. */

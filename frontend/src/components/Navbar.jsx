@@ -1,7 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import './Navbar.css';
 
 const Navbar = () => {
     const { isAuthenticated, user, logout } = useAuth();
@@ -14,44 +13,48 @@ const Navbar = () => {
 
     return (
         <nav className="navbar">
-            <div className="navbar-container">
-                <NavLink to="/" className="navbar-logo">
-                    邮件解析器
-                </NavLink>
-                <ul className="nav-menu">
-                    <li className="nav-item">
-                        <NavLink to="/" className="nav-links" end>
-                            首页
+            <NavLink to="/" className="navbar-brand">
+                邮件解析器
+            </NavLink>
+            <ul className="navbar-links">
+                <li>
+                    <NavLink to="/" end>
+                        首页
+                    </NavLink>
+                </li>
+                {isAuthenticated && (
+                    <li>
+                        <NavLink to="/parser">
+                            解析器
                         </NavLink>
                     </li>
-                    {isAuthenticated && (
-                        <li className="nav-item">
-                            <NavLink to="/parser" className="nav-links">
-                                解析器
-                            </NavLink>
+                )}
+                {isAuthenticated ? (
+                    <>
+                        <li>
+                            <span>欢迎, {user.username}</span>
                         </li>
-                    )}
-                </ul>
-                <div className="nav-auth">
-                    {isAuthenticated ? (
-                        <>
-                            <span className="navbar-user">欢迎, {user.username}</span>
-                            <button onClick={handleLogout} className="btn btn-outline">
+                        <li>
+                            <button onClick={handleLogout}>
                                 登出
                             </button>
-                        </>
-                    ) : (
-                        <>
-                            <NavLink to="/login" className="btn btn-secondary">
+                        </li>
+                    </>
+                ) : (
+                    <>
+                        <li>
+                            <NavLink to="/login">
                                 登录
                             </NavLink>
-                            <NavLink to="/register" className="btn btn-primary">
+                        </li>
+                        <li>
+                            <NavLink to="/register">
                                 注册
                             </NavLink>
-                        </>
-                    )}
-                </div>
-            </div>
+                        </li>
+                    </>
+                )}
+            </ul>
         </nav>
     );
 };

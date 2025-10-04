@@ -11,17 +11,17 @@ const Home = () => {
             <p>一个用于从邮件中提取关键信息的智能工具。</p>
 
             {isAuthenticated ? (
-                <div className="welcome-back">
+                <div className="welcome-message">
                     <h2>你好, {user.username}!</h2>
                     <p>您已登录，可以开始使用了。</p>
-                    <Link to="/parser" className="btn btn-primary">前往解析器</Link>
+                    <Link to="/parser" className="btn">前往解析器</Link>
                 </div>
             ) : (
-                <div className="call-to-action">
+                <div className="home-actions">
                     <p>请登录或注册后开始使用。</p>
-                    <div>
-                        <Link to="/login" className="btn btn-secondary">登录</Link>
-                        <Link to="/register" className="btn btn-primary">注册</Link>
+                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1rem' }}>
+                        <Link to="/login" className="btn">登录</Link>
+                        <Link to="/register" className="btn">注册</Link>
                     </div>
                 </div>
             )}

@@ -1,22 +1,22 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import Login from './components/Login';
-import Register from './components/Register';
+import AuthForm from './components/AuthForm'; // Consolidated auth form
 import EmailParser from './components/EmailParser';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './components/Home';
+import './App.css'; // Import the new centralized stylesheet
 
 function App() {
   return (
     <div className="App">
       <Navbar />
-      <main className="container">
+      <main>
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<AuthForm formType="login" />} />
+          <Route path="/register" element={<AuthForm formType="register" />} />
 
           {/* Protected Routes */}
           <Route
