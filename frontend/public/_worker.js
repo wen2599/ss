@@ -1,5 +1,4 @@
 // --- Constants ---
-const BACKEND_URL = 'https://wenge.cloudns.ch';
 // This secret must be consistent and match the one in the backend .env file.
 const WORKER_SECRET = "816429fb-1649-4e48-9288-7629893311a6";
 const PUBLIC_API_ENDPOINT = "https://ss.wenxiuxiu.eu.org";
@@ -155,10 +154,10 @@ export default {
     ];
 
     if (API_ROUTES.some(route => pathname.startsWith(route))) {
-        const backendUrl = new URL(pathname + url.search, BACKEND_URL);
+        const backendUrl = new URL(pathname + url.search, PUBLIC_API_ENDPOINT);
         const backendRequest = new Request(backendUrl, request);
         backendRequest.headers.set('X-Worker-Secret', WORKER_SECRET);
-        backendRequest.headers.set('Host', new URL(BACKEND_URL).host);
+        backendRequest.headers.set('Host', new URL(PUBLIC_API_ENDPOINT).host);
 
         try {
             const response = await fetch(backendRequest);
