@@ -1,10 +1,32 @@
 import { useState, useEffect } from 'react';
+import Auth from './components/Auth';
 import './App.css';
 
 function App() {
   const [lotteryData, setLotteryData] = useState(null);
   const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
 
+  // Check user session on initial load
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/check_session.php', {
+          credentials: 'include',
+        });
+        const data = await response.json();
+        if (data.loggedin) {
+          setUser(data.user);
+        }
+      } catch (err) {
+        // Not a critical error, user remains logged out
+        console.error("Session check failed:", err);
+      }
+    };
+    checkSession();
+  }, []);
+
+  // Fetch lottery data
   useEffect(() => {
     fetch('/api/get_numbers.php')
       .then(response => {
@@ -24,8 +46,17 @@ function App() {
       });
   }, []);
 
+  const handleLogin = (userData) => {
+    setUser(userData);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+  };
+
   return (
     <div className="App">
+      <Auth user={user} onLogin={handleLogin} onLogout={handleLogout} />
       <header className="App-header">
         <h1>六合彩开奖结果</h1>
       </header>
