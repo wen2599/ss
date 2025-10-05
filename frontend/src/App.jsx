@@ -11,7 +11,7 @@ function App() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const response = await fetch('/check_session.php', {
+        const response = await fetch('/check_session', {
           credentials: 'include',
         });
         const data = await response.json();
@@ -28,7 +28,7 @@ function App() {
 
   // Fetch lottery data
   useEffect(() => {
-    fetch('/get_numbers.php')
+    fetch('/get_numbers')
       .then(response => {
         if (!response.ok) {
           throw new Error('网络响应不正常');
