@@ -39,7 +39,8 @@ $tables_sql = [
           `id` INT AUTO_INCREMENT PRIMARY KEY,
           `email` VARCHAR(255) NOT NULL UNIQUE,
           `password` VARCHAR(255) NOT NULL,
-          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          `last_login_time` TIMESTAMP NULL DEFAULT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ",
     'allowed_emails' => "
@@ -93,6 +94,21 @@ foreach ($tables_sql as $table_name => $sql_command) {
         echo "!!! 错误: 处理数据表 `{$table_name}` 时出错! 原因: " . $conn->error . "\n\n";
     }
 }
+
+// --- 升级步骤: 为 users 表添加 last_login_time ---
+echo "--> 正在检查 `users` 表是否需要 `last_login_time` 字段...\n";
+$result = $conn->query("SHOW COLUMNS FROM `users` LIKE 'last_login_time'");
+if ($result->num_rows == 0) {
+    echo "--> 正在为 `users` 表添加 `last_login_time` 字段...\n";
+    if ($conn->query("ALTER TABLE `users` ADD COLUMN `last_login_time` TIMESTAMP NULL DEFAULT NULL AFTER `created_at`")) {
+        echo "--> ✅ 成功: `last_login_time` 字段已添加。\n\n";
+    } else {
+        echo "!!! 错误: 添加 `last_login_time` 字段失败。错误: " . $conn->error . "\n\n";
+    }
+} else {
+    echo "--> 正常: `users` 表已有 `last_login_time` 字段。\n\n";
+}
+
 
 $conn->close();
 echo "--> 所有数据库操作已完成。\n";
