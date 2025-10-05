@@ -22,13 +22,13 @@ const Auth = ({ user, onLogin, onLogout }) => {
         <div className="auth-container">
             {user ? (
                 <div className="auth-loggedIn">
-                    <span>Welcome, {user.username}</span>
-                    <button onClick={handleLogout}>Logout</button>
+                    <span>欢迎, {user.username}</span>
+                    <button onClick={handleLogout}>退出登录</button>
                 </div>
             ) : (
                 <div className="auth-loggedOut">
-                    <button onClick={() => setShowLogin(true)}>Login</button>
-                    <button onClick={() => setShowRegister(true)}>Register</button>
+                    <button onClick={() => setShowLogin(true)}>登录</button>
+                    <button onClick={() => setShowRegister(true)}>注册</button>
                 </div>
             )}
 
