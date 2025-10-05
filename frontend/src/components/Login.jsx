@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './Form.css';
 
 const Login = ({ onClose, onLogin }) => {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
@@ -14,7 +14,7 @@ const Login = ({ onClose, onLogin }) => {
             const response = await fetch('/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({ email, password }),
                 credentials: 'include',
             });
 
@@ -38,12 +38,12 @@ const Login = ({ onClose, onLogin }) => {
                 <form onSubmit={handleSubmit}>
                     {error && <p className="error">{error}</p>}
                     <div className="form-group">
-                        <label htmlFor="login-username">用户名</label>
+                        <label htmlFor="login-email">邮箱</label>
                         <input
-                            id="login-username"
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
+                            id="login-email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
                             required
                         />
                     </div>

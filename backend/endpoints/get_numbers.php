@@ -1,45 +1,65 @@
 <?php
 // backend/endpoints/get_numbers.php
 
-// Bootstrap the application
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/../lib/helpers.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-    send_json_response(['error' => 'Method not allowed.'], 405);
+    http_response_code(405);
+    echo json_encode(['error' => 'Method not allowed.']);
+    exit;
 }
 
-// 1. Get Database Connection
+header('Content-Type: application/json');
 $conn = get_db_connection();
 if (!$conn) {
-    send_json_response(['error' => 'Database connection failed.'], 500);
+    http_response_code(500);
+    echo json_encode(['error' => 'Database connection failed.']);
+    exit;
 }
 
-// 2. Fetch the Latest Lottery Numbers
-// This assumes a table named 'lottery_numbers' with columns 'issue' and 'numbers',
-// and that we want the one with the most recent 'issue' date.
-$result = $conn->query("SELECT issue, numbers FROM lottery_numbers ORDER BY issue DESC LIMIT 1");
+// The different lottery types we want to fetch
+$lottery_types = ['新澳门六合彩', '香港六合彩', '老澳21.30'];
 
-if (!$result) {
-    // Log the actual error for debugging, but send a generic message to the client.
-    error_log("DB query failed: " . $conn->error);
-    send_json_response(['error' => 'Could not fetch lottery data.'], 500);
+// This SQL query is designed to get the latest entry for EACH lottery type.
+// It works by partitioning the data by lottery_type and ranking the entries in each partition by received_at descending.
+// The outer query then picks the top-ranked entry (rn=1) for each type.
+$sql = "
+    SELECT lottery_type, issue, numbers, zodiacs, colors 
+    FROM (
+        SELECT 
+            *,
+            ROW_NUMBER() OVER(PARTITION BY lottery_type ORDER BY received_at DESC) as rn
+        FROM lottery_results
+        WHERE lottery_type IN (?, ?, ?)
+    ) as ranked_results
+    WHERE rn = 1;
+";
+
+$stmt = $conn->prepare($sql);
+// Bind the lottery types to the placeholders
+$stmt->bind_param("sss", $lottery_types[0], $lottery_types[1], $lottery_types[2]);
+$stmt->execute();
+$result = $stmt->get_result();
+
+$results = [];
+while ($row = $result->fetch_assoc()) {
+    // The data is stored as JSON strings, so we decode them into arrays
+    $row['numbers'] = json_decode($row['numbers']);
+    $row['zodiacs'] = json_decode($row['zodiacs']);
+    $row['colors'] = json_decode($row['colors']);
+    $results[$row['lottery_type']] = $row;
 }
 
-$data = $result->fetch_assoc();
-
-if (!$data) {
-    // No records found
-    send_json_response(['error' => 'No lottery data found.'], 404);
-}
-
-// The 'numbers' column is assumed to store a comma-separated string.
-// We convert it to an array of integers for the JSON response.
-$data['numbers'] = array_map('intval', explode(',', $data['numbers']));
-
+$stmt->close();
 $conn->close();
 
-// 3. Send Response
-send_json_response($data);
+// Ensure all requested lottery types are present in the output, even if they have no data yet
+$final_response = [];
+foreach ($lottery_types as $type) {
+    $final_response[$type] = $results[$type] ?? null; // If not found in DB, value will be null
+}
+
+echo json_encode($final_response);
+
 ?>
