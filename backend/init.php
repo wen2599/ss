@@ -5,6 +5,11 @@ function load_env($path) {
     }
 
     $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines === false) {
+        // Log an error if the .env file cannot be read, but don't cause a fatal error.
+        error_log("Warning: Could not read the .env file at {$path}. Environment variables not loaded.");
+        return;
+    }
     foreach ($lines as $line) {
         if (strpos(trim($line), '#') === 0) {
             continue;
