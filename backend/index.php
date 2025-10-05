@@ -1,8 +1,6 @@
 <?php
 // A simple front-controller to route API requests using a query string.
 
-require_once __DIR__ . '/init.php';
-
 // --- Query String Router ---
 // This is the most reliable method and avoids server configuration issues.
 // It expects URLs like /index.php?endpoint=login.php
@@ -14,6 +12,9 @@ if (empty($endpoint)) {
     echo json_encode(['error' => 'Not Found: No API endpoint specified.']);
     exit;
 }
+
+// Start session for any endpoints that might need it
+session_start();
 
 // --- Set Headers ---
 header("Content-Type: application/json");
