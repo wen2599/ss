@@ -1,28 +1,26 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const backendUrl = 'https://wenge.cloudns.ch';
 
-    // --- API Proxying ---
-    // If the request is for a .php file, proxy it to the backend.
-    if (url.pathname.endsWith('.php')) {
-      // The backend server URL for production.
-      const backendUrl = 'https://wenge.cloudns.ch';
+    // Define the list of known API endpoints. These paths will be proxied to the backend.
+    const apiPaths = [
+      '/get_numbers',
+      '/check_session',
+      '/login',
+      '/logout',
+      '/register',
+      '/is_user_registered',
+      '/email_upload'
+    ];
 
-      // Get the endpoint filename (e.g., "login.php") from the path.
-      const endpoint = url.pathname.substring(1);
+    // Check if the requested path is an API endpoint.
+    if (apiPaths.includes(url.pathname)) {
+      // Construct the new URL for the backend.
+      // e.g., https://wenge.cloudns.ch/backend/get_numbers
+      const newUrl = new URL(`${backendUrl}/backend${url.pathname}${url.search}`);
 
-      // Construct the new URL using the query string routing method.
-      // e.g., /backend/index.php?endpoint=login.php
-      const newUrl = new URL(
-        `${backendUrl}/backend/index.php?endpoint=${endpoint}`
-      );
-
-      // Append any existing search parameters from the original request.
-      if (url.search) {
-        newUrl.search += (newUrl.search ? '&' : '') + url.search.substring(1);
-      }
-
-      // Create a new request to the backend, copying the original request's method, headers, and body.
+      // Create a new request to the backend, preserving method, headers, and body.
       const newRequest = new Request(newUrl, {
         method: request.method,
         headers: request.headers,
@@ -30,14 +28,11 @@ export default {
         redirect: 'follow'
       });
 
-      // Forward the request to the backend and return the response.
+      // Forward the request and return the response.
       return fetch(newRequest);
     }
 
-    // --- Static Asset Serving ---
-    // For all other requests, let Cloudflare Pages serve the static assets (your React app).
-    // The `env.ASSETS.fetch()` is a special function provided by Cloudflare Pages that
-    // serves the deployed static files.
+    // For all other requests, serve static assets from Cloudflare Pages.
     return env.ASSETS.fetch(request);
   },
 };
