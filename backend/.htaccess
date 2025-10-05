@@ -1,9 +1,0 @@
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-
-  # This configuration makes the routing work correctly even when the
-  # project is deployed in a subdirectory.
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . index.php [L]
-</IfModule>
