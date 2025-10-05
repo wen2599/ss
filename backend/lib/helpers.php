@@ -32,4 +32,51 @@ function get_db_connection() {
 
     return $conn;
 }
+
+/**
+ * Sends a message to a Telegram chat.
+ *
+ * @param string|int $chat_id The ID of the chat to send the message to.
+ * @param string $message The text of the message to send.
+ * @return bool True on success, false on failure.
+ */
+function send_telegram_message($chat_id, $message) {
+    $bot_token = TELEGRAM_BOT_TOKEN;
+    if (empty($bot_token) || empty($chat_id)) {
+        return false;
+    }
+
+    $api_url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
+
+    $payload = [
+        'chat_id' => $chat_id,
+        'text' => $message,
+        'parse_mode' => 'Markdown' // Optional: for formatting
+    ];
+
+    $options = [
+        'http' => [
+            'method'  => 'POST',
+            'header'  => "Content-type: application/json\r\n",
+            'content' => json_encode($payload),
+            'ignore_errors' => true // Allows reading the response body on failure
+        ]
+    ];
+
+    $context = stream_context_create($options);
+    $result = file_get_contents($api_url, false, $context);
+
+    if ($result === false) {
+        error_log("Telegram API request failed completely.");
+        return false;
+    }
+
+    $response_data = json_decode($result, true);
+    if (!$response_data['ok']) {
+        error_log("Telegram API Error: " . ($response_data['description'] ?? 'Unknown error'));
+        return false;
+    }
+
+    return true;
+}
 ?>

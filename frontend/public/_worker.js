@@ -11,7 +11,8 @@ export default {
       '/logout',
       '/register',
       '/is_user_registered',
-      '/email_upload'
+      '/email_upload',
+      '/telegram_webhook'
     ];
 
     // Check if the requested path is an API endpoint.
