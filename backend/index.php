@@ -36,10 +36,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/lib/helpers.php';
 
-// --- Query-Based Routing ---
-// This is the most compatible routing method, expecting URLs like:
-// /backend/index.php?endpoint=get_numbers
-$endpoint = $_GET['endpoint'] ?? 'not_found';
+// --- Path-Based Routing ---
+// Handles clean URLs like /get_numbers, which are rewritten by .htaccess
+$base_path = dirname($_SERVER['SCRIPT_NAME']);
+$request_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+// If the base path is not the root, remove it from the request path
+if ($base_path !== '/' && strpos($request_path, $base_path) === 0) {
+    $endpoint = substr($request_path, strlen($base_path));
+} else {
+    $endpoint = $request_path;
+}
+
+$endpoint = trim($endpoint, '/');
+
 
 // Sanitize the endpoint name to prevent directory traversal and invalid characters.
 $endpoint = basename($endpoint, '.php');
