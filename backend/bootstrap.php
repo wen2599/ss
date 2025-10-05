@@ -58,7 +58,7 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 
 // Include application-specific configuration.
 // This file contains database credentials, API keys, etc.
-require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config.php';
 
 // Include helper functions.
 // This file contains utility functions like get_db_connection().
