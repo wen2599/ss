@@ -1,6 +1,11 @@
 <?php
 // backend/endpoints/login.php
 
+// Bootstrap the application
+require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../lib/helpers.php';
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     send_json_response(['error' => 'Method not allowed.'], 405);
 }

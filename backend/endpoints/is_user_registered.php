@@ -1,6 +1,11 @@
 <?php
 // backend/endpoints/is_user_registered.php
 
+// Bootstrap the application
+require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../lib/helpers.php';
+
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     send_json_response(['error' => 'Method not allowed.'], 405);
 }

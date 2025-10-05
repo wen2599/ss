@@ -1,6 +1,11 @@
 <?php
 // backend/endpoints/logout.php
 
+// Bootstrap the application
+require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../lib/helpers.php';
+
 // This endpoint logs the user out by destroying their session.
 
 // Start the session to access and destroy it.
