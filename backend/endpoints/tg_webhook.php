@@ -105,7 +105,7 @@ if (strpos($text, '/add_email') === 0 || strpos($text, '授权新邮箱') !== fa
     if (!$email) {
         send_telegram_message($chat_id, "❌ *格式无效*。\n请使用: `/add_email user@example.com`");
     } else {
-        $stmt = $conn->prepare("INSERT INTO allowed_emails (email) VALUES (?)");
+        $stmt = $conn->prepare("INSERT INTO allowed_emails (email) VALUES (?);");
         $stmt->bind_param("s", $email);
         if ($stmt->execute()) send_telegram_message($chat_id, "✅ *成功!* `{$email}` 现在可以注册了。");
         else send_telegram_message($chat_id, "⚠️ 邮箱 `{$email}` 已在授权列表中。");
