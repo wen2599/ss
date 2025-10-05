@@ -61,6 +61,27 @@ $tables_sql = [
             UNIQUE KEY `type_issue` (`lottery_type`, `issue`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ",
+    'emails' => "
+        CREATE TABLE IF NOT EXISTS `emails` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `message_id` VARCHAR(255) UNIQUE,
+            `received_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `from_address` VARCHAR(255),
+            `subject` VARCHAR(255),
+            `body_html` TEXT,
+            `body_text` TEXT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ",
+    'betting_slips' => "
+        CREATE TABLE IF NOT EXISTS `betting_slips` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `email_id` INT NOT NULL,
+            `raw_text` VARCHAR(1000) NOT NULL,
+            `parsed_data` JSON,
+            `is_valid` BOOLEAN NOT NULL DEFAULT FALSE,
+            FOREIGN KEY (`email_id`) REFERENCES `emails`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    "
 ];
 
 // --- 循环创建或验证数据表 ---

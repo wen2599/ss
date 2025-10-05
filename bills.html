@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>邮件账单中心</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        header { padding: 20px; border-bottom: 1px solid #e9ecef; }
+        h1 { margin: 0; font-size: 1.8em; color: #1a237e; }
+        main { display: flex; }
+        #email-list-container { width: 350px; border-right: 1px solid #e9ecef; height: calc(100vh - 100px); overflow-y: auto; }
+        .email-item { padding: 15px 20px; border-bottom: 1px solid #f5f5f5; cursor: pointer; transition: background-color 0.2s; }
+        .email-item:hover { background-color: #f8f9fa; }
+        .email-item.active { background-color: #e8eaf6; }
+        .email-item-from { font-weight: bold; color: #303f9f; }
+        .email-item-subject { font-size: 0.9em; color: #555; }
+        .email-item-date { font-size: 0.8em; color: #757575; text-align: right; }
+        #detail-view-container { flex-grow: 1; padding: 20px; height: calc(100vh - 100px); overflow-y: auto; }
+        #viewer-welcome { text-align: center; padding-top: 100px; color: #757575; }
+        .email-detail-header { margin-bottom: 20px; }
+        .email-detail-subject { font-size: 1.5em; font-weight: bold; }
+        .tabs { display: flex; border-bottom: 2px solid #e0e0e0; margin-bottom: 20px; }
+        .tab-button { padding: 10px 20px; cursor: pointer; background: none; border: none; font-size: 1em; color: #555; }
+        .tab-button.active { border-bottom: 2px solid #303f9f; font-weight: bold; color: #303f9f; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        #raw-email-view iframe { width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 4px; }
+        #parsed-slips-view table { width: 100%; border-collapse: collapse; }
+        #parsed-slips-view th, #parsed-slips-view td { padding: 12px; border: 1px solid #e0e0e0; text-align: left; }
+        #parsed-slips-view th { background-color: #f2f2f2; }
+        .slip-valid { color: green; }
+        .slip-invalid { color: red; }
+        .loading { text-align: center; padding: 50px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>邮件账单中心</h1>
+    </header>
+    <main>
+        <div id="email-list-container">
+            <div class="loading">正在加载邮件列表...</div>
+        </div>
+        <div id="detail-view-container">
+            <div id="viewer-welcome">
+                <h2>请在左侧选择一封邮件查看详情</h2>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+const emailListContainer = document.getElementById('email-list-container');
+const detailViewContainer = document.getElementById('detail-view-container');
+const welcomeMessage = document.getElementById('viewer-welcome');
+let activeEmailId = null;
+
+async function fetchEmails() {
+    try {
+        const response = await fetch('backend/endpoints/get_bills.php');
+        if (!response.ok) throw new Error('Failed to fetch email list');
+        const emails = await response.json();
+        
+        emailListContainer.innerHTML = ''; // Clear loading message
+        if (emails.length === 0) {
+            emailListContainer.innerHTML = '<div class="loading">没有邮件</div>';
+            return;
+        }
+
+        emails.forEach(email => {
+            const item = document.createElement('div');
+            item.className = 'email-item';
+            item.dataset.id = email.id;
+            item.innerHTML = `
+                <div class="email-item-from">${escapeHTML(email.from_address)}</div>
+                <div class="email-item-subject">${escapeHTML(email.subject)}</div>
+                <div class="email-item-date">${new Date(email.received_at).toLocaleString()}</div>
+            `;
+            item.addEventListener('click', () => fetchEmailDetail(email.id));
+            emailListContainer.appendChild(item);
+        });
+    } catch (error) {
+        console.error('Error fetching emails:', error);
+        emailListContainer.innerHTML = '<div class="loading">加载邮件列表失败</div>';
+    }
+}
+
+async function fetchEmailDetail(id) {
+    if (activeEmailId === id) return;
+
+    welcomeMessage.style.display = 'none';
+    detailViewContainer.innerHTML = '<div class="loading">正在加载邮件详情...</div>';
+
+    // Update active state in list
+    if (activeEmailId) {
+        emailListContainer.querySelector(`.email-item[data-id='${activeEmailId}']`)?.classList.remove('active');
+    }
+    emailListContainer.querySelector(`.email-item[data-id='${id}']`).classList.add('active');
+    activeEmailId = id;
+
+    try {
+        const response = await fetch(`backend/endpoints/get_bills.php?id=${id}`);
+        if (!response.ok) throw new Error('Failed to fetch email detail');
+        const details = await response.json();
+
+        renderEmailDetail(details);
+    } catch (error) {
+        console.error('Error fetching detail:', error);
+        detailViewContainer.innerHTML = '<div class="loading">加载邮件详情失败</div>';
+    }
+}
+
+function renderEmailDetail({ email, slips }) {
+    const slipsTableRows = slips.map(slip => {
+        let parsedContent = '';
+        let statusClass = 'slip-invalid';
+        if (slip.is_valid) {
+            statusClass = 'slip-valid';
+            const p = slip.parsed_data;
+            parsedContent = `<td>${escapeHTML(p.type)}</td><td>${escapeHTML(p.content)}</td><td>${p.amount.toFixed(2)}</td>`;
+        } else {
+            parsedContent = '<td colspan="3">无法解析</td>';
+        }
+
+        return `
+            <tr>
+                <td>${escapeHTML(slip.raw_text)}</td>
+                ${parsedContent}
+                <td class="${statusClass}">${slip.is_valid ? '有效' : '无效'}</td>
+            </tr>
+        `;
+    }).join('');
+
+    detailViewContainer.innerHTML = `
+        <div class="email-detail-header">
+            <div class="email-detail-subject">${escapeHTML(email.subject)}</div>
+            <div><strong>From:</strong> ${escapeHTML(email.from_address)}</div>
+            <div><strong>Date:</strong> ${new Date(email.received_at).toLocaleString()}</div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab(event, 'parsed-slips-view')">解析结果</button>
+            <button class="tab-button" onclick="switchTab(event, 'raw-email-view')">邮件原文</button>
+        </div>
+
+        <div id="parsed-slips-view" class="tab-content active">
+            <table>
+                <thead>
+                    <tr>
+                        <th>原始文本</th>
+                        <th>投注类型</th>
+                        <th>内容</th>
+                        <th>金额</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${slipsTableRows}
+                </tbody>
+            </table>
+        </div>
+
+        <div id="raw-email-view" class="tab-content">
+            <iframe></iframe>
+        </div>
+    `;
+    
+    const iframe = detailViewContainer.querySelector('#raw-email-view iframe');
+    iframe.srcdoc = email.body_html || '<p>No HTML content available.</p>';
+}
+
+function switchTab(event, tabId) {
+    document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+    document.querySelectorAll('.tab-button').forEach(tb => tb.classList.remove('active'));
+
+    document.getElementById(tabId).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"]/g, tag => 
+        ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[tag] || tag));
+}
+
+document.addEventListener('DOMContentLoaded', fetchEmails);
+
+</script>
+
+</body>
+</html>
