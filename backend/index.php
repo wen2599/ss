@@ -36,22 +36,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/lib/helpers.php';
 
-// --- Flexible Routing ---
-$request_uri = $_SERVER['REQUEST_URI'];
-$base_path = '/backend';
+// --- Query-Based Routing ---
+// This is the most compatible routing method, expecting URLs like:
+// /backend/index.php?endpoint=get_numbers
+$endpoint = $_GET['endpoint'] ?? 'not_found';
 
-// Remove the base path to isolate the endpoint part.
-$request_path = str_replace($base_path, '', $request_uri);
-// Remove any query string.
-$request_path = parse_url($request_path, PHP_URL_PATH);
-// Remove the .php extension if it exists to handle both clean and old URLs.
-$request_path = preg_replace('/\.php$/', '', $request_path);
-
-// Sanitize the path to prevent directory traversal and invalid characters.
-$endpoint = preg_replace('/[^a-zA-Z0-9_]/', '', trim($request_path, '/'));
+// Sanitize the endpoint name to prevent directory traversal and invalid characters.
+$endpoint = basename($endpoint, '.php');
+$endpoint = preg_replace('/[^a-zA-Z0-9_]/', '', $endpoint);
 
 if (empty($endpoint)) {
-    // Handle root requests if necessary, otherwise default to not_found.
     $endpoint = 'not_found';
 }
 
@@ -60,8 +54,7 @@ $endpoint_file = __DIR__ . '/endpoints/' . $endpoint . '.php';
 if (file_exists($endpoint_file)) {
     require_once $endpoint_file;
 } else {
-    // Log the missing endpoint for debugging.
-    error_log("Endpoint not found for request: {$request_uri}. Resolved to: {$endpoint_file}");
+    error_log("Endpoint not found for request: {$_SERVER['REQUEST_URI']}. Resolved to: {$endpoint_file}");
     send_json_response(['error' => "API endpoint '{$endpoint}' not found."], 404);
 }
 ?>

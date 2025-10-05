@@ -3,7 +3,7 @@ export default {
     const url = new URL(request.url);
     const backendUrl = 'https://wenge.cloudns.ch';
 
-    // Define the list of known API endpoints. These paths will be proxied to the backend.
+    // A list of known API endpoint paths that should be proxied.
     const apiPaths = [
       '/get_numbers',
       '/check_session',
@@ -15,13 +15,21 @@ export default {
       '/tg_webhook'
     ];
 
-    // Check if the requested path is an API endpoint.
+    // Check if the request is for a known API endpoint.
     if (apiPaths.includes(url.pathname)) {
-      // Construct the new URL for the backend.
-      // e.g., https://wenge.cloudns.ch/backend/get_numbers
-      const newUrl = new URL(`${backendUrl}/backend${url.pathname}${url.search}`);
+      // Extract the endpoint name from the path (e.g., '/get_numbers' -> 'get_numbers').
+      const endpoint = url.pathname.substring(1);
 
-      // Create a new request to the backend, preserving method, headers, and body.
+      // Construct the new URL using the query string routing method.
+      // e.g., https://wenge.cloudns.ch/backend/index.php?endpoint=get_numbers
+      const newUrl = new URL(`${backendUrl}/backend/index.php?endpoint=${endpoint}`);
+
+      // Append any existing search parameters from the original request.
+      if (url.search) {
+        newUrl.search += (newUrl.search ? '&' : '') + url.search.substring(1);
+      }
+
+      // Create a new request to the backend, preserving the original method, headers, and body.
       const newRequest = new Request(newUrl, {
         method: request.method,
         headers: request.headers,
@@ -29,11 +37,11 @@ export default {
         redirect: 'follow'
       });
 
-      // Forward the request and return the response.
+      // Forward the request to the backend and return the response.
       return fetch(newRequest);
     }
 
-    // For all other requests, serve static assets from Cloudflare Pages.
+    // For all other requests, let Cloudflare Pages serve the static assets.
     return env.ASSETS.fetch(request);
   },
 };
