@@ -11,7 +11,7 @@ function App() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const response = await fetch('/check_session', {
+        const response = await fetch('https://wenge.cloudns.ch/index.php?endpoint=check_session', {
           credentials: 'include',
         });
         const data = await response.json();
@@ -28,7 +28,7 @@ function App() {
 
   // Fetch lottery data
   useEffect(() => {
-    fetch('/get_numbers')
+    fetch('https://wenge.cloudns.ch/index.php?endpoint=get_numbers')
       .then(response => {
         if (!response.ok) {
           throw new Error('网络响应不正常');
