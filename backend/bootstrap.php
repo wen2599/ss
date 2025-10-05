@@ -1,6 +1,19 @@
 <?php
 // backend/bootstrap.php
 
+// --- Temporary Debugging ---
+// This code is for debugging the .env file loading issue.
+// It will be removed once the problem is resolved.
+$env_path = __DIR__ . '/.env';
+if (!is_file($env_path)) {
+    die(".env file does not exist at path: " . $env_path);
+}
+if (!is_readable($env_path)) {
+    die(".env file exists but is not readable. Check file permissions. Path: " . $env_path);
+}
+// --- End of Temporary Debugging ---
+
+
 /**
  * Loads environment variables from a .env file into the application.
  *
