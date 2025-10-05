@@ -6,9 +6,13 @@ require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../lib/helpers.php';
 
-// --- Security Check: Ensure required constants are defined ---
-if (!defined('TELEGRAM_BOT_TOKEN') || !defined('TELEGRAM_ADMIN_ID')) {
-    error_log("Telegram bot token or admin ID is not configured.");
+// --- Security Check: Ensure Telegram credentials are configured ---
+if (empty(TELEGRAM_BOT_TOKEN) || empty(TELEGRAM_ADMIN_ID)) {
+    // Log a clear error message. This is a server configuration issue.
+    error_log("Fatal Error: TELEGRAM_BOT_TOKEN or TELEGRAM_ADMIN_ID is not configured in the environment. The Telegram webhook cannot function.");
+    // Do not send a message back to Telegram, as we don't have a token.
+    // Exit silently to prevent leaking any information.
+    http_response_code(500); // Set a server error status
     exit;
 }
 
