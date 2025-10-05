@@ -7,11 +7,11 @@ export default defineConfig({
   server: {
     proxy: {
       // Proxy all requests ending in .php to the backend server,
-      // rewriting the path to use the PATH_INFO routing strategy.
+      // rewriting the path to use the query string routing strategy.
       '**/*.php': {
         target: 'http://localhost:8000',
         changeOrigin: true,
-        rewrite: (path) => `/index.php${path}`,
+        rewrite: (path) => `/index.php?endpoint=${path.substring(1)}`,
       },
     },
   },

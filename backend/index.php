@@ -1,15 +1,14 @@
 <?php
-// A simple front-controller to route API requests using PATH_INFO.
+// A simple front-controller to route API requests using a query string.
 
 require_once __DIR__ . '/init.php';
 
-// --- PATH_INFO Router ---
-// This method is more reliable than URL rewriting on some shared hosts.
-// It expects URLs like /index.php/login.php
-$path_info = $_SERVER['PATH_INFO'] ?? '';
-$endpoint = basename(trim($path_info, '/'));
+// --- Query String Router ---
+// This is the most reliable method and avoids server configuration issues.
+// It expects URLs like /index.php?endpoint=login.php
+$endpoint = $_GET['endpoint'] ?? null;
 
-// If no endpoint is found, it's a bad request.
+// If no endpoint is specified, return a 404 error.
 if (empty($endpoint)) {
     http_response_code(404);
     echo json_encode(['error' => 'Not Found: No API endpoint specified.']);
@@ -23,7 +22,6 @@ session_start();
 header("Content-Type: application/json");
 
 // In a production environment, you would want to restrict this to your actual frontend domain.
-// For now, allowing credentials from a development server.
 if (isset($_SERVER['HTTP_ORIGIN']) && $_SERVER['HTTP_ORIGIN'] === 'http://localhost:5173') {
     header("Access-Control-Allow-Origin: http://localhost:5173");
     header("Access-Control-Allow-Credentials: true");
