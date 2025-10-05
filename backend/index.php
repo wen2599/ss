@@ -15,9 +15,6 @@ if (empty($endpoint)) {
     exit;
 }
 
-// Start session for any endpoints that might need it
-session_start();
-
 // --- Set Headers ---
 header("Content-Type: application/json");
 
