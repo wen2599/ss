@@ -1,6 +1,11 @@
 <?php
 // backend/endpoints/tg_webhook.php
 
+// Bootstrap the application
+require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../lib/helpers.php';
+
 // --- Security Check: Ensure required constants are defined ---
 if (!defined('TELEGRAM_BOT_TOKEN') || !defined('TELEGRAM_ADMIN_ID')) {
     error_log("Telegram bot token or admin ID is not configured.");

@@ -1,6 +1,11 @@
 <?php
 // backend/endpoints/check_session.php
 
+// Bootstrap the application
+require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../lib/helpers.php';
+
 // This endpoint is used to check if a user is currently logged in.
 // It must be called with credentials to access the session cookie.
 
