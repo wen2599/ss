@@ -1,18 +1,8 @@
 <?php
 // backend/bootstrap.php
 
-// --- Temporary Debugging ---
-// This code is for debugging the .env file loading issue.
-// It will be removed once the problem is resolved.
-$env_path = __DIR__ . '/.env';
-if (!is_file($env_path)) {
-    die(".env file does not exist at path: " . $env_path);
-}
-if (!is_readable($env_path)) {
-    die(".env file exists but is not readable. Check file permissions. Path: " . $env_path);
-}
-// --- End of Temporary Debugging ---
-
+// Define a project root constant for consistent path resolution.
+define('PROJECT_ROOT', dirname(__DIR__));
 
 /**
  * Loads environment variables from a .env file into the application.
@@ -56,4 +46,22 @@ function load_env($path) {
 
 // Load the .env file from the backend directory.
 load_env(__DIR__ . '/.env');
+
+// Include the Composer autoloader to load third-party libraries.
+// This is crucial for libraries like the Telegram Bot SDK.
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+} else {
+    // If composer autoloader is missing, it's a critical setup error.
+    die("Error: Composer autoloader not found. Please run 'composer install' in the 'backend' directory.");
+}
+
+// Include application-specific configuration.
+// This file contains database credentials, API keys, etc.
+require_once __DIR__ . '/config/config.php';
+
+// Include helper functions.
+// This file contains utility functions like get_db_connection().
+require_once __DIR__ . '/lib/helpers.php';
+
 ?>
