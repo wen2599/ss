@@ -55,6 +55,17 @@ $user = $result->fetch_assoc();
 
 // Verify the provided password against the stored hash.
 if (password_verify($password, $user['password'])) {
+    // Update last login time
+    $updateStmt = $conn->prepare("UPDATE users SET last_login_time = CURRENT_TIMESTAMP WHERE id = ?");
+    if ($updateStmt) {
+        $updateStmt->bind_param("i", $user['id']);
+        $updateStmt->execute();
+        $updateStmt->close();
+    } else {
+        // Log error, but don't block login
+        error_log("Failed to prepare statement for updating last_login_time: " . $conn->error);
+    }
+
     // Passwords match. Start a new, clean session.
     session_start();
     // Regenerate session ID to prevent session fixation attacks.
