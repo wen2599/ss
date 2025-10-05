@@ -1,6 +1,13 @@
 <?php
 // backend/index.php
 
+// --- Force Error Logging for Debugging ---
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/error.log');
+
 // --- Simple Request Logging for Debugging ---
 $log_message = date('[Y-m-d H:i:s]') . " " . $_SERVER['REQUEST_METHOD'] . " " . $_SERVER['REQUEST_URI'] . "\n";
 file_put_contents(__DIR__ . '/request.log', $log_message, FILE_APPEND);
