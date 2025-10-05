@@ -1,33 +1,55 @@
 <?php
-// A simple front-controller to route API requests using a query string.
+// backend/index.php
 
-// --- Query String Router ---
-// This is the most reliable method and avoids server configuration issues.
-// It expects URLs like /index.php?endpoint=login.php
-$endpoint = $_GET['endpoint'] ?? null;
+// --- CORS and Preflight Request Handling ---
+// A list of allowed origins for CORS.
+$allowed_origins = [
+    'http://localhost:5173',      // Vite dev server
+    'https://ss.wenxiuxiu.eu.org' // Production frontend
+];
 
-// If no endpoint is specified, return a 404 error.
+if (isset($_SERVER['HTTP_ORIGIN']) && in_array($_SERVER['HTTP_ORIGIN'], $allowed_origins)) {
+    header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
+    header('Access-Control-Allow-Credentials: true');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+}
+
+// Handle preflight 'OPTIONS' requests and exit early.
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD'])) {
+        header("HTTP/1.1 200 OK");
+    }
+    exit(0);
+}
+
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/lib/helpers.php';
+
+// Get the requested path from the server's request URI.
+// The RewriteRule in .htaccess ensures that all requests go here.
+$request_uri = $_SERVER['REQUEST_URI'];
+$base_path = '/backend'; // Adjust if your app is in a subdirectory
+
+// Remove the base path and query string from the request URI to get the endpoint path.
+$request_path = parse_url(str_replace($base_path, '', $request_uri), PHP_URL_PATH);
+
+// Sanitize the path to prevent directory traversal attacks.
+// Allow only alphanumeric characters and underscores in the endpoint name.
+$endpoint = preg_replace('/[^a-zA-Z0-9_]/', '', trim($request_path, '/'));
+
+// Default to a 'not_found' endpoint if the requested path is empty.
 if (empty($endpoint)) {
-    http_response_code(404);
-    echo json_encode(['error' => 'Not Found: No API endpoint specified.']);
-    exit;
+    $endpoint = 'not_found';
 }
 
-// Start session for any endpoints that might need it
-session_start();
+// Construct the path to the endpoint file.
+$endpoint_file = __DIR__ . '/endpoints/' . $endpoint . '.php';
 
-// --- Set Headers ---
-header("Content-Type: application/json");
-
-// In a production environment, you would want to restrict this to your actual frontend domain.
-if (isset($_SERVER['HTTP_ORIGIN']) && $_SERVER['HTTP_ORIGIN'] === 'http://localhost:5173') {
-    header("Access-Control-Allow-Origin: http://localhost:5173");
-    header("Access-Control-Allow-Credentials: true");
-    header("Access-Control-Allow-Headers: Content-Type");
+// If the endpoint file exists, include it. Otherwise, handle as a 404 Not Found error.
+if (file_exists($endpoint_file)) {
+    require_once $endpoint_file;
+} else {
+    send_json_response(['error' => 'API endpoint not found.'], 404);
 }
-
-// --- Route Handling ---
-// Pass the determined endpoint to the handler.
-require_once __DIR__ . '/api_handler.php';
-handle_api_request($endpoint);
 ?>
