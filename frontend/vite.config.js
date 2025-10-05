@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': {
+      // Proxy all requests ending in .php to the backend server
+      '**/*.php': {
         target: 'http://localhost:8000',
         changeOrigin: true,
       },

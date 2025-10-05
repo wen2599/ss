@@ -3,12 +3,12 @@ export default {
     const url = new URL(request.url);
 
     // --- API Proxying ---
-    // If the request is for our API, proxy it to the backend.
-    if (url.pathname.startsWith('/api/')) {
+    // If the request is for a .php file, proxy it to the backend.
+    if (url.pathname.endsWith('.php')) {
       // The backend server URL for production.
       const backendUrl = 'https://wenge.cloudns.ch';
 
-      // Create a new URL to the backend, adding the /backend subdirectory to the path.
+      // Create a new URL to the backend, prepending the /backend path.
       const newUrl = new URL(backendUrl + '/backend' + url.pathname + url.search);
 
       // Create a new request to the backend, copying the original request's method, headers, and body.

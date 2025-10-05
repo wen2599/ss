@@ -5,13 +5,17 @@ require_once __DIR__ . '/init.php';
 
 // --- Basic Router ---
 $request_uri = $_SERVER['REQUEST_URI'];
-$script_name = $_SERVER['SCRIPT_NAME'];
+$script_path = dirname($_SERVER['SCRIPT_NAME']);
 
-// This helps determine the path relative to the script entry point
-$path = str_replace(dirname($script_name), '', $request_uri);
-$path = trim($path, '/');
-$path_parts = explode('/', $path);
-$resource = $path_parts[0] ?? null;
+// Remove the base path from the request URI to get the endpoint path
+if (strpos($request_uri, $script_path) === 0) {
+    $path = substr($request_uri, strlen($script_path));
+} else {
+    $path = $request_uri;
+}
+
+// Get the final part of the path as the endpoint (e.g., 'login.php')
+$endpoint = basename(trim($path, '/'));
 
 // Start session for any endpoints that might need it
 session_start();
@@ -28,16 +32,7 @@ if (isset($_SERVER['HTTP_ORIGIN']) && $_SERVER['HTTP_ORIGIN'] === 'http://localh
 }
 
 // --- Route Handling ---
-switch ($resource) {
-    case 'api':
-        $endpoint = $path_parts[1] ?? null;
-        require_once __DIR__ . '/api_handler.php';
-        handle_api_request($endpoint);
-        break;
-
-    default:
-        http_response_code(404);
-        echo json_encode(['error' => 'Not Found']);
-        break;
-}
+// Pass the determined endpoint to the handler.
+require_once __DIR__ . '/api_handler.php';
+handle_api_request($endpoint);
 ?>

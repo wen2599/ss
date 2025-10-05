@@ -13,7 +13,7 @@ const Register = ({ onClose, onRegister }) => {
         setSuccess('');
 
         try {
-            const response = await fetch('/api/register.php', {
+            const response = await fetch('/register.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),
