@@ -1,6 +1,10 @@
 <?php
 // backend/index.php
 
+// --- Simple Request Logging for Debugging ---
+$log_message = date('[Y-m-d H:i:s]') . " " . $_SERVER['REQUEST_METHOD'] . " " . $_SERVER['REQUEST_URI'] . "\n";
+file_put_contents(__DIR__ . '/request.log', $log_message, FILE_APPEND);
+
 // Bootstrap the application by loading environment variables and configuration.
 require_once __DIR__ . '/bootstrap.php';
 
