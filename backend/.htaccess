@@ -1,7 +1,7 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /backend/
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
+    # Route all requests through index.php to ensure the application
+    # is always bootstrapped correctly.
     RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>
