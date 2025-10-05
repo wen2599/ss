@@ -53,7 +53,7 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require_once __DIR__ . '/vendor/autoload.php';
 } else {
     // If composer autoloader is missing, it's a critical setup error.
-    die("Error: Composer autoloader not found. Please run 'composer install' in the 'backend' directory.");
+    die("Error: Composer autoloader not found. Please run 'composer install' in the project root directory.");
 }
 
 // Include application-specific configuration.
