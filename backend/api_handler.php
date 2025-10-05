@@ -28,7 +28,6 @@ function handle_api_request($endpoint) {
 }
 
 function get_numbers() {
-    session_start();
     $data_file = __DIR__ . '/data/numbers.json';
     if (file_exists($data_file)) {
         echo file_get_contents($data_file);
@@ -68,7 +67,6 @@ function register_user() {
 }
 
 function login_user() {
-    session_start();
     $input = json_decode(file_get_contents('php://input'), true);
     if (!$input || !isset($input['username']) || !isset($input['password'])) {
         http_response_code(400);
@@ -92,14 +90,12 @@ function login_user() {
 }
 
 function logout_user() {
-    session_start();
     session_unset();
     session_destroy();
     echo json_encode(['success' => 'Logged out successfully.']);
 }
 
 function check_user_session() {
-    session_start();
     if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true) {
         echo json_encode(['loggedin' => true, 'user' => ['username' => $_SESSION['username']]]);
     } else {
