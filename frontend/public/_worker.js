@@ -12,7 +12,7 @@ export default {
       '/register',
       '/is_user_registered',
       '/email_upload',
-      '/telegram_webhook'
+      '/tg_webhook'
     ];
 
     // Check if the requested path is an API endpoint.
