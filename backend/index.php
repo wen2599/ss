@@ -1,21 +1,20 @@
 <?php
-// A simple front-controller to route API requests.
+// A simple front-controller to route API requests using PATH_INFO.
 
 require_once __DIR__ . '/init.php';
 
-// --- Basic Router ---
-$request_uri = $_SERVER['REQUEST_URI'];
-$script_path = dirname($_SERVER['SCRIPT_NAME']);
+// --- PATH_INFO Router ---
+// This method is more reliable than URL rewriting on some shared hosts.
+// It expects URLs like /index.php/login.php
+$path_info = $_SERVER['PATH_INFO'] ?? '';
+$endpoint = basename(trim($path_info, '/'));
 
-// Remove the base path from the request URI to get the endpoint path
-if (strpos($request_uri, $script_path) === 0) {
-    $path = substr($request_uri, strlen($script_path));
-} else {
-    $path = $request_uri;
+// If no endpoint is found, it's a bad request.
+if (empty($endpoint)) {
+    http_response_code(404);
+    echo json_encode(['error' => 'Not Found: No API endpoint specified.']);
+    exit;
 }
-
-// Get the final part of the path as the endpoint (e.g., 'login.php')
-$endpoint = basename(trim($path, '/'));
 
 // Start session for any endpoints that might need it
 session_start();

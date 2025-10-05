@@ -8,8 +8,9 @@ export default {
       // The backend server URL for production.
       const backendUrl = 'https://wenge.cloudns.ch';
 
-      // Create a new URL to the backend, prepending the /backend path.
-      const newUrl = new URL(backendUrl + '/backend' + url.pathname + url.search);
+      // Create a new URL to the backend, adding /backend/index.php
+      // to use the PATH_INFO routing strategy.
+      const newUrl = new URL(backendUrl + '/backend/index.php' + url.pathname + url.search);
 
       // Create a new request to the backend, copying the original request's method, headers, and body.
       const newRequest = new Request(newUrl, {

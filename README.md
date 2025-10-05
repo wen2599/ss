@@ -2,8 +2,8 @@
 
 This is a full-stack application that displays lottery numbers. The frontend is built with React and Vite, and the backend is a simple PHP application. It also includes a Telegram bot integration for updating the lottery numbers and a user authentication system.
 
-This project uses a modern architecture:
-- **Backend**: A PHP application using a "front controller" pattern (`index.php`) to route all API requests.
+This project uses a modern and reliable architecture:
+- **Backend**: A PHP application using a "front controller" pattern (`index.php`). It uses `PATH_INFO` for routing, which works on almost any server configuration without needing URL rewriting.
 - **Frontend**: A React application that leverages a Cloudflare Worker (`_worker.js`) to proxy API requests, solving CORS issues and simplifying deployment.
 
 ## Production URLs
@@ -67,7 +67,7 @@ This project uses a modern architecture:
     ```bash
     npm run dev
     ```
-    The application will be available at `http://localhost:5173`. The Vite development server is now configured to proxy all requests ending in `.php` to your local PHP backend.
+    The application will be available at `http://localhost:5173`. The Vite development server is configured to proxy requests for `.php` files to your local backend, rewriting them to use the `PATH_INFO` format (e.g., `/index.php/login.php`).
 
 ## Telegram Bot Integration
 
@@ -76,10 +76,10 @@ This project uses a modern architecture:
     - It will give you a unique token. Add this token to your `backend/.env` file.
 
 2.  **Set the Webhook**:
-    You need to tell Telegram where to send messages. The URL must point to your deployed backend, including the `/backend` path.
+    You need to tell Telegram where to send messages. The URL must point to your deployed backend's `index.php` router.
     Replace `YOUR_TELEGRAM_BOT_TOKEN` in the URL below.
     ```
-    https://api.telegram.org/bot<YOUR_TELEGRAM_BOT_TOKEN>/setWebhook?url=https://wenge.cloudns.ch/backend/telegram_webhook.php
+    https://api.telegram.org/bot<YOUR_TELEGRAM_BOT_TOKEN>/setWebhook?url=https://wenge.cloudns.ch/backend/index.php/telegram_webhook.php
     ```
 
 3.  **Update Lottery Numbers**:
@@ -93,7 +93,7 @@ This project uses a modern architecture:
 ### Backend on Serv00
 
 1.  **Upload the `backend` directory** to your Serv00 server's public web directory (e.g., `public_html`).
-2.  **Ensure URL Rewriting is Enabled**: The included `.htaccess` file automatically configures the Apache server to correctly route all requests to `index.php`. Make sure this file is uploaded with the rest of the `backend` directory. This is crucial for the API to work correctly.
+2.  **Server Configuration**: No special URL rewriting is needed. This application uses `PATH_INFO` routing, which is supported by default on most modern PHP servers. The `.htaccess` file is no longer required.
 3.  **Set up the `.env` file** on the server with your production secrets. **Do not upload your `.env` file directly.**
 4.  Set the Telegram webhook to point to your live server URL as described in the "Telegram Bot Integration" section.
 
@@ -101,7 +101,7 @@ This project uses a modern architecture:
 
 1.  **Push your code** to a GitHub repository.
 2.  **Confirm the Backend URL in the Worker**:
-    - The `frontend/public/_worker.js` file has been configured to detect any request ending in `.php` and proxy it to `https://wenge.cloudns.ch`.
+    - The `frontend/public/_worker.js` file has been configured to rewrite requests to use the `PATH_INFO` format (e.g., `.../index.php/login.php`) and proxy them to `https://wenge.cloudns.ch`.
 3.  **Create a new project** on Cloudflare Pages and connect it to your GitHub repository.
 4.  **Configure the build settings**:
     - **Framework preset**: `Vite`
