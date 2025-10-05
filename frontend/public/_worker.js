@@ -5,8 +5,8 @@ export default {
     // --- API Proxying ---
     // If the request is for our API, proxy it to the backend.
     if (url.pathname.startsWith('/api/')) {
-      // IMPORTANT: Replace this with your actual backend server URL in production.
-      const backendUrl = 'https://your-serv00-backend.com'; // Example: your-username.serv00.net
+      // The backend server URL for production.
+      const backendUrl = 'https://wenge.cloudns.ch';
 
       // Create a new URL to the backend by taking the original path and query.
       const newUrl = new URL(backendUrl + url.pathname + url.search);
