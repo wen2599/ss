@@ -21,7 +21,7 @@ const Login = ({ onClose, onLogin }) => {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || 'Login failed');
+                throw new Error(data.error || '登录失败');
             }
 
             onLogin(data.user);
@@ -34,11 +34,11 @@ const Login = ({ onClose, onLogin }) => {
     return (
         <div className="modal-backdrop" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>Login</h2>
+                <h2>登录</h2>
                 <form onSubmit={handleSubmit}>
                     {error && <p className="error">{error}</p>}
                     <div className="form-group">
-                        <label htmlFor="login-username">Username</label>
+                        <label htmlFor="login-username">用户名</label>
                         <input
                             id="login-username"
                             type="text"
@@ -48,7 +48,7 @@ const Login = ({ onClose, onLogin }) => {
                         />
                     </div>
                     <div className="form-group">
-                        <label htmlFor="login-password">Password</label>
+                        <label htmlFor="login-password">密码</label>
                         <input
                             id="login-password"
                             type="password"
@@ -58,8 +58,8 @@ const Login = ({ onClose, onLogin }) => {
                         />
                     </div>
                     <div className="form-actions">
-                        <button type="submit">Login</button>
-                        <button type="button" onClick={onClose}>Cancel</button>
+                        <button type="submit">登录</button>
+                        <button type="button" onClick={onClose}>取消</button>
                     </div>
                 </form>
             </div>

@@ -31,7 +31,7 @@ function App() {
     fetch('/api/get_numbers.php')
       .then(response => {
         if (!response.ok) {
-          throw new Error('Network response was not ok');
+          throw new Error('网络响应不正常');
         }
         return response.json();
       })
@@ -61,7 +61,7 @@ function App() {
         <h1>六合彩开奖结果</h1>
       </header>
       <main>
-        {error && <p className="error">Error: {error}</p>}
+        {error && <p className="error">错误: {error}</p>}
         {lotteryData ? (
           <div className="lottery-numbers">
             <h2>期号: {lotteryData.issue}</h2>
@@ -72,7 +72,7 @@ function App() {
             </div>
           </div>
         ) : (
-          <p>Loading...</p>
+          <p>加载中...</p>
         )}
       </main>
     </div>

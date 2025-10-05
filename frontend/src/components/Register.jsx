@@ -22,10 +22,10 @@ const Register = ({ onClose, onRegister }) => {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || 'Registration failed');
+                throw new Error(data.error || '注册失败');
             }
 
-            setSuccess('Registration successful! You can now log in.');
+            setSuccess('注册成功！您现在可以登录了。');
             // Automatically close the modal after a delay and trigger the parent's action
             setTimeout(() => {
                 onRegister();
@@ -39,12 +39,12 @@ const Register = ({ onClose, onRegister }) => {
     return (
         <div className="modal-backdrop" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>Register</h2>
+                <h2>注册</h2>
                 <form onSubmit={handleSubmit}>
                     {error && <p className="error">{error}</p>}
                     {success && <p className="success">{success}</p>}
                     <div className="form-group">
-                        <label htmlFor="register-username">Username</label>
+                        <label htmlFor="register-username">用户名</label>
                         <input
                             id="register-username"
                             type="text"
@@ -54,7 +54,7 @@ const Register = ({ onClose, onRegister }) => {
                         />
                     </div>
                     <div className="form-group">
-                        <label htmlFor="register-password">Password</label>
+                        <label htmlFor="register-password">密码</label>
                         <input
                             id="register-password"
                             type="password"
@@ -64,8 +64,8 @@ const Register = ({ onClose, onRegister }) => {
                         />
                     </div>
                     <div className="form-actions">
-                        <button type="submit">Register</button>
-                        <button type="button" onClick={onClose}>Cancel</button>
+                        <button type="submit">注册</button>
+                        <button type="button" onClick={onClose}>取消</button>
                     </div>
                 </form>
             </div>
