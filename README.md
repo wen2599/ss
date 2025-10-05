@@ -93,14 +93,7 @@ This project uses a modern architecture:
 ### Backend on Serv00
 
 1.  **Upload the `backend` directory** to your Serv00 server's public web directory (e.g., `public_html`).
-2.  **Configure URL Rewriting**: You need to configure your web server (e.g., Apache) to route all requests for non-existent files to `index.php`. Create a `.htaccess` file in the `backend` directory with the following content:
-    ```apache
-    RewriteEngine On
-    RewriteBase /
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule . /index.php [L]
-    ```
+2.  **Ensure URL Rewriting is Enabled**: The included `.htaccess` file automatically configures the Apache server to correctly route all requests to `index.php`. Make sure this file is uploaded with the rest of the `backend` directory. This is crucial for the API to work correctly.
 3.  **Set up the `.env` file** on the server with your production secrets. **Do not upload your `.env` file directly.**
 4.  Set the Telegram webhook to point to your live server URL (`https://wenge.cloudns.ch`) as described above.
 
