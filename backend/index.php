@@ -1,6 +1,9 @@
 <?php
 // backend/index.php
 
+// Bootstrap the application by loading environment variables and configuration.
+require_once __DIR__ . '/bootstrap.php';
+
 // --- CORS and Preflight Request Handling ---
 // A list of allowed origins for CORS.
 $allowed_origins = [
