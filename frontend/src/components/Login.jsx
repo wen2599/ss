@@ -11,7 +11,7 @@ const Login = ({ onClose, onLogin }) => {
         setError('');
 
         try {
-            const response = await fetch('/api/login.php', {
+            const response = await fetch('/login.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),

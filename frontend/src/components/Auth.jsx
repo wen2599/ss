@@ -8,7 +8,7 @@ const Auth = ({ user, onLogin, onLogout }) => {
     const [showRegister, setShowRegister] = useState(false);
 
     const handleLogout = async () => {
-        const response = await fetch('/api/logout.php', {
+        const response = await fetch('/logout.php', {
             method: 'POST',
             credentials: 'include',
         });
