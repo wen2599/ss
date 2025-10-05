@@ -50,6 +50,19 @@ if ($base_path !== '/' && strpos($request_path, $base_path) === 0) {
 
 $endpoint = trim($endpoint, '/');
 
+// --- Diagnostic Logging ---
+$debug_log_message = sprintf(
+    "[%s] REQUEST_URI: %s | SCRIPT_NAME: %s | base_path: %s | request_path: %s | initial_endpoint: %s\n",
+    date('Y-m-d H:i:s'),
+    $_SERVER['REQUEST_URI'] ?? 'N/A',
+    $_SERVER['SCRIPT_NAME'] ?? 'N/A',
+    $base_path ?? 'N/A',
+    $request_path ?? 'N/A',
+    $endpoint ?? 'N/A'
+);
+file_put_contents(__DIR__ . '/debug_route.log', $debug_log_message, FILE_APPEND);
+// --- End Diagnostic Logging ---
+
 
 // Sanitize the endpoint name to prevent directory traversal and invalid characters.
 $endpoint = basename($endpoint, '.php');
