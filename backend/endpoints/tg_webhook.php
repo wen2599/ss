@@ -56,6 +56,11 @@ if (!$user_id || !$chat_id) {
     exit;
 }
 
+// --- DEBUGGING: Log IDs before comparison ---
+$configured_admin_id = defined('TELEGRAM_ADMIN_ID') ? TELEGRAM_ADMIN_ID : 'NOT DEFINED';
+log_message("DEBUG: Comparing incoming user_id [{$user_id}] with configured TELEGRAM_ADMIN_ID [{$configured_admin_id}].");
+// --- END DEBUGGING ---
+
 if ((string)$user_id !== (string)TELEGRAM_ADMIN_ID) {
     log_message("SECURITY: Unauthorized access by user {$user_id}.");
     send_telegram_message($chat_id, "抱歉，我只为管理员服务。您的用户ID: `{$user_id}`");
