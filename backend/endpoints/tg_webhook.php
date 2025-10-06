@@ -137,9 +137,30 @@ if (isset($update['callback_query'])) {
     log_message("Entering Branch 2: Callback Query. Data: {$callback_data}");
 
     // Answer the callback query to remove the "loading" state on the button
-    // answer_callback_query($callback_query['id']); // Commented out as per instruction to only modify this file.
+    // This is important for a good user experience.
+    answer_callback_query($callback_query['id']);
+
+    // --- Define Keyboards ---
+    // This is the keyboard for the "User Management" section.
+    $user_management_inline_keyboard = ['inline_keyboard' => [
+        [['text' => '👥 列出注册用户', 'callback_data' => 'list_users'], ['text' => '📋 列出授权邮箱', 'callback_data' => 'list_allowed']],
+        [['text' => 'ℹ️ 操作方法', 'callback_data' => 'auth_help']]
+    ]];
 
     switch ($callback_data) {
+        // --- New Admin Panel Callbacks ---
+        case 'user_management':
+            send_telegram_message($chat_id, "请选择一个用户管理操作:", $user_management_inline_keyboard);
+            break;
+        case 'push_message':
+            $push_help = "▶️ *如何推送消息*\n\n";
+            $push_help .= "请使用以下命令格式向所有已注册用户发送广播:\n\n";
+            $push_help .= "`/push 您想发送的消息内容`\n\n";
+            $push_help .= "例如: `/push 大家好，今晚系统将进行维护。`";
+            send_telegram_message($chat_id, $push_help);
+            break;
+
+        // --- Existing User Management Callbacks ---
         case 'list_users':
             $conn = get_db_or_exit($chat_id);
             $result = $conn->query("SELECT email, tg_user_id, tg_username, created_at FROM users ORDER BY created_at DESC;");
@@ -204,13 +225,15 @@ if (isset($update['message'])) {
     log_message("Entering Branch 3: Text Message. Text: {$text}");
 
     // --- Define Keyboards ---
-    $main_reply_keyboard = ['keyboard' => [[['text' => '📣 推送消息'], ['text' => '👤 用户与授权']], [['text' => '📊 系统状态'], ['text' => '❓ 帮助']]], 'resize_keyboard' => true, 'one_time_keyboard' => false];
-    $user_management_inline_keyboard = ['inline_keyboard' => [
-        [['text' => '👥 列出注册用户', 'callback_data' => 'list_users'], ['text' => '📋 列出授权邮箱', 'callback_data' => 'list_allowed']],
-        [['text' => 'ℹ️ 操作方法', 'callback_data' => 'auth_help']]
+    // Simplified main keyboard
+    $main_reply_keyboard = ['keyboard' => [[['text' => '⚙️ 管理菜单'], ['text' => '📊 系统状态']]], 'resize_keyboard' => true, 'one_time_keyboard' => false];
+    // New admin panel, shown when "Admin Menu" is clicked
+    $admin_panel_inline_keyboard = ['inline_keyboard' => [
+        [['text' => '👤 用户管理', 'callback_data' => 'user_management'], ['text' => '📣 消息推送', 'callback_data' => 'push_message']]
     ]];
 
     // --- Command Routing ---
+    // Priority 1: Handle direct commands like /push, /add_email
     if (strpos($text, '/push') === 0) {
         $parts = explode(' ', $text, 2);
         $broadcast_message = $parts[1] ?? '';
@@ -243,7 +266,7 @@ if (isset($update['message'])) {
                         log_message("Broadcast failed for user {$target_user_id}: " . $e->getMessage());
                         $fail_count++;
                     }
-                    usleep(500000); // 0.5秒延迟，防止触发速率限制
+                    usleep(500000); // 0.5-second delay to prevent rate limiting
                 }
                 $summary_message = "✅ *推送完成*\n\n";
                 $summary_message .= "▫️ 成功发送: *{$success_count}* 位用户\n";
@@ -257,23 +280,16 @@ if (isset($update['message'])) {
     } else if (strpos($text, '/remove_email') === 0) {
         // ... (remove_email logic remains the same)
     } else {
+        // Priority 2: Handle keyboard buttons
         switch ($text) {
-            case '📣 推送消息':
-                $push_help = "▶️ *如何推送消息*\n\n";
-                $push_help .= "请使用以下命令格式向所有已注册用户发送广播:\n\n";
-                $push_help .= "`/push 您想发送的消息内容`\n\n";
-                $push_help .= "例如: `/push 大家好，今晚系统将进行维护。`";
-                send_telegram_message($chat_id, $push_help);
-                break;
-            // ... (other cases like /start, user management, status remain the same)
             case '/start':
             case '❓ 帮助':
                 $help_text = "🤖 *管理员机器人控制台*\n\n您好！请使用下方的键盘导航。";
                 send_telegram_message($chat_id, $help_text, $main_reply_keyboard);
                 break;
                 
-            case '👤 用户与授权':
-                send_telegram_message($chat_id, "请选择一个用户管理操作:", $user_management_inline_keyboard);
+            case '⚙️ 管理菜单':
+                send_telegram_message($chat_id, "请选择一个管理操作:", $admin_panel_inline_keyboard);
                 break;
                 
             case '📊 系统状态':
