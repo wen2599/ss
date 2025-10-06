@@ -83,4 +83,38 @@ function send_telegram_message($chat_id, $message, $reply_markup = null) {
 
     return true;
 }
+
+/**
+ * Answers a Telegram callback query.
+ * This is used to acknowledge that a button press has been received.
+ *
+ * @param string $callback_query_id The ID of the callback query to answer.
+ * @return bool True on success, false on failure.
+ */
+function answer_callback_query($callback_query_id) {
+    $bot_token = TELEGRAM_BOT_TOKEN;
+    if (empty($bot_token) || empty($callback_query_id)) {
+        return false;
+    }
+
+    $api_url = "https://api.telegram.org/bot{$bot_token}/answerCallbackQuery";
+
+    $payload = [
+        'callback_query_id' => $callback_query_id
+    ];
+
+    $options = [
+        'http' => [
+            'method'  => 'POST',
+            'header'  => "Content-type: application/json\r\n",
+            'content' => json_encode($payload),
+            'ignore_errors' => true
+        ]
+    ];
+
+    $context = stream_context_create($options);
+    file_get_contents($api_url, false, $context); // We don't need to check the response for this
+
+    return true;
+}
 ?>

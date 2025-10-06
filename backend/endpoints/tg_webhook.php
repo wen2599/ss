@@ -64,7 +64,73 @@ if ((string)$user_id !== (string)TELEGRAM_ADMIN_ID) {
 log_message("Admin check PASSED for user {$user_id}.");
 
 // --- BRANCH 2: Handle Callbacks from Inline Keyboards (Post Buttons) ---
-// ... (callback logic remains the same)
+if (isset($update['callback_query'])) {
+    $callback_query = $update['callback_query'];
+    $callback_data = $callback_query['data'];
+    $message_id = $callback_query['message']['message_id'];
+    log_message("Entering Branch 2: Callback Query. Data: {$callback_data}");
+
+    // Answer the callback query to remove the "loading" state on the button
+    // answer_callback_query($callback_query['id']); // Commented out as per instruction to only modify this file.
+
+    switch ($callback_data) {
+        case 'list_users':
+            $conn = get_db_or_exit($chat_id);
+            $result = $conn->query("SELECT email, tg_user_id, tg_username, created_at FROM users ORDER BY created_at DESC;");
+
+            $response_text = "👥 *已注册用户列表*\n\n";
+            if ($result && $result->num_rows > 0) {
+                $count = 1;
+                while($row = $result->fetch_assoc()) {
+                    $response_text .= "{$count}. *邮箱:* `{$row['email']}`\n";
+                    $response_text .= "   - *TG ID:* `{$row['tg_user_id']}`\n";
+                    $response_text .= "   - *TG 用户名:* " . ($row['tg_username'] ? "@{$row['tg_username']}" : "未设置") . "\n";
+                    $response_text .= "   - *注册时间:* {$row['created_at']}\n\n";
+                    $count++;
+                }
+            } else {
+                $response_text .= "🤷‍♀️ 系统中没有找到任何已注册的用户。";
+            }
+            $conn->close();
+            send_telegram_message($chat_id, $response_text);
+            break;
+
+        case 'list_allowed':
+            $conn = get_db_or_exit($chat_id);
+            $result = $conn->query("SELECT email, created_at FROM allowed_emails ORDER BY created_at DESC;");
+
+            $response_text = "📋 *已授权邮箱列表*\n\n";
+            if ($result && $result->num_rows > 0) {
+                $count = 1;
+                while($row = $result->fetch_assoc()) {
+                    $response_text .= "{$count}. `{$row['email']}`\n";
+                    $response_text .= "   - *添加时间:* {$row['created_at']}\n";
+                    $count++;
+                }
+            } else {
+                $response_text .= "🤷‍♀️ 系统中没有找到任何已授权的邮箱。\n\n使用 `/add_email <邮箱地址>` 来添加一个。";
+            }
+            $conn->close();
+            send_telegram_message($chat_id, $response_text);
+            break;
+
+        case 'auth_help':
+            $auth_help_text = "ℹ️ *用户授权操作指南*\n\n";
+            $auth_help_text .= "1️⃣ *添加授权邮箱:*\n";
+            $auth_help_text .= "   `/add_email user@example.com`\n\n";
+            $auth_help_text .= "2️⃣ *移除授权邮箱:*\n";
+            $auth_help_text .= "   `/remove_email user@example.com`\n\n";
+            $auth_help_text .= "只有被授权的邮箱才能在本系统注册账户。";
+            send_telegram_message($chat_id, $auth_help_text);
+            break;
+
+        default:
+            // Optionally, send a message for unhandled callbacks
+            // send_telegram_message($chat_id, "收到了一个未知的回调: {$callback_data}");
+            break;
+    }
+    exit; // IMPORTANT: Exit after handling callback to prevent fall-through
+}
 
 // --- BRANCH 3: Handle Regular Text Messages from Admin ---
 if (isset($update['message'])) {
