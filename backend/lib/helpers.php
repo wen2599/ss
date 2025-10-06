@@ -40,7 +40,7 @@ function get_db_connection() {
  * @param string $message The text of the message to send.
  * @return bool True on success, false on failure.
  */
-function send_telegram_message($chat_id, $message) {
+function send_telegram_message($chat_id, $message, $reply_markup = null) {
     $bot_token = TELEGRAM_BOT_TOKEN;
     if (empty($bot_token) || empty($chat_id)) {
         return false;
@@ -51,8 +51,12 @@ function send_telegram_message($chat_id, $message) {
     $payload = [
         'chat_id' => $chat_id,
         'text' => $message,
-        'parse_mode' => 'Markdown' // Optional: for formatting
+        'parse_mode' => 'Markdown'
     ];
+
+    if ($reply_markup) {
+        $payload['reply_markup'] = $reply_markup;
+    }
 
     $options = [
         'http' => [
