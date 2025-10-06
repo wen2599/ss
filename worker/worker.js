@@ -156,16 +156,15 @@ function parseEmail(rawEmail, options = {}) {
 export default {
   /**
    * 处理网站的 API 请求 (例如: /check_session, /get_numbers)
-   * 这是新增的部分，用于修复 502 错误
    */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 您的后端 PHP 服务器地址
-    const backendServer = "https://wenge.cloudns.ch";
+    // 您的后端 PHP 服务器地址 (!!! 使用 http 进行测试 !!!)
+    const backendServer = "http://wenge.cloudns.ch";
 
     // 根据方案 B，我们构建指向服务器根目录 index.php 的 URL
-    // 例如: https://ss.wenxiuxiu.eu.org/check_session -> https://wenge.cloudns.ch/index.php?endpoint=check_session
+    // 例如: https://ss.wenxiuxiu.eu.org/check_session -> http://wenge.cloudns.ch/index.php?endpoint=check_session
     const backendUrl = backendServer + "/index.php" + url.search;
     
     // 将请求直接转发给您的 PHP 后端，并返回其响应
