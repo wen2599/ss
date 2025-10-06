@@ -1,58 +1,66 @@
-/* === Main Navigation Bar - Dark Matter Theme === */
+/* === Navbar Component Styles - Dark Matter Theme === */
 
-.main-nav {
-  display: flex;
-  justify-content: center;
-  gap: var(--spacing-6);
-  margin-top: var(--spacing-4);
+.main-navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-3) var(--spacing-6);
+    background-color: var(--color-background-offset);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+    box-sizing: border-box;
 }
 
-.main-nav a {
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  font-size: 1rem;
-  font-weight: 500;
-  padding: var(--spacing-2) var(--spacing-4);
-  border-radius: var(--border-radius-md);
-  position: relative;
-  transition: var(--transition-fast);
-  outline-offset: 4px; /* For focus */
+.navbar-left, .navbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-4);
 }
 
-/* Underline effect on hover */
-.main-nav a::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 2px;
-  background-color: var(--color-accent);
-  transition: width 200ms ease-in-out;
+.navbar-button, .navbar-link {
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: var(--spacing-2) var(--spacing-4);
+    border-radius: var(--border-radius-md);
+    transition: var(--transition-fast);
+    cursor: pointer;
 }
 
-.main-nav a:hover {
-  color: var(--color-text-primary);
+.navbar-button {
+    border: none;
+    background-color: transparent;
 }
 
-.main-nav a:hover::after {
-  width: 80%; /* Animate the underline */
+.navbar-link {
+    color: var(--color-text-secondary);
 }
 
-/* Active link style */
-.main-nav a.active {
-  color: var(--color-accent);
-  font-weight: 600;
+.navbar-link:hover, .navbar-link.active {
+    color: var(--color-accent);
+    background-color: var(--color-accent-glow);
 }
 
-.main-nav a.active::after {
-  width: 100%; /* Full underline for the active link */
-  background-color: var(--color-accent);
+.login-button {
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent);
 }
 
-/* Focus state for accessibility */
-.main-nav a:focus-visible {
-  outline: 2px solid var(--color-accent-glow);
-  border-radius: var(--border-radius-md);
+.login-button:hover {
+    background-color: var(--color-accent);
+    color: var(--color-background);
+}
+
+.logout-button {
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.logout-button:hover {
+    background-color: var(--color-error);
+    color: var(--color-text-primary);
+    border-color: var(--color-error);
 }

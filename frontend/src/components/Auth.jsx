@@ -3,53 +3,51 @@ import Login from './Login';
 import Register from './Register';
 import './Auth.css';
 
-const Auth = ({ user, onLogin, onLogout }) => {
-    const [showLogin, setShowLogin] = useState(false);
-    const [showRegister, setShowRegister] = useState(false);
+function Auth({ onClose, onLogin }) {
+    const [isLoginView, setIsLoginView] = useState(true);
 
-    const handleLogout = async () => {
-        const response = await fetch('/logout', {
-            method: 'POST',
-            credentials: 'include',
-        });
-        const data = await response.json();
-        if (data.success) {
-            onLogout();
+    const handleSuccessfulLogin = (userData) => {
+        if (onLogin) {
+            onLogin(userData);
+        }
+        onClose(); // Close modal on successful login
+    };
+
+    const handleSuccessfulRegister = () => {
+        setIsLoginView(true); // Switch to login view after registration
+    };
+
+    const handleBackdropClick = (e) => {
+        if (e.target === e.currentTarget) {
+            onClose();
         }
     };
 
     return (
-        <div className="auth-container">
-            {user ? (
-                <div className="auth-loggedIn">
-                    <span>欢迎, {user.username}</span>
-                    <button onClick={handleLogout}>退出登录</button>
+        <div className="auth-modal-backdrop" onClick={handleBackdropClick}>
+            <div className="auth-container card">
+                <div className="auth-header">
+                    <h2>{isLoginView ? '登录账户' : '创建新账户'}</h2>
+                    <p className="secondary-text">
+                        {isLoginView ? '欢迎回来！' : '很高兴认识你！'}
+                    </p>
                 </div>
-            ) : (
-                <div className="auth-loggedOut">
-                    <button onClick={() => setShowLogin(true)}>登录</button>
-                    <button onClick={() => setShowRegister(true)}>注册</button>
+
+                {isLoginView ? (
+                    <Login onLogin={handleSuccessfulLogin} />
+                ) : (
+                    <Register onRegister={handleSuccessfulRegister} />
+                )}
+
+                <div className="auth-toggle">
+                    <button onClick={() => setIsLoginView(!isLoginView)} className="auth-toggle-button">
+                        {isLoginView ? '还没有账户？立即注册' : '已有账户？前往登录'}
+                    </button>
                 </div>
-            )}
-
-            {showLogin && (
-                <Login
-                    onClose={() => setShowLogin(false)}
-                    onLogin={onLogin}
-                />
-            )}
-
-            {showRegister && (
-                <Register
-                    onClose={() => setShowRegister(false)}
-                    onRegister={() => {
-                        setShowRegister(false);
-                        setShowLogin(true); // Switch to login form after successful registration
-                    }}
-                />
-            )}
+                 <button onClick={onClose} className="close-button">×</button>
+            </div>
         </div>
     );
-};
+}
 
 export default Auth;

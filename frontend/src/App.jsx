@@ -1,19 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, NavLink } from 'react-router-dom';
-import Auth from './components/Auth';
+import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
+import Navbar from './components/Navbar'; // 引入新的 Navbar 组件
 import LotteryPage from './pages/LotteryPage';
 import EmailCenter from './pages/EmailCenter';
 import './theme.css';
-import './components/Navbar.css';
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
 
   useEffect(() => {
     const checkSession = async () => {
       try {
         const response = await fetch('/check_session', { credentials: 'include' });
+        if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
         if (data.loggedin) {
           setUser(data.user);
@@ -28,17 +29,31 @@ function App() {
   }, []);
 
   const handleLogin = (userData) => setUser(userData);
-  const handleLogout = () => setUser(null);
+  const handleLogout = () => {
+    // 在实际应用中，您可能想在这里清除更多状态或重定向
+    setUser(null);
+  };
+
+  const getPageTitle = () => {
+    switch (location.pathname) {
+      case '/':
+        return '开奖结果';
+      case '/emails':
+        return '邮件中心';
+      default:
+        return '数据洞察中心';
+    }
+  };
 
   const renderContent = () => {
     if (loading) {
-      return <p>正在加载...</p>;
+        return <div className="loading-container"><div className="loader"></div><p>正在加载应用...</p></div>;
     }
     if (!user) {
       return (
-        <div className="card" style={{ textAlign: 'center', maxWidth: '400px' }}>
+        <div className="card centered-card">
             <h2>欢迎来到数据洞察中心</h2>
-            <p style={{ color: 'var(--color-text-secondary)' }}>请先登录以访问核心功能。</p>
+            <p className="secondary-text">请通过导航栏的 "注册 / 登录" 按钮访问您的账户。</p>
         </div>
       );
     }
@@ -52,16 +67,10 @@ function App() {
 
   return (
     <div className="App">
-      <Auth user={user} onLogin={handleLogin} onLogout={handleLogout} />
+      <Navbar user={user} onLogin={handleLogin} onLogout={handleLogout} />
 
       <header className="App-header">
-        <h1>数据洞察中心</h1>
-        {user && (
-          <nav className="main-nav">
-            <NavLink to="/">开奖结果</NavLink>
-            <NavLink to="/emails">邮件中心</NavLink>
-          </nav>
-        )}
+        {user && <h1>{getPageTitle()}</h1>}
       </header>
 
       <main>
