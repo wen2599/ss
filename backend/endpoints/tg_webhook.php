@@ -22,7 +22,7 @@ function send_telegram_message($chat_id, $text, $reply_markup = null) {
             'content' => json_encode($payload),
         ],
     ];
-    file_get_contents($url, false, stream_context_create($options));
+    @file_get_contents($url, false, stream_context_create($options)); // Use @ to suppress warnings on failure
 }
 
 // --- Lottery Result Parser ---
@@ -95,7 +95,17 @@ if (isset($update['channel_post']) && (string)$chat_id === (string)TELEGRAM_CHAN
 
 // --- Branch 2: Handle Admin Commands ---
 $user_id = $message['from']['id'] ?? null;
-if ((string)$user_id !== (string)TELEGRAM_ADMIN_ID) exit;
+
+// *** DEBUGGING STEP ***: Check for Admin ID mismatch
+if ((string)$user_id !== (string)TELEGRAM_ADMIN_ID) {
+    if ($chat_id) { // Ensure we have a chat_id to respond to
+        $admin_id_defined = defined('TELEGRAM_ADMIN_ID') && TELEGRAM_ADMIN_ID;
+        $debug_message = "* unauthorized access attempt.*\n\n- Your User ID: `{$user_id}`\n- Expected Admin ID is " . ($admin_id_defined ? "set." : "*not set*.");
+        send_telegram_message($chat_id, $debug_message);
+    }
+    exit; // Stop execution for non-admins
+}
+
 
 // Updated keyboard with 'Find User' and 'System Status' buttons
 $keyboard = [
