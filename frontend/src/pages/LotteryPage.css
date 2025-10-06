@@ -1,34 +1,53 @@
-/* === Lottery Page Styles - Dark Matter Theme === */
+/* === Lottery Page Styles - Banner Layout === */
 
 .lottery-container {
-  padding: var(--spacing-8); /* More padding for a premium feel */
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-6); /* Space between banners */
+  width: 100%;
   max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Styles for each individual lottery result banner */
+.lottery-banner {
+  background-color: var(--color-background-secondary);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-5);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-fast);
+}
+
+.lottery-banner:hover {
+  border-color: var(--color-accent-hover);
+  transform: translateY(-2px);
 }
 
 .lottery-header {
   text-align: center;
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--spacing-4);
   border-bottom: 1px solid var(--color-border);
-  padding-bottom: var(--spacing-4);
+  padding-bottom: var(--spacing-3);
 }
 
 .lottery-header h2 {
   margin: 0;
-  font-size: 2rem; /* Larger title */
-  font-weight: 700;
+  font-size: 1.5rem; /* Slightly smaller for banner view */
+  font-weight: 600;
   color: var(--color-text-primary);
 }
 
 .lottery-header .issue {
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: var(--color-text-secondary);
   margin-top: var(--spacing-1);
 }
 
 .lottery-results {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-  gap: var(--spacing-4);
+  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+  gap: var(--spacing-3);
   justify-content: center;
 }
 
@@ -37,12 +56,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 90px;
-  height: 90px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
-  border: 2px solid var(--color-border);
+  border: 2px solid var(--color-border-subtle);
   background: radial-gradient(circle at 30% 30%, var(--color-background), var(--color-background-secondary));
-  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3), inset 0 2px 3px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.05);
   transition: var(--transition-fast);
   cursor: default;
 }
@@ -53,31 +72,33 @@
 }
 
 .ball-number {
-  font-size: 2.2rem;
+  font-size: 2rem;
   font-weight: 700;
   line-height: 1;
 }
 
 .ball-zodiac {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: var(--color-text-secondary);
   margin-top: 4px;
 }
 
 /* Color Variants */
-.ball-red .ball-number { color: #f87171; } /* Lighter Red */
-.ball-blue .ball-number { color: #60a5fa; } /* Lighter Blue */
-.ball-green .ball-number { color: #4ade80; } /* Lighter Green */
+.ball-red .ball-number { color: #f87171; }
+.ball-blue .ball-number { color: #60a5fa; }
+.ball-green .ball-number { color: #4ade80; }
 
-/* Loading & Error State Placeholder */
+/* Main Loading & Error State Placeholder (for the whole page) */
 .lottery-placeholder {
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    min-height: 200px;
+    min-height: 300px;
     text-align: center;
+    background-color: var(--color-background-secondary);
+    border-radius: var(--border-radius-lg);
 }
 
 .lottery-placeholder h3 {
@@ -85,43 +106,13 @@
     color: var(--color-text-secondary);
 }
 
-/* === New Tab Styles === */
-.lottery-tabs {
+/* Small placeholder for an individual banner with no data */
+.lottery-placeholder-small {
   display: flex;
   justify-content: center;
-  margin-bottom: var(--spacing-6);
-  border-bottom: 2px solid var(--color-border);
-  padding: 0 var(--spacing-2);
-}
-
-.tab-button {
-  padding: var(--spacing-3) var(--spacing-5);
-  font-size: 1rem;
-  font-weight: 600;
+  align-items: center;
+  min-height: 100px;
   color: var(--color-text-secondary);
-  background-color: transparent;
-  border: none;
-  border-bottom: 3px solid transparent;
-  cursor: pointer;
-  transition: var(--transition-fast);
-  margin: 0 var(--spacing-2);
-  transform: translateY(2px); /* Align with the container border */
-}
-
-.tab-button:hover {
-  color: var(--color-text-primary);
-  background-color: var(--color-background-secondary);
-}
-
-.tab-button.active {
-  color: var(--color-accent);
-  border-bottom-color: var(--color-accent);
-}
-
-.lottery-content {
-  /* This class wraps the results to provide a container for future animations or transitions */
-  min-height: 250px; /* Ensure container doesn't collapse when switching tabs */
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  font-style: italic;
+  font-size: 0.9rem;
 }
