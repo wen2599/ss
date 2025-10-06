@@ -1,13 +1,12 @@
 <?php
 // backend/endpoints/tg_webhook.php
 
-// Corrected path to work from the public_html/endpoints directory
-require_once __DIR__ . '/../../backend/bootstrap.php';
-require_once __DIR__ . '/../../backend/config.php';
+// FINAL CORRECTED PATH for a deployment where the contents of 'backend' are in public_html
+require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/../config.php';
 
 // --- Enhanced Debug Logging ---
 function log_message($message) {
-    // Note: This will attempt to write to public_html/endpoints/debug.log after deployment
     $log_file = __DIR__ . '/debug.log';
     $timestamp = date('[Y-m-d H:i:s]');
     file_put_contents($log_file, $timestamp . " " . $message . "\n", FILE_APPEND);
