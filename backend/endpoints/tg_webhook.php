@@ -48,6 +48,11 @@ function parse_lottery_message($text) {
 }
 
 // --- Database & Command Helpers ---
+function get_db_for_status() {
+    // This is a non-exit version for status check
+    return @get_db_connection(); 
+}
+
 function get_db_or_exit($chat_id, $is_admin_command) {
     $conn = get_db_connection();
     if (!$conn) {
@@ -96,11 +101,20 @@ if (isset($update['channel_post']) && (string)$chat_id === (string)TELEGRAM_CHAN
 $user_id = $message['from']['id'] ?? null;
 if ((string)$user_id !== (string)TELEGRAM_ADMIN_ID) exit;
 
-$keyboard = ['keyboard' => [[['text' => '🔑 授权新邮箱'], ['text' => '🗑 撤销授权']], [['text' => '👥 列出用户'], ['text' => '📋 列出授权列表']]], 'resize_keyboard' => true];
+// Updated keyboard with 'System Status' button
+$keyboard = [
+    'keyboard' => [
+        [['text' => '🔑 授权新邮箱'], ['text' => '🗑 撤销授权']],
+        [['text' => '👥 列出用户'], ['text' => '📋 列出授权列表']],
+        [['text' => '📊 系统状态']]
+    ],
+    'resize_keyboard' => true
+];
 
-$conn = get_db_or_exit($chat_id, true);
+// No need to connect DB here, connect only when needed
 
 if (strpos($text, '/add_email') === 0 || strpos($text, '授权新邮箱') !== false) {
+    $conn = get_db_or_exit($chat_id, true);
     $email = parse_email_from_command($text);
     if (!$email) {
         send_telegram_message($chat_id, "❌ *格式无效*。\n请使用: `/add_email user@example.com`");
@@ -111,19 +125,25 @@ if (strpos($text, '/add_email') === 0 || strpos($text, '授权新邮箱') !== fa
         else send_telegram_message($chat_id, "⚠️ 邮箱 `{$email}` 已在授权列表中。");
         $stmt->close();
     }
+    $conn->close();
 } elseif ($text === '/list_users' || $text === '👥 列出用户') {
+    $conn = get_db_or_exit($chat_id, true);
     $result = $conn->query("SELECT email, created_at FROM users ORDER BY created_at DESC");
     $response = "👥 *已注册的用户:*\n\n";
     if ($result->num_rows > 0) while($row = $result->fetch_assoc()) $response .= "- `{$row['email']}` (注册于 {$row['created_at']})\n";
     else $response = "ℹ️ 暂无已注册的用户。";
     send_telegram_message($chat_id, $response);
+    $conn->close();
 } elseif ($text === '/list_allowed' || $text === '📋 列出授权列表') {
+    $conn = get_db_or_exit($chat_id, true);
     $result = $conn->query("SELECT email, created_at FROM allowed_emails ORDER BY created_at DESC");
     $response = "🔑 *可用于注册的邮箱:*\n\n";
     if ($result->num_rows > 0) while($row = $result->fetch_assoc()) $response .= "- `{$row['email']}` (添加于 {$row['created_at']})\n";
     else $response = "ℹ️ 授权列表为空。";
     send_telegram_message($chat_id, $response);
+    $conn->close();
 } elseif (strpos($text, '/delete_user') === 0) {
+    $conn = get_db_or_exit($chat_id, true);
     $email = parse_email_from_command($text);
     if (!$email) send_telegram_message($chat_id, "❌ *格式无效*。\n请使用: `/delete_user user@example.com`");
     else {
@@ -133,7 +153,9 @@ if (strpos($text, '/add_email') === 0 || strpos($text, '授权新邮箱') !== fa
         else send_telegram_message($chat_id, "⚠️ 未找到用户 `{$email}`。");
         $stmt->close();
     }
+    $conn->close();
 } elseif (strpos($text, '/revoke_email') === 0 || strpos($text, '撤销授权') !== false) {
+    $conn = get_db_or_exit($chat_id, true);
     $email = parse_email_from_command($text);
     if (!$email) send_telegram_message($chat_id, "❌ *格式无效*。\n请使用: `/revoke_email user@example.com`");
     else {
@@ -143,10 +165,27 @@ if (strpos($text, '/add_email') === 0 || strpos($text, '授权新邮箱') !== fa
         else send_telegram_message($chat_id, "⚠️ 在授权列表中未找到 `{$email}`。");
         $stmt->close();
     }
+    $conn->close();
+} elseif ($text === '/status' || $text === '📊 系统状态') {
+    $report = "📊 *系统状态报告*\n\n";
+    
+    // 1. Check API Service (Webhook itself)
+    $report .= "- *API 服务 (Webhook)*: 🟢 在线\n";
+
+    // 2. Check Database Connection
+    $db_conn_status = get_db_for_status();
+    if ($db_conn_status) {
+        $report .= "- *数据库连接*: 🟢 正常\n";
+        $db_conn_status->close();
+    } else {
+        $report .= "- *数据库连接*: 🔴 失败\n";
+    }
+
+    send_telegram_message($chat_id, $report, $keyboard);
+
 } else {
     $help_text = "🤖 *管理员机器人控制台*\n\n您好！请使用下方的键盘或直接发送命令来管理您的应用。";
     send_telegram_message($chat_id, $help_text, $keyboard);
 }
 
-$conn->close();
 ?>
