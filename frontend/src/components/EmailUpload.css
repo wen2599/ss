@@ -1,0 +1,99 @@
+/* === Email Upload Component Styles - Dark Matter Theme === */
+
+.upload-container {
+    width: 100%;
+}
+
+.upload-area {
+    border: 2px dashed var(--color-border);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-6);
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    background-color: var(--color-background);
+    position: relative;
+}
+
+.upload-area:hover, .upload-area.dragging {
+    border-color: var(--color-accent);
+    background-color: rgba(34, 211, 238, 0.05);
+}
+
+.upload-area.dragging {
+    box-shadow: 0 0 25px var(--color-accent-glow);
+}
+
+.upload-instructions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-2);
+}
+
+.upload-icon {
+    font-size: 2.5rem;
+    color: var(--color-accent);
+    transition: transform 200ms ease;
+}
+
+.upload-area:hover .upload-icon {
+    transform: scale(1.1) translateY(-5px);
+}
+
+.upload-instructions p {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--color-text-secondary);
+}
+
+.upload-instructions p strong {
+    color: var(--color-accent-hover);
+    font-weight: 600;
+}
+
+.upload-hint {
+    font-size: 0.85rem;
+    color: var(--color-text-placeholder);
+}
+
+.upload-actions {
+    margin-top: var(--spacing-4);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-4);
+}
+
+.upload-actions button {
+    background-color: var(--color-accent);
+    color: var(--color-background);
+    border: none;
+    font-size: 1rem;
+    padding: var(--spacing-2) var(--spacing-8);
+    width: auto;
+    max-width: 300px;
+    box-shadow: 0 4px 10px var(--color-accent-glow);
+}
+
+.upload-actions button:hover {
+    background-color: var(--color-accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px var(--color-accent-glow);
+}
+
+.upload-actions button:disabled {
+    background-color: var(--color-border);
+    color: var(--color-text-placeholder);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.message-box {
+    width: 100%;
+    max-width: 600px;
+    text-align: center;
+    padding: var(--spacing-2) var(--spacing-4);
+    font-size: 0.95rem;
+}

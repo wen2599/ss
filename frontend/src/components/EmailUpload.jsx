@@ -1,43 +1,33 @@
-import { useState } from 'react';
-
-// 为上传组件添加一些样式
-const uploadBoxStyle = {
-  border: '2px dashed var(--card-bg)',
-  borderRadius: '8px',
-  padding: '2rem',
-  textAlign: 'center',
-  cursor: 'pointer',
-  transition: 'background-color 0.2s ease',
-  marginBottom: '1.5rem',
-};
-
-const uploadBoxHoverStyle = {
-  backgroundColor: 'var(--secondary-bg)',
-};
+import { useState, useCallback } from 'react';
+import './EmailUpload.css'; // Import the new stylesheet
 
 function EmailUpload({ onUploadSuccess }) {
-  const [file, setFile] = useState(null);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [fileName, setFileName] = useState('');
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
+  const handleFile = useCallback((selectedFile) => {
     if (selectedFile && selectedFile.name.endsWith('.eml')) {
       setFile(selectedFile);
+      setFileName(selectedFile.name);
       setError(null);
-      setMessage(`已选择文件: ${selectedFile.name}`);
+      setMessage(''); // Clear previous messages
     } else {
       setFile(null);
-      setError('请选择一个有效的 .eml 文件。');
-      setMessage('');
+      setFileName('');
+      setError('文件无效，请选择一个 .eml 文件。');
     }
+  }, []);
+
+  const handleFileChange = (e) => {
+    handleFile(e.target.files[0]);
   };
 
   const handleUpload = async () => {
     if (!file) {
-      setError('请先选择一个文件再上传。');
+      setError('请先选择或拖放一个 .eml 文件。');
       return;
     }
 
@@ -58,13 +48,14 @@ function EmailUpload({ onUploadSuccess }) {
       const data = await response.json();
 
       if (!response.ok || data.error) {
-        throw new Error(data.error || '上传失败');
+        throw new Error(data.error || '上传失败，请检查文件或网络连接。');
       }
 
-      setMessage(data.message || '文件上传成功并已解析！');
-      setFile(null); // 清除已选择的文件
+      setMessage(data.message || '文件上传成功！正在刷新列表...');
+      setFile(null); // Reset after successful upload
+      setFileName('');
       if (onUploadSuccess) {
-        onUploadSuccess(); // 调用回调函数以刷新列表
+        onUploadSuccess();
       }
     } catch (err) {
       setError(err.message);
@@ -73,33 +64,67 @@ function EmailUpload({ onUploadSuccess }) {
     }
   };
 
+  // Drag and drop handlers
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+  const handleDragOver = (e) => {
+    e.preventDefault(); // Necessary to allow dropping
+    e.stopPropagation();
+  };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    handleFile(e.dataTransfer.files[0]);
+  };
+
+  // Need to hold the file in state for the upload function
+  const [file, setFile] = useState(null);
+
   return (
-    <div>
-      <div 
-        style={{ ...uploadBoxStyle, ...(isHovering ? uploadBoxHoverStyle : {}) }}
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
-        onClick={() => document.getElementById('fileInput').click()}
-      >
-        <input 
-          type="file" 
-          id="fileInput" 
-          hidden 
-          accept=".eml" 
-          onChange={handleFileChange}
-        />
-        <p>将 .eml 文件拖放到此处，或点击以选择文件</p>
-        {file && <p style={{ color: 'var(--accent-color)', marginTop: '1rem' }}>{file.name}</p>}
-      </div>
-
-      <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-        <button onClick={handleUpload} disabled={isUploading || !file}>
-          {isUploading ? '正在上传...' : '上传并解析'}
-        </button>
-      </div>
-
-      {message && <p style={{ color: 'var(--green-accent)', textAlign: 'center', marginTop: '1rem' }}>{message}</p>}
-      {error && <p className="error" style={{ textAlign: 'center', marginTop: '1rem' }}>{error}</p>}
+    <div className="upload-container">
+        <div 
+            className={`upload-area ${isDragging ? 'dragging' : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onClick={() => document.getElementById('fileInput').click()}
+        >
+            <input 
+                type="file" 
+                id="fileInput" 
+                hidden 
+                accept=".eml" 
+                onChange={handleFileChange}
+                disabled={isUploading}
+            />
+            <div className="upload-instructions">
+                <span className="upload-icon">📤</span>
+                {fileName ? (
+                    <p>已选择文件: <strong>{fileName}</strong></p>
+                ) : (
+                    <p>将 .eml 文件拖放到此处，或<strong>点击选择</strong></p>
+                )}
+                <span className="upload-hint">仅支持 .eml 格式的邮件文件</span>
+            </div>
+        </div>
+        
+        <div className="upload-actions">
+            {error && <div className="error message-box">{error}</div>}
+            {message && <div className="success message-box">{message}</div>}
+            <button onClick={handleUpload} disabled={isUploading || !file}>
+                {isUploading ? '上传中...' : '上传并解析'}
+            </button>
+        </div>
     </div>
   );
 }

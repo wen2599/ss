@@ -1,28 +1,58 @@
-/* --- Main Navigation --- */
+/* === Main Navigation Bar - Dark Matter Theme === */
+
 .main-nav {
   display: flex;
   justify-content: center;
-  gap: 2rem;
-  margin-top: 1rem;
+  gap: var(--spacing-6);
+  margin-top: var(--spacing-4);
 }
 
 .main-nav a {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   text-decoration: none;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  font-size: 1rem;
   font-weight: 500;
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--border-radius-md);
+  position: relative;
+  transition: var(--transition-fast);
+  outline-offset: 4px; /* For focus */
+}
+
+/* Underline effect on hover */
+.main-nav a::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  background-color: var(--color-accent);
+  transition: width 200ms ease-in-out;
 }
 
 .main-nav a:hover {
-  background-color: var(--secondary-bg);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
-/* 活动链接的样式 */
+.main-nav a:hover::after {
+  width: 80%; /* Animate the underline */
+}
+
+/* Active link style */
 .main-nav a.active {
-  color: var(--gold-accent);
-  background-color: rgba(246, 224, 94, 0.1);
-  box-shadow: inset 0 0 5px rgba(246, 224, 94, 0.2);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.main-nav a.active::after {
+  width: 100%; /* Full underline for the active link */
+  background-color: var(--color-accent);
+}
+
+/* Focus state for accessibility */
+.main-nav a:focus-visible {
+  outline: 2px solid var(--color-accent-glow);
+  border-radius: var(--border-radius-md);
 }

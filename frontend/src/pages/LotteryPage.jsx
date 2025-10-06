@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
+import './LotteryPage.css'; // Import the new styles
 
-// 辅助函数保持不变
 const getBallColorClass = (color) => {
-  switch (color.toLowerCase()) {
+  switch (color?.toLowerCase()) {
     case 'red': return 'ball-red';
     case 'blue': return 'ball-blue';
     case 'green': return 'ball-green';
@@ -10,15 +10,30 @@ const getBallColorClass = (color) => {
   }
 };
 
+const LotteryLoading = () => (
+    <div className="card lottery-placeholder">
+        <h3>正在从宇宙深处同步数据...</h3>
+        <p>请稍候，结果即将呈现。</p>
+    </div>
+);
+
+const LotteryError = ({ message }) => (
+    <div className="card lottery-placeholder">
+        <h3 style={{ color: 'var(--color-danger)' }}>数据同步失败</h3>
+        <p className="error" style={{ margin: 0 }}>错误: {message}</p>
+    </div>
+);
+
 function LotteryPage() {
   const [lotteryData, setLotteryData] = useState(null);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // 获取开奖数据
   useEffect(() => {
+    setLoading(true);
     fetch('/get_numbers')
       .then(response => {
-        if (!response.ok) throw new Error('网络响应不正常');
+        if (!response.ok) throw new Error('网络响应不正常，请检查您的连接或联系管理员。');
         return response.json();
       })
       .then(data => {
@@ -27,32 +42,40 @@ function LotteryPage() {
       })
       .catch(error => {
         setError(error.message);
+      })
+      .finally(() => {
+        setLoading(false);
       });
   }, []);
 
+  if (loading) {
+    return <LotteryLoading />;
+  }
+  
+  if (error) {
+    return <LotteryError message={error} />;
+  }
+
+  if (!lotteryData) {
+    return <LotteryError message="未能获取到任何开奖数据。" />;
+  }
+
   return (
-    <>
-      {error && <p className="error">错误: {error}</p>}
-      {lotteryData ? (
-        <div className="lottery-card">
-          <h2>{lotteryData.lottery_type || '新澳门六合彩'}</h2>
-          <p className="issue-info">期号: {lotteryData.issue}</p>
-          <div className="results-grid">
-            {lotteryData.numbers.map((number, index) => (
-              <div 
-                key={index} 
-                className={`number-ball ${getBallColorClass(lotteryData.colors[index])}`}
-              >
-                {number}
-                <span className="zodiac-sign">{lotteryData.zodiacs[index]}</span>
-              </div>
-            ))}
+    <div className="card lottery-container">
+      <div className="lottery-header">
+        <h2>{lotteryData.lottery_type || '新澳门六合彩'}</h2>
+        <p className="issue">第 {lotteryData.issue} 期</p>
+      </div>
+
+      <div className="lottery-results">
+        {lotteryData.numbers.map((number, index) => (
+          <div key={index} className={`lottery-ball ${getBallColorClass(lotteryData.colors[index])}`}>
+            <span className="ball-number">{number}</span>
+            <span className="ball-zodiac">{lotteryData.zodiacs[index]}</span>
           </div>
-        </div>
-      ) : (
-        <p>正在从宇宙深处获取开奖数据...</p>
-      )}
-    </>
+        ))}
+      </div>
+    </div>
   );
 }
 
