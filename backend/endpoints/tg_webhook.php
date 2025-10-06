@@ -4,27 +4,6 @@
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/../config.php';
 
-// --- Custom Telegram Message Function ---
-function send_telegram_message($chat_id, $text, $reply_markup = null) {
-    $url = 'https://api.telegram.org/bot' . TELEGRAM_BOT_TOKEN . '/sendMessage';
-    $payload = [
-        'chat_id' => $chat_id,
-        'text' => $text,
-        'parse_mode' => 'Markdown',
-    ];
-    if ($reply_markup) {
-        $payload['reply_markup'] = json_encode($reply_markup);
-    }
-    $options = [
-        'http' => [
-            'header'  => "Content-type: application/json\r\n",
-            'method'  => 'POST',
-            'content' => json_encode($payload),
-        ],
-    ];
-    @file_get_contents($url, false, stream_context_create($options)); // Use @ to suppress warnings on failure
-}
-
 // --- Lottery Result Parser ---
 function parse_lottery_message($text) {
     $patterns = [
