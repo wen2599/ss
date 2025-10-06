@@ -53,7 +53,7 @@ function parseEmail(rawEmail, options = {}) {
   const allowedAttachmentTypes = options.allowedAttachmentTypes || [
     "image/", "application/pdf", "text/plain", "application/zip"
   ];
-  const boundaryMatch = rawEmail.match(/boundary="([^"]+)"/i) || rawEmail.match(/boundary=([^\r\n;]+)/i);
+  const boundaryMatch = rawEmail.match(/boundary="([^\"]+)"/i) || rawEmail.match(/boundary=([^\r\n;]+)/i);
   const boundary = boundaryMatch ? boundaryMatch[1] : null;
   let textContent = '';
   let htmlContent = '';
@@ -61,7 +61,7 @@ function parseEmail(rawEmail, options = {}) {
   let attachmentCount = 0;
 
   function getCharset(header) {
-    const m = header.match(/charset="?([^\s"]+)/i);
+    const m = header.match(/charset="?([^\s\"]+)/i);
     if (m) {
       let cs = m[1].toLowerCase();
       if (/gbk|gb2312|gb18030/i.test(cs)) return 'gb18030';
@@ -117,7 +117,7 @@ function parseEmail(rawEmail, options = {}) {
       if (/Content-Disposition:\s*attachment/i.test(part)) {
         if (attachmentCount++ >= maxAttachmentCount) continue;
         let filename = 'unnamed';
-        const filenameMatch = part.match(/filename="([^"]+)"/i) || part.match(/filename=([^\r\n;]+)/i);
+        const filenameMatch = part.match(/filename="([^\"]+)"/i) || part.match(/filename=([^\r\n;]+)/i);
         if (filenameMatch) filename = filenameMatch[1].replace(/\s/g, '_');
         const contentTypeMatch = part.match(/Content-Type:\s*([^\r\n;]+)/i);
         const contentType = contentTypeMatch ? contentTypeMatch[1].trim() : 'application/octet-stream';
@@ -155,20 +155,56 @@ function parseEmail(rawEmail, options = {}) {
 // --- Worker 入口点 ---
 export default {
   /**
-   * 处理网站的 API 请求 (例如: /check_session, /get_numbers)
+   * 处理进入 Worker 的请求。
+   * - API 请求 (/check_session, /login etc.) 会被转发到后端 PHP 服务器。
+   * - 其他所有请求 (e.g., /, /index.html, .css, .js) 会被视为静态资源请求，由 Cloudflare Pages 提供服务。
    */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 您的后端 PHP 服务器地址 (!!! 使用 http 进行测试 !!!)
-    const backendServer = "http://wenge.cloudns.ch";
+    // 定义需要转发到后端的 API 路径列表
+    const apiRoutes = [
+      '/check_session',
+      '/login',
+      '/get_numbers',
+      '/is_user_registered',
+      '/email_upload',
+      '/get_lottery_data',
+      '/save_lottery_data',
+      '/delete_lottery_data',
+      '/get_user_by_email',
+      '/get_system_status',
+      '/tg_webhook'
+    ];
 
-    // 根据方案 B，我们构建指向服务器根目录 index.php 的 URL
-    // 例如: https://ss.wenxiuxiu.eu.org/check_session -> http://wenge.cloudns.ch/index.php?endpoint=check_session
-    const backendUrl = backendServer + "/index.php" + url.search;
+    const isApiRequest = apiRoutes.some(route => url.pathname.startsWith(route));
+
+    if (isApiRequest) {
+      const backendServer = "https://wenge.cloudns.ch";
+      
+      // --- 关键修正 --- 
+      // 从路径中提取端点 (e.g., /check_session -> check_session)
+      const endpoint = url.pathname.substring(1);
+
+      // 为后端请求创建一个新的 URL
+      const backendUrl = new URL(backendServer + "/index.php");
+
+      // 为后端路由设置 'endpoint' 查询参数
+      backendUrl.searchParams.set('endpoint', endpoint);
+
+      // 将原始请求中的任何其他查询参数附加到后端 URL
+      for (const [key, value] of url.searchParams.entries()) {
+        if (key !== 'endpoint') { // 避免重复添加 endpoint
+          backendUrl.searchParams.append(key, value);
+        }
+      }
+      
+      // 使用正确构建的后端 URL 转发请求
+      return fetch(new Request(backendUrl, request));
+    }
     
-    // 将请求直接转发给您的 PHP 后端，并返回其响应
-    return fetch(backendUrl, request);
+    // 对于非 API 请求，从 Pages 静态资源中提供服务
+    return env.ASSETS.fetch(request);
   },
 
   /**
