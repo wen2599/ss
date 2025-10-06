@@ -45,9 +45,70 @@ function parse_email_from_command($command_text) {
 }
 
 // --- BRANCH 1: Process Channel Posts for Lottery Results ---
-// ... (lottery logic remains the same)
+if (isset($update['channel_post'])) {
+    log_message("Entering Branch 1: Channel Post.");
+    $channel_id = $update['channel_post']['chat']['id'];
+    $post_text = $update['channel_post']['text'] ?? '';
+
+    // --- Security Gate: Only process posts from the configured channel ---
+    $configured_channel_id = defined('TELEGRAM_CHANNEL_ID') ? TELEGRAM_CHANNEL_ID : null;
+    log_message("DEBUG: Comparing incoming channel_id [{$channel_id}] with configured TELEGRAM_CHANNEL_ID [{$configured_channel_id}].");
+
+    if (!$configured_channel_id || (string)$channel_id !== (string)$configured_channel_id) {
+        log_message("SECURITY: Ignoring post from unauthorized channel {$channel_id}.");
+        exit;
+    }
+    log_message("Channel check PASSED for channel {$channel_id}.");
+
+    // --- Regex to parse the lottery result ---
+    $pattern = '/^([^\n]+)\s+(\d+)\s*期\s*开奖结果\s*([\d,]+)\s*([\p{L},]+)\s*([\p{L},]+)$/u';
+
+    if (preg_match($pattern, $post_text, $matches)) {
+        log_message("Regex match SUCCESSFUL.");
+
+        $lottery_type = trim($matches[1]);
+        $issue = trim($matches[2]);
+        // Convert comma-separated strings to JSON arrays
+        $numbers = json_encode(explode(',', $matches[3]));
+        $zodiacs = json_encode(explode(',', $matches[4]));
+        $colors = json_encode(explode(',', $matches[5]));
+
+        log_message("Parsed Data: Type=[{$lottery_type}], Issue=[{$issue}], Numbers=[{$numbers}], Zodiacs=[{$zodiacs}], Colors=[{$colors}]");
+
+        $conn = get_db_or_exit($channel_id); // Use channel_id for error reporting if needed
+
+        // Use INSERT ... ON DUPLICATE KEY UPDATE to prevent errors on re-runs
+        $sql = "INSERT INTO lottery_results (lottery_type, issue, numbers, zodiacs, colors)
+                VALUES (?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                numbers = VALUES(numbers),
+                zodiacs = VALUES(zodiacs),
+                colors = VALUES(colors)";
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            log_message("DB prepare statement failed: " . $conn->error);
+            exit;
+        }
+
+        $stmt->bind_param("sssss", $lottery_type, $issue, $numbers, $zodiacs, $colors);
+
+        if ($stmt->execute()) {
+            log_message("DB insert/update SUCCESSFUL for issue {$issue}.");
+        } else {
+            log_message("DB insert/update FAILED for issue {$issue}: " . $stmt->error);
+        }
+
+        $stmt->close();
+        $conn->close();
+    } else {
+        log_message("Regex match FAILED for post text: " . $post_text);
+    }
+    exit; // Exit after processing channel post
+}
 
 // --- Security Gate: Check for Admin ID ---
+// Note: This part will only be reached if the update is NOT a channel_post
 $user_id = $update['message']['from']['id'] ?? $update['callback_query']['from']['id'] ?? null;
 $chat_id = $update['message']['chat']['id'] ?? $update['callback_query']['message']['chat']['id'] ?? null;
 

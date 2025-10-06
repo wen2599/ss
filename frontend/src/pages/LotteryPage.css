@@ -84,3 +84,44 @@
     margin-bottom: var(--spacing-2);
     color: var(--color-text-secondary);
 }
+
+/* === New Tab Styles === */
+.lottery-tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--spacing-6);
+  border-bottom: 2px solid var(--color-border);
+  padding: 0 var(--spacing-2);
+}
+
+.tab-button {
+  padding: var(--spacing-3) var(--spacing-5);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background-color: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  margin: 0 var(--spacing-2);
+  transform: translateY(2px); /* Align with the container border */
+}
+
+.tab-button:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-background-secondary);
+}
+
+.tab-button.active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
+.lottery-content {
+  /* This class wraps the results to provide a container for future animations or transitions */
+  min-height: 250px; /* Ensure container doesn't collapse when switching tabs */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import './LotteryPage.css'; // Import the new styles
+import './LotteryPage.css';
+
+// --- Helper & Sub-components ---
 
 const getBallColorClass = (color) => {
   switch (color?.toLowerCase()) {
@@ -8,6 +10,48 @@ const getBallColorClass = (color) => {
     case 'green': return 'ball-green';
     default: return '';
   }
+};
+
+const LotteryTabs = ({ types, activeType, onTabClick }) => (
+  <div className="lottery-tabs">
+    {types.map(type => (
+      <button
+        key={type}
+        className={`tab-button ${activeType === type ? 'active' : ''}`}
+        onClick={() => onTabClick(type)}
+      >
+        {type}
+      </button>
+    ))}
+  </div>
+);
+
+const LotteryResultDisplay = ({ data }) => {
+  if (!data) {
+    return (
+      <div className="lottery-placeholder">
+        <h3>等待开奖</h3>
+        <p>该类型暂无最新开奖数据，请稍后刷新。</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="lottery-header">
+        <h2>{data.lottery_type}</h2>
+        <p className="issue">第 {data.issue} 期</p>
+      </div>
+      <div className="lottery-results">
+        {data.numbers.map((number, index) => (
+          <div key={index} className={`lottery-ball ${getBallColorClass(data.colors[index])}`}>
+            <span className="ball-number">{number}</span>
+            <span className="ball-zodiac">{data.zodiacs[index]}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
 };
 
 const LotteryLoading = () => (
@@ -24,8 +68,11 @@ const LotteryError = ({ message }) => (
     </div>
 );
 
+// --- Main Component ---
+
 function LotteryPage() {
-  const [lotteryData, setLotteryData] = useState(null);
+  const [allLotteryData, setAllLotteryData] = useState({});
+  const [activeTab, setActiveTab] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -38,10 +85,15 @@ function LotteryPage() {
       })
       .then(data => {
         if (data.error) throw new Error(data.error);
-        setLotteryData(data);
+        setAllLotteryData(data);
+        // Set the first available lottery type as the active tab
+        const firstType = Object.keys(data)[0];
+        if (firstType) {
+          setActiveTab(firstType);
+        }
       })
-      .catch(error => {
-        setError(error.message);
+      .catch(err => {
+        setError(err.message);
       })
       .finally(() => {
         setLoading(false);
@@ -49,31 +101,27 @@ function LotteryPage() {
   }, []);
 
   if (loading) {
-    return <LotteryLoading />;
+    return <div className="card lottery-container"><LotteryLoading /></div>;
   }
   
   if (error) {
-    return <LotteryError message={error} />;
+    return <div className="card lottery-container"><LotteryError message={error} /></div>;
   }
 
-  if (!lotteryData) {
-    return <LotteryError message="未能获取到任何开奖数据。" />;
+  const lotteryTypes = Object.keys(allLotteryData);
+  if (lotteryTypes.length === 0) {
+    return <div className="card lottery-container"><LotteryError message="未能获取到任何开奖数据类型。" /></div>;
   }
 
   return (
     <div className="card lottery-container">
-      <div className="lottery-header">
-        <h2>{lotteryData.lottery_type || '新澳门六合彩'}</h2>
-        <p className="issue">第 {lotteryData.issue} 期</p>
-      </div>
-
-      <div className="lottery-results">
-        {lotteryData.numbers.map((number, index) => (
-          <div key={index} className={`lottery-ball ${getBallColorClass(lotteryData.colors[index])}`}>
-            <span className="ball-number">{number}</span>
-            <span className="ball-zodiac">{lotteryData.zodiacs[index]}</span>
-          </div>
-        ))}
+      <LotteryTabs
+        types={lotteryTypes}
+        activeType={activeTab}
+        onTabClick={setActiveTab}
+      />
+      <div className="lottery-content">
+        <LotteryResultDisplay data={allLotteryData[activeTab]} />
       </div>
     </div>
   );
