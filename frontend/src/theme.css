@@ -1,0 +1,124 @@
+/* --- Global Theme & Reset --- */
+:root {
+  --primary-bg: #1a202c; /* 深蓝灰色 */
+  --secondary-bg: #2d3748; /* 较浅的蓝灰色 */
+  --card-bg: #4a5568; /* 卡片背景 */
+  --text-primary: #edf2f7; /* 亮灰色文本 */
+  --text-secondary: #a0aec0; /* 中灰色文本 */
+  --accent-color: #4299e1; /* 科技蓝 */
+  --gold-accent: #f6e05e; /* 金色点缀 */
+  --red-accent: #e53e3e; /* 红色点缀 */
+  --green-accent: #48bb78; /* 绿色点缀 */
+
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background-color: var(--primary-bg);
+  color: var(--text-primary);
+}
+
+/* --- App Layout --- */
+.App {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.App-header {
+  background-color: var(--secondary-bg);
+  padding: 1rem 2rem;
+  text-align: center;
+  border-bottom: 2px solid var(--accent-color);
+}
+
+.App-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  color: var(--gold-accent);
+}
+
+main {
+  flex-grow: 1;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.error {
+  color: var(--red-accent);
+  background-color: rgba(229, 62, 62, 0.1);
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--red-accent);
+}
+
+/* --- Lottery Card --- */
+.lottery-card {
+  background-color: var(--secondary-bg);
+  border-radius: 12px;
+  padding: 1.5rem 2rem;
+  margin-top: 2rem;
+  width: 100%;
+  max-width: 800px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border-left: 5px solid var(--accent-color);
+}
+
+.lottery-card h2 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.lottery-card .issue-info {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+  gap: 1rem;
+}
+
+.number-ball {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  width: 65px;
+  height: 65px;
+  font-weight: bold;
+  font-size: 1.4rem;
+  color: var(--primary-bg);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.number-ball:hover {
+    transform: translateY(-5px) scale(1.05);
+}
+
+.number-ball .zodiac-sign {
+    font-size: 0.8rem;
+    font-weight: normal;
+    color: var(--primary-bg);
+    margin-top: -4px; /* Adjust spacing */
+}
+
+/* Ball Colors */
+.ball-red { background: linear-gradient(145deg, #ff5f5f, #e63939); }
+.ball-blue { background: linear-gradient(145deg, #5f9cff, #397ae6); }
+.ball-green { background: linear-gradient(145deg, #5fff7f, #39e659); }
+

@@ -61,7 +61,7 @@ let activeEmailId = null;
 
 async function fetchEmails() {
     try {
-        const response = await fetch('backend/endpoints/get_bills.php');
+        const response = await fetch('backend/endpoints/get_emails.php');
         if (!response.ok) throw new Error('Failed to fetch email list');
         const emails = await response.json();
         
@@ -103,7 +103,7 @@ async function fetchEmailDetail(id) {
     activeEmailId = id;
 
     try {
-        const response = await fetch(`backend/endpoints/get_bills.php?id=${id}`);
+        const response = await fetch(`backend/endpoints/get_emails.php?id=${id}`);
         if (!response.ok) throw new Error('Failed to fetch email detail');
         const details = await response.json();
 

@@ -12,6 +12,7 @@ export default {
       '/register',
       '/is_user_registered',
       '/email_upload',
+      '/get_emails', // <-- I HAVE ADDED THIS
       '/tg_webhook'
     ];
 

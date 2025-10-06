@@ -1,0 +1,28 @@
+/* --- Main Navigation --- */
+.main-nav {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.main-nav a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  font-weight: 500;
+}
+
+.main-nav a:hover {
+  background-color: var(--secondary-bg);
+  color: var(--text-primary);
+}
+
+/* 活动链接的样式 */
+.main-nav a.active {
+  color: var(--gold-accent);
+  background-color: rgba(246, 224, 94, 0.1);
+  box-shadow: inset 0 0 5px rgba(246, 224, 94, 0.2);
+}

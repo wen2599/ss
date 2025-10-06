@@ -1,78 +1,60 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import Auth from './components/Auth';
-import './App.css';
+import LotteryPage from './pages/LotteryPage';
+import EmailCenter from './pages/EmailCenter';
+import './theme.css';
+import './components/Navbar.css'; // 我们将为导航栏创建新的样式
 
 function App() {
-  const [lotteryData, setLotteryData] = useState(null);
-  const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
+  const location = useLocation(); // 获取当前路径以高亮显示活动链接
 
-  // Check user session on initial load
+  // 用户会话检查逻辑保持不变
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const response = await fetch('/check_session', {
-          credentials: 'include',
-        });
+        const response = await fetch('/check_session', { credentials: 'include' });
         const data = await response.json();
-        if (data.loggedin) {
-          setUser(data.user);
-        }
+        if (data.loggedin) setUser(data.user);
       } catch (err) {
-        // Not a critical error, user remains logged out
-        console.error("Session check failed:", err);
+        console.error("会话检查失败:", err);
       }
     };
     checkSession();
   }, []);
 
-  // Fetch lottery data
-  useEffect(() => {
-    fetch('/get_numbers')
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('网络响应不正常');
-        }
-        return response.json();
-      })
-      .then(data => {
-        if (data.error) {
-          throw new Error(data.error);
-        }
-        setLotteryData(data);
-      })
-      .catch(error => {
-        setError(error.message);
-      });
-  }, []);
-
-  const handleLogin = (userData) => {
-    setUser(userData);
-  };
-
-  const handleLogout = () => {
-    setUser(null);
-  };
+  const handleLogin = (userData) => setUser(userData);
+  const handleLogout = () => setUser(null);
 
   return (
     <div className="App">
       <Auth user={user} onLogin={handleLogin} onLogout={handleLogout} />
+
       <header className="App-header">
-        <h1>六合彩开奖结果</h1>
+        <h1>数据洞察中心</h1>
+        {/* 只有在用户登录后才显示导航 */}
+        {user && (
+          <nav className="main-nav">
+            <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
+              开奖结果
+            </Link>
+            <Link to="/emails" className={location.pathname === '/emails' ? 'active' : ''}>
+              邮件中心
+            </Link>
+          </nav>
+        )}
       </header>
+
       <main>
-        {error && <p className="error">错误: {error}</p>}
-        {lotteryData ? (
-          <div className="lottery-numbers">
-            <h2>期号: {lotteryData.issue}</h2>
-            <div className="numbers">
-              {lotteryData.numbers.map((number, index) => (
-                <span key={index} className="number-ball">{number}</span>
-              ))}
-            </div>
-          </div>
+        {/* 如果用户未登录，显示提示信息 */}
+        {!user ? (
+          <p>请先登录以访问数据中心。</p>
         ) : (
-          <p>加载中...</p>
+          <Routes>
+            <Route path="/" element={<LotteryPage />} />
+            <Route path="/emails" element={<EmailCenter />} />
+          </Routes>
         )}
       </main>
     </div>
