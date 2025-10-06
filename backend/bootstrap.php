@@ -47,14 +47,7 @@ function load_env($path) {
 // Load the .env file from the backend directory.
 load_env(__DIR__ . '/.env');
 
-// Include the Composer autoloader to load third-party libraries.
-// This is crucial for libraries like the Telegram Bot SDK.
-if (file_exists(__DIR__ . '/vendor/autoload.php')) {
-    require_once __DIR__ . '/vendor/autoload.php';
-} else {
-    // If composer autoloader is missing, it's a critical setup error.
-    die("Error: Composer autoloader not found. Please run 'composer install' in the project root directory.");
-}
+// Composer is no longer used. All dependencies are handled manually.
 
 // Include application-specific configuration.
 // This file contains database credentials, API keys, etc.
