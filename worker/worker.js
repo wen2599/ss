@@ -1,176 +1,256 @@
-/**
- * Helper function to read a ReadableStream into a string.
- * @param {ReadableStream} stream The stream to read.
- * @returns {Promise<string>} A promise that resolves with the string content.
- */
+// --- 邮件解析相关的辅助函数 ---
+function detectEncoding(uint8arr) {
+  try {
+    new TextDecoder('utf-8', { fatal: true }).decode(uint8arr);
+    return 'utf-8';
+  } catch {}
+  return 'gb18030';
+}
+
+function decodeWithAutoEncoding(uint8arr) {
+  const encoding = detectEncoding(uint8arr);
+  try {
+    return new TextDecoder(encoding, { fatal: false }).decode(uint8arr);
+  } catch {
+    return new TextDecoder('utf-8').decode(uint8arr);
+  }
+}
+
 async function streamToString(stream) {
+  const chunks = [];
   const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let result = '';
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    result += decoder.decode(value, { stream: true });
+    chunks.push(value);
   }
-  return result;
+  let totalLen = chunks.reduce((acc, arr) => acc + arr.length, 0);
+  let buffer = new Uint8Array(totalLen);
+  let offset = 0;
+  for (let arr of chunks) {
+    buffer.set(arr, offset);
+    offset += arr.length;
+  }
+  return decodeWithAutoEncoding(buffer);
 }
 
-/**
- * A simplified parser to extract the plain text body from a raw email string.
- * NOTE: This is not a comprehensive MIME parser and may not work for all email formats.
- * It primarily looks for the first `text/plain` content type.
- * @param {string} rawEmail The raw email content.
- * @returns {string} The extracted plain text body.
- */
-function getPlainTextBody(rawEmail) {
-  try {
-    // First, try to find a `text/plain` part in a multipart message
-    const contentTypeMatch = rawEmail.match(/^Content-Type: multipart\/alternative; boundary="(.+)"$/im);
-    if (contentTypeMatch) {
-      const boundary = contentTypeMatch[1];
-      const parts = rawEmail.split(`--${boundary}`);
-      for (const part of parts) {
-        if (part.includes('Content-Type: text/plain')) {
-          // Get content after the headers of the part
-          const bodyMatch = part.split(/\r?\n\r?\n/);
-          if (bodyMatch.length > 1) {
-            return bodyMatch.slice(1).join('\r\n\r\n').trim();
+function decodeQuotedPrintable(input) {
+  return input
+    .replace(/=(?:\r\n|\n|\r)/g, '')
+    .replace(/=([A-Fa-f0-9]{2})/g, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+function b64toUint8Array(base64) {
+  const binary = atob(base64);
+  const array = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+  return array;
+}
+
+function parseEmail(rawEmail, options = {}) {
+  const maxAttachmentCount = options.maxAttachmentCount || 10;
+  const maxAttachmentSize = options.maxAttachmentSize || 8 * 1024 * 1024;
+  const allowedAttachmentTypes = options.allowedAttachmentTypes || [
+    "image/", "application/pdf", "text/plain", "application/zip"
+  ];
+  const boundaryMatch = rawEmail.match(/boundary="([^"]+)"/i) || rawEmail.match(/boundary=([^\r\n;]+)/i);
+  const boundary = boundaryMatch ? boundaryMatch[1] : null;
+  let textContent = '';
+  let htmlContent = '';
+  const attachments = [];
+  let attachmentCount = 0;
+
+  function getCharset(header) {
+    const m = header.match(/charset="?([^\s"]+)/i);
+    if (m) {
+      let cs = m[1].toLowerCase();
+      if (/gbk|gb2312|gb18030/i.test(cs)) return 'gb18030';
+      return cs;
+    }
+    return null;
+  }
+
+  if (boundary) {
+    const parts = rawEmail.split(new RegExp(`--${boundary}(?:--)?`, 'g')).filter(Boolean);
+    for (const part of parts) {
+      const h = part.split(/\r?\n\r?\n/)[0];
+      const b = part.split(/\r?\n\r?\n/).slice(1).join('\n\n');
+      const charset = getCharset(h) || 'utf-8';
+      if (/Content-Type:\s*text\/plain/i.test(part) && !/Content-Disposition:\s*attachment/i.test(part)) {
+        if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
+          const base64Match = part.match(/\r?\n\r?\n([^]*)/);
+          if (base64Match) {
+            const u8 = b64toUint8Array(base64Match[1].replace(/\r?\n/g, ''));
+            textContent += new TextDecoder(charset).decode(u8);
+          }
+        } else if (/Content-Transfer-Encoding:\s*quoted-printable/i.test(part)) {
+          const qpMatch = part.match(/\r?\n\r?\n([^]*)/);
+          if (qpMatch) {
+            const qpStr = decodeQuotedPrintable(qpMatch[1]);
+            textContent += new TextDecoder(charset).decode(new TextEncoder().encode(qpStr));
+          }
+        } else {
+          const plainMatch = part.match(/\r?\n\r?\n([^]*)/);
+          if (plainMatch) textContent += new TextDecoder(charset).decode(new TextEncoder().encode(plainMatch[1].trim()));
+        }
+      }
+      if (/Content-Type:\s*text\/html/i.test(part) && !/Content-Disposition:\s*attachment/i.test(part)) {
+        let html = '';
+        if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
+          const base64Match = part.match(/\r?\n\r?\n([^]*)/);
+          if (base64Match) {
+            const u8 = b64toUint8Array(base64Match[1].replace(/\r?\n/g, ''));
+            html += new TextDecoder(charset).decode(u8);
+          }
+        } else if (/Content-Transfer-Encoding:\s*quoted-printable/i.test(part)) {
+          const qpMatch = part.match(/\r?\n\r?\n([^]*)/);
+          if (qpMatch) {
+            const qpStr = decodeQuotedPrintable(qpMatch[1]);
+            html += new TextDecoder(charset).decode(new TextEncoder().encode(qpStr));
+          }
+        } else {
+          const htmlMatch = part.match(/\r?\n\r?\n([^]*)/);
+          if (htmlMatch) html += new TextDecoder(charset).decode(new TextEncoder().encode(htmlMatch[1].trim()));
+        }
+        htmlContent += html;
+      }
+      if (/Content-Disposition:\s*attachment/i.test(part)) {
+        if (attachmentCount++ >= maxAttachmentCount) continue;
+        let filename = 'unnamed';
+        const filenameMatch = part.match(/filename="([^"]+)"/i) || part.match(/filename=([^\r\n;]+)/i);
+        if (filenameMatch) filename = filenameMatch[1].replace(/\s/g, '_');
+        const contentTypeMatch = part.match(/Content-Type:\s*([^\r\n;]+)/i);
+        const contentType = contentTypeMatch ? contentTypeMatch[1].trim() : 'application/octet-stream';
+        if (!allowedAttachmentTypes.some(t => contentType.startsWith(t))) continue;
+        let content = '';
+        if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
+          const base64Match = part.match(/\r?\n\r?\n([^]*)/);
+          if (base64Match) content = base64Match[1].replace(/\r?\n/g, '');
+          try {
+            let blob = new Blob([b64toUint8Array(content)], { type: contentType });
+            if (blob.size > maxAttachmentSize) continue;
+            attachments.push({ filename, blob, contentType });
+          } catch {}
+        } else {
+          const plainMatch = part.match(/\r?\n\r?\n([^]*)/);
+          if (plainMatch) {
+            let blob = new Blob([plainMatch[1]], { type: contentType });
+            if (blob.size > maxAttachmentSize) continue;
+            attachments.push({ filename, blob, contentType });
           }
         }
       }
     }
-
-    // If not multipart, or if the logic above fails, try a simpler heuristic
-    // This is for emails that are sent as plain text directly
-    if (rawEmail.toLowerCase().includes('content-type: text/plain')) {
-        const bodyMatch = rawEmail.split(/\r?\n\r?\n/);
-        if (bodyMatch.length > 1) {
-             return bodyMatch.slice(1).join('\r\n\r\n').trim();
-        }
-    }
-    
-    // As a last resort, if no content-type is specified, return the body after the first double newline.
-    const fallbackBody = rawEmail.split(/\r?\n\r?\n/);
-    if(fallbackBody.length > 1) {
-        return fallbackBody.slice(1).join('\r\n\r\n').trim();
-    }
-
-    return ''; // Return empty string if no body is found
-  } catch (e) {
-    console.error("Body parsing failed: ", e);
-    return '';
+  } else {
+    const textPart = rawEmail.match(/Content-Type:\s*text\/plain[^]*?\r?\n\r?\n([^]*)/i);
+    if (textPart && textPart[1]) textContent = textPart[1].trim();
+    const htmlPart = rawEmail.match(/Content-Type:\s*text\/html[^]*?\r?\n\r?\n([^]*)/i);
+    if (htmlPart && htmlPart[1]) htmlContent = htmlPart[1].trim();
   }
+
+  return { textContent, htmlContent, attachments };
 }
 
 
+// --- Worker 入口点 ---
 export default {
   /**
-   * Handles HTTP requests for API proxying and static asset serving.
+   * 处理网站的 API 请求 (例如: /check_session, /get_numbers)
+   * 这是新增的部分，用于修复 502 错误
    */
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    // The backend URL should be configured in your Cloudflare dashboard under
-    // Settings -> Variables -> Environment Variables for production deployments.
-    const backendUrl = env.BACKEND_URL || 'https://wenge.cloudns.ch';
 
-    const apiPaths = [
-      '/get_numbers',
-      '/check_session',
-      '/login',
-      '/logout',
-      '/register',
-      '/is_user_registered',
-      '/email_upload',
-      '/tg_webhook',
-      '/get_bills',
-      '/validate_user_email',
-      '/email_receiver',
-    ];
+    // 您的后端 PHP 服务器地址
+    const backendServer = "https://wenge.cloudns.ch";
 
-    if (apiPaths.some(path => url.pathname.includes(path))) {
-      const newUrl = new URL(url.pathname, backendUrl);
-      newUrl.search = url.search;
-
-      const newRequest = new Request(newUrl, {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-        redirect: 'follow'
-      });
-
-      return fetch(newRequest);
-    }
-
-    return env.ASSETS.fetch(request);
+    // 根据方案 B，我们构建指向服务器根目录 index.php 的 URL
+    // 例如: https://ss.wenxiuxiu.eu.org/check_session -> https://wenge.cloudns.ch/index.php?endpoint=check_session
+    const backendUrl = backendServer + "/index.php" + url.search;
+    
+    // 将请求直接转发给您的 PHP 后端，并返回其响应
+    return fetch(backendUrl, request);
   },
 
   /**
-   * Handles incoming emails via Cloudflare Email Routing.
+   * 处理入站电子邮件 (您原来的代码)
    */
-  async email(message, env) {
-    const backendUrl = env.BACKEND_URL || 'https://wenge.cloudns.ch';
-    const workerSecret = env.WORKER_SECRET;
-    const sender = message.from;
+  async email(message, env, ctx) {
+    const PUBLIC_API_ENDPOINT = "https://ss.wenxiuxiu.eu.org";
+    const WORKER_SECRET = "816429fb-1649-4e48-9288-7629893311a6";
+    const MAX_BODY_LENGTH = 32 * 1024;
+    const MAX_ATTACHMENT_COUNT = 10;
+    const MAX_ATTACHMENT_SIZE = 8 * 1024 * 1024;
+    const ALLOWED_ATTACHMENT_TYPES = [
+      "image/", "application/pdf", "text/plain", "application/zip"
+    ];
 
-    if (!workerSecret) {
-        console.error('WORKER_SECRET is not defined. Cannot proceed with validation.');
-        message.setReject('Internal server configuration error.');
-        return;
+    const senderEmail =
+      message.from ||
+      (message.headers && message.headers.get && message.headers.get("from")) ||
+      "";
+    if (!senderEmail) {
+      console.error("收到的邮件没有发件人地址，终止处理。");
+      return;
     }
-
-    // 1. Validate the sender's email address
-    const validationUrl = `${backendUrl}/backend/endpoints/validate_user_email.php?email=${encodeURIComponent(sender)}`;
-    const validationRequest = new Request(validationUrl, {
-      method: 'GET',
-      headers: { 'Authorization': `Bearer ${workerSecret}` }
-    });
 
     try {
-      const validationResponse = await fetch(validationRequest);
-      const validationResult = await validationResponse.json();
+      const verificationUrl = `${PUBLIC_API_ENDPOINT}/is_user_registered?worker_secret=${WORKER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
+      const verificationResponse = await fetch(verificationUrl);
+      if (!verificationResponse.ok) return;
+      const verificationData = await verificationResponse.json();
+      if (!verificationData.success || !verificationData.is_registered) return;
+    } catch (error) { return; }
 
-      if (!validationResult.is_valid) {
-        console.log(`REJECTED: Email from unregistered user "${sender}". Reason: ${validationResult.error || 'Not registered'}`);
-        message.setReject(`Your email address, ${sender}, is not authorized for this service.`);
-        return;
-      }
-
-      console.log(`ACCEPTED: Email from registered user "${sender}".`);
-
-      // 2. If valid, parse and forward the email to the backend receiver
+    let chatContent = "邮件没有包含可识别的纯文本内容。";
+    let htmlContent = "";
+    let attachments = [];
+    try {
       const rawEmail = await streamToString(message.raw);
-      const bodyText = getPlainTextBody(rawEmail);
-
-      const emailData = {
-        from: sender,
-        subject: message.headers.get('subject') || '',
-        body_text: bodyText,
-        body_html: '', // HTML parsing is not supported in this version
-        message_id: message.headers.get('message-id') || ''
-      };
-      
-      const receiverUrl = `${backendUrl}/backend/endpoints/email_receiver.php`;
-      const receiverRequest = new Request(receiverUrl, {
-          method: 'POST',
-          headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${workerSecret}`
-          },
-          body: JSON.stringify(emailData)
+      const parsed = parseEmail(rawEmail, {
+        maxAttachmentCount: MAX_ATTACHMENT_COUNT,
+        maxAttachmentSize: MAX_ATTACHMENT_SIZE,
+        allowedAttachmentTypes: ALLOWED_ATTACHMENT_TYPES
       });
+      if (parsed.textContent) chatContent = parsed.textContent;
+      if (parsed.htmlContent) htmlContent = parsed.htmlContent;
+      attachments = parsed.attachments || [];
+    } catch (err) {}
 
-      const receiverResponse = await fetch(receiverRequest);
-      if (receiverResponse.ok) {
-          console.log(`SUCCESS: Email from ${sender} processed by backend.`);
-      } else {
-          const errorText = await receiverResponse.text();
-          console.error(`ERROR: Backend failed for email from ${sender}. Status: ${receiverResponse.status}. Body: ${errorText}`);
-          message.setReject('The server failed to process your email.');
-      }
-
-    } catch (error) {
-      console.error(`FATAL: Exception during email processing for ${sender}. Error: ${error.message}`);
-      message.setReject('An unexpected error occurred.');
+    if (chatContent.length > MAX_BODY_LENGTH) {
+      chatContent = chatContent.slice(0, MAX_BODY_LENGTH) + "\n\n[内容过长，已被截断]";
     }
-  }
+    if (htmlContent.length > MAX_BODY_LENGTH) {
+      htmlContent = htmlContent.slice(0, MAX_BODY_LENGTH) + "\n\n[内容过长，已被截断]";
+    }
+
+    let messageId = "";
+    try {
+      if (message.headers && message.headers.get) {
+        messageId = message.headers.get("message-id") || "";
+      }
+    } catch {}
+    const safeEmail = senderEmail.replace(/[^a-zA-Z0-9_.-]/g, "_");
+    const filename =
+      `email-${safeEmail}-${Date.now()}${messageId ? "-" + messageId : ""}.txt`;
+
+    const formData = new FormData();
+    formData.append("worker_secret", WORKER_SECRET);
+    formData.append("user_email", senderEmail);
+    formData.append("raw_email_file", new Blob([chatContent], { type: "text/plain" }), filename);
+    if (htmlContent) {
+      formData.append("html_body", new Blob([htmlContent], { type: "text/html" }), filename.replace(".txt", ".html"));
+    }
+    for (const att of attachments) {
+      formData.append("attachment", att.blob, att.filename);
+    }
+
+    try {
+      const uploadUrl = `${PUBLIC_API_ENDPOINT}/email_upload`;
+      await fetch(uploadUrl, {
+        method: "POST",
+        body: formData,
+      });
+    } catch (error) {}
+  },
 };
