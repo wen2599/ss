@@ -177,21 +177,33 @@ export default {
       '/tg_webhook'
     ];
 
-    // 检查请求的路径是否以任何一个 API 路径开头
     const isApiRequest = apiRoutes.some(route => url.pathname.startsWith(route));
 
     if (isApiRequest) {
-      // 如果是 API 请求，则将其转发到后端 PHP 服务器
       const backendServer = "https://wenge.cloudns.ch";
-      // 构建后端 URL，保留原始请求的路径和查询参数
-      const backendUrl = backendServer + url.pathname + url.search;
       
-      // 直接将请求转发给您的 PHP 后端，并返回其响应
-      return fetch(backendUrl, request);
+      // --- 关键修正 --- 
+      // 从路径中提取端点 (e.g., /check_session -> check_session)
+      const endpoint = url.pathname.substring(1);
+
+      // 为后端请求创建一个新的 URL
+      const backendUrl = new URL(backendServer + "/index.php");
+
+      // 为后端路由设置 'endpoint' 查询参数
+      backendUrl.searchParams.set('endpoint', endpoint);
+
+      // 将原始请求中的任何其他查询参数附加到后端 URL
+      for (const [key, value] of url.searchParams.entries()) {
+        if (key !== 'endpoint') { // 避免重复添加 endpoint
+          backendUrl.searchParams.append(key, value);
+        }
+      }
+      
+      // 使用正确构建的后端 URL 转发请求
+      return fetch(new Request(backendUrl, request));
     }
     
-    // 如果不是 API 请求，则将其视为对静态资源的请求 (例如 HTML, CSS, JS 文件)。
-    // `env.ASSETS` 是 Cloudflare Pages 的内置功能，用于提供您项目中的 `public` 目录下的静态文件。
+    // 对于非 API 请求，从 Pages 静态资源中提供服务
     return env.ASSETS.fetch(request);
   },
 
