@@ -38,9 +38,10 @@ function get_db_connection() {
  *
  * @param string|int $chat_id The ID of the chat to send the message to.
  * @param string $message The text of the message to send.
+ * @param array|null $reply_markup Optional. An array representing the custom keyboard.
  * @return bool True on success, false on failure.
  */
-function send_telegram_message($chat_id, $message) {
+function send_telegram_message($chat_id, $message, $reply_markup = null) {
     $bot_token = TELEGRAM_BOT_TOKEN;
     if (empty($bot_token) || empty($chat_id)) {
         return false;
@@ -53,6 +54,11 @@ function send_telegram_message($chat_id, $message) {
         'text' => $message,
         'parse_mode' => 'Markdown' // Optional: for formatting
     ];
+
+    // Add the keyboard (reply_markup) to the payload if it's provided
+    if ($reply_markup) {
+        $payload['reply_markup'] = $reply_markup;
+    }
 
     $options = [
         'http' => [

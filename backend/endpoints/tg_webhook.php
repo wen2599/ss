@@ -133,7 +133,11 @@ log_message("Admin check PASSED.");
 
 $keyboard = ['keyboard' => [[['text' => '🔑 授权新邮箱'], ['text' => '🗑 撤销授权']], [['text' => '👥 列出用户'], ['text' => '📋 列出授权列表']], [['text' => '🔍 查找用户'], ['text' => '📊 系统状态']]], 'resize_keyboard' => true];
 
-if (strpos($text, '/add_email') === 0 || strpos($text, '授权新邮箱') !== false) {
+if ($text === '/start') {
+    log_message("Entering command: /start");
+    $help_text = "🤖 *管理员机器人控制台*\n\n您好！请使用下方的键盘或直接发送命令来管理您的应用。";
+    send_telegram_message($chat_id, $help_text, $keyboard);
+} elseif (strpos($text, '/add_email') === 0 || strpos($text, '授权新邮箱') !== false) {
     log_message("Entering command: add_email");
     $conn = get_db_or_exit($chat_id, true);
     $email = parse_email_from_command($text);
