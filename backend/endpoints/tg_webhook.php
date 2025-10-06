@@ -49,7 +49,6 @@ function parse_lottery_message($text) {
 
 // --- Database & Command Helpers ---
 function get_db_for_status() {
-    // This is a non-exit version for status check
     return @get_db_connection(); 
 }
 
@@ -80,38 +79,33 @@ $text = trim($message['text']);
 
 // --- Branch 1: Process Lottery Results from Channel ---
 if (isset($update['channel_post']) && (string)$chat_id === (string)TELEGRAM_CHANNEL_ID) {
-    if (empty(TELEGRAM_CHANNEL_ID)) exit; // Do nothing if channel ID is not set
-
+    if (empty(TELEGRAM_CHANNEL_ID)) exit;
     $lottery_data = parse_lottery_message($text);
     if ($lottery_data) {
         $conn = get_db_or_exit($chat_id, false);
         $stmt = $conn->prepare("INSERT INTO lottery_results (lottery_type, issue, numbers, zodiacs, colors) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE numbers=VALUES(numbers), zodiacs=VALUES(zodiacs), colors=VALUES(colors)");
         $stmt->bind_param("sssss", $lottery_data['lottery_type'], $lottery_data['issue'], $lottery_data['numbers'], $lottery_data['zodiacs'], $lottery_data['colors']);
-        
         if ($stmt->execute()) error_log("Success: Parsed and saved {$lottery_data['lottery_type']} issue {$lottery_data['issue']}");
         else error_log("DB Error: Failed to save lottery result: " . $stmt->error);
-
         $stmt->close();
         $conn->close();
     }
-    exit; // End for channel posts
+    exit;
 }
 
 // --- Branch 2: Handle Admin Commands ---
 $user_id = $message['from']['id'] ?? null;
 if ((string)$user_id !== (string)TELEGRAM_ADMIN_ID) exit;
 
-// Updated keyboard with 'System Status' button
+// Updated keyboard with 'Find User' and 'System Status' buttons
 $keyboard = [
     'keyboard' => [
         [['text' => '🔑 授权新邮箱'], ['text' => '🗑 撤销授权']],
         [['text' => '👥 列出用户'], ['text' => '📋 列出授权列表']],
-        [['text' => '📊 系统状态']]
+        [['text' => '🔍 查找用户'], ['text' => '📊 系统状态']]
     ],
     'resize_keyboard' => true
 ];
-
-// No need to connect DB here, connect only when needed
 
 if (strpos($text, '/add_email') === 0 || strpos($text, '授权新邮箱') !== false) {
     $conn = get_db_or_exit($chat_id, true);
@@ -166,13 +160,29 @@ if (strpos($text, '/add_email') === 0 || strpos($text, '授权新邮箱') !== fa
         $stmt->close();
     }
     $conn->close();
+} elseif (strpos($text, '/find') === 0 || strpos($text, '🔍 查找用户') !== false) {
+    $email = parse_email_from_command($text);
+    if (!$email) {
+        send_telegram_message($chat_id, "🤔 *请提供要查找的邮箱*。\n请使用: `/find user@example.com`");
+    } else {
+        $conn = get_db_or_exit($chat_id, true);
+        $stmt = $conn->prepare("SELECT email, created_at FROM users WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows > 0) {
+            $row = $result->fetch_assoc();
+            $response = "🔍 *查找到用户:*\n\n- `{$row['email']}`\n- *注册时间:* {$row['created_at']}";
+        } else {
+            $response = "⚠️ 未找到用户 `{$email}`。";
+        }
+        send_telegram_message($chat_id, $response);
+        $stmt->close();
+        $conn->close();
+    }
 } elseif ($text === '/status' || $text === '📊 系统状态') {
     $report = "📊 *系统状态报告*\n\n";
-    
-    // 1. Check API Service (Webhook itself)
     $report .= "- *API 服务 (Webhook)*: 🟢 在线\n";
-
-    // 2. Check Database Connection
     $db_conn_status = get_db_for_status();
     if ($db_conn_status) {
         $report .= "- *数据库连接*: 🟢 正常\n";
@@ -180,9 +190,7 @@ if (strpos($text, '/add_email') === 0 || strpos($text, '授权新邮箱') !== fa
     } else {
         $report .= "- *数据库连接*: 🔴 失败\n";
     }
-
     send_telegram_message($chat_id, $report, $keyboard);
-
 } else {
     $help_text = "🤖 *管理员机器人控制台*\n\n您好！请使用下方的键盘或直接发送命令来管理您的应用。";
     send_telegram_message($chat_id, $help_text, $keyboard);
