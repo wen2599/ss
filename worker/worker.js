@@ -166,6 +166,7 @@ export default {
     const apiRoutes = [
       '/check_session',
       '/login',
+      '/register', // <-- 添加缺失的注册路由
       '/get_numbers',
       '/is_user_registered',
       '/email_upload',
