@@ -143,6 +143,7 @@ if (isset($update['callback_query'])) {
     // --- Define Keyboards ---
     // This is the keyboard for the "User Management" section.
     $user_management_inline_keyboard = ['inline_keyboard' => [
+        [['text' => '➕ 添加授权邮箱', 'callback_data' => 'add_email_prompt']],
         [['text' => '👥 列出注册用户', 'callback_data' => 'list_users'], ['text' => '📋 列出授权邮箱', 'callback_data' => 'list_allowed']],
         [['text' => 'ℹ️ 操作方法', 'callback_data' => 'auth_help']]
     ]];
@@ -158,6 +159,14 @@ if (isset($update['callback_query'])) {
             $push_help .= "`/push 您想发送的消息内容`\n\n";
             $push_help .= "例如: `/push 大家好，今晚系统将进行维护。`";
             send_telegram_message($chat_id, $push_help);
+            break;
+
+        // --- New User Management Callbacks ---
+        case 'add_email_prompt':
+            $prompt_text = "▶️ *如何授权新邮箱?*\n\n";
+            $prompt_text .= "请直接向我发送以下格式的命令:\n\n";
+            $prompt_text .= "`/add_email someone@example.com`";
+            send_telegram_message($chat_id, $prompt_text);
             break;
 
         // --- Existing User Management Callbacks ---
