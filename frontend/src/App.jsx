@@ -13,7 +13,7 @@ function App() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const response = await fetch('/check_session', { credentials: 'include' });
+        const response = await fetch('/api/check_session', { credentials: 'include' });
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
         if (data.loggedin) {

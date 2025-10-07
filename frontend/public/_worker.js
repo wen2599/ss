@@ -161,49 +161,32 @@ export default {
    */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const apiPrefix = '/api/';
 
-    // 定义需要转发到后端的 API 路径列表
-    const apiRoutes = [
-      '/check_session',
-      '/login',
-      '/get_numbers',
-      '/is_user_registered',
-      '/email_upload',
-      '/get_lottery_data',
-      '/save_lottery_data',
-      '/delete_lottery_data',
-      '/get_user_by_email',
-      '/get_system_status',
-      '/tg_webhook'
-    ];
-
-    const isApiRequest = apiRoutes.some(route => url.pathname.startsWith(route));
-
-    if (isApiRequest) {
+    // --- New API Gateway Logic ---
+    // Check if the request is intended for our backend API.
+    if (url.pathname.startsWith(apiPrefix)) {
       const backendServer = "https://wenge.cloudns.ch";
       
-      // --- 关键修正 --- 
-      // 从路径中提取端点 (e.g., /check_session -> check_session)
-      const endpoint = url.pathname.substring(1);
+      // Extract the endpoint name from the path, e.g., "/api/login" -> "login"
+      const endpoint = url.pathname.substring(apiPrefix.length);
 
-      // 为后端请求创建一个新的 URL
+      // Construct the new URL for the backend PHP server.
       const backendUrl = new URL(backendServer + "/index.php");
 
-      // 为后端路由设置 'endpoint' 查询参数
+      // Pass the extracted endpoint name as a query parameter.
       backendUrl.searchParams.set('endpoint', endpoint);
-
-      // 将原始请求中的任何其他查询参数附加到后端 URL
-      for (const [key, value] of url.searchParams.entries()) {
-        if (key !== 'endpoint') { // 避免重复添加 endpoint
-          backendUrl.searchParams.append(key, value);
-        }
-      }
       
-      // 使用正确构建的后端 URL 转发请求
+      // Append any other query parameters from the original request.
+      url.searchParams.forEach((value, key) => {
+        backendUrl.searchParams.append(key, value);
+      });
+
+      // Forward the request to the backend with the new URL.
       return fetch(new Request(backendUrl, request));
     }
     
-    // 对于非 API 请求，从 Pages 静态资源中提供服务
+    // For all other requests, serve them from the static assets (Cloudflare Pages).
     return env.ASSETS.fetch(request);
   },
 
