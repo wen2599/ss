@@ -8,7 +8,7 @@ function Navbar({ user, onLogin, onLogout }) {
 
   const handleLogoutClick = async () => {
     try {
-      await fetch('/logout', { method: 'POST', credentials: 'include' });
+      await fetch('/api/logout', { method: 'POST', credentials: 'include' });
       onLogout();
     } catch (error) {
       console.error('退出登录失败:', error);
