@@ -276,7 +276,38 @@ if (isset($update['message'])) {
         }
 
     } else if (strpos($text, '/add_email') === 0) {
-        // ... (add_email logic remains the same)
+        $email_to_add = parse_email_from_command($text);
+        if (!$email_to_add) {
+            send_telegram_message($chat_id, "❌ *格式无效*。\n请使用: `/add_email <邮箱地址>`");
+            exit;
+        }
+
+        $conn = get_db_or_exit($chat_id);
+
+        // Use INSERT IGNORE to prevent errors if the email already exists.
+        $stmt = $conn->prepare("INSERT IGNORE INTO allowed_emails (email) VALUES (?)");
+        if (!$stmt) {
+            log_message("DB prepare statement failed: " . $conn->error);
+            send_telegram_message($chat_id, "🚨 *数据库错误:* 无法准备授权语句。");
+            $conn->close();
+            exit;
+        }
+
+        $stmt->bind_param("s", $email_to_add);
+        if ($stmt->execute()) {
+            if ($stmt->affected_rows > 0) {
+                send_telegram_message($chat_id, "✅ *授权成功*\n邮箱 `{$email_to_add}` 现在可以注册了。");
+            } else {
+                send_telegram_message($chat_id, "ℹ️ *无需操作*\n邮箱 `{$email_to_add}` 已经被授权过了。");
+            }
+        } else {
+            log_message("DB execute failed for /add_email: " . $stmt->error);
+            send_telegram_message($chat_id, "🚨 *数据库错误:* 授权邮箱时出错。");
+        }
+
+        $stmt->close();
+        $conn->close();
+
     } else if (strpos($text, '/remove_email') === 0) {
         // ... (remove_email logic remains the same)
     } else {
