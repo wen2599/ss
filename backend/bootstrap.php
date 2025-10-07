@@ -14,14 +14,19 @@ define('PROJECT_ROOT', dirname(__DIR__));
  * @param string $path The path to the .env file.
  */
 function load_env($path) {
+    // --- DEBUGGING: Log the path being checked ---
+    $log_file = __DIR__ . '/debug.log';
+
     if (!is_readable($path)) {
-        // Silently return if the file doesn't exist or isn't readable.
-        // The application will rely on server-level environment variables.
+        file_put_contents($log_file, "[DEBUG] .env file not found or not readable at: {$path}\n", FILE_APPEND);
         return;
+    } else {
+        file_put_contents($log_file, "[DEBUG] Found .env file at: {$path}. Reading...\n", FILE_APPEND);
     }
 
     $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     if ($lines === false) {
+        file_put_contents($log_file, "[DEBUG] Failed to read lines from .env file.\n", FILE_APPEND);
         return;
     }
 
@@ -42,6 +47,16 @@ function load_env($path) {
             $_SERVER[$name] = $value;
         }
     }
+}
+
+    // --- DEBUGGING: Log all found variables ---
+    $found_vars = [];
+    foreach ($_ENV as $key => $val) {
+        if (strpos($key, 'DB_') === 0 || strpos($key, 'TELEGRAM_') === 0 || strpos($key, 'WORKER_') === 0) {
+            $found_vars[] = "{$key} = '{$val}'";
+        }
+    }
+    file_put_contents($log_file, "[DEBUG] Environment variables after parsing: " . implode(', ', $found_vars) . "\n", FILE_APPEND);
 }
 
 // Load the .env file from the backend directory.
