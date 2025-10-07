@@ -46,6 +46,7 @@ const Login = ({ onLogin }) => {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     placeholder="you@example.com"
+                    autoComplete="email"
                 />
             </div>
             <div className="form-group">
@@ -57,6 +58,7 @@ const Login = ({ onLogin }) => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     placeholder="请输入您的密码"
+                    autoComplete="current-password"
                 />
             </div>
             <div className="form-actions">

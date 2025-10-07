@@ -55,6 +55,7 @@ const Register = ({ onRegister }) => {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     placeholder="请输入有效的邮箱地址"
+                    autoComplete="email"
                 />
             </div>
             <div className="form-group">
@@ -66,6 +67,7 @@ const Register = ({ onRegister }) => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     placeholder="至少6位字符"
+                    autoComplete="new-password"
                 />
             </div>
             <div className="form-actions">
