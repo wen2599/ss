@@ -4,7 +4,7 @@ import Register from './Register';
 import './Auth.css';
 
 function Auth({ onClose, onLogin }) {
-    const [isLoginView, setIsLoginView] = useState(true);
+    const [activeTab, setActiveTab] = useState('login'); // 'login' or 'register'
 
     const handleSuccessfulLogin = (userData) => {
         if (onLogin) {
@@ -14,10 +14,12 @@ function Auth({ onClose, onLogin }) {
     };
 
     const handleSuccessfulRegister = () => {
-        setIsLoginView(true); // Switch to login view after registration
+        // Switch to the login tab after a successful registration
+        setActiveTab('login');
     };
 
     const handleBackdropClick = (e) => {
+        // Close the modal only if the backdrop itself is clicked
         if (e.target === e.currentTarget) {
             onClose();
         }
@@ -26,25 +28,30 @@ function Auth({ onClose, onLogin }) {
     return (
         <div className="auth-modal-backdrop" onClick={handleBackdropClick}>
             <div className="auth-container card">
-                <div className="auth-header">
-                    <h2>{isLoginView ? '登录账户' : '创建新账户'}</h2>
-                    <p className="secondary-text">
-                        {isLoginView ? '欢迎回来！' : '很高兴认识你！'}
-                    </p>
-                </div>
-
-                {isLoginView ? (
-                    <Login onLogin={handleSuccessfulLogin} />
-                ) : (
-                    <Register onRegister={handleSuccessfulRegister} />
-                )}
-
-                <div className="auth-toggle">
-                    <button onClick={() => setIsLoginView(!isLoginView)} className="auth-toggle-button">
-                        {isLoginView ? '还没有账户？立即注册' : '已有账户？前往登录'}
+                <div className="auth-tabs">
+                    <button
+                        className={`tab-button ${activeTab === 'login' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('login')}
+                    >
+                        登录
+                    </button>
+                    <button
+                        className={`tab-button ${activeTab === 'register' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('register')}
+                    >
+                        注册
                     </button>
                 </div>
-                 <button onClick={onClose} className="close-button">×</button>
+
+                <div className="auth-content">
+                    {activeTab === 'login' ? (
+                        <Login onLogin={handleSuccessfulLogin} />
+                    ) : (
+                        <Register onRegister={handleSuccessfulRegister} />
+                    )}
+                </div>
+
+                <button onClick={onClose} className="close-button" aria-label="关闭">×</button>
             </div>
         </div>
     );
