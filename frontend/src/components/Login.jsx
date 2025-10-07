@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import './Form.css';
 
-const Login = ({ onClose, onLogin }) => {
+// This component is now a pure form, managed by the Auth component.
+const Login = ({ onLogin }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -24,46 +25,44 @@ const Login = ({ onClose, onLogin }) => {
                 throw new Error(data.error || '登录失败');
             }
 
+            // On success, call the onLogin prop passed from Auth component.
+            // Auth component will handle closing the modal.
             onLogin(data.user);
-            onClose();
+
         } catch (err) {
             setError(err.message);
         }
     };
 
     return (
-        <div className="modal-backdrop" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>登录</h2>
-                <form onSubmit={handleSubmit}>
-                    {error && <p className="error">{error}</p>}
-                    <div className="form-group">
-                        <label htmlFor="login-email">邮箱</label>
-                        <input
-                            id="login-email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="login-password">密码</label>
-                        <input
-                            id="login-password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                        />
-                    </div>
-                    <div className="form-actions">
-                        <button type="submit">登录</button>
-                        <button type="button" onClick={onClose}>取消</button>
-                    </div>
-                </form>
+        <form className="auth-form" onSubmit={handleSubmit}>
+            {error && <p className="error-message">{error}</p>}
+            <div className="form-group">
+                <label htmlFor="login-email">邮箱地址</label>
+                <input
+                    id="login-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="you@example.com"
+                />
             </div>
-        </div>
+            <div className="form-group">
+                <label htmlFor="login-password">密码</label>
+                <input
+                    id="login-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    placeholder="请输入您的密码"
+                />
+            </div>
+            <div className="form-actions">
+                <button type="submit" className="button-primary">登录</button>
+            </div>
+        </form>
     );
 };
 
