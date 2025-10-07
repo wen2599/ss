@@ -47,7 +47,6 @@ function load_env($path) {
             $_SERVER[$name] = $value;
         }
     }
-}
 
     // --- DEBUGGING: Log all found variables ---
     $found_vars = [];
