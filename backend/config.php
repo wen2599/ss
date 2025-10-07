@@ -1,18 +1,8 @@
 <?php
 // backend/config.php
 
-// Include Composer's autoloader
-require_once __DIR__ . '/vendor/autoload.php';
-
-// Load environment variables from .env file
-try {
-    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
-    $dotenv->load();
-} catch (\Dotenv\Exception\InvalidPathException $e) {
-    // This error is expected if .env file is not found. 
-    // In a production environment, variables should be set directly.
-    error_log('.env file not found at path: ' . $e->getPath() . '. This is not an error if environment variables are set on the server.');
-}
+// Note: Composer and Dotenv are no longer used.
+// Environment variables are loaded manually by bootstrap.php.
 
 // --- Environment Variable Validation ---
 // On shared hosting, these might be set in the control panel. On a VPS, they are system-wide.
