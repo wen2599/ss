@@ -31,9 +31,17 @@ function Navbar({ user, onLogin, onLogout }) {
         </div>
         <div className="navbar-right">
           {user && (
-            <NavLink to="/emails" className="navbar-link">
-              账单中心
-            </NavLink>
+            <>
+              <NavLink to="/dashboard" className="navbar-link">
+                仪表盘
+              </NavLink>
+              <NavLink to="/bills" className="navbar-link">
+                账单中心
+              </NavLink>
+              <NavLink to="/settings" className="navbar-link">
+                设置
+              </NavLink>
+            </>
           )}
         </div>
       </nav>
