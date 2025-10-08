@@ -51,12 +51,21 @@ function setup_database()
             $table->string('sender');
             $table->decimal('total_amount', 10, 2);
             $table->json('details'); // Store items as JSON
+            $table->text('body_html')->nullable(); // For storing the raw HTML of the email
             $table->timestamp('received_at');
             $table->timestamps();
 
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
         });
         echo "Table 'bills' created successfully.\n";
+    } else {
+        // Add body_html column if it doesn't exist for backward compatibility
+        if (!Capsule::schema()->hasColumn('bills', 'body_html')) {
+            Capsule::schema()->table('bills', function ($table) {
+                $table->text('body_html')->nullable()->after('details');
+            });
+            echo "Column 'body_html' added to 'bills' table.\n";
+        }
     }
 
     // --- Schema for 'user_states' table ---

@@ -1,43 +1,137 @@
 import React, { useState, useEffect } from 'react';
-import './BillsPage.css';
+import './BillsPage.css'; // Assuming the CSS will be adapted or is already suitable
 
 function BillsPage() {
-  const [bills, setBills] = useState([]);
-  const [selectedBill, setSelectedBill] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // State for the list of emails and the detailed view of a selected email
+  const [emails, setEmails] = useState([]);
+  const [selectedEmail, setSelectedEmail] = useState(null);
+  const [loadingList, setLoadingList] = useState(true);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('parsed'); // 'parsed' or 'raw'
 
+  // Fetch the list of emails on component mount
   useEffect(() => {
-    const fetchBills = async () => {
+    const fetchEmailList = async () => {
       try {
-        setLoading(true);
-        const response = await fetch('/get_bills', { credentials: 'include' });
+        setLoadingList(true);
+        const response = await fetch('/get_emails', { credentials: 'include' });
         if (!response.ok) {
-          if (response.status === 401) {
-            throw new Error('Unauthorized. Please log in.');
-          } else {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
+          if (response.status === 401) throw new Error('Unauthorized. Please log in.');
+          throw new Error(`HTTP error! Status: ${response.status}`);
         }
         const data = await response.json();
-        setBills(data);
-        // Automatically select the first bill if available
-        if (data.length > 0) {
-          setSelectedBill(data[0]);
-        }
+        setEmails(data);
       } catch (err) {
         setError(err.message);
-        console.error("Error fetching bills:", err);
+        console.error("Error fetching email list:", err);
       } finally {
-        setLoading(false);
+        setLoadingList(false);
       }
     };
 
-    fetchBills();
+    fetchEmailList();
   }, []);
 
-  if (loading) {
-    return <div className="bills-page">正在加载账单...</div>;
+  // Function to fetch the details of a single selected email
+  const handleEmailSelect = async (emailId) => {
+    if (selectedEmail?.email.id === emailId) return; // Avoid re-fetching the same email
+
+    try {
+      setLoadingDetail(true);
+      setSelectedEmail(null); // Clear previous selection
+      const response = await fetch(`/get_emails?id=${emailId}`, { credentials: 'include' });
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+      const data = await response.json();
+      setSelectedEmail(data);
+      setActiveTab('parsed'); // Default to parsed view on new selection
+    } catch (err) {
+      setError(err.message);
+      console.error("Error fetching email detail:", err);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const renderDetailView = () => {
+    if (loadingDetail) {
+      return <div className="detail-view-container loading">正在加载邮件详情...</div>;
+    }
+
+    if (!selectedEmail) {
+      return (
+        <div className="detail-view-container welcome">
+          <h2>请在左侧选择一封邮件查看详情</h2>
+        </div>
+      );
+    }
+
+    const { email, slips } = selectedEmail;
+
+    return (
+      <div className="detail-view-container">
+        <div className="detail-header">
+          <h3>{email.subject || '(无主题)'}</h3>
+          <p><strong>发件人:</strong> {email.from_address}</p>
+          <p><strong>收到时间:</strong> {new Date(email.received_at).toLocaleString()}</p>
+        </div>
+
+        <div className="tabs">
+          <button className={`tab-button ${activeTab === 'parsed' ? 'active' : ''}`} onClick={() => setActiveTab('parsed')}>
+            解析结果
+          </button>
+          <button className={`tab-button ${activeTab === 'raw' ? 'active' : ''}`} onClick={() => setActiveTab('raw')}>
+            邮件原文
+          </button>
+        </div>
+
+        <div className="tab-content">
+          {activeTab === 'parsed' && (
+            <div className="parsed-slips-view">
+              {slips && slips.length > 0 ? (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>原始文本</th>
+                      <th>投注类型</th>
+                      <th>内容</th>
+                      <th>金额</th>
+                      <th>状态</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {slips.map((slip, index) => (
+                      <tr key={index}>
+                        <td>{slip.raw_text}</td>
+                        {slip.is_valid ? (
+                          <>
+                            <td>{slip.parsed_data.type}</td>
+                            <td>{slip.parsed_data.content}</td>
+                            <td>{slip.parsed_data.amount.toFixed(2)}</td>
+                            <td className="slip-valid">有效</td>
+                          </>
+                        ) : (
+                          <td colSpan="4">无法解析</td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : <p>此邮件没有可解析的投注单。</p>}
+            </div>
+          )}
+          {activeTab === 'raw' && (
+            <div className="raw-email-view">
+              <iframe srcDoc={email.body_html || '<p>无HTML内容。</p>'} title="Raw Email Content" />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  if (loadingList) {
+    return <div className="bills-page">正在加载邮件列表...</div>;
   }
 
   if (error) {
@@ -49,71 +143,23 @@ function BillsPage() {
       <h1>账单中心</h1>
       <div className="bills-content-container">
         <div className="bills-list">
-          {bills.length === 0 ? (
+          {emails.length === 0 ? (
             <p>没有找到任何账单邮件。</p>
           ) : (
-            bills.map((bill) => (
+            emails.map((email) => (
               <div
-                key={bill.email_id}
-                className={`bill-list-item ${selectedBill && selectedBill.email_id === bill.email_id ? 'selected' : ''}`}
-                onClick={() => setSelectedBill(bill)}
+                key={email.id}
+                className={`bill-list-item ${selectedEmail?.email.id === email.id ? 'selected' : ''}`}
+                onClick={() => handleEmailSelect(email.id)}
               >
-                <h3>{bill.subject || '(无主题)'}</h3>
-                <p className="from-address">发件人: {bill.from_address}</p>
-                <p className="received-at">收到时间: {new Date(bill.received_at).toLocaleString()}</p>
-                {!bill.betting_slip_id && <span className="status-tag pending">待处理</span>}
-                {bill.betting_slip_id && bill.is_valid && <span className="status-tag valid">有效</span>}
-                {bill.betting_slip_id && !bill.is_valid && !bill.processing_error && <span className="status-tag invalid">无效</span>}
-                {bill.betting_slip_id && !bill.is_valid && bill.processing_error && <span className="status-tag error">处理失败</span>}
-
+                <h3>{email.subject || '(无主题)'}</h3>
+                <p className="from-address">发件人: {email.from_address}</p>
+                <p className="received-at">收到时间: {new Date(email.received_at).toLocaleString()}</p>
               </div>
             ))
           )}
         </div>
-
-        <div className="bill-detail">
-          {selectedBill ? (
-            <>
-              <h2>邮件详情与AI解析</h2>
-              <div className="detail-header">
-                <h3>主题: {selectedBill.subject || '(无主题)'}</h3>
-                <p>发件人: {selectedBill.from_address}</p>
-                <p>收到时间: {new Date(selectedBill.received_at).toLocaleString()}</p>
-              </div>
-
-              <div className="email-content-display">
-                <div className="email-raw-display">
-                  <h3>原始邮件内容</h3>
-                  <pre>{selectedBill.raw_email_body || '(无内容)'}</pre>
-                </div>
-                <div className="email-parsed-display">
-                  <h3>AI 解析结果</h3>
-                  {selectedBill.betting_slip_id ? (
-                    selectedBill.is_valid ? (
-                      <pre>{JSON.stringify(selectedBill.parsed_data, null, 2)}</pre>
-                    ) : (
-                      <div className="parsed-error">
-                        <p><strong>解析结果:</strong> 无效投注单</p>
-                        {selectedBill.processing_error && (
-                          <p><strong>错误详情:</strong> {selectedBill.processing_error}</p>
-                        )}
-                      </div>
-                    )
-                  ) : (
-                    <div className="parsed-pending">
-                      <p>等待 AI 处理...</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          ) : ( bills.length > 0 ? (
-            <p>请从左侧选择一封邮件查看详情。</p>
-          ) : (
-            <p>目前没有可供查看的邮件账单。</p>
-          )
-          )}
-        </div>
+        {renderDetailView()}
       </div>
     </div>
   );
