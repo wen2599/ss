@@ -161,50 +161,42 @@ export default {
    */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const backendServer = "https://wenge.cloudns.ch";
+    let endpoint = null;
 
-    // 定义需要转发到后端的 API 路径列表
-    const apiRoutes = [
-      '/check_session',
-      '/login',
-      '/register', // <-- 添加缺失的注册路由
-      '/get_numbers',
-      '/is_user_registered',
-      '/email_upload',
-      '/get_lottery_data',
-      '/save_lottery_data',
-      '/delete_lottery_data',
-      '/get_user_by_email',
-      '/get_system_status',
-      '/tg_webhook'
-    ];
+    // --- 路由逻辑重构 ---
+    // 1. 检查是否是新的 /api/ 前缀请求
+    if (url.pathname.startsWith('/api/')) {
+      endpoint = url.pathname.substring(5); // e.g., /api/login -> login
+    }
+    // 2. 检查是否是旧的、已知的端点 (为了向后兼容)
+    else {
+      const legacyRoutes = [
+        '/check_session', '/login', '/logout', '/register',
+        '/get_numbers', '/get_bills', '/get_emails',
+        '/is_user_registered', '/email_upload',
+        '/telegram_webhook' // 使用新的文件名
+      ];
+      if (legacyRoutes.includes(url.pathname)) {
+        endpoint = url.pathname.substring(1);
+      }
+    }
 
-    const isApiRequest = apiRoutes.some(route => url.pathname.startsWith(route));
-
-    if (isApiRequest) {
-      const backendServer = "https://wenge.cloudns.ch";
-      
-      // --- 关键修正 --- 
-      // 从路径中提取端点 (e.g., /check_session -> check_session)
-      const endpoint = url.pathname.substring(1);
-
-      // 为后端请求创建一个新的 URL
+    // 3. 如果识别为 API 请求，则转发到后端
+    if (endpoint) {
       const backendUrl = new URL(backendServer + "/index.php");
-
-      // 为后端路由设置 'endpoint' 查询参数
       backendUrl.searchParams.set('endpoint', endpoint);
 
-      // 将原始请求中的任何其他查询参数附加到后端 URL
+      // 附加所有原始查询参数
       for (const [key, value] of url.searchParams.entries()) {
-        if (key !== 'endpoint') { // 避免重复添加 endpoint
-          backendUrl.searchParams.append(key, value);
-        }
+        backendUrl.searchParams.append(key, value);
       }
       
-      // 使用正确构建的后端 URL 转发请求
+      // 转发请求
       return fetch(new Request(backendUrl, request));
     }
-    
-    // 对于非 API 请求，从 Pages 静态资源中提供服务
+
+    // 4. 否则，提供静态资源
     return env.ASSETS.fetch(request);
   },
 
