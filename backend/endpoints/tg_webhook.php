@@ -5,6 +5,8 @@ require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../lib/telegram_utils.php'; // Correctly include the Telegram utilities
 
+use Illuminate\Database\Capsule\Manager as Capsule;
+
 // --- Helper Functions ---
 function log_message($message) {
     $log_file = __DIR__ . '/debug.log';
@@ -16,29 +18,6 @@ function log_message($message) {
 }
 
 // --- Re-implemented Helper Functions ---
-
-/**
- * Establishes a database connection using PDO.
- * @return PDO|null A PDO connection object or null on failure.
- */
-function get_db_connection() {
-    static $conn = null;
-    if ($conn === null) {
-        try {
-            $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4';
-            $options = [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES   => false,
-            ];
-            $conn = new PDO($dsn, DB_USER, DB_PASS, $options);
-        } catch (PDOException $e) {
-            log_message("DB Connection Error: " . $e->getMessage());
-            return null;
-        }
-    }
-    return $conn;
-}
 
 /**
  * Acknowledges a Telegram callback query to stop the loading icon.
@@ -62,41 +41,69 @@ function answer_callback_query(string $callback_query_id): void {
     curl_close($ch);
 }
 
-function get_user_state_file($user_id) {
-    return sys_get_temp_dir() . '/tg_state_' . $user_id;
-}
-
-function get_user_state($user_id) {
-    $file = get_user_state_file($user_id);
-    return file_exists($file) ? trim(file_get_contents($file)) : null;
-}
-
-function set_user_state($user_id, $state = null) {
-    $file = get_user_state_file($user_id);
+/**
+ * Sets the conversational state for a user in the database.
+ *
+ * @param int $user_id The Telegram user ID.
+ * @param string|null $state The state to set, or null to clear the state.
+ * @param array|null $state_data Optional data to store along with the state.
+ */
+function set_user_state(int $user_id, ?string $state, ?array $state_data = null): void {
     if ($state === null) {
-        if (file_exists($file)) unlink($file);
+        Capsule::table('user_states')->where('user_id', $user_id)->delete();
     } else {
-        file_put_contents($file, $state);
+        Capsule::table('user_states')->updateOrInsert(
+            ['user_id' => $user_id],
+            [
+                'state' => $state,
+                'state_data' => $state_data ? json_encode($state_data) : null,
+                'updated_at' => new \DateTime() // Keep the timestamp fresh
+            ]
+        );
     }
 }
 
 /**
+ * Gets the conversational state for a user from the database.
+ *
+ * @param int $user_id The Telegram user ID.
+ * @return object|null The state record (e.g., with 'state' and 'state_data' properties) or null if no state is set.
+ */
+function get_user_state(int $user_id): ?object {
+    $state_record = Capsule::table('user_states')->where('user_id', $user_id)->first();
+    if ($state_record && !is_null($state_record->state_data)) {
+        // Decode the JSON data before returning
+        $state_record->state_data = json_decode($state_record->state_data, true);
+    }
+    return $state_record;
+}
+
+/**
+ * Retrieves an API key from the database.
+ *
+ * @param string $key_name The name of the key to retrieve.
+ * @return string|null The key value or null if not found.
+ */
+function get_api_key(string $key_name): ?string {
+    $key = Capsule::table('api_keys')->where('key_name', $key_name)->first();
+    return $key ? $key->key_value : null;
+}
+
+/**
  * Saves or updates an API key in the database.
+ *
  * @param string $key_name The name of the key (e.g., 'gemini').
  * @param string $key_value The value of the API key.
  * @return bool True on success, false on failure.
  */
 function set_api_key(string $key_name, string $key_value): bool {
-    $conn = get_db_connection();
-    if (!$conn) return false;
     try {
-        $stmt = $conn->prepare(
-            "INSERT INTO api_keys (key_name, key_value, updated_at) VALUES (:key_name, :key_value, NOW())
-             ON DUPLICATE KEY UPDATE key_value = :key_value, updated_at = NOW()"
+        Capsule::table('api_keys')->updateOrInsert(
+            ['key_name' => $key_name],
+            ['key_value' => $key_value, 'updated_at' => new \DateTime()]
         );
-        $stmt->execute([':key_name' => $key_name, ':key_value' => $key_value]);
-        return $stmt->rowCount() > 0;
-    } catch (PDOException $e) {
+        return true;
+    } catch (\Exception $e) {
         log_message("Failed to set API key '{$key_name}': " . $e->getMessage());
         return false;
     }
@@ -180,6 +187,34 @@ if (isset($update['callback_query'])) {
         case 'push_message':
             send_telegram_message($chat_id, "▶️ *如何推送消息*\n\n请使用 `/push 您想发送的消息内容`。");
             break;
+        case 'add_email_prompt':
+            set_user_state($user_id, 'waiting_for_email');
+            send_telegram_message($chat_id, "请输入您想要授权的邮箱地址:");
+            break;
+        case 'list_users':
+            $users = Capsule::table('users')->get();
+            $message = "👤 *注册用户列表*\n\n";
+            if ($users->isEmpty()) {
+                $message .= "没有已注册的用户。";
+            } else {
+                foreach ($users as $user) {
+                    $message .= "- `{$user->email}` (ID: {$user->id})\n";
+                }
+            }
+            send_telegram_message($chat_id, $message);
+            break;
+        case 'list_allowed':
+            $emails = Capsule::table('allowed_emails')->get();
+            $message = "📋 *授权邮箱列表*\n\n";
+            if ($emails->isEmpty()) {
+                $message .= "没有已授权的邮箱。";
+            } else {
+                foreach ($emails as $email) {
+                    $message .= "- `{$email->email}`\n";
+                }
+            }
+            send_telegram_message($chat_id, $message);
+            break;
         case 'set_api_keys':
             send_telegram_message($chat_id, "请选择要操作的 API 密钥:", $api_keys_inline_keyboard);
             break;
@@ -187,7 +222,6 @@ if (isset($update['callback_query'])) {
             set_user_state($user_id, 'waiting_for_gemini_key');
             send_telegram_message($chat_id, "请输入您的 Gemini API 密钥:");
             break;
-        // ... other cases like list_users, add_email_prompt etc. remain unchanged
         default:
             log_message("Unhandled admin callback: {$callback_data}");
             break;
@@ -200,8 +234,22 @@ if (isset($update['message'])) {
     $text = trim($update['message']['text'] ?? '');
     log_message("Entering Admin Branch 3: Text Message. Text: {$text}");
 
-    $user_state = get_user_state($user_id);
-    if ($user_state === 'waiting_for_gemini_key') {
+    $state_record = get_user_state($user_id);
+    if ($state_record && $state_record->state === 'waiting_for_email') {
+        if (filter_var($text, FILTER_VALIDATE_EMAIL)) {
+            try {
+                Capsule::table('allowed_emails')->insert(['email' => $text]);
+                send_telegram_message($chat_id, "✅ *成功*\n邮箱 `{$text}` 已被授权。");
+            } catch (\Exception $e) {
+                // Handle potential duplicate entry
+                send_telegram_message($chat_id, "⚠️ *提醒*\n邮箱 `{$text}` 已存在，无需重复添加。");
+            }
+        } else {
+            send_telegram_message($chat_id, "🚨 *错误*\n您输入的 `{$text}` 不是一个有效的邮箱地址，请重新输入。");
+        }
+        set_user_state($user_id, null); // Clear state
+        exit;
+    } elseif ($state_record && $state_record->state === 'waiting_for_gemini_key') {
         if (set_api_key('gemini', $text)) {
             send_telegram_message($chat_id, "✅ *成功*\nGemini API 密钥已更新。");
         } else {

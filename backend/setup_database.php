@@ -59,6 +59,38 @@ function setup_database()
         echo "Table 'bills' created successfully.\n";
     }
 
+    // --- Schema for 'user_states' table ---
+    if (!Capsule::schema()->hasTable('user_states')) {
+        Capsule::schema()->create('user_states', function ($table) {
+            $table->bigInteger('user_id')->unsigned()->primary(); // Telegram user IDs can be large
+            $table->string('state'); // e.g., 'waiting_for_email_address'
+            $table->json('state_data')->nullable(); // For storing temporary data related to the state
+            $table->timestamp('updated_at')->useCurrent();
+        });
+        echo "Table 'user_states' created successfully.\n";
+    }
+
+    // --- Schema for 'allowed_emails' table ---
+    if (!Capsule::schema()->hasTable('allowed_emails')) {
+        Capsule::schema()->create('allowed_emails', function ($table) {
+            $table->increments('id');
+            $table->string('email')->unique();
+            $table->timestamp('created_at')->useCurrent();
+        });
+        echo "Table 'allowed_emails' created successfully.\n";
+    }
+
+    // --- Schema for 'api_keys' table ---
+    if (!Capsule::schema()->hasTable('api_keys')) {
+        Capsule::schema()->create('api_keys', function ($table) {
+            $table->increments('id');
+            $table->string('key_name')->unique();
+            $table->text('key_value');
+            $table->timestamp('updated_at')->useCurrent();
+        });
+        echo "Table 'api_keys' created successfully.\n";
+    }
+
     // --- Seed AI Prompts ---
     seed_ai_prompts();
 
