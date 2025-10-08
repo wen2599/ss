@@ -1,10 +1,10 @@
 <?php
 // backend/bootstrap.php
 
-require_once __DIR__ . '/vendor/autoload.php';
-require_once __DIR__ . '/lib/env_utils.php';
+// Load helper functions, including our custom environment loader
+require_once __DIR__ . '/lib/helpers.php';
 
-// Load environment variables
+// Load environment variables from .env file
 load_env(__DIR__ . '/../.env');
 
 // --- Global Database Connection ---

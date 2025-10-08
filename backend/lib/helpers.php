@@ -1,6 +1,51 @@
 <?php
 // backend/lib/helpers.php
 
+if (!function_exists('load_env')) {
+    /**
+     * Loads environment variables from a .env file into getenv(), $_ENV, and $_SERVER.
+     *
+     * This function is a lightweight, dependency-free alternative to packages like vlucas/phpdotenv.
+     * It reads a .env file, parses the key-value pairs, and makes them available
+     * through PHP's standard environment variable functions.
+     *
+     * @param string $path The full path to the .env file.
+     */
+    function load_env(string $path): void
+    {
+        if (!is_readable($path)) {
+            // Log or handle the error appropriately. For now, we just return.
+            error_log("Env file not found or is not readable at {$path}");
+            return;
+        }
+
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($lines as $line) {
+            // Skip comments
+            if (strpos(trim($line), '#') === 0) {
+                continue;
+            }
+
+            list($key, $value) = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+
+            // Remove surrounding quotes from the value
+            if (preg_match('/^(["'])(.*)\1$/', $value, $matches)) {
+                $value = $matches[2];
+            }
+
+            // Set the environment variable for the current script
+            if (!array_key_exists($key, $_SERVER) && !array_key_exists($key, $_ENV)) {
+                putenv("{$key}={$value}");
+                $_ENV[$key] = $value;
+                $_SERVER[$key] = $value;
+            }
+        }
+    }
+}
+
+
 if (!function_exists('send_json_response')) {
     /**
      * Sends a JSON response with a specific HTTP status code.
