@@ -13,14 +13,14 @@ if (!$bot_token) {
     exit(1);
 }
 
-// The production URL of the backend router.
+// The production URL of the backend router. This should not be changed.
 $backend_url = 'https://wenge.cloudns.ch/index.php';
 
-// The endpoint for the webhook, matching the new filename.
+// The endpoint for the webhook, which must match a valid case in the worker.
 $webhook_endpoint = 'telegram_webhook';
 
 // --- Main Logic ---
-// Construct the full, correct webhook URL.
+// Construct the full, correct webhook URL. It MUST point to the index.php router.
 $webhook_url = "{$backend_url}?endpoint={$webhook_endpoint}";
 
 // The Telegram API URL for setting the webhook.
@@ -59,6 +59,7 @@ echo "\n";
 
 if ($response_data['ok'] ?? false) {
     echo "\nWebhook set successfully!\n";
+    echo "Your bot should now be responsive.\n";
 } else {
     echo "\nWebhook setup failed. Please check the response above for details.\n";
 }
