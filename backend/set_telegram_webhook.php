@@ -7,8 +7,11 @@
 // 1. Load only the necessary helper for environment variables.
 require_once __DIR__ . '/lib/helpers.php';
 
-// 2. Load environment variables from the .env file in the project root.
-$dotenv_path = __DIR__ . '/../.env';
+// 2. Define the project root and load the .env file.
+if (!defined('PROJECT_ROOT')) {
+    define('PROJECT_ROOT', dirname(__DIR__));
+}
+$dotenv_path = PROJECT_ROOT . '/.env';
 if (file_exists($dotenv_path)) {
     load_env($dotenv_path);
 } else {

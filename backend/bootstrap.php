@@ -4,8 +4,13 @@
 // Load helper functions, including our custom environment loader
 require_once __DIR__ . '/lib/helpers.php';
 
-// Load environment variables from .env file
-load_env(__DIR__ . '/../.env');
+// Define the project root as the parent directory of 'backend'
+if (!defined('PROJECT_ROOT')) {
+    define('PROJECT_ROOT', dirname(__DIR__));
+}
+
+// Load environment variables from the .env file at the project root
+load_env(PROJECT_ROOT . '/.env');
 
 // --- Global Database Connection ---
 
