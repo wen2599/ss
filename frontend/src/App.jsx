@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
-import Navbar from './components/Navbar'; // 引入新的 Navbar 组件
+import { Routes, Route, useLocation } from 'react-router-dom';
+import Navbar from './components/Navbar';
 import LotteryPage from './pages/LotteryPage';
 import EmailCenter from './pages/EmailCenter';
+import BillsPage from './pages/BillsPage'; // Import the new BillsPage component
 import './theme.css';
 
 function App() {
@@ -30,7 +31,6 @@ function App() {
 
   const handleLogin = (userData) => setUser(userData);
   const handleLogout = () => {
-    // 在实际应用中，您可能想在这里清除更多状态或重定向
     setUser(null);
   };
 
@@ -40,6 +40,8 @@ function App() {
         return '开奖结果';
       case '/emails':
         return '邮件中心';
+      case '/bills': // Add title for the new bills page
+        return '账单中心';
       default:
         return '数据洞察中心';
     }
@@ -50,18 +52,32 @@ function App() {
         return <div className="loading-container"><div className="loader"></div><p>正在加载应用...</p></div>;
     }
 
-    // The new logic always renders the routes, but protects the private ones.
     return (
         <Routes>
             {/* The LotteryPage is now always public */}
             <Route path="/" element={<LotteryPage />} />
 
-            {/* The EmailCenter is protected. Show it only if logged in. */}
+            {/* Protected route for EmailCenter */}
             <Route
                 path="/emails"
                 element={
                     user ? (
                         <EmailCenter />
+                    ) : (
+                        <div className="card centered-card">
+                            <h2>请先登录</h2>
+                            <p className="secondary-text">您需要登录后才能访问此页面。</p>
+                        </div>
+                    )
+                }
+            />
+
+            {/* Protected route for BillsPage */}
+            <Route
+                path="/bills"
+                element={
+                    user ? (
+                        <BillsPage />
                     ) : (
                         <div className="card centered-card">
                             <h2>请先登录</h2>
