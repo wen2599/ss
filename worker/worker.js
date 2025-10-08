@@ -152,56 +152,52 @@ function parseEmail(rawEmail, options = {}) {
 }
 
 
-// --- Worker 入口点 ---
+// --- Worker Entry Point ---
 export default {
   /**
-   * 处理进入 Worker 的请求。
-   * - API 请求 (/check_session, /login etc.) 会被转发到后端 PHP 服务器。
-   * - 其他所有请求 (e.g., /, /index.html, .css, .js) 会被视为静态资源请求，由 Cloudflare Pages 提供服务。
+   * Rewritten fetch handler to proxy API requests to the backend.
+   * - Any path matching an endpoint in apiEndpoints (with or without /api/ prefix) will be proxied.
+   * - All other requests will be treated as static assets.
    */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const backendServer = "https://wenge.cloudns.ch";
-    let endpoint = null;
 
-    // --- 路由逻辑重构 ---
-    // 1. 检查是否是新的 /api/ 前缀请求
-    if (url.pathname.startsWith('/api/')) {
-      endpoint = url.pathname.substring(5); // e.g., /api/login -> login
-    }
-    // 2. 检查是否是旧的、已知的端点 (为了向后兼容)
-    else {
-      const legacyRoutes = [
-        '/check_session', '/login', '/logout', '/register',
-        '/get_numbers', '/get_bills', '/get_emails',
-        '/is_user_registered', '/email_upload',
-        '/telegram_webhook' // 使用新的文件名
-      ];
-      if (legacyRoutes.includes(url.pathname)) {
-        endpoint = url.pathname.substring(1);
-      }
-    }
+    // Single source of truth for all known backend endpoints.
+    const apiEndpoints = [
+      'check_session', 'login', 'logout', 'register',
+      'get_numbers', 'get_bills', 'get_emails',
+      'is_user_registered', 'email_upload',
+      'telegram_webhook' // The correct webhook endpoint
+    ];
 
-    // 3. 如果识别为 API 请求，则转发到后端
-    if (endpoint) {
+    // Determine the requested endpoint by stripping potential prefixes.
+    let requestedEndpoint = url.pathname.startsWith('/api/')
+      ? url.pathname.substring(5)
+      : url.pathname.substring(1);
+
+    // Check if the requested endpoint is in our list of valid API endpoints.
+    if (apiEndpoints.includes(requestedEndpoint)) {
       const backendUrl = new URL(backendServer + "/index.php");
-      backendUrl.searchParams.set('endpoint', endpoint);
+      backendUrl.searchParams.set('endpoint', requestedEndpoint);
 
-      // 附加所有原始查询参数
-      for (const [key, value] of url.searchParams.entries()) {
+      // Append original query parameters to the new URL.
+      url.searchParams.forEach((value, key) => {
         backendUrl.searchParams.append(key, value);
-      }
+      });
       
-      // 转发请求
-      return fetch(new Request(backendUrl, request));
+      // Create a new request to the backend, preserving method, headers, and body.
+      const backendRequest = new Request(backendUrl, request);
+
+      return fetch(backendRequest);
     }
 
-    // 4. 否则，提供静态资源
+    // If it's not a known API endpoint, treat it as a static asset request.
     return env.ASSETS.fetch(request);
   },
 
   /**
-   * 处理入站电子邮件 (您原来的代码)
+   * Handles incoming emails.
    */
   async email(message, env, ctx) {
     const PUBLIC_API_ENDPOINT = "https://ss.wenxiuxiu.eu.org";
@@ -218,7 +214,7 @@ export default {
       (message.headers && message.headers.get && message.headers.get("from")) ||
       "";
     if (!senderEmail) {
-      console.error("收到的邮件没有发件人地址，终止处理。");
+      console.error("Received email without a sender address. Terminating processing.");
       return;
     }
 
@@ -230,7 +226,7 @@ export default {
       if (!verificationData.success || !verificationData.is_registered) return;
     } catch (error) { return; }
 
-    let chatContent = "邮件没有包含可识别的纯文本内容。";
+    let chatContent = "Email did not contain identifiable plain text content.";
     let htmlContent = "";
     let attachments = [];
     try {
@@ -246,10 +242,10 @@ export default {
     } catch (err) {}
 
     if (chatContent.length > MAX_BODY_LENGTH) {
-      chatContent = chatContent.slice(0, MAX_BODY_LENGTH) + "\n\n[内容过长，已被截断]";
+      chatContent = chatContent.slice(0, MAX_BODY_LENGTH) + "\n\n[Content truncated]";
     }
     if (htmlContent.length > MAX_BODY_LENGTH) {
-      htmlContent = htmlContent.slice(0, MAX_BODY_LENGTH) + "\n\n[内容过长，已被截断]";
+      htmlContent = htmlContent.slice(0, MAX_BODY_LENGTH) + "\n\n[Content truncated]";
     }
 
     let messageId = "";
