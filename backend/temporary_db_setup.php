@@ -27,10 +27,10 @@ function load_env($path) {
 
 echo "--- Starting Standalone Database Setup ---\n";
 
-// 1. Load Environment Variables from .env in the current directory
-$dotenv_path = __DIR__ . '/.env';
+// 1. Load Environment Variables from .env in the project root
+$dotenv_path = dirname(__DIR__) . '/.env';
 if (!file_exists($dotenv_path)) {
-    die("CRITICAL ERROR: .env file not found in the root directory ({$dotenv_path}). Please ensure the file exists and contains your DB credentials.\n");
+    die("CRITICAL ERROR: .env file not found in the project root directory ({$dotenv_path}). Please ensure the file exists and contains your DB credentials.\n");
 }
 load_env($dotenv_path);
 echo "[✓] .env file loaded.\n";
