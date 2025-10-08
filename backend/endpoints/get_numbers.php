@@ -21,9 +21,23 @@ if (!$conn) {
 // The different lottery types we want to fetch
 $lottery_types = ['新澳门六合彩', '香港六合彩', '老澳21.30'];
 
+// --- Robustness Fix ---
+// First, perform a quick check to see if the table has any data at all.
+// This is faster and prevents the main query from running unnecessarily on an empty table.
+$count_check = $conn->query("SELECT 1 FROM lottery_results LIMIT 1");
+if ($count_check && $count_check->num_rows === 0) {
+    // The table is completely empty. Return a default null structure immediately.
+    $final_response = [];
+    foreach ($lottery_types as $type) {
+        $final_response[$type] = null;
+    }
+    echo json_encode($final_response);
+    $conn->close();
+    exit;
+}
+
 // This SQL query is designed to get the latest entry for EACH lottery type.
-// It uses a more compatible subquery approach instead of window functions
-// to ensure it works on older versions of MySQL/MariaDB.
+// It uses a more compatible subquery approach instead of window functions.
 $sql = "
     SELECT t1.lottery_type, t1.issue, t1.numbers, t1.zodiacs, t1.colors
     FROM lottery_results t1
