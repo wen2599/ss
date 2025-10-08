@@ -64,7 +64,7 @@ function LotteryPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('/api/get_numbers')
+    fetch('/get_numbers')
       .then(response => {
         if (!response.ok) throw new Error('网络响应不正常，请检查您的连接或联系管理员。');
         return response.json();
