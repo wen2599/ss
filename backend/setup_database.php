@@ -1,135 +1,113 @@
 <?php
-// setup_database.php
-
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+// backend/setup_database.php
 
 require_once __DIR__ . '/bootstrap.php';
 
-echo "--> 正在尝试连接数据库...\n";
+use Illuminate\Database\Capsule\Manager as Capsule;
 
-$conn = get_db_connection();
-if (!$conn) {
-    echo "!!! 错误: 数据库连接失败! 请仔细检查 .env 文件中的配置。\n";
-    exit(1);
-}
-echo "--> ✅ 成功: 数据库已连接。\n\n";
-
-// --- Step 1: Create tables from schema.sql ---
-echo "--> 正在从 `backend/sql/schema.sql` 读取数据库结构...\n";
-$schema_sql = file_get_contents(__DIR__ . '/sql/schema.sql');
-if ($schema_sql === false) {
-    echo "!!! 错误: 无法读取 schema.sql 文件。\n";
-    exit(1);
-}
-
-// Flush out any existing results from previous queries if any
-while ($conn->more_results() && $conn->next_result()) { 
-    if ($result = $conn->store_result()) {
-        $result->free();
+/**
+ * Setup the database schema and seed initial data.
+ */
+function setup_database()
+{
+    // --- Schema for 'users' table ---
+    if (!Capsule::schema()->hasTable('users')) {
+        Capsule::schema()->create('users', function ($table) {
+            $table->increments('id');
+            $table->string('username')->unique();
+            $table->string('password');
+            $table->string('email')->unique()->nullable();
+            $table->timestamps();
+        });
+        echo "Table 'users' created successfully.\n";
     }
-}
 
-if ($conn->multi_query($schema_sql)) {
-    do {
-        if ($result = $conn->store_result()) {
-            $result->free();
+    // --- Schema for 'ai_prompts' table ---
+    if (!Capsule::schema()->hasTable('ai_prompts')) {
+        Capsule::schema()->create('ai_prompts', function ($table) {
+            $table->increments('id');
+            $table->string('name')->unique();
+            $table->string('model'); // e.g., 'deepseek-chat'
+            $table->text('prompt');
+            $table->timestamps();
+        });
+        echo "Table 'ai_prompts' created successfully.\n";
+    } else {
+        if (!Capsule::schema()->hasColumn('ai_prompts', 'model')) {
+            Capsule::schema()->table('ai_prompts', function ($table) {
+                $table->string('model')->default('deepseek-chat')->after('name');
+            });
+            echo "Column 'model' added to 'ai_prompts' table.\n";
         }
-    } while ($conn->more_results() && $conn->next_result());
-    echo "--> ✅ 成功: 所有数据表已根据 schema.sql 创建或验证。\n\n";
-} else {
-    echo "!!! 错误: 执行 schema.sql 时出错! 原因: " . $conn->error . "\n\n";
-    // Even if it fails, we should close the connection
-    $conn->close();
-    exit(1);
+    }
+
+
+    // --- Schema for 'bills' table ---
+    if (!Capsule::schema()->hasTable('bills')) {
+        Capsule::schema()->create('bills', function ($table) {
+            $table->increments('id');
+            $table->unsignedInteger('user_id');
+            $table->string('bill_id')->unique();
+            $table->string('sender');
+            $table->decimal('total_amount', 10, 2);
+            $table->json('details'); // Store items as JSON
+            $table->timestamp('received_at');
+            $table->timestamps();
+
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+        });
+        echo "Table 'bills' created successfully.\n";
+    }
+
+    // --- Seed AI Prompts ---
+    seed_ai_prompts();
+
+    echo "Database setup completed!\n";
 }
 
-// --- Step 2: Insert or Update the default AI template ---
-echo "--> 正在插入或更新默认的 AI 提示模板...\n";
-
-$template_name = 'betting_slip_parser';
-$model_name = 'gemini-pro';
-// This prompt is crafted to be very specific for better results.
-$prompt_text = <<<PROMPT
-你是一个专业的投注单数据录入员。你的任务是从用户提供的原始文本中提取所有投注信息,并将其格式化为一个干净、标准的 JSON 对象。你必须严格遵守以下规则:
-
-1.  **返回纯 JSON**: 你的最终输出必须是一个没有任何额外解释、注释或 Markdown 标记(`json`...`)的 JSON 对象。
-
-2.  **JSON 结构**: JSON 对象必须包含以下三个顶级键:
-    *   `issue` (string): 投注的期号。如果文本中没有明确提到,请将其设为 `null`。
-    *   `bets` (array): 一个包含所有投注项的数组。每个投注项都是一个对象。
-    *   `total_amount` (number): 所有投注项金额的总和。
-
-3.  **投注项对象结构**: `bets` 数组中的每个对象都必须包含以下三个键:
-    *   `type` (string): 投注类型。例如: "定位", "复式", "特码", "平码" 等。
-    *   `content` (string): 投注的具体内容。例如: "123,456,789", "龙,虎", "35"。
-    *   `amount` (number): 该投注项的金额。必须是一个数字。
-
-4.  **数据清洗**: 
-    *   自动忽略所有与投注无关的文本,如问候语、签名、闲聊等。
-    *   如果文本中包含多个投注项,请确保将它们全部提取到 `bets` 数组中。
-    *   仔细计算 `total_amount`。
-
-5.  **处理无效输入**: 如果你分析的文本中**完全不包含任何**可以被理解为投注信息的内容, 不要尝试猜测。请严格返回以下 JSON 对象:
-    ```json
-    {
-      "issue": null,
-      "bets": [],
-      "total_amount": 0
-    }
-    ```
-
-**示例:**
-
-如果用户输入:
-"你好,这期 24001 期帮我买:
-定位 123,456 各 10 元
-特码 龙 100 元
-总共是 120 元"
-
-你的输出必须是 (注意 total_amount 是计算得出的 110, 而不是用户说的 120):
+/**
+ * Seed the ai_prompts table with the default DeepSeek prompt.
+ */
+function seed_ai_prompts()
+{
+    $deepseek_prompt = '''
+你是一个专门解析投注单据的AI。严格按照指定的JSON格式从文本中提取信息。不要添加任何说明或评论。如果某个字段找不到对应信息，则其值应为null。
 
 ```json
 {
-  "issue": "24001",
-  "bets": [
+  "bill_id": "string | null",
+  "sender": "string | null",
+  "total_amount": "number | null",
+  "details": [
     {
-      "type": "定位",
-      "content": "123,456",
-      "amount": 10
-    },
-    {
-      "type": "特码",
-      "content": "龙",
-      "amount": 100
+      "item": "string",
+      "amount": "number",
+      "result": "string<win/loss/draw>"
     }
-  ],
-  "total_amount": 110
+  ]
 }
 ```
-PROMPT;
+''';
 
-// Use INSERT ... ON DUPLICATE KEY UPDATE to make the operation idempotent
-$sql = "INSERT INTO ai_templates (name, prompt_text, model_name) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE prompt_text = VALUES(prompt_text), model_name = VALUES(model_name)";
-
-$stmt = $conn->prepare($sql);
-if (!$stmt) {
-    echo "!!! 错误: 无法准备 AI 模板的 SQL 语句! 原因: " . $conn->error . "\n";
-    $conn->close();
-    exit(1);
+    // Upsert DeepSeek Prompt as the one and only default
+    Capsule::table('ai_prompts')->updateOrInsert(
+        ['name' => 'betting_slip_parser'],
+        [
+            'model' => 'deepseek-chat',
+            'prompt' => $deepseek_prompt,
+            'created_at' => new DateTime(),
+            'updated_at' => new DateTime(),
+        ]
+    );
+    echo "Seeded/Updated 'betting_slip_parser' prompt for DeepSeek.\n";
+    
+    // Clean up old Gemini-specific prompt if it exists
+    Capsule::table('ai_prompts')->where('name', 'betting_slip_parser_deepseek')->delete();
+    Capsule::table('ai_prompts')->where('model', 'gemini-pro')->delete();
+    echo "Cleaned up any old model-specific prompts.\n";
 }
 
-$stmt->bind_param("sss", $template_name, $prompt_text, $model_name);
-
-if ($stmt->execute()) {
-    echo "--> ✅ 成功: 默认的 AI 模板 '{$template_name}' 已成功插入或更新。\n\n";
-} else {
-    echo "!!! 错误: 执行 AI 模板插入时出错! 原因: " . $stmt->error . "\n\n";
+// Run the setup if the script is called directly
+if (basename(__FILE__) == basename($_SERVER['PHP_SELF'])) {
+    setup_database();
 }
-
-$stmt->close();
-$conn->close();
-
-echo "--> 所有数据库操作已完成。\n";
-
-?>
