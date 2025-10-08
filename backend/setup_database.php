@@ -111,7 +111,7 @@ function setup_database()
  */
 function seed_ai_prompts()
 {
-    $deepseek_prompt = '''
+    $deepseek_prompt = <<<'EOT'
 你是一个专门解析投注单据的AI。严格按照指定的JSON格式从文本中提取信息。不要添加任何说明或评论。如果某个字段找不到对应信息，则其值应为null。
 
 ```json
@@ -128,7 +128,7 @@ function seed_ai_prompts()
   ]
 }
 ```
-''';
+EOT;
 
     // Upsert DeepSeek Prompt as the one and only default
     Capsule::table('ai_prompts')->updateOrInsert(
