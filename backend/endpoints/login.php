@@ -41,9 +41,9 @@ if (!$stmt) {
 
 $stmt->bind_param("s", $email);
 $stmt->execute();
-$result = $stmt->get_result();
+$stmt->store_result(); // Use store_result() for compatibility
 
-if ($result->num_rows === 0) {
+if ($stmt->num_rows === 0) {
     // User not found. Generic error to prevent email enumeration.
     send_json_response(['error' => 'Invalid credentials.'], 401);
     $stmt->close();
@@ -51,14 +51,19 @@ if ($result->num_rows === 0) {
     exit;
 }
 
-$user = $result->fetch_assoc();
+// Bind result variables
+$user_id = null;
+$user_email = null;
+$hashed_password = null;
+$stmt->bind_result($user_id, $user_email, $hashed_password);
+$stmt->fetch();
 
 // Verify the provided password against the stored hash.
-if (password_verify($password, $user['password'])) {
+if (password_verify($password, $hashed_password)) {
     // Update last login time
     $updateStmt = $conn->prepare("UPDATE users SET last_login_time = CURRENT_TIMESTAMP WHERE id = ?");
     if ($updateStmt) {
-        $updateStmt->bind_param("i", $user['id']);
+        $updateStmt->bind_param("i", $user_id);
         $updateStmt->execute();
         $updateStmt->close();
     } else {
