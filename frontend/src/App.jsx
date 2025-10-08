@@ -49,18 +49,27 @@ function App() {
     if (loading) {
         return <div className="loading-container"><div className="loader"></div><p>正在加载应用...</p></div>;
     }
-    if (!user) {
-      return (
-        <div className="card centered-card">
-            <h2>欢迎来到数据洞察中心</h2>
-            <p className="secondary-text">请通过导航栏的 "注册 / 登录" 按钮访问您的账户。</p>
-        </div>
-      );
-    }
+
+    // The new logic always renders the routes, but protects the private ones.
     return (
         <Routes>
+            {/* The LotteryPage is now always public */}
             <Route path="/" element={<LotteryPage />} />
-            <Route path="/emails" element={<EmailCenter />} />
+
+            {/* The EmailCenter is protected. Show it only if logged in. */}
+            <Route
+                path="/emails"
+                element={
+                    user ? (
+                        <EmailCenter />
+                    ) : (
+                        <div className="card centered-card">
+                            <h2>请先登录</h2>
+                            <p className="secondary-text">您需要登录后才能访问此页面。</p>
+                        </div>
+                    )
+                }
+            />
         </Routes>
     );
   };
