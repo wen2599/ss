@@ -61,11 +61,11 @@ function BillsPage() {
                 <h3>{bill.subject || '(无主题)'}</h3>
                 <p className="from-address">发件人: {bill.from_address}</p>
                 <p className="received-at">收到时间: {new Date(bill.received_at).toLocaleString()}</p>
-                {!bill.betting_slip_id && <span className="status-tag pending">待处理</span>}
-                {bill.betting_slip_id && bill.is_valid && <span className="status-tag valid">有效</span>}
-                {bill.betting_slip_id && !bill.is_valid && !bill.processing_error && <span className="status-tag invalid">无效</span>}
-                {bill.betting_slip_id && !bill.is_valid && bill.processing_error && <span className="status-tag error">处理失败</span>}
-
+                {bill.is_valid ? (
+                  <span className="status-tag valid">有效</span>
+                ) : (
+                  <span className="status-tag invalid">无效</span>
+                )}
               </div>
             ))
           )}
@@ -74,7 +74,7 @@ function BillsPage() {
         <div className="bill-detail">
           {selectedBill ? (
             <>
-              <h2>邮件详情与AI解析</h2>
+              <h2>账单详情与AI解析</h2>
               <div className="detail-header">
                 <h3>主题: {selectedBill.subject || '(无主题)'}</h3>
                 <p>发件人: {selectedBill.from_address}</p>
@@ -82,26 +82,13 @@ function BillsPage() {
               </div>
 
               <div className="email-content-display">
-                <div className="email-raw-display">
-                  <h3>原始邮件内容</h3>
-                  <pre>{selectedBill.raw_email_body || '(无内容)'}</pre>
-                </div>
                 <div className="email-parsed-display">
                   <h3>AI 解析结果</h3>
-                  {selectedBill.betting_slip_id ? (
-                    selectedBill.is_valid ? (
-                      <pre>{JSON.stringify(selectedBill.parsed_data, null, 2)}</pre>
-                    ) : (
-                      <div className="parsed-error">
-                        <p><strong>解析结果:</strong> 无效投注单</p>
-                        {selectedBill.processing_error && (
-                          <p><strong>错误详情:</strong> {selectedBill.processing_error}</p>
-                        )}
-                      </div>
-                    )
+                  {selectedBill.is_valid ? (
+                    <pre>{JSON.stringify(selectedBill.parsed_data, null, 2)}</pre>
                   ) : (
-                    <div className="parsed-pending">
-                      <p>等待 AI 处理...</p>
+                    <div className="parsed-error">
+                      <p><strong>解析结果:</strong> 无效账单</p>
                     </div>
                   )}
                 </div>
