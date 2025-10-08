@@ -1,66 +1,68 @@
 import { useState, useEffect } from 'react';
 import './LotteryPage.css';
 
-// --- Helper & Sub-components ---
+// --- Re-usable Sub-components ---
 
-const getBallColorClass = (color) => {
-  switch (color?.toLowerCase()) {
-    case 'red': return 'ball-red';
-    case 'blue': return 'ball-blue';
-    case 'green': return 'ball-green';
-    default: return '';
-  }
-};
+const LotteryCard = ({ title, data }) => {
+  const colorClassMap = { '🔴': 'color-red', '🟢': 'color-green', '🔵': 'color-blue' };
 
-const LotteryBanner = ({ lotteryType, data }) => {
-  return (
-    <div className="lottery-banner">
-      <div className="lottery-header">
-        <h2>{lotteryType}</h2>
-        {data ? (
-          <p className="issue">第 {data.issue} 期</p>
-        ) : (
-          <p className="issue">等待开奖</p>
-        )}
+  const renderResults = () => {
+    if (!data) {
+      return <div className="placeholder"><p>暂无最新开奖数据</p></div>;
+    }
+
+    const numbersHtml = data.numbers.map((num, i) =>
+      <div key={i} className={`number-ball ${colorClassMap[data.colors[i]] || ''}`}>{num}</div>);
+    const zodiacsHtml = data.zodiacs.map((z, i) => <div key={i} className="zodiac">{z}</div>);
+    const colorsHtml = data.colors.map((c, i) => <div key={i} className="color-emoji">{c}</div>);
+
+    return (
+      <div className="results-grid">
+        <div className="result-row">{numbersHtml}</div>
+        <div className="result-row">{zodiacsHtml}</div>
+        <div className="result-row">{colorsHtml}</div>
       </div>
-      {data ? (
-        <div className="lottery-results">
-          {data.numbers.map((number, index) => (
-            <div key={index} className={`lottery-ball ${getBallColorClass(data.colors[index])}`}>
-              <span className="ball-number">{number}</span>
-              <span className="ball-zodiac">{data.zodiacs[index]}</span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="lottery-placeholder-small">
-          <p>暂无最新开奖数据</p>
-        </div>
-      )}
+    );
+  };
+
+  return (
+    <div className="lottery-card">
+      <div className="card-header">
+        <h2 className="lottery-title">{title}</h2>
+        {data && <p className="lottery-issue">第 {data.issue} 期</p>}
+      </div>
+      {renderResults()}
     </div>
   );
 };
 
 const LotteryLoading = () => (
-    <div className="card lottery-placeholder">
-        <h3>正在从宇宙深处同步数据...</h3>
-        <p>请稍候，结果即将呈现。</p>
+  <div className="lottery-container">
+    <div className="lottery-card placeholder">
+      <h3>正在从宇宙深处同步数据...</h3>
+      <p>请稍候，结果即将呈现。</p>
     </div>
+  </div>
 );
 
 const LotteryError = ({ message }) => (
-    <div className="card lottery-placeholder">
-        <h3 style={{ color: 'var(--color-danger)' }}>数据同步失败</h3>
-        <p className="error" style={{ margin: 0 }}>错误: {message}</p>
+  <div className="lottery-container">
+    <div className="lottery-card placeholder error-message">
+      <h3>数据同步失败</h3>
+      <p>{message}</p>
     </div>
+  </div>
 );
 
 // --- Main Component ---
 
 function LotteryPage() {
-  const [allLotteryData, setAllLotteryData] = useState(null);
+  const [allLotteryData, setAllLotteryData] = useState({});
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Define the desired display order
+  const displayOrder = ['新澳门六合彩', '香港六合彩', '老澳21.30'];
 
   useEffect(() => {
     setLoading(true);
@@ -89,16 +91,10 @@ function LotteryPage() {
     return <LotteryError message={error} />;
   }
 
-  if (!allLotteryData) {
-    return <LotteryError message="未能获取到任何开奖数据。" />;
-  }
-
-  const lotteryTypes = Object.keys(allLotteryData);
-
   return (
     <div className="lottery-container">
-      {lotteryTypes.map(type => (
-        <LotteryBanner key={type} lotteryType={type} data={allLotteryData[type]} />
+      {displayOrder.map(type => (
+        <LotteryCard key={type} title={type} data={allLotteryData[type]} />
       ))}
     </div>
   );
