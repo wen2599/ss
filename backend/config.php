@@ -1,11 +1,10 @@
 <?php
 // backend/config.php
 
-// Note: Composer and Dotenv are no longer used.
-// Environment variables are loaded manually by bootstrap.php.
+// Environment variables are loaded by bootstrap.php via Dotenv.
+// This script defines constants from those environment variables.
 
 // --- Environment Variable Validation ---
-// On shared hosting, these might be set in the control panel. On a VPS, they are system-wide.
 $required_env_vars = [
     'WORKER_SECRET',
     'DB_HOST',
@@ -19,8 +18,8 @@ $required_env_vars = [
 
 $missing_vars = [];
 foreach ($required_env_vars as $var) {
-    // Use $_ENV or $_SERVER as getenv() can be unreliable in some PHP setups (FPM/CGI).
-    if (!isset($_ENV[$var]) && !isset($_SERVER[$var])) {
+    // Use getenv() which is populated by Dotenv in bootstrap.php
+    if (getenv($var) === false) {
         $missing_vars[] = $var;
     }
 }
@@ -34,18 +33,18 @@ if (!empty($missing_vars)) {
 }
 
 // --- Security ---
-define('WORKER_SECRET', $_ENV['WORKER_SECRET'] ?? $_SERVER['WORKER_SECRET']);
+define('WORKER_SECRET', getenv('WORKER_SECRET'));
 
 // --- Database Credentials ---
-define('DB_HOST', $_ENV['DB_HOST'] ?? $_SERVER['DB_HOST']);
-define('DB_USER', $_ENV['DB_USER'] ?? $_SERVER['DB_USER']);
-define('DB_PASS', $_ENV['DB_PASS'] ?? $_SERVER['DB_PASS']);
-define('DB_NAME', $_ENV['DB_NAME'] ?? $_SERVER['DB_NAME']);
+define('DB_HOST', getenv('DB_HOST'));
+define('DB_USER', getenv('DB_USER'));
+define('DB_PASS', getenv('DB_PASS'));
+define('DB_NAME', getenv('DB_NAME'));
 
 // --- Telegram Bot & Channel ---
-define('TELEGRAM_BOT_TOKEN', $_ENV['TELEGRAM_BOT_TOKEN'] ?? $_SERVER['TELEGRAM_BOT_TOKEN']);
-define('TELEGRAM_ADMIN_ID', $_ENV['TELEGRAM_ADMIN_ID'] ?? $_SERVER['TELEGRAM_ADMIN_ID']);
-define('TELEGRAM_CHANNEL_ID', $_ENV['TELEGRAM_CHANNEL_ID'] ?? $_SERVER['TELEGRAM_CHANNEL_ID']);
+define('TELEGRAM_BOT_TOKEN', getenv('TELEGRAM_BOT_TOKEN'));
+define('TELEGRAM_ADMIN_ID', getenv('TELEGRAM_ADMIN_ID'));
+define('TELEGRAM_CHANNEL_ID', getenv('TELEGRAM_CHANNEL_ID'));
 
 
 // --- File Uploads ---
