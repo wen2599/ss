@@ -12,6 +12,11 @@ ini_set('error_log', __DIR__ . '/error.log');
 $log_message = date('[Y-m-d H:i:s]') . " " . $_SERVER['REQUEST_METHOD'] . " " . $_SERVER['REQUEST_URI'] . "\n";
 file_put_contents(__DIR__ . '/request.log', $log_message, FILE_APPEND);
 
+// --- Global Session Start ---
+// Start the session at the very beginning of the request lifecycle.
+// This ensures $_SESSION is available for all endpoints.
+session_start();
+
 // Bootstrap the application by loading environment variables and configuration.
 require_once __DIR__ . '/bootstrap.php';
 

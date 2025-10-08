@@ -66,8 +66,7 @@ if (password_verify($password, $user['password'])) {
         error_log("Failed to prepare statement for updating last_login_time: " . $conn->error);
     }
 
-    // Passwords match. Start a new, clean session.
-    session_start();
+    // Passwords match. Session is already started by index.php.
     // Regenerate session ID to prevent session fixation attacks.
     session_regenerate_id(true);
 
