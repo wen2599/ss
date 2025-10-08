@@ -4,12 +4,10 @@
 // Load helper functions, including our custom environment loader
 require_once __DIR__ . '/lib/helpers.php';
 
-// Define the project root based on the current working directory, assuming the script
-// is run from the web root (e.g., public_html). The .env file is expected one level above.
+// Define the project root relative to this file's location.
+// __DIR__ is the 'backend' directory, so its parent is the project root (e.g., public_html).
 if (!defined('PROJECT_ROOT')) {
-    // getcwd() returns the directory from which the script is run.
-    // We assume this is the web root, and the project root is its parent.
-    define('PROJECT_ROOT', dirname(getcwd()));
+    define('PROJECT_ROOT', dirname(__DIR__));
 }
 
 // Load environment variables from the .env file at the resolved project root.

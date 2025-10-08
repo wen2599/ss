@@ -148,11 +148,25 @@ if (!$user_id || !$chat_id) {
     exit;
 }
 
-$configured_admin_id = defined('TELEGRAM_ADMIN_ID') ? TELEGRAM_ADMIN_ID : 'NOT DEFINED';
-if ((string)$user_id !== (string)$configured_admin_id) {
-    log_message("SECURITY: Unauthorized access attempt by user {$user_id}.");
-    send_telegram_message($chat_id, "抱歉，我只为管理员服务。您的用户ID: `{$user_id}`");
-    exit;
+$configured_admin_id = defined('TELEGRAM_ADMIN_ID') ? trim(TELEGRAM_ADMIN_ID) : null;
+
+if (!$configured_admin_id || (string)$user_id !== $configured_admin_id) {
+    $error_message = " unauthorized access by user `{$user_id}`.";
+
+    if (!$configured_admin_id) {
+        // This case is critical: the .env variable is missing entirely.
+        log_message("SECURITY: TELEGRAM_ADMIN_ID is not configured." . $error_message);
+        // We might not have a token to send a message, but we try.
+        send_telegram_message($chat_id, "🚨 **致命错误** 🚨\n机器人未配置管理员ID，无法运行。请联系开发者。");
+    } else {
+        // This case is a standard permissions issue.
+        log_message("SECURITY: Denied" . $error_message . " Expected admin ID: {$configured_admin_id}.");
+        send_telegram_message(
+            $chat_id,
+            "🔐 **访问被拒绝** 🔐\n\n抱歉，我只为授权管理员服务。\n\n您的用户 ID 是:\n`{$user_id}`\n\n请将此 ID 提供给机器人管理员进行配置。"
+        );
+    }
+    exit; // Stop execution for unauthorized users.
 }
 
 // If we reach here, the user is the authenticated admin.
