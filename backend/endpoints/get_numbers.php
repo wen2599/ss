@@ -22,21 +22,26 @@ if (!$conn) {
 $lottery_types = ['新澳门六合彩', '香港六合彩', '老澳21.30'];
 
 // This SQL query is designed to get the latest entry for EACH lottery type.
-// It works by partitioning the data by lottery_type and ranking the entries in each partition by received_at descending.
-// The outer query then picks the top-ranked entry (rn=1) for each type.
+// It uses a more compatible subquery approach instead of window functions
+// to ensure it works on older versions of MySQL/MariaDB.
 $sql = "
-    SELECT lottery_type, issue, numbers, zodiacs, colors 
-    FROM (
-        SELECT 
-            *,
-            ROW_NUMBER() OVER(PARTITION BY lottery_type ORDER BY received_at DESC) as rn
+    SELECT t1.lottery_type, t1.issue, t1.numbers, t1.zodiacs, t1.colors
+    FROM lottery_results t1
+    INNER JOIN (
+        SELECT lottery_type, MAX(received_at) as max_received_at
         FROM lottery_results
         WHERE lottery_type IN (?, ?, ?)
-    ) as ranked_results
-    WHERE rn = 1;
+        GROUP BY lottery_type
+    ) t2 ON t1.lottery_type = t2.lottery_type AND t1.received_at = t2.max_received_at;
 ";
 
 $stmt = $conn->prepare($sql);
+if (!$stmt) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Database prepare statement failed: ' . $conn->error]);
+    exit;
+}
+
 // Bind the lottery types to the placeholders
 $stmt->bind_param("sss", $lottery_types[0], $lottery_types[1], $lottery_types[2]);
 $stmt->execute();
