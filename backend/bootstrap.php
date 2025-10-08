@@ -1,45 +1,43 @@
 <?php
 // backend/bootstrap.php
 
-use Dotenv\Dotenv;
-use Illuminate\Database\Capsule\Manager as Capsule;
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/lib/env_utils.php';
 
-// Define a project root constant for consistent path resolution.
-define('PROJECT_ROOT', dirname(__DIR__));
+// Load environment variables
+load_env(__DIR__ . '/../.env');
 
-// 1. Load Composer's autoloader
-require_once PROJECT_ROOT . '/vendor/autoload.php';
+// --- Global Database Connection ---
 
-// 2. Load Environment Variables
-// Ensure Dotenv is loaded. It expects the .env file in the PROJECT_ROOT.
-if (file_exists(PROJECT_ROOT . '/.env')) {
-    $dotenv = Dotenv::createImmutable(PROJECT_ROOT);
-    $dotenv->load();
-} else {
-    // A fallback or error for when the .env file is missing.
-    // In a production environment, you might handle this differently.
-    error_log("CRITICAL: .env file not found at " . PROJECT_ROOT);
-    // We can exit here or rely on getenv() to return false for missing keys,
-    // which our application logic should handle gracefully.
+// Function to get a database connection.
+function get_db_connection() {
+    static $conn = null; // Static variable to hold the connection
+
+    if ($conn === null) {
+        // Connection details from environment variables.
+        $db_host = getenv('DB_HOST');
+        $db_user = getenv('DB_USER');
+        $db_pass = getenv('DB_PASS');
+        $db_name = getenv('DB_NAME');
+
+        // Establish the connection.
+        $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+
+        // Check for connection errors.
+        if ($conn->connect_error) {
+            error_log("Database connection failed: " . $conn->connect_error);
+            // In a real app, you might want a more graceful exit.
+            die("Database connection failed."); 
+        }
+
+        // Set character set to utf8mb4 for full Unicode support.
+        $conn->set_charset("utf8mb4");
+    }
+
+    return $conn;
 }
 
-// 3. Eloquent Database ORM Setup
-$capsule = new Capsule;
+// Establish the global connection variable for the application to use.
+$db = get_db_connection();
 
-$capsule->addConnection([
-    'driver'    => getenv('DB_CONNECTION') ?: 'mysql',
-    'host'      => getenv('DB_HOST') ?: '127.0.0.1',
-    'port'      => getenv('DB_PORT') ?: '3306',
-    'database'  => getenv('DB_DATABASE'),
-    'username'  => getenv('DB_USERNAME'),
-    'password'  => getenv('DB_PASSWORD'),
-    'charset'   => 'utf8mb4',
-    'collation' => 'utf8mb4_unicode_ci',
-    'prefix'    => '',
-]);
-
-// Make this Capsule instance available globally via static methods.
-$capsule->setAsGlobal();
-
-// Boot Eloquent.
-$capsule->boot();
+?>

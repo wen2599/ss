@@ -30,19 +30,20 @@ if (empty($password)) {
     exit;
 }
 
-$conn = get_db_connection();
-if (!$conn) {
+// Use the global $db connection from bootstrap.php
+global $db;
+if (!$db) {
     send_json_response(['error' => 'Database connection failed.'], 500);
     exit;
 }
 
 // --- Main Registration Logic with Transaction ---
 
-$conn->begin_transaction();
+$db->begin_transaction();
 
 try {
     // Step 1: Check if the email is in the allowed list (lock the row for update).
-    $stmt_allowed = $conn->prepare("SELECT id FROM allowed_emails WHERE email = ? FOR UPDATE");
+    $stmt_allowed = $db->prepare("SELECT id FROM allowed_emails WHERE email = ? FOR UPDATE");
     if (!$stmt_allowed) throw new Exception('DB prepare failed (check allowed).');
     $stmt_allowed->bind_param("s", $email);
     $stmt_allowed->execute();
@@ -52,14 +53,14 @@ try {
         // This is a specific, expected error for the frontend.
         send_json_response(['error' => '需要管理员授权的邮箱才能注册'], 403); // 403 Forbidden
         $stmt_allowed->close();
-        $conn->rollback(); // No need to proceed
-        $conn->close();
+        $db->rollback(); // No need to proceed
+        $db->close();
         exit;
     }
     $stmt_allowed->close();
 
     // Step 2: Check if the user is already registered.
-    $stmt_check = $conn->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt_check = $db->prepare("SELECT id FROM users WHERE email = ?");
     if (!$stmt_check) throw new Exception('DB prepare failed (check user).');
     $stmt_check->bind_param("s", $email);
     $stmt_check->execute();
@@ -68,14 +69,14 @@ try {
     if ($stmt_check->num_rows > 0) {
         send_json_response(['error' => 'This email is already registered.'], 409); // 409 Conflict
         $stmt_check->close();
-        $conn->rollback(); // No need to proceed
-        $conn->close();
+        $db->rollback(); // No need to proceed
+        $db->close();
         exit;
     }
     $stmt_check->close();
 
     // Step 3: Insert the new user.
-    $stmt_insert = $conn->prepare("INSERT INTO users (email, password) VALUES (?, ?)");
+    $stmt_insert = $db->prepare("INSERT INTO users (email, password) VALUES (?, ?)");
     if (!$stmt_insert) throw new Exception('DB prepare failed (insert user).');
     
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
@@ -84,23 +85,23 @@ try {
     $stmt_insert->close();
 
     // Step 4: Delete the email from the allowed list to prevent reuse.
-    $stmt_delete = $conn->prepare("DELETE FROM allowed_emails WHERE email = ?");
+    $stmt_delete = $db->prepare("DELETE FROM allowed_emails WHERE email = ?");
     if (!$stmt_delete) throw new Exception('DB prepare failed (delete allowed).');
     $stmt_delete->bind_param("s", $email);
     if (!$stmt_delete->execute()) throw new Exception('DB execute failed (delete allowed).');
     $stmt_delete->close();
 
     // If all steps succeeded, commit the transaction.
-    $conn->commit();
+    $db->commit();
 
     send_json_response(['success' => true, 'message' => 'User registered successfully.'], 201);
 
 } catch (Exception $e) {
     // If any step failed, roll back the entire transaction.
-    $conn->rollback();
+    $db->rollback();
     error_log($e->getMessage());
     send_json_response(['error' => 'An internal server error occurred during registration.'], 500);
 }
 
-$conn->close();
+$db->close();
 ?>

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute'; // 引入新组件
 import LotteryPage from './pages/LotteryPage';
 import EmailCenter from './pages/EmailCenter';
-import BillsPage from './pages/BillsPage'; // Import the new BillsPage component
+import BillsPage from './pages/BillsPage';
 import './theme.css';
 
 function App() {
@@ -40,7 +41,7 @@ function App() {
         return '开奖结果';
       case '/emails':
         return '邮件中心';
-      case '/bills': // Add title for the new bills page
+      case '/bills':
         return '账单中心';
       default:
         return '数据洞察中心';
@@ -49,58 +50,33 @@ function App() {
 
   const renderContent = () => {
     if (loading) {
-        return <div className="loading-container"><div className="loader"></div><p>正在加载应用...</p></div>;
+      return <div className="loading-container"><div className="loader"></div><p>正在加载应用...</p></div>;
     }
 
     return (
-        <Routes>
-            {/* The LotteryPage is now always public */}
-            <Route path="/" element={<LotteryPage />} />
+      <Routes>
+        <Route path="/" element={<LotteryPage />} />
 
-            {/* Protected route for EmailCenter */}
-            <Route
-                path="/emails"
-                element={
-                    user ? (
-                        <EmailCenter />
-                    ) : (
-                        <div className="card centered-card">
-                            <h2>请先登录</h2>
-                            <p className="secondary-text">您需要登录后才能访问此页面。</p>
-                        </div>
-                    )
-                }
-            />
-
-            {/* Protected route for BillsPage */}
-            <Route
-                path="/bills"
-                element={
-                    user ? (
-                        <BillsPage />
-                    ) : (
-                        <div className="card centered-card">
-                            <h2>请先登录</h2>
-                            <p className="secondary-text">您需要登录后才能访问此页面。</p>
-                        </div>
-                    )
-                }
-            />
-        </Routes>
+        {/* 使用 ProtectedRoute 简化受保护的路由 */}
+        <Route
+          path="/emails"
+          element={<ProtectedRoute user={user}><EmailCenter /></ProtectedRoute>}
+        />
+        <Route
+          path="/bills"
+          element={<ProtectedRoute user={user}><BillsPage /></ProtectedRoute>}
+        />
+      </Routes>
     );
   };
 
   return (
     <div className="App">
       <Navbar user={user} onLogin={handleLogin} onLogout={handleLogout} />
-
       <header className="App-header">
         {user && <h1>{getPageTitle()}</h1>}
       </header>
-
-      <main>
-        {renderContent()}
-      </main>
+      <main>{renderContent()}</main>
     </div>
   );
 }

@@ -1,24 +1,21 @@
 <?php
 // backend/index.php
 
-// --- Force Error Logging for Debugging ---
+// --- Basic Setup ---
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 ini_set('log_errors', 1);
 ini_set('error_log', __DIR__ . '/error.log');
 
-// --- Simple Request Logging for Debugging ---
-$log_message = date('[Y-m-d H:i:s]') . " " . $_SERVER['REQUEST_METHOD'] . " " . $_SERVER['REQUEST_URI'] . "\n";
-file_put_contents(__DIR__ . '/request.log', $log_message, FILE_APPEND);
-
-// --- Global Session Start ---
-// Start the session at the very beginning of the request lifecycle.
-// This ensures $_SESSION is available for all endpoints.
 session_start();
 
-// Bootstrap the application by loading environment variables and configuration.
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/lib/helpers.php'; // Include the new helper file
+
+// --- Logging ---
+// Use the new helper function for cleaner logging.
+log_request(__DIR__ . '/request.log');
 
 // --- CORS and Preflight Request Handling ---
 $allowed_origins = [
@@ -38,17 +35,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit(0);
 }
 
-require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/lib/helpers.php';
-
 // --- Query-Based Routing ---
-// This is the most compatible routing method, expecting URLs like:
-// /backend/index.php?endpoint=get_numbers
 $endpoint = $_GET['endpoint'] ?? 'not_found';
-
-// Sanitize the endpoint name to prevent directory traversal and invalid characters.
-$endpoint = basename($endpoint, '.php');
-$endpoint = preg_replace('/[^a-zA-Z0-9_]/', '', $endpoint);
+$endpoint = basename($endpoint, '.php'); // Sanitize
+$endpoint = preg_replace('/[^a-zA-Z0-9_]/', '', $endpoint); // Sanitize
 
 if (empty($endpoint)) {
     $endpoint = 'not_found';
