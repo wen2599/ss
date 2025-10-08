@@ -46,7 +46,10 @@ function parse_email_from_command($command_text) {
 
 // --- BRANCH 1: Process Channel Posts for Lottery Results ---
 if (isset($update['channel_post'])) {
-    log_message("Entering Branch 1: Channel Post.");
+    // --- Enhanced Debugging: Log that a channel post was received ---
+    log_message("--- CHANNEL POST RECEIVED ---");
+    log_message("Full Post Data: " . json_encode($update['channel_post'], JSON_UNESCAPED_UNICODE));
+
     $channel_id = $update['channel_post']['chat']['id'];
     $post_text = $update['channel_post']['text'] ?? '';
 
