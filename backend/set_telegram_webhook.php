@@ -10,7 +10,8 @@ require_once __DIR__ . '/lib/helpers.php';
 // 2. Define the project root based on the current working directory.
 // This assumes the script is run from the web root (e.g., public_html).
 if (!defined('PROJECT_ROOT')) {
-    define('PROJECT_ROOT', dirname(getcwd()));
+    // __DIR__ is the directory of the current script (backend), so its parent is the project root.
+    define('PROJECT_ROOT', dirname(__DIR__));
 }
 $dotenv_path = PROJECT_ROOT . '/.env';
 if (file_exists($dotenv_path)) {
