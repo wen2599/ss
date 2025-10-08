@@ -9,21 +9,26 @@
  * @param string $message The message text.
  * @return bool True on success, false on failure.
  */
-function send_telegram_message(string $bot_token, string $chat_id, string $message): bool
+function send_telegram_message(string $bot_token, string $chat_id, string $message, ?array $reply_markup = null): bool
 {
     $api_url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
 
     $data = [
         'chat_id' => $chat_id,
         'text' => $message,
-        'parse_mode' => 'Markdown', // Optional: for formatting
+        'parse_mode' => 'Markdown',
     ];
+
+    // Add the keyboard to the request body if it's provided
+    if ($reply_markup) {
+        $data['reply_markup'] = json_encode($reply_markup);
+    }
 
     $options = [
         'http' => [
-            'header' => "Content-type: application/x-www-form-urlencoded\r\n",
+            'header' => "Content-type: application/json\r\n",
             'method' => 'POST',
-            'content' => http_build_query($data),
+            'content' => json_encode($data),
             'timeout' => 10, // 10-second timeout
         ],
     ];
