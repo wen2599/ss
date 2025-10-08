@@ -1,6 +1,8 @@
 <?php
 // backend/endpoints/login.php
 
+session_start();
+
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/../lib/helpers.php';
 
@@ -76,12 +78,12 @@ if (password_verify($password, $hashed_password)) {
     session_regenerate_id(true);
 
     $_SESSION['loggedin'] = true;
-    $_SESSION['user_id'] = $user['id'];
-    $_SESSION['email'] = $user['email'];
+    $_SESSION['user_id'] = $user_id;
+    $_SESSION['email'] = $user_email;
 
     send_json_response([
         'success' => true,
-        'user' => ['email' => $user['email']]
+        'user' => ['email' => $user_email]
     ]);
 } else {
     // Passwords do not match.
