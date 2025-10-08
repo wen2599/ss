@@ -34,6 +34,51 @@ function get_db_connection() {
 }
 
 /**
+ * Retrieves a specific API key from the database.
+ *
+ * @param string $service_name The name of the service (e.g., 'gemini').
+ * @return string|null The API key or null if not found.
+ */
+function get_api_key($service_name) {
+    $conn = get_db_connection();
+    if (!$conn) return null;
+
+    $stmt = $conn->prepare("SELECT api_key FROM api_keys WHERE service_name = ?");
+    $stmt->bind_param("s", $service_name);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($row = $result->fetch_assoc()) {
+        return $row['api_key'];
+    }
+    
+    return null;
+}
+
+/**
+ * Sets or updates a specific API key in the database.
+ *
+ * @param string $service_name The name of the service (e.g., 'gemini').
+ * @param string $api_key The API key to store.
+ * @return bool True on success, false on failure.
+ */
+function set_api_key($service_name, $api_key) {
+    $conn = get_db_connection();
+    if (!$conn) return false;
+
+    // Use INSERT ... ON DUPLICATE KEY UPDATE to handle both cases
+    $stmt = $conn->prepare("
+        INSERT INTO api_keys (service_name, api_key) 
+        VALUES (?, ?) 
+        ON DUPLICATE KEY UPDATE api_key = ?
+    ");
+    $stmt->bind_param("sss", $service_name, $api_key, $api_key);
+    
+    return $stmt->execute();
+}
+
+
+/**
  * Sends a message to a Telegram chat.
  *
  * @param string|int $chat_id The ID of the chat to send the message to.
