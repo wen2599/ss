@@ -4,19 +4,21 @@
 // Load helper functions, including our custom environment loader
 require_once __DIR__ . '/lib/helpers.php';
 
-// Define the project root as two levels up from the current directory
-// This correctly points to the root where the .env file is located, outside the web directory.
+// Define the project root based on the current working directory, assuming the script
+// is run from the web root (e.g., public_html). The .env file is expected one level above.
 if (!defined('PROJECT_ROOT')) {
-    define('PROJECT_ROOT', dirname(dirname(__DIR__)));
+    // getcwd() returns the directory from which the script is run.
+    // We assume this is the web root, and the project root is its parent.
+    define('PROJECT_ROOT', dirname(getcwd()));
 }
 
-// Load environment variables from the .env file at the project root
+// Load environment variables from the .env file at the resolved project root.
 $dotenv_path = PROJECT_ROOT . '/.env';
 if (file_exists($dotenv_path)) {
     load_env($dotenv_path);
 } else {
-    // This provides a clear error if the .env file is missing.
-    die("Error: .env file not found at {$dotenv_path}. Please ensure it exists.");
+    // This provides a clear error if the .env file is missing from the expected location.
+    die("CRITICAL ERROR: .env file not found at the expected project root: {$dotenv_path}. Please ensure the file exists and that you are running this script from your web root directory (e.g., public_html).");
 }
 
 // --- Global Database Connection ---
