@@ -4,14 +4,14 @@
 /**
  * Sends a message to a specified Telegram user.
  *
- * @param string $bot_token The Telegram Bot Token.
  * @param string $chat_id The user ID to send the message to.
  * @param string $message The message text.
+ * @param array|null $reply_markup Optional keyboard markup.
  * @return bool True on success, false on failure.
  */
-function send_telegram_message(string $bot_token, string $chat_id, string $message, ?array $reply_markup = null): bool
+function send_telegram_message(string $chat_id, string $message, ?array $reply_markup = null): bool
 {
-    $api_url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
+    $api_url = "https://api.telegram.org/bot" . TELEGRAM_BOT_TOKEN . "/sendMessage";
 
     $data = [
         'chat_id' => $chat_id,
