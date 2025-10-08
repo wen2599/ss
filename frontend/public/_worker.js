@@ -24,7 +24,7 @@ export default {
       '/tg_webhook'
     ];
 
-    const isApiRequest = apiRoutes.some(route => url.pathname.startsWith(route));
+    const isApiRequest = url.pathname.startsWith('/api/') || apiRoutes.some(route => url.pathname.startsWith(route));
 
     if (isApiRequest) {
       const backendServer = "https://wenge.cloudns.ch";
