@@ -1,7 +1,12 @@
 <?php
 // backend/setup_database.php
 
-require_once __DIR__ . '/bootstrap.php';
+// Ensure we can find bootstrap.php, assuming this script might be run from the project root.
+$bootstrap_path = __DIR__ . '/bootstrap.php';
+if (!file_exists($bootstrap_path)) {
+    $bootstrap_path = __DIR__ . '/backend/bootstrap.php';
+}
+require_once $bootstrap_path;
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 
