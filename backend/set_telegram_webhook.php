@@ -8,8 +8,9 @@
 require_once __DIR__ . '/lib/helpers.php';
 
 // 2. Define the project root and load the .env file.
+// The project root is two levels up from the current directory (`backend/`).
 if (!defined('PROJECT_ROOT')) {
-    define('PROJECT_ROOT', dirname(__DIR__));
+    define('PROJECT_ROOT', dirname(dirname(__DIR__)));
 }
 $dotenv_path = PROJECT_ROOT . '/.env';
 if (file_exists($dotenv_path)) {
