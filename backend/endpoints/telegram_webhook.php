@@ -1,5 +1,5 @@
 <?php
-// backend/endpoints/tg_webhook.php
+// backend/endpoints/telegram_webhook.php
 
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/../config.php';
