@@ -22,23 +22,21 @@ if (!$conn) {
     exit;
 }
 
+// The database schema has been updated. The new 'bills' table consolidates
+// information previously stored in 'emails' and 'betting_slips'. This query
+// now targets the 'bills' table and adapts its structure for the frontend.
 $sql = "
     SELECT 
-        e.id as email_id,
-        e.subject,
-        e.from_address,
-        e.received_at,
-        e.body_text AS raw_email_body,
-        bs.id as betting_slip_id,
-        bs.parsed_data,
-        bs.is_valid,
-        bs.processing_error
+        id,
+        bill_id,
+        sender,
+        total_amount,
+        details,
+        received_at
     FROM 
-        emails e
-    LEFT JOIN 
-        betting_slips bs ON e.id = bs.email_id
+        bills
     ORDER BY 
-        e.received_at DESC;
+        received_at DESC;
 ";
 
 $result = $conn->query($sql);
@@ -46,16 +44,20 @@ $result = $conn->query($sql);
 $bills = [];
 if ($result) {
     while ($row = $result->fetch_assoc()) {
+        // Adapt the data from the 'bills' table to the structure expected by BillsPage.jsx
         $bills[] = [
-            'email_id' => $row['email_id'],
-            'subject' => $row['subject'],
-            'from_address' => $row['from_address'],
+            // Mapping new columns to the old structure
+            'email_id' => $row['id'], // Use the primary key of the bills table
+            'subject' => "Bill from {$row['sender']} - {$row['bill_id']}", // Generate a descriptive subject
+            'from_address' => $row['sender'],
             'received_at' => $row['received_at'],
-            'raw_email_body' => $row['raw_email_body'],
-            'betting_slip_id' => $row['betting_slip_id'],
-            'parsed_data' => json_decode($row['parsed_data'], true), // Decode JSON string to PHP array
-            'is_valid' => (bool)$row['is_valid'],
-            'processing_error' => $row['processing_error']
+            'raw_email_body' => 'Raw email body is not stored in the new schema.', // Placeholder for removed field
+
+            // Betting slip related data
+            'betting_slip_id' => $row['bill_id'], // Use the unique bill_id
+            'parsed_data' => json_decode($row['details'], true), // 'details' now holds the parsed data
+            'is_valid' => isset($row['total_amount']) && $row['total_amount'] > 0, // Determine validity based on total_amount
+            'processing_error' => null // 'processing_error' field is no longer tracked in this schema
         ];
     }
 }
