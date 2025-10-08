@@ -1,74 +1,45 @@
 <?php
 // backend/bootstrap.php
 
+use Dotenv\Dotenv;
+use Illuminate\Database\Capsule\Manager as Capsule;
+
 // Define a project root constant for consistent path resolution.
 define('PROJECT_ROOT', dirname(__DIR__));
 
-/**
- * Loads environment variables from a .env file into the application.
- *
- * This function reads a .env file, parses its contents, and loads the
- * variables into PHP's environment using putenv(), $_ENV, and $_SERVER.
- * It will not overwrite existing environment variables.
- *
- * @param string $path The path to the .env file.
- */
-function load_env($path) {
-    // --- DEBUGGING: Log the path being checked ---
-    $log_file = __DIR__ . '/debug.log';
+// 1. Load Composer's autoloader
+require_once PROJECT_ROOT . '/vendor/autoload.php';
 
-    if (!is_readable($path)) {
-        file_put_contents($log_file, "[DEBUG] .env file not found or not readable at: {$path}\n", FILE_APPEND);
-        return;
-    } else {
-        file_put_contents($log_file, "[DEBUG] Found .env file at: {$path}. Reading...\n", FILE_APPEND);
-    }
-
-    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    if ($lines === false) {
-        file_put_contents($log_file, "[DEBUG] Failed to read lines from .env file.\n", FILE_APPEND);
-        return;
-    }
-
-    foreach ($lines as $line) {
-        // Skip comments
-        if (strpos(trim($line), '#') === 0) {
-            continue;
-        }
-
-        list($name, $value) = explode('=', $line, 2);
-        $name = trim($name);
-        $value = trim($value);
-
-        // Do not overwrite existing environment variables.
-        if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
-            putenv(sprintf('%s=%s', $name, $value));
-            $_ENV[$name] = $value;
-            $_SERVER[$name] = $value;
-        }
-    }
-
-    // --- DEBUGGING: Log all found variables ---
-    $found_vars = [];
-    foreach ($_ENV as $key => $val) {
-        if (strpos($key, 'DB_') === 0 || strpos($key, 'TELEGRAM_') === 0 || strpos($key, 'WORKER_') === 0) {
-            $found_vars[] = "{$key} = '{$val}'";
-        }
-    }
-    file_put_contents($log_file, "[DEBUG] Environment variables after parsing: " . implode(', ', $found_vars) . "\n", FILE_APPEND);
+// 2. Load Environment Variables
+// Ensure Dotenv is loaded. It expects the .env file in the PROJECT_ROOT.
+if (file_exists(PROJECT_ROOT . '/.env')) {
+    $dotenv = Dotenv::createImmutable(PROJECT_ROOT);
+    $dotenv->load();
+} else {
+    // A fallback or error for when the .env file is missing.
+    // In a production environment, you might handle this differently.
+    error_log("CRITICAL: .env file not found at " . PROJECT_ROOT);
+    // We can exit here or rely on getenv() to return false for missing keys,
+    // which our application logic should handle gracefully.
 }
 
-// Load the .env file from the backend directory.
-load_env(__DIR__ . '/.env');
+// 3. Eloquent Database ORM Setup
+$capsule = new Capsule;
 
-// Composer is no longer used. All dependencies are handled manually.
+$capsule->addConnection([
+    'driver'    => getenv('DB_CONNECTION') ?: 'mysql',
+    'host'      => getenv('DB_HOST') ?: '127.0.0.1',
+    'port'      => getenv('DB_PORT') ?: '3306',
+    'database'  => getenv('DB_DATABASE'),
+    'username'  => getenv('DB_USERNAME'),
+    'password'  => getenv('DB_PASSWORD'),
+    'charset'   => 'utf8mb4',
+    'collation' => 'utf8mb4_unicode_ci',
+    'prefix'    => '',
+]);
 
-// Include application-specific configuration.
-// This file contains database credentials, API keys, etc.
-require_once __DIR__ . '/config.php';
+// Make this Capsule instance available globally via static methods.
+$capsule->setAsGlobal();
 
-// Include helper functions.
-// This file contains utility functions like get_db_connection().
-require_once __DIR__ . '/lib/helpers.php';
-
-?>
+// Boot Eloquent.
+$capsule->boot();
