@@ -3,25 +3,19 @@
 
 if (!function_exists('load_env')) {
     /**
-     * Loads environment variables from a .env file into getenv(), $_ENV, and $_SERVER.
-     *
-     * This function is a lightweight, dependency-free alternative to packages like vlucas/phpdotenv.
-     * It reads a .env file, parses the key-value pairs, and makes them available
-     * through PHP's standard environment variable functions.
+     * Loads environment variables from a .env file.
      *
      * @param string $path The full path to the .env file.
      */
     function load_env(string $path): void
     {
         if (!is_readable($path)) {
-            // Log or handle the error appropriately. For now, we just return.
             error_log("Env file not found or is not readable at {$path}");
             return;
         }
 
         $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
-            // Skip comments
             if (strpos(trim($line), '#') === 0) {
                 continue;
             }
@@ -30,12 +24,12 @@ if (!function_exists('load_env')) {
             $key = trim($key);
             $value = trim($value);
 
-            // Remove surrounding quotes from the value
-            if (preg_match('/^(["'])(.*)\1$/', $value, $matches)) {
+            // Remove surrounding quotes from the value (e.g., "value" -> value)
+            if (preg_match('/^(["\'])(.*)\1$/', $value, $matches)) {
                 $value = $matches[2];
             }
 
-            // Set the environment variable for the current script
+            // Set the environment variable
             if (!array_key_exists($key, $_SERVER) && !array_key_exists($key, $_ENV)) {
                 putenv("{$key}={$value}");
                 $_ENV[$key] = $value;
@@ -45,15 +39,15 @@ if (!function_exists('load_env')) {
     }
 }
 
-
 if (!function_exists('send_json_response')) {
     /**
-     * Sends a JSON response with a specific HTTP status code.
+     * Sends a JSON response and exits the script.
      *
      * @param mixed $data The data to encode as JSON.
-     * @param int $status_code The HTTP status code to send.
+     * @param int $status_code The HTTP status code.
      */
-    function send_json_response($data, $status_code = 200) {
+    function send_json_response($data, int $status_code = 200): void
+    {
         http_response_code($status_code);
         header('Content-Type: application/json');
         echo json_encode($data);
@@ -67,7 +61,8 @@ if (!function_exists('log_request')) {
      *
      * @param string $log_file The path to the log file.
      */
-    function log_request($log_file) {
+    function log_request(string $log_file): void
+    {
         $log_message = date('[Y-m-d H:i:s]') . " " . $_SERVER['REQUEST_METHOD'] . " " . $_SERVER['REQUEST_URI'] . "\n";
         file_put_contents($log_file, $log_message, FILE_APPEND);
     }
