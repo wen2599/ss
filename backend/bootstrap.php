@@ -4,13 +4,20 @@
 // Load helper functions, including our custom environment loader
 require_once __DIR__ . '/lib/helpers.php';
 
-// Define the project root as the parent directory of 'backend'
+// Define the project root as two levels up from the current directory
+// This correctly points to the root where the .env file is located, outside the web directory.
 if (!defined('PROJECT_ROOT')) {
-    define('PROJECT_ROOT', dirname(__DIR__));
+    define('PROJECT_ROOT', dirname(dirname(__DIR__)));
 }
 
 // Load environment variables from the .env file at the project root
-load_env(PROJECT_ROOT . '/.env');
+$dotenv_path = PROJECT_ROOT . '/.env';
+if (file_exists($dotenv_path)) {
+    load_env($dotenv_path);
+} else {
+    // This provides a clear error if the .env file is missing.
+    die("Error: .env file not found at {$dotenv_path}. Please ensure it exists.");
+}
 
 // --- Global Database Connection ---
 
