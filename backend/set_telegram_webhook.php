@@ -1,34 +1,38 @@
 <?php
 // backend/set_telegram_webhook.php
-// A simple script to programmatically set the Telegram webhook.
+// A standalone script to programmatically set the Telegram webhook.
+// This script is intentionally isolated from the main bootstrap to avoid database connections.
 // Run this from the command line: php backend/set_telegram_webhook.php
 
-require_once __DIR__ . '/bootstrap.php';
+// 1. Load only the necessary helper for environment variables.
+require_once __DIR__ . '/lib/helpers.php';
 
-// --- Configuration ---
-// Ensure the bot token is loaded from the environment.
+// 2. Load environment variables from the .env file in the project root.
+$dotenv_path = __DIR__ . '/../.env';
+if (file_exists($dotenv_path)) {
+    load_env($dotenv_path);
+} else {
+    echo "Error: .env file not found at {$dotenv_path}. Please ensure it exists.\n";
+    exit(1);
+}
+
+// 3. Get the bot token from the environment.
 $bot_token = getenv('TELEGRAM_BOT_TOKEN');
-if (!$bot_token) {
+if (empty($bot_token)) {
     echo "Error: TELEGRAM_BOT_TOKEN is not set in your .env file.\n";
     exit(1);
 }
 
-// The production URL of the backend router. This should not be changed.
+// 4. Define the webhook URL.
 $backend_url = 'https://wenge.cloudns.ch/index.php';
-
-// The endpoint for the webhook, which must match a valid case in the worker.
 $webhook_endpoint = 'telegram_webhook';
-
-// --- Main Logic ---
-// Construct the full, correct webhook URL. It MUST point to the index.php router.
 $webhook_url = "{$backend_url}?endpoint={$webhook_endpoint}";
 
-// The Telegram API URL for setting the webhook.
+// 5. Make the API call to Telegram.
 $api_url = "https://api.telegram.org/bot{$bot_token}/setWebhook?url=" . urlencode($webhook_url);
 
 echo "Attempting to set webhook to:\n{$webhook_url}\n\n";
 
-// Use cURL to send the request to the Telegram API.
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $api_url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -38,7 +42,7 @@ $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $curl_error = curl_error($ch);
 curl_close($ch);
 
-// --- Output ---
+// 6. Report the result.
 if ($curl_error) {
     echo "cURL Error: {$curl_error}\n";
     exit(1);
@@ -58,8 +62,7 @@ if (json_last_error() === JSON_ERROR_NONE) {
 echo "\n";
 
 if ($response_data['ok'] ?? false) {
-    echo "\nWebhook set successfully!\n";
-    echo "Your bot should now be responsive.\n";
+    echo "\nWebhook set successfully! Your bot should now be responsive.\n";
 } else {
     echo "\nWebhook setup failed. Please check the response above for details.\n";
 }
