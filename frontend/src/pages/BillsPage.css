@@ -1,29 +1,147 @@
 .bills-page {
   padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: var(--color-text);
 }
 
-.bill-content {
+.bills-content-container {
   display: flex;
   gap: 2rem;
+  margin-top: 1.5rem;
+  height: calc(100vh - 200px); /* Adjust height based on header/navbar */
 }
 
-.email-raw,
-.email-parsed {
-  flex: 1;
-  background-color: #f5f5f5;
+.bills-list {
+  flex: 0 0 300px; /* Fixed width for the list */
+  border-right: 1px solid var(--color-border);
+  padding-right: 2rem;
+  overflow-y: auto; /* Make list scrollable */
+}
+
+.bill-list-item {
+  background-color: var(--color-background-card);
   padding: 1rem;
   border-radius: 8px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-h2 {
-  border-bottom: 2px solid #ddd;
-  padding-bottom: 0.5rem;
   margin-bottom: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border: 1px solid transparent;
 }
 
-pre {
-  font-family: monospace;
-  font-size: 0.9rem;
+.bill-list-item:hover {
+  background-color: var(--color-background-hover);
+}
+
+.bill-list-item.selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+.bill-list-item h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: var(--color-heading);
+  font-size: 1.1rem;
+}
+
+.bill-list-item p {
+  margin: 0.2rem 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 0.2em 0.6em;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: white;
+  margin-top: 0.5rem;
+}
+
+.status-tag.pending {
+  background-color: #ffc107; /* Amber */
+}
+
+.status-tag.valid {
+  background-color: #28a745; /* Green */
+}
+
+.status-tag.invalid {
+  background-color: #dc3545; /* Red */
+}
+
+.status-tag.error {
+  background-color: #6c757d; /* Grey for processing errors */
+}
+
+.bill-detail {
+  flex: 1; /* Takes remaining space */
+  background-color: var(--color-background-card);
+  padding: 1.5rem;
+  border-radius: 8px;
+  overflow-y: auto; /* Make detail scrollable */
+}
+
+.detail-header h3 {
+  margin-top: 0;
+  color: var(--color-heading);
+}
+
+.detail-header p {
+  margin: 0.5rem 0;
+  color: var(--color-text-secondary);
+}
+
+.email-content-display {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.email-raw-display,
+.email-parsed-display {
+  flex: 1;
+  background-color: var(--color-background-code);
+  padding: 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 60vh; /* Limit height for scrollability */
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+}
+
+.email-raw-display h3,
+.email-parsed-display h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--color-heading);
+}
+
+.email-parsed-display pre {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+}
+
+.parsed-error,
+.parsed-pending {
+  padding: 1rem;
+  border-radius: 6px;
+  background-color: var(--color-background-code);
+  color: var(--color-text-secondary);
+  border: 1px dashed var(--color-border);
+}
+
+.parsed-error strong {
+  color: var(--color-danger);
+}
+
+.error-message {
+  color: var(--color-danger);
+  font-weight: bold;
 }

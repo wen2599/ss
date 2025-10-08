@@ -40,9 +40,11 @@ CREATE TABLE IF NOT EXISTS `emails` (
 CREATE TABLE IF NOT EXISTS `betting_slips` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `email_id` INT NOT NULL,
-    `raw_text` VARCHAR(1000) NOT NULL,
+    `raw_text` TEXT NOT NULL,
     `parsed_data` JSON,
     `is_valid` BOOLEAN NOT NULL DEFAULT FALSE,
+    `processing_error` TEXT,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`email_id`) REFERENCES `emails`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
