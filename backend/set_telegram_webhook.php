@@ -7,16 +7,16 @@
 // 1. Load only the necessary helper for environment variables.
 require_once __DIR__ . '/lib/helpers.php';
 
-// 2. Define the project root and load the .env file.
-// The project root is two levels up from the current directory (`backend/`).
+// 2. Define the project root based on the current working directory.
+// This assumes the script is run from the web root (e.g., public_html).
 if (!defined('PROJECT_ROOT')) {
-    define('PROJECT_ROOT', dirname(dirname(__DIR__)));
+    define('PROJECT_ROOT', dirname(getcwd()));
 }
 $dotenv_path = PROJECT_ROOT . '/.env';
 if (file_exists($dotenv_path)) {
     load_env($dotenv_path);
 } else {
-    echo "Error: .env file not found at {$dotenv_path}. Please ensure it exists.\n";
+    echo "CRITICAL ERROR: .env file not found at {$dotenv_path}. Please ensure you are running this script from your web root directory (e.g., public_html).\n";
     exit(1);
 }
 
