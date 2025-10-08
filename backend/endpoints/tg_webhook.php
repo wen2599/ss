@@ -144,7 +144,7 @@ if (!$user_id || !$chat_id) {
 $configured_admin_id = defined('TELEGRAM_ADMIN_ID') ? TELEGRAM_ADMIN_ID : 'NOT DEFINED';
 if ((string)$user_id !== (string)$configured_admin_id) {
     log_message("SECURITY: Unauthorized access attempt by user {$user_id}.");
-    send_telegram_message(TELEGRAM_BOT_TOKEN, $chat_id, "抱歉，我只为管理员服务。您的用户ID: `{$user_id}`");
+    send_telegram_message($chat_id, "抱歉，我只为管理员服务。您的用户ID: `{$user_id}`");
     exit;
 }
 
@@ -175,17 +175,17 @@ if (isset($update['callback_query'])) {
 
     switch ($callback_data) {
         case 'user_management':
-            send_telegram_message(TELEGRAM_BOT_TOKEN, $chat_id, "请选择一个用户管理操作:", $user_management_inline_keyboard);
+            send_telegram_message($chat_id, "请选择一个用户管理操作:", $user_management_inline_keyboard);
             break;
         case 'push_message':
-            send_telegram_message(TELEGRAM_BOT_TOKEN, $chat_id, "▶️ *如何推送消息*\n\n请使用 `/push 您想发送的消息内容`。");
+            send_telegram_message($chat_id, "▶️ *如何推送消息*\n\n请使用 `/push 您想发送的消息内容`。");
             break;
         case 'set_api_keys':
-            send_telegram_message(TELEGRAM_BOT_TOKEN, $chat_id, "请选择要操作的 API 密钥:", $api_keys_inline_keyboard);
+            send_telegram_message($chat_id, "请选择要操作的 API 密钥:", $api_keys_inline_keyboard);
             break;
         case 'set_gemini_key_prompt':
             set_user_state($user_id, 'waiting_for_gemini_key');
-            send_telegram_message(TELEGRAM_BOT_TOKEN, $chat_id, "请输入您的 Gemini API 密钥:");
+            send_telegram_message($chat_id, "请输入您的 Gemini API 密钥:");
             break;
         // ... other cases like list_users, add_email_prompt etc. remain unchanged
         default:
@@ -203,9 +203,9 @@ if (isset($update['message'])) {
     $user_state = get_user_state($user_id);
     if ($user_state === 'waiting_for_gemini_key') {
         if (set_api_key('gemini', $text)) {
-            send_telegram_message(TELEGRAM_BOT_TOKEN, $chat_id, "✅ *成功*\nGemini API 密钥已更新。");
+            send_telegram_message($chat_id, "✅ *成功*\nGemini API 密钥已更新。");
         } else {
-            send_telegram_message(TELEGRAM_BOT_TOKEN, $chat_id, "🚨 *数据库错误*\n无法保存 Gemini API 密钥。");
+            send_telegram_message($chat_id, "🚨 *数据库错误*\n无法保存 Gemini API 密钥。");
         }
         set_user_state($user_id, null); // Clear state
         exit;
