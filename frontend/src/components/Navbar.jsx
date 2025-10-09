@@ -1,14 +1,42 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { NavLink } from 'react-router-dom'; // Using NavLink for active link styling
 import './Navbar.css';
 
 const Navbar = () => {
   return (
     <nav className="navbar">
-      <Link to="/">Home</Link>
-      <Link to="/bills">Bills</Link>
-      <Link to="/login">Login</Link>
-      <Link to="/register">Register</Link>
+      <div className="navbar-container">
+        <NavLink to="/" className="navbar-logo">
+          开奖结果
+        </NavLink>
+        <ul className="nav-menu">
+          <li className="nav-item">
+            <NavLink to="/" className={({ isActive }) => "nav-links" + (isActive ? " active" : "")}>
+              首页
+            </NavLink>
+          </li>
+          <li className="nav-item">
+            <NavLink to="/history" className={({ isActive }) => "nav-links" + (isActive ? " active" : "")}>
+              历史记录
+            </NavLink>
+          </li>
+          <li className="nav-item">
+            <NavLink to="/bills" className={({ isActive }) => "nav-links" + (isActive ? " active" : "")}>
+              账单
+            </NavLink>
+          </li>
+          <li className="nav-item">
+            <NavLink to="/login" className={({ isActive }) => "nav-links" + (isActive ? " active" : "")}>
+              登录
+            </NavLink>
+          </li>
+          <li className="nav-item">
+            <NavLink to="/register" className="nav-links-mobile">
+              注册
+            </NavLink>
+          </li>
+        </ul>
+      </div>
     </nav>
   );
 };

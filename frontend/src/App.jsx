@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import BillsPage from './pages/BillsPage.jsx';
 import BillDetailsPage from './pages/BillDetailsPage.jsx';
+import HistoryPage from './pages/HistoryPage.jsx'; // Import the new HistoryPage component
 import './App.css';
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
       <Navbar />
       <Routes>
         <Route path="/" element={<LotteryPage />} />
+        <Route path="/history" element={<HistoryPage />} /> {/* Add the new history route */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/bills" element={<BillsPage />} />
