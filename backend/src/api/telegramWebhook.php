@@ -1,9 +1,7 @@
 <?php
 
-// API handler for incoming Telegram Bot Webhooks, now writing to the database.
-
-require_once __DIR__ . '/../core/Response.php';
-require_once __DIR__ . '/../core/Database.php'; // Use the new database connection utility
+// API handler for incoming Telegram Bot Webhooks, writing to the database.
+// Core dependencies are now loaded by the main index.php router.
 
 // --- Configuration & Security ---
 $secretToken = TELEGRAM_WEBHOOK_SECRET;
