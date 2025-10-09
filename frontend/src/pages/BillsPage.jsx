@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import './BillsPage.css'; // We will create this file
+import './BillsPage.css';
 
 const BillsPage = () => {
     const [emails, setEmails] = useState([]);
@@ -34,7 +34,9 @@ const BillsPage = () => {
                         <div className="email-item">
                             <div className="email-subject">{email.subject}</div>
                             <div className="email-from">From: {email.from}</div>
-                            <div className="email-date">{new Date(email.created_at).toLocaleString()}</div>
+                            <div className="email-date">
+                                {new Date(email.created_at || email.received_at).toLocaleString()}
+                            </div>
                         </div>
                     </Link>
                 ))}
