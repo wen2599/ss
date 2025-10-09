@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import './BillDetailsPage.css'; // We will create this file
+import './BillDetailsPage.css';
 
 const BillDetailsPage = () => {
     const [email, setEmail] = useState(null);
@@ -36,10 +36,9 @@ const BillDetailsPage = () => {
             <div className="bill-meta">
                 <span>From: {email.from}</span>
                 <span>To: {email.to}</span>
-                <span>Date: {new Date(email.created_at).toLocaleString()}</span>
+                <span>Date: {new Date(email.created_at || email.received_at).toLocaleString()}</span>
             </div>
             <div className="bill-body">
-                {/* Render the HTML content of the email */}
                 <div dangerouslySetInnerHTML={{ __html: email.html_content }} />
             </div>
         </div>
