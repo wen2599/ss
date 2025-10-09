@@ -1,5 +1,5 @@
 <?php
-// config.php
+// backend/config.php
 
 // Database configuration
 define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
@@ -11,9 +11,4 @@ define('DB_PASS', getenv('DB_PASS') ?: '');
 define('TELEGRAM_BOT_TOKEN', getenv('TELEGRAM_BOT_TOKEN') ?: '');
 define('TELEGRAM_ADMIN_ID', getenv('TELEGRAM_ADMIN_ID') ?: '');
 
-// Function to send a JSON response
-function send_json_response($data) {
-    header('Content-Type: application/json');
-    echo json_encode($data);
-    exit;
-}
+?>

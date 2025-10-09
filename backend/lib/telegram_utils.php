@@ -1,6 +1,14 @@
 <?php
-// telegram_utils.php
+// backend/lib/telegram_utils.php
 
+/**
+ * Sends a message to a specified Telegram chat.
+ *
+ * @param int|string $chat_id The ID of the chat to send the message to.
+ * @param string $text The message text.
+ * @param array|null $reply_markup Optional. An array representing a custom keyboard.
+ * @return string|false The response from the Telegram API, or false on failure.
+ */
 function send_telegram_message($chat_id, $text, $reply_markup = null) {
     $url = 'https://api.telegram.org/bot' . TELEGRAM_BOT_TOKEN . '/sendMessage';
     $post_fields = [
@@ -23,4 +31,5 @@ function send_telegram_message($chat_id, $text, $reply_markup = null) {
 
     return $response;
 }
+
 ?>
