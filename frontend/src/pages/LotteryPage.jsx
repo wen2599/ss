@@ -3,42 +3,39 @@ import './LotteryPage.css';
 
 const LotteryPage = () => {
   const [lotteryData, setLotteryData] = useState({
-    winning_numbers: '加载中...', // Use winning_numbers, provide user-friendly loading text
-    created_at: 'N/A',
+    lottery_number: 'Loading...',
+    received_at_utc: 'N/A',
   });
   const [error, setError] = useState(null);
 
   const fetchData = () => {
-    setError(null);
-    fetch('/api/getLotteryNumber') // This path is proxied by the worker
+    setError(null); // Clear previous errors
+    fetch('/api/getLotteryNumber')
       .then(async (response) => {
         if (!response.ok) {
+          // Handle cases where the file doesn't exist yet (404) or other errors
           const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred.' }));
-          // The default error response from the API also uses winning_numbers
-          throw new Error(errorData.winning_numbers || `HTTP error! Status: ${response.status}`);
+          throw new Error(errorData.lottery_number || `HTTP error! Status: ${response.status}`);
         }
         return response.json();
       })
       .then((data) => {
-        // Check for the expected property to ensure data is valid
-        if (data && data.winning_numbers) {
-            setLotteryData(data);
-        } else {
-            // This can happen if the API returns valid JSON but not the expected structure
-            throw new Error('Invalid data format received from server.');
-        }
+        setLotteryData(data);
       })
       .catch((error) => {
         console.error('Error fetching lottery data:', error);
         setError(error.message);
-        // Set a user-friendly error state
-        setLotteryData({ winning_numbers: '获取失败', created_at: '-' });
+        setLotteryData({ lottery_number: 'Error', received_at_utc: '-' });
       });
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(); // Fetch immediately on component mount
+
+    // Set up an interval to fetch data every 15 seconds
     const intervalId = setInterval(fetchData, 15000);
+
+    // Clear the interval when the component unmounts
     return () => clearInterval(intervalId);
   }, []);
 
@@ -56,10 +53,8 @@ const LotteryPage = () => {
           </div>
         ) : (
           <div className="card lottery-card">
-            {/* Render the correct property from state */}
-            <p className="lottery-number">{lotteryData.winning_numbers}</p>
-            {/* Render the correct timestamp property */}
-            <p className="timestamp">最后更新: {lotteryData.created_at}</p>
+            <p className="lottery-number">{lotteryData.lottery_number}</p>
+            <p className="timestamp">最后更新: {lotteryData.received_at_utc}</p>
           </div>
         )}
       </main>
