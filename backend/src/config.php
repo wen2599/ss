@@ -5,17 +5,20 @@
 require_once __DIR__ . '/core/DotEnv.php';
 
 // --- Load Environment Variables ---
-// Load .env file from the project root directory
+// This is the corrected path to find the .env file in the project root.
 $env = [];
-// Load .env file from the project root (one level above the 'backend' directory)
 $dotenvPath = dirname(__DIR__, 2) . '/.env';
+
 if (file_exists($dotenvPath)) {
     // Use the getVariables method to robustly load credentials
     $dotenv = new DotEnv($dotenvPath);
     $env = $dotenv->getVariables();
 } else {
     // Fallback or error if .env is missing.
-    error_log("CRITICAL: .env file not found at {$dotenvPath}. The application will not function correctly.");
+    // This will now correctly report if the file is not found at the root.
+    error_log("CRITICAL: .env file not found at the project root: {$dotenvPath}.");
+    // We should exit here to prevent further errors
+    // For now, we let it continue so constants are defined, even if empty.
 }
 
 // --- Error Reporting ---
@@ -29,7 +32,7 @@ error_reporting(E_ALL);
 define('DB_HOST', $env['DB_HOST'] ?? '127.0.0.1');
 define('DB_PORT', $env['DB_PORT'] ?? '3306');
 define('DB_DATABASE', $env['DB_DATABASE'] ?? '');
-define('DB_USER', $env['DB_USER'] ?? ''); // Corrected from DB_USERNAME
+define('DB_USER', $env['DB_USER'] ?? '');
 define('DB_PASSWORD', $env['DB_PASSWORD'] ?? '');
 
 // --- Telegram Configuration ---
