@@ -7,8 +7,8 @@ require_once __DIR__ . '/core/DotEnv.php';
 // --- Load Environment Variables ---
 // Load .env file from the project root directory
 $env = [];
-// Load .env file from the root of the 'backend' directory
-$dotenvPath = __DIR__ . '/../.env';
+// Load .env file from the project root (one level above the 'backend' directory)
+$dotenvPath = dirname(__DIR__, 2) . '/.env';
 if (file_exists($dotenvPath)) {
     // Use the getVariables method to robustly load credentials
     $dotenv = new DotEnv($dotenvPath);
