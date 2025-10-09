@@ -1,5 +1,10 @@
 <?php
 
+// Test script to check if PHP execution is working.
+echo "Test successful: index.php is running.";
+
+// The original code is temporarily disabled for diagnostics.
+/*
 // Simplified Front Controller
 
 // 1. Load Core Libraries & Config
@@ -26,3 +31,4 @@ if ($endpoint) {
 } else {
     Response::json(['error' => 'No API endpoint specified'], 400);
 }
+*/
