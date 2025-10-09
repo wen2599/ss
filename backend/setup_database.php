@@ -5,10 +5,10 @@ require_once __DIR__ . '/src/core/DotEnv.php';
 (new DotEnv(__DIR__ . '/.env'))->load();
 
 // Database credentials from environment variables
-$servername = $_ENV['DB_HOST'] ?? null;
-$username = $_ENV['DB_USERNAME'] ?? null;
-$password = $_ENV['DB_PASSWORD'] ?? null;
-$dbname = $_ENV['DB_DATABASE'] ?? null;
+$servername = getenv('DB_HOST');
+$username = getenv('DB_USERNAME');
+$password = getenv('DB_PASSWORD');
+$dbname = getenv('DB_DATABASE');
 
 // Create connection
 $conn = new mysqli($servername, $username, $password, $dbname);
