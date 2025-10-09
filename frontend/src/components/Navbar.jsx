@@ -16,11 +16,6 @@ const Navbar = () => {
             </NavLink>
           </li>
           <li className="nav-item">
-            <NavLink to="/history" className={({ isActive }) => "nav-links" + (isActive ? " active" : "")}>
-              历史记录
-            </NavLink>
-          </li>
-          <li className="nav-item">
             <NavLink to="/bills" className={({ isActive }) => "nav-links" + (isActive ? " active" : "")}>
               账单
             </NavLink>
