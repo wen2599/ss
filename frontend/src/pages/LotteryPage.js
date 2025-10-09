@@ -1,26 +1,68 @@
 import React, { useState, useEffect } from 'react';
-import './LotteryPage.css'; // We will create this file
+import './LotteryPage.css';
 
 const LotteryPage = () => {
-    const [lotteryNumber, setLotteryNumber] = useState('Loading...');
+  const [lotteryData, setLotteryData] = useState({
+    lottery_number: 'Loading...',
+    received_at_utc: 'N/A',
+  });
+  const [error, setError] = useState(null);
 
-    useEffect(() => {
-        fetch('/api/get_numbers')
-            .then(response => response.json())
-            .then(data => {
-                if (data.lottery_number) {
-                    setLotteryNumber(data.lottery_number);
-                }
-            })
-            .catch(error => console.error('Error fetching lottery number:', error));
-    }, []);
+  const fetchData = () => {
+    setError(null); // Clear previous errors
+    fetch('/api/getLotteryNumber')
+      .then(async (response) => {
+        if (!response.ok) {
+          // Handle cases where the file doesn't exist yet (404) or other errors
+          const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred.' }));
+          throw new Error(errorData.lottery_number || `HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        setLotteryData(data);
+      })
+      .catch((error) => {
+        console.error('Error fetching lottery data:', error);
+        setError(error.message);
+        setLotteryData({ lottery_number: 'Error', received_at_utc: '-' });
+      });
+  };
 
-    return (
-        <div className="lottery-container">
-            <h1 className="lottery-title">最新开奖号码</h1>
-            <p className="lottery-number">{lotteryNumber}</p>
-        </div>
-    );
+  useEffect(() => {
+    fetchData(); // Fetch immediately on component mount
+
+    // Set up an interval to fetch data every 15 seconds
+    const intervalId = setInterval(fetchData, 15000);
+
+    // Clear the interval when the component unmounts
+    return () => clearInterval(intervalId);
+  }, []);
+
+  return (
+    <div className="container">
+      <header className="header">
+        <h1>最新开奖号码</h1>
+      </header>
+      <main className="main-content">
+        {error ? (
+          <div className="card error-card">
+            <h2>数据加载失败</h2>
+            <p>{error}</p>
+            <button onClick={fetchData}>重试</button>
+          </div>
+        ) : (
+          <div className="card lottery-card">
+            <p className="lottery-number">{lotteryData.lottery_number}</p>
+            <p className="timestamp">最后更新: {lotteryData.received_at_utc}</p>
+          </div>
+        )}
+      </main>
+      <footer className="footer">
+        <p>请以官方开奖结果为准</p>
+      </footer>
+    </div>
+  );
 };
 
 export default LotteryPage;
