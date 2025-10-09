@@ -3,13 +3,14 @@ export default {
     const url = new URL(request.url);
 
     // This is the definitive fix for the routing issue.
+    // All /api/ requests are rewritten to the single, correct backend router.
     if (url.pathname.startsWith('/api/')) {
-      // 1. Extract the endpoint name from the path.
-      // e.g., /api/getLotteryNumber -> getLotteryNumber
+      // 1. Extract the endpoint name from the path (e.g., /api/getLotteryNumber -> getLotteryNumber).
       const endpoint = url.pathname.replace('/api/', '');
 
       // 2. Construct the absolute, correct backend URL.
       // This rewrite points to the main router file that handles all API requests.
+      // NOTE: The path includes /backend/public/ as per the server's file structure.
       const backendUrl = new URL(`https://wenge.cloudns.ch/backend/public/index.php?endpoint=${endpoint}`);
 
       // 3. Preserve original query parameters from the frontend request.

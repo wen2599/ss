@@ -31,9 +31,7 @@ try {
     $conn->close();
 
 } catch (Exception $e) {
-    // Log the actual error for debugging
-    error_log("Database error in getLotteryNumber.php: " . $e->getMessage());
-
-    // Send a generic error response to the client
-    Response::json(['error' => 'Could not retrieve lottery data.'], 500);
+    // The global exception handler in index.php will catch this
+    // and return a formatted JSON error.
+    throw new Exception('Could not retrieve lottery data: ' . $e->getMessage());
 }

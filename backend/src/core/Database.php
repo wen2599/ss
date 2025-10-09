@@ -3,11 +3,9 @@
 /**
  * Establishes a connection to the database and returns the connection object.
  *
- * This function reads database credentials (host, user, password, database name)
- * from pre-defined constants and uses them to create a new mysqli connection.
- *
- * It includes basic error handling to terminate the script if the connection fails,
- * logging the error for debugging purposes.
+ * This function reads database credentials from pre-defined constants and uses
+ * them to create a new mysqli connection. It includes error handling to
+ * ensure that connection failures are properly reported.
  *
  * @return mysqli The mysqli connection object on success.
  * @throws Exception If the database connection fails.
@@ -26,15 +24,13 @@ function getDbConnection(): mysqli
 
     // Check for connection errors
     if ($conn->connect_error) {
-        // Log the error securely instead of exposing it to the user
-        error_log("Database Connection Failed: " . $conn->connect_error);
-
-        // Throw a generic exception to avoid leaking sensitive information
-        throw new Exception("Unable to connect to the database.");
+        // Throw a generic exception to be caught by the global exception handler
+        throw new Exception("Database Connection Failed: " . $conn->connect_error);
     }
 
     // Set the character set to utf8mb4 for full Unicode support
     if (!$conn->set_charset("utf8mb4")) {
+        // Log the error, but don't prevent the script from running
         error_log("Error loading character set utf8mb4: " . $conn->error);
     }
 

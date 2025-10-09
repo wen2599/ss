@@ -11,13 +11,11 @@ $secretHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 // --- Validation ---
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     Response::json(['error' => 'Method Not Allowed'], 405);
-    exit;
 }
 
 if (!$secretToken || $secretToken !== $secretHeader) {
     error_log('Invalid webhook secret token attempt.');
     Response::json(['error' => 'Unauthorized'], 401);
-    exit;
 }
 
 // --- Process Request ---
@@ -25,7 +23,6 @@ $update = $GLOBALS['requestBody'] ?? null;
 
 if (!$update) {
     Response::json(['error' => 'No data received'], 400);
-    exit;
 }
 
 // --- Extract, Validate, and Store Message ---
@@ -38,7 +35,6 @@ if (isset($update['channel_post'])) {
     if (!$allowedChannelId || $channelId != $allowedChannelId) {
         error_log("Message from unauthorized channel ID: {$channelId}. Allowed: {$allowedChannelId}");
         Response::json(['error' => 'Forbidden: Message from wrong channel'], 403);
-        exit;
     }
 
     // --- Parse Message and Insert into Database ---
@@ -50,7 +46,6 @@ if (isset($update['channel_post'])) {
         if (count($parts) === 2) {
             $issueNumber = $parts[0];
             $winningNumbers = $parts[1];
-            // Use current date for the drawing date
             $drawingDate = date('Y-m-d');
 
             try {
@@ -76,8 +71,8 @@ if (isset($update['channel_post'])) {
                 $conn->close();
 
             } catch (Exception $e) {
-                error_log("Database error in telegramWebhook.php: " . $e->getMessage());
-                Response::json(['error' => 'Internal Server Error'], 500);
+                // The global exception handler will catch this
+                throw new Exception('Database error in telegramWebhook: ' . $e->getMessage());
             }
         } else {
             error_log("Invalid message format received: '{$messageText}'");
