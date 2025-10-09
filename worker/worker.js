@@ -1,154 +1,49 @@
-// --- 邮件解析相关的辅助函数 ---
-function detectEncoding(uint8arr) {
-  try {
-    new TextDecoder('utf-8', { fatal: true }).decode(uint8arr);
-    return 'utf-8';
-  } catch {}
-  return 'gb18030';
-}
+/**
+ * Welcome to Cloudflare Workers!
+ *
+ * This is a template for a Scheduled Worker:
+ * - Run on a schedule
+ * - Use KV for persistent storage
+ * - Send email alerts using MailChannels
+ *
+ * Resources:
+ * - https://developers.cloudflare.com/workers/
+ * - https://developers.cloudflare.com/workers/runtime-apis/kv/
+ * - https://mailchannels.zendesk.com/hc/en-us/articles/4413695934349-Sending-Email-from-Cloudflare-Workers-using-the-MailChannels-Send-API
+ */
 
-function decodeWithAutoEncoding(uint8arr) {
-  const encoding = detectEncoding(uint8arr);
-  try {
-    return new TextDecoder(encoding, { fatal: false }).decode(uint8arr);
-  } catch {
-    return new TextDecoder('utf-8').decode(uint8arr);
-  }
-}
+import PostalMime from 'postal-mime';
 
-async function streamToString(stream) {
-  const chunks = [];
-  const reader = stream.getReader();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-  }
-  let totalLen = chunks.reduce((acc, arr) => acc + arr.length, 0);
-  let buffer = new Uint8Array(totalLen);
-  let offset = 0;
-  for (let arr of chunks) {
-    buffer.set(arr, offset);
-    offset += arr.length;
-  }
-  return decodeWithAutoEncoding(buffer);
-}
+// --- Utility Functions for Email Parsing ---
 
-function decodeQuotedPrintable(input) {
-  return input
-    .replace(/=(?:\r\n|\n|\r)/g, '')
-    .replace(/=([A-Fa-f0-9]{2})/g, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
-}
-
-function b64toUint8Array(base64) {
-  const binary = atob(base64);
-  const array = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
-  return array;
-}
-
-function parseEmail(rawEmail, options = {}) {
-  const maxAttachmentCount = options.maxAttachmentCount || 10;
-  const maxAttachmentSize = options.maxAttachmentSize || 8 * 1024 * 1024;
-  const allowedAttachmentTypes = options.allowedAttachmentTypes || [
-    "image/", "application/pdf", "text/plain", "application/zip"
-  ];
-  const boundaryMatch = rawEmail.match(/boundary="([^\"]+)"/i) || rawEmail.match(/boundary=([^\r\n;]+)/i);
-  const boundary = boundaryMatch ? boundaryMatch[1] : null;
-  let textContent = '';
-  let htmlContent = '';
-  const attachments = [];
-  let attachmentCount = 0;
-
-  function getCharset(header) {
-    const m = header.match(/charset="?([^\s\"]+)/i);
-    if (m) {
-      let cs = m[1].toLowerCase();
-      if (/gbk|gb2312|gb18030/i.test(cs)) return 'gb18030';
-      return cs;
+/**
+ * Parses the raw MIME content of an email.
+ * @param {ReadableStream} mimeStream - The raw email content stream.
+ * @returns {Promise<object>} - A promise that resolves to the parsed email object.
+ */
+async function parseMime(mimeStream) {
+    const reader = mimeStream.getReader();
+    const chunks = [];
+    let done, value;
+    while (!({ done, value } = await reader.read()), done) {
+        chunks.push(value);
     }
-    return null;
-  }
 
-  if (boundary) {
-    const parts = rawEmail.split(new RegExp(`--${boundary}(?:--)?`, 'g')).filter(Boolean);
-    for (const part of parts) {
-      const h = part.split(/\r?\n\r?\n/)[0];
-      const b = part.split(/\r?\n\r?\n/).slice(1).join('\n\n');
-      const charset = getCharset(h) || 'utf-8';
-      if (/Content-Type:\s*text\/plain/i.test(part) && !/Content-Disposition:\s*attachment/i.test(part)) {
-        if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
-          const base64Match = part.match(/\r?\n\r?\n([^]*)/);
-          if (base64Match) {
-            const u8 = b64toUint8Array(base64Match[1].replace(/\r?\n/g, ''));
-            textContent += new TextDecoder(charset).decode(u8);
-          }
-        } else if (/Content-Transfer-Encoding:\s*quoted-printable/i.test(part)) {
-          const qpMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (qpMatch) {
-            const qpStr = decodeQuotedPrintable(qpMatch[1]);
-            textContent += new TextDecoder(charset).decode(new TextEncoder().encode(qpStr));
-          }
-        } else {
-          const plainMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (plainMatch) textContent += new TextDecoder(charset).decode(new TextEncoder().encode(plainMatch[1].trim()));
-        }
-      }
-      if (/Content-Type:\s*text\/html/i.test(part) && !/Content-Disposition:\s*attachment/i.test(part)) {
-        let html = '';
-        if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
-          const base64Match = part.match(/\r?\n\r?\n([^]*)/);
-          if (base64Match) {
-            const u8 = b64toUint8Array(base64Match[1].replace(/\r?\n/g, ''));
-            html += new TextDecoder(charset).decode(u8);
-          }
-        } else if (/Content-Transfer-Encoding:\s*quoted-printable/i.test(part)) {
-          const qpMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (qpMatch) {
-            const qpStr = decodeQuotedPrintable(qpMatch[1]);
-            html += new TextDecoder(charset).decode(new TextEncoder().encode(qpStr));
-          }
-        } else {
-          const htmlMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (htmlMatch) html += new TextDecoder(charset).decode(new TextEncoder().encode(htmlMatch[1].trim()));
-        }
-        htmlContent += html;
-      }
-      if (/Content-Disposition:\s*attachment/i.test(part)) {
-        if (attachmentCount++ >= maxAttachmentCount) continue;
-        let filename = 'unnamed';
-        const filenameMatch = part.match(/filename="([^\"]+)"/i) || part.match(/filename=([^\r\n;]+)/i);
-        if (filenameMatch) filename = filenameMatch[1].replace(/\s/g, '_');
-        const contentTypeMatch = part.match(/Content-Type:\s*([^\r\n;]+)/i);
-        const contentType = contentTypeMatch ? contentTypeMatch[1].trim() : 'application/octet-stream';
-        if (!allowedAttachmentTypes.some(t => contentType.startsWith(t))) continue;
-        let content = '';
-        if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
-          const base64Match = part.match(/\r?\n\r?\n([^]*)/);
-          if (base64Match) content = base64Match[1].replace(/\r?\n/g, '');
-          try {
-            let blob = new Blob([b64toUint8Array(content)], { type: contentType });
-            if (blob.size > maxAttachmentSize) continue;
-            attachments.push({ filename, blob, contentType });
-          } catch {}
-        } else {
-          const plainMatch = part.match(/\r?\n\r?\n([^]*)/);
-          if (plainMatch) {
-            let blob = new Blob([plainMatch[1]], { type: contentType });
-            if (blob.size > maxAttachmentSize) continue;
-            attachments.push({ filename, blob, contentType });
-          }
-        }
-      }
+    // Combine chunks into a single Uint8Array
+    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+    const combinedChunks = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+        combinedChunks.set(chunk, offset);
+        offset += chunk.length;
     }
-  } else {
-    const textPart = rawEmail.match(/Content-Type:\s*text\/plain[^]*?\r?\n\r?\n([^]*)/i);
-    if (textPart && textPart[1]) textContent = textPart[1].trim();
-    const htmlPart = rawEmail.match(/Content-Type:\s*text\/html[^]*?\r?\n\r?\n([^]*)/i);
-    if (htmlPart && htmlPart[1]) htmlContent = htmlPart[1].trim();
-  }
 
-  return { textContent, htmlContent, attachments };
+    // Create a string from the Uint8Array
+    const rawEmail = new TextDecoder("utf-8").decode(combinedChunks);
+
+    // Use postal-mime to parse the email
+    const parser = new PostalMime();
+    return await parser.parse(rawEmail);
 }
 
 
@@ -156,125 +51,119 @@ function parseEmail(rawEmail, options = {}) {
 export default {
   /**
    * Rewritten fetch handler to proxy API requests to the backend.
-   * - Any path matching an endpoint in apiEndpoints (with or without /api/ prefix) will be proxied.
+   * - Any path matching an endpoint in apiEndpoints will be proxied.
    * - All other requests will be treated as static assets.
    */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const backendServer = "https://wenge.cloudns.ch";
+    const backendServer = env.PUBLIC_API_ENDPOINT || "https://wenge.cloudns.ch";
 
-    // Single source of truth for all known backend endpoints.
     const apiEndpoints = [
       'check_session', 'login', 'logout', 'register',
       'get_numbers', 'get_bills', 'get_emails',
       'is_user_registered', 'email_upload',
-      'telegram_webhook' // The correct webhook endpoint
+      'telegram_webhook'
     ];
 
-    // Determine the requested endpoint by stripping potential prefixes.
     let requestedEndpoint = url.pathname.startsWith('/api/')
       ? url.pathname.substring(5)
       : url.pathname.substring(1);
 
-    // Check if the requested endpoint is in our list of valid API endpoints.
     if (apiEndpoints.includes(requestedEndpoint)) {
-      const backendUrl = new URL(backendServer + "/index.php");
-      backendUrl.searchParams.set('endpoint', requestedEndpoint);
+      const backendUrl = `${backendServer}/index.php?endpoint=${requestedEndpoint}${url.search}`;
 
-      // Append original query parameters to the new URL.
-      url.searchParams.forEach((value, key) => {
-        backendUrl.searchParams.append(key, value);
+      // Append the secret if this is a telegram webhook
+      let headers = new Headers(request.headers);
+      if (requestedEndpoint === 'telegram_webhook') {
+         // Note: We are creating a new headers object to avoid modifying the original request headers.
+         if (env.TELEGRAM_WEBHOOK_SECRET) {
+            headers.set('X-Telegram-Bot-Api-Secret-Token', env.TELEGRAM_WEBHOOK_SECRET);
+         }
+      }
+
+      const backendRequest = new Request(backendUrl, {
+        method: request.method,
+        headers: headers, // Use the new headers object
+        body: request.body,
+        redirect: 'follow'
       });
-      
-      // Create a new request to the backend, preserving method, headers, and body.
-      const backendRequest = new Request(backendUrl, request);
 
       return fetch(backendRequest);
     }
 
-    // If it's not a known API endpoint, treat it as a static asset request.
+    // For any other request, serve from Cloudflare Pages assets.
     return env.ASSETS.fetch(request);
   },
 
   /**
-   * Handles incoming emails.
+   * Handles incoming emails routed by Cloudflare Email Routing.
+   * - Verifies the sender is a registered user.
+   * - Parses the email content.
+   * - Forwards the parsed content to the backend API for storage.
    */
   async email(message, env, ctx) {
-    const PUBLIC_API_ENDPOINT = "https://ss.wenxiuxiu.eu.org";
-    const WORKER_SECRET = "816429fb-1649-4e48-9288-7629893311a6";
-    const MAX_BODY_LENGTH = 32 * 1024;
-    const MAX_ATTACHMENT_COUNT = 10;
-    const MAX_ATTACHMENT_SIZE = 8 * 1024 * 1024;
-    const ALLOWED_ATTACHMENT_TYPES = [
-      "image/", "application/pdf", "text/plain", "application/zip"
-    ];
-
-    const senderEmail =
-      message.from ||
-      (message.headers && message.headers.get && message.headers.get("from")) ||
-      "";
-    if (!senderEmail) {
-      console.error("Received email without a sender address. Terminating processing.");
+    // Environment variables required for this function to work.
+    const { WORKER_SECRET, PUBLIC_API_ENDPOINT } = env;
+    if (!WORKER_SECRET || !PUBLIC_API_ENDPOINT) {
+      // Silently fail if essential configuration is missing.
       return;
     }
 
+    const senderEmail = message.from;
+
+    // 1. Verify if the sender is a registered user in our system.
     try {
-      const verificationUrl = `${PUBLIC_API_ENDPOINT}/is_user_registered?worker_secret=${WORKER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
+      const verificationUrl = `${PUBLIC_API_ENDPOINT}/index.php?endpoint=is_user_registered&worker_secret=${WORKER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
       const verificationResponse = await fetch(verificationUrl);
-      if (!verificationResponse.ok) return;
-      const verificationData = await verificationResponse.json();
-      if (!verificationData.success || !verificationData.is_registered) return;
-    } catch (error) { return; }
 
-    let chatContent = "Email did not contain identifiable plain text content.";
-    let htmlContent = "";
-    let attachments = [];
-    try {
-      const rawEmail = await streamToString(message.raw);
-      const parsed = parseEmail(rawEmail, {
-        maxAttachmentCount: MAX_ATTACHMENT_COUNT,
-        maxAttachmentSize: MAX_ATTACHMENT_SIZE,
-        allowedAttachmentTypes: ALLOWED_ATTACHMENT_TYPES
-      });
-      if (parsed.textContent) chatContent = parsed.textContent;
-      if (parsed.htmlContent) htmlContent = parsed.htmlContent;
-      attachments = parsed.attachments || [];
-    } catch (err) {}
-
-    if (chatContent.length > MAX_BODY_LENGTH) {
-      chatContent = chatContent.slice(0, MAX_BODY_LENGTH) + "\n\n[Content truncated]";
-    }
-    if (htmlContent.length > MAX_BODY_LENGTH) {
-      htmlContent = htmlContent.slice(0, MAX_BODY_LENGTH) + "\n\n[Content truncated]";
-    }
-
-    let messageId = "";
-    try {
-      if (message.headers && message.headers.get) {
-        messageId = message.headers.get("message-id") || "";
+      if (verificationResponse.status !== 200) {
+        // If status is not 200, stop processing.
+        return;
       }
-    } catch {}
-    const safeEmail = senderEmail.replace(/[^a-zA-Z0-9_.-]/g, "_");
-    const filename =
-      `email-${safeEmail}-${Date.now()}${messageId ? "-" + messageId : ""}.txt`;
 
-    const formData = new FormData();
-    formData.append("worker_secret", WORKER_SECRET);
-    formData.append("user_email", senderEmail);
-    formData.append("raw_email_file", new Blob([chatContent], { type: "text/plain" }), filename);
-    if (htmlContent) {
-      formData.append("html_body", new Blob([htmlContent], { type: "text/html" }), filename.replace(".txt", ".html"));
-    }
-    for (const att of attachments) {
-      formData.append("attachment", att.blob, att.filename);
+      const verificationData = await verificationResponse.json();
+      if (!verificationData.success || !verificationData.is_registered) {
+        // If the API call was not successful or user is not registered, stop.
+        return;
+      }
+    } catch (error) {
+      // If the verification call fails for any reason, stop processing.
+      return;
     }
 
+    // 2. Sender is verified, now parse the email.
+    let parsedEmail;
     try {
-      const uploadUrl = `${PUBLIC_API_ENDPOINT}/email_upload`;
-      await fetch(uploadUrl, {
-        method: "POST",
-        body: formData,
+        parsedEmail = await parseMime(message.raw);
+    } catch (e) {
+        // If parsing fails, stop.
+        return;
+    }
+
+
+    // 3. Forward the parsed email to the backend to be stored.
+    try {
+      const uploadUrl = `${PUBLIC_API_ENDPOINT}/index.php?endpoint=email_upload&worker_secret=${WORKER_SECRET}`;
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: message.from,
+          to: message.to,
+          subject: message.headers.get('subject'),
+          textContent: parsedEmail.text,
+          htmlContent: parsedEmail.html
+        })
       });
-    } catch (error) {}
-  },
+
+      // We can check `uploadResponse.ok` if we need to handle upload failures.
+      // For now, we'll just complete the process.
+
+    } catch (error) {
+      // If the upload fetch call fails, do nothing.
+    }
+  }
 };
