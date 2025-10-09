@@ -11,6 +11,10 @@ if (!$data) {
     return;
 }
 
+// 兼容 Worker 的字段名（textContent/htmlContent）
+$data['text_content'] = $data['text_content'] ?? $data['textContent'] ?? '';
+$data['html_content'] = $data['html_content'] ?? $data['htmlContent'] ?? '';
+
 $required_fields = ['message_id', 'from', 'to', 'subject', 'text_content', 'html_content'];
 foreach ($required_fields as $field) {
     if (empty($data[$field])) {
@@ -38,8 +42,7 @@ $stmt->bind_param(
 if ($stmt->execute()) {
     json_response(['message' => 'Email uploaded successfully.', 'id' => $conn->insert_id]);
 } else {
-    // Check if it's a duplicate entry error
-    if ($conn->errno == 1062) { // 1062 is the error code for duplicate entry
+    if ($conn->errno == 1062) {
         json_response(['message' => 'Duplicate email entry (based on message_id). Ignored.'], true, 200);
     } else {
         json_response(['message' => 'Error uploading email: ' . $stmt->error], false, 500);
@@ -48,5 +51,4 @@ if ($stmt->execute()) {
 
 $stmt->close();
 $conn->close();
-
 ?>
