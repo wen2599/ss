@@ -5,6 +5,7 @@ export default {
    * - API 请求 (/check_session, /login etc.) 会被转发到后端 PHP 服务器。
    * - 其他所有请求 (e.g., /, /index.html, .css, .js) 会被视为静态资源请求，由 Cloudflare Pages 提供服务。
    */
+  // eslint-disable-next-line no-unused-vars
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
@@ -56,6 +57,7 @@ export default {
   /**
    * email() 函数保持不变...
    */
+  // eslint-disable-next-line no-unused-vars
   async email(message, env, ctx) {
     // ... (原始的 email 处理代码保持不变)
   },
