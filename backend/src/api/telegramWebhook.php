@@ -1,38 +1,28 @@
 <?php
 
-// API handler for incoming Telegram Bot Webhooks
+// API handler for incoming Telegram Bot Webhooks, now writing to the database.
 
 require_once __DIR__ . '/../core/Response.php';
+require_once __DIR__ . '/../core/Database.php'; // Use the new database connection utility
 
 // --- Configuration & Security ---
-
-// These are now loaded from .env via config.php
 $secretToken = TELEGRAM_WEBHOOK_SECRET;
 $allowedChannelId = TELEGRAM_CHANNEL_ID;
-
-// The header that contains the secret token
 $secretHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 
-// Path to the file where the latest lottery number will be stored
-$storagePath = __DIR__ . '/../../data/lottery_latest.json';
-
 // --- Validation ---
-
-// 1. Ensure it's a POST request
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     Response::json(['error' => 'Method Not Allowed'], 405);
     exit;
 }
 
-// 2. Validate the secret token to ensure the request is from Telegram
-if (!$secretToken || $secretToken !== $secretHeader) { // Check if token is set
+if (!$secretToken || $secretToken !== $secretHeader) {
     error_log('Invalid webhook secret token attempt.');
     Response::json(['error' => 'Unauthorized'], 401);
     exit;
 }
 
-// --- Process the Request ---
-
+// --- Process Request ---
 $update = $GLOBALS['requestBody'] ?? null;
 
 if (!$update) {
@@ -40,33 +30,60 @@ if (!$update) {
     exit;
 }
 
-// --- Extract and Validate the Message ---
-
+// --- Extract, Validate, and Store Message ---
 if (isset($update['channel_post'])) {
     $channelPost = $update['channel_post'];
     $channelId = $channelPost['chat']['id'] ?? null;
     $messageText = trim($channelPost['text'] ?? '');
 
-    // 3. Validate Channel ID
+    // Validate Channel ID
     if (!$allowedChannelId || $channelId != $allowedChannelId) {
         error_log("Message from unauthorized channel ID: {$channelId}. Allowed: {$allowedChannelId}");
         Response::json(['error' => 'Forbidden: Message from wrong channel'], 403);
         exit;
     }
 
-    if ($messageText) {
-        $receivedAt = date('Y-m-d H:i:s T');
+    // --- Parse Message and Insert into Database ---
+    if (!empty($messageText)) {
+        // Expected format: "issue_number winning_numbers"
+        // Example: "20231026-001 5,12,18,22,35"
+        $parts = preg_split('/\s+/', $messageText, 2);
 
-        $dataToStore = [
-            'lottery_number' => $messageText,
-            'received_at_utc' => $receivedAt
-        ];
+        if (count($parts) === 2) {
+            $issueNumber = $parts[0];
+            $winningNumbers = $parts[1];
+            // Use current date for the drawing date
+            $drawingDate = date('Y-m-d');
 
-        if (file_put_contents($storagePath, json_encode($dataToStore), LOCK_EX)) {
-            Response::json(['status' => 'success', 'message' => 'Data stored']);
+            try {
+                $conn = getDbConnection();
+
+                $stmt = $conn->prepare(
+                    "INSERT INTO lottery_numbers (issue_number, winning_numbers, drawing_date) VALUES (?, ?, ?)"
+                );
+
+                if ($stmt === false) {
+                    throw new Exception("Failed to prepare statement: " . $conn->error);
+                }
+
+                $stmt->bind_param("sss", $issueNumber, $winningNumbers, $drawingDate);
+
+                if ($stmt->execute()) {
+                    Response::json(['status' => 'success', 'message' => 'Lottery number saved to database.']);
+                } else {
+                    throw new Exception("Failed to execute statement: " . $stmt->error);
+                }
+
+                $stmt->close();
+                $conn->close();
+
+            } catch (Exception $e) {
+                error_log("Database error in telegramWebhook.php: " . $e->getMessage());
+                Response::json(['error' => 'Internal Server Error'], 500);
+            }
         } else {
-            error_log('Failed to write to storage file: ' . $storagePath);
-            Response::json(['error' => 'Internal Server Error'], 500);
+            error_log("Invalid message format received: '{$messageText}'");
+            Response::json(['error' => 'Invalid message format'], 422); // 422 Unprocessable Entity
         }
     } else {
         Response::json(['status' => 'ok', 'message' => 'Empty message, ignored']);

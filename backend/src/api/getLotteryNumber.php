@@ -1,26 +1,44 @@
 <?php
 
-// API handler to provide the latest lottery number to the frontend
+// API handler to provide the latest lottery number to the frontend from the database.
 
 require_once __DIR__ . '/../core/Response.php';
+require_once __DIR__ . '/../core/Database.php'; // Use the new database connection utility
 
-// Path to the stored data
-$storagePath = __DIR__ . '/../../data/lottery_latest.json';
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *'); // Allow all domains for simplicity
 
-if (file_exists($storagePath)) {
-    $content = file_get_contents($storagePath);
-    $data = json_decode($content, true);
+try {
+    $conn = getDbConnection();
 
-    // Check if json is valid
-    if (json_last_error() === JSON_ERROR_NONE) {
-        Response::json($data);
+    // Query to get the most recent lottery number entry
+    $sql = "SELECT issue_number, winning_numbers, drawing_date, created_at
+            FROM lottery_numbers
+            ORDER BY id DESC
+            LIMIT 1";
+
+    $result = $conn->query($sql);
+
+    if ($result && $result->num_rows > 0) {
+        // Fetch the data
+        $row = $result->fetch_assoc();
+        Response::json($row);
     } else {
-        Response::json(['error' => 'Data file is corrupted'], 500);
+        // If no records are found, return a placeholder response
+        Response::json([
+            'issue_number' => 'N/A',
+            'winning_numbers' => '等待开奖',
+            'drawing_date' => null,
+            'created_at' => null
+        ], 404);
     }
-} else {
-    // If the file doesn't exist yet, return a placeholder
-    Response::json([
-        'lottery_number' => 'Waiting for first number...',
-        'received_at_utc' => null
-    ], 404);
+
+    $conn->close();
+
+} catch (Exception $e) {
+    // Log the actual error for debugging
+    error_log("Database error in getLotteryNumber.php: " . $e->getMessage());
+
+    // Send a generic error response to the client
+    Response::json(['error' => 'Could not retrieve lottery data.'], 500);
 }
