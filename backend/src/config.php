@@ -6,13 +6,15 @@ require_once __DIR__ . '/core/DotEnv.php';
 
 // --- Load Environment Variables ---
 // Load .env file from the root of the 'backend' directory
+$env = [];
 $dotenvPath = __DIR__ . '/../.env';
 if (file_exists($dotenvPath)) {
-    (new DotEnv($dotenvPath))->load();
+    // Use the getVariables method to robustly load credentials
+    $dotenv = new DotEnv($dotenvPath);
+    $env = $dotenv->getVariables();
 } else {
-    // Fallback or error if .env is missing in a production environment
-    // For development, we can allow it to fail silently, but in production, you might want to die().
-    // error_log("Warning: .env file not found. Using environment variables or defaults.");
+    // Fallback or error if .env is missing.
+    error_log("CRITICAL: .env file not found at {$dotenvPath}. The application will not function correctly.");
 }
 
 // --- Error Reporting ---
@@ -22,16 +24,17 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 // --- Database Configuration ---
-define('DB_HOST', $_ENV['DB_HOST'] ?? '127.0.0.1');
-define('DB_PORT', $_ENV['DB_PORT'] ?? '3306');
-define('DB_DATABASE', $_ENV['DB_DATABASE'] ?? '');
-define('DB_USERNAME', $_ENV['DB_USERNAME'] ?? '');
-define('DB_PASSWORD', $_ENV['DB_PASSWORD'] ?? '');
+// Use the $env array which is more reliable than $_ENV
+define('DB_HOST', $env['DB_HOST'] ?? '127.0.0.1');
+define('DB_PORT', $env['DB_PORT'] ?? '3306');
+define('DB_DATABASE', $env['DB_DATABASE'] ?? '');
+define('DB_USER', $env['DB_USER'] ?? ''); // Corrected from DB_USERNAME
+define('DB_PASSWORD', $env['DB_PASSWORD'] ?? '');
 
 // --- Telegram Configuration ---
-define('TELEGRAM_BOT_TOKEN', $_ENV['TELEGRAM_BOT_TOKEN'] ?? '');
-define('TELEGRAM_WEBHOOK_SECRET', $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? '');
-define('TELEGRAM_CHANNEL_ID', $_ENV['TELEGRAM_CHANNEL_ID'] ?? '');
+define('TELEGRAM_BOT_TOKEN', $env['TELEGRAM_BOT_TOKEN'] ?? '');
+define('TELEGRAM_WEBHOOK_SECRET', $env['TELEGRAM_WEBHOOK_SECRET'] ?? '');
+define('TELEGRAM_CHANNEL_ID', $env['TELEGRAM_CHANNEL_ID'] ?? '');
 
 // --- CORS (Cross-Origin Resource Sharing) Headers ---
 // This is now handled by the Cloudflare Worker (_worker.js), but kept here for potential direct API access
