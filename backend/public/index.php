@@ -27,3 +27,19 @@ if ($endpoint) {
 } else {
     Response::json(['error' => 'No API endpoint specified'], 400);
 }
+
+// 3. Get the requested endpoint
+$endpoint = $_GET['endpoint'] ?? null;
+
+// 4. Route the request to the correct API handler
+if ($endpoint) {
+    $handlerPath = __DIR__ . '/../src/api/' . basename($endpoint) . '.php';
+
+    if (file_exists($handlerPath)) {
+        require $handlerPath;
+    } else {
+        Response::json(['error' => 'API endpoint not found'], 404);
+    }
+} else {
+    Response::json(['error' => 'No API endpoint specified'], 400);
+}
