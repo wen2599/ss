@@ -6,15 +6,15 @@ $dotenv = new DotEnv(__DIR__ . '/.env');
 $env = $dotenv->getVariables();
 
 $servername = $env['DB_HOST'] ?? null;
-$username = $env['DB_USERNAME'] ?? null;
+$username = $env['DB_USER'] ?? null;
 $password = $env['DB_PASSWORD'] ?? null;
 $dbname = $env['DB_DATABASE'] ?? null;
 
 // Validate that the required database credentials are set
 if (empty($servername) || empty($username) || empty($dbname)) {
-    die("Error: Database credentials are not configured.\nPlease create a '.env' file in the 'backend' directory with the following content:\n\n" .
+    die("Error: Database credentials are not configured.\nPlease create a '.env' file in the 'backend' directory with the following content (based on .env.example):\n\n" .
         "DB_HOST=your_database_host\n" .
-        "DB_USERNAME=your_database_username\n" .
+        "DB_USER=your_database_user\n" .
         "DB_PASSWORD=your_database_password\n" .
         "DB_DATABASE=your_database_name\n\n" .
         "The script could not find the required credentials to connect to the database.\n");
