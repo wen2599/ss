@@ -3,7 +3,7 @@
 // Simplified Front Controller
 
 // 1. Load Core Libraries & Config
-require_once __DIR__ . '/../core/Response.php';
+require_once __DIR__ . '/../src/core/Response.php';
 require_once __DIR__ . '/../src/config.php';
 
 // 2. Set global request body for POST/PUT requests
