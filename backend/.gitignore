@@ -1,10 +1,11 @@
-# IDE and OS files
-.idea/
-.vscode/
-.DS_Store
-
-# Dependencies
+# Ignore Composer dependencies
 /vendor/
 
-# Environment files
+# Ignore environment files
 .env
+
+# Ignore log files
+*.log
+
+# Ignore local data files
+/data/
