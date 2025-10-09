@@ -3,7 +3,7 @@
 
 // These constants are defined in config.php, which is loaded before this script.
 $servername = DB_HOST;
-$username = DB_USERNAME;
+$username = DB_USER; // 修正为 DB_USER
 $password = DB_PASSWORD;
 $dbname = DB_DATABASE;
 $port = DB_PORT;
@@ -13,7 +13,6 @@ $conn = new mysqli($servername, $username, $password, $dbname, $port);
 
 // Check connection
 if ($conn->connect_error) {
-    // In a real app, you would log this error, not just die.
     error_log("Database connection failed: " . $conn->connect_error);
     die("Connection failed: " . $conn->connect_error);
 }
@@ -24,7 +23,8 @@ if ($conn->connect_error) {
 $sql_users_table = "CREATE TABLE IF NOT EXISTS users (
     id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL,
-    reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )";
 
 if ($conn->query($sql_users_table) === FALSE) {
@@ -40,7 +40,8 @@ $sql_emails_table = "CREATE TABLE IF NOT EXISTS emails (
     subject VARCHAR(255),
     text_content TEXT,
     html_content MEDIUMTEXT,
-    received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )";
 
 if ($conn->query($sql_emails_table) === FALSE) {
@@ -48,11 +49,6 @@ if ($conn->query($sql_emails_table) === FALSE) {
 }
 
 // --- Helper Functions ---
-
-/**
- * A simple function to return a JSON response.
- * Note: This might be better placed in a more central utility file.
- */
 if (!function_exists('json_response')) {
     function json_response($data, $success = true, $statusCode = 200) {
         http_response_code($statusCode);
@@ -61,5 +57,4 @@ if (!function_exists('json_response')) {
         exit();
     }
 }
-
 ?>
