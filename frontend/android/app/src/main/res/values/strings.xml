@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">DataView</string>
-    <string name="title_activity_main">DataView</string>
-    <string name="package_name">com.example.dataview</string>
-    <string name="custom_url_scheme">com.example.dataview</string>
-</resources>
