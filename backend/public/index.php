@@ -1,42 +1,25 @@
 <?php
 
 // --- Global Error & Exception Handling ---
-// This block ensures that any error, warning, or notice in the application
+// This ensures that any error, warning, or notice in the application
 // is caught and returned as a clean JSON response, preventing output pollution.
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
-// Set a custom error handler
-set_error_handler(function ($severity, $message, $file, $line) {
-    // We must throw an exception to be caught by our exception handler.
-    if (!(error_reporting() & $severity)) {
-        // This error code is not included in error_reporting
-        return;
-    }
-    throw new ErrorException($message, 0, $severity, $file, $line);
-});
-
-// Set a custom exception handler
 set_exception_handler(function ($exception) {
-    // Log the real error to the server's error log for debugging
     error_log($exception);
-
-    // Send a generic, clean JSON error response to the client
     http_response_code(500);
     header('Content-Type: application/json');
-    header('Access-Control-Allow-Origin: *'); // Ensure CORS headers are set
+    header('Access-Control-Allow-Origin: *');
     echo json_encode([
-        'error' => 'An internal server error occurred.',
-        'detail' => [
-            'message' => $exception->getMessage(),
-            'file' => $exception->getFile(),
-            'line' => $exception->getLine(),
-        ]
+        'error' => 'Internal Server Error',
+        'message' => $exception->getMessage()
     ]);
     exit;
 });
 
-// --- Main Application Logic ---
-
 // 1. Load Core Libraries & Config
+// The paths are relative to this index.php file.
 require_once __DIR__ . '/../src/core/Response.php';
 require_once __DIR__ . '/../src/config.php';
 require_once __DIR__ . '/../src/core/Database.php';
