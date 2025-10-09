@@ -1,12 +1,7 @@
 <?php
 
 // API handler to provide the latest lottery number to the frontend from the database.
-
-require_once __DIR__ . '/../core/Response.php';
-require_once __DIR__ . '/../core/Database.php'; // Use the new database connection utility
-
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *'); // Allow all domains for simplicity
+// Core dependencies are now loaded by the main index.php router.
 
 try {
     $conn = getDbConnection();
