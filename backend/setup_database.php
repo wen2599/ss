@@ -1,8 +1,8 @@
 <?php
-require_once __DIR__ . '/../src/core/DotEnv.php';
+require_once __DIR__ . '/src/core/DotEnv.php';
 
 // Load environment variables
-(new DotEnv(__DIR__ . '/../.env'))->load();
+(new DotEnv(__DIR__ . '/.env'))->load();
 
 // Database credentials from environment variables
 $servername = getenv('DB_HOST');
