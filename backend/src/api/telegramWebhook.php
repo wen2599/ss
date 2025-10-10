@@ -1,87 +1,119 @@
 <?php
 
-// API handler for incoming Telegram Bot Webhooks, writing to the database.
-// Core dependencies are now loaded by the main index.php router.
+// This is the new, interactive webhook handler.
+// It processes commands from users and posts from the channel.
 
-// --- Configuration & Security ---
-$secretToken = TELEGRAM_WEBHOOK_SECRET;
-$allowedChannelId = TELEGRAM_CHANNEL_ID;
-$secretHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
-
-// --- Validation ---
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    Response::json(['error' => 'Method Not Allowed'], 405);
+// --- Security Check ---
+// Ensure this script is loaded by index.php, not accessed directly.
+if (!defined('DB_HOST')) {
+    die('Direct access not permitted');
 }
 
-if (!$secretToken || $secretToken !== $secretHeader) {
-    error_log('Invalid webhook secret token attempt.');
-    Response::json(['error' => 'Unauthorized'], 401);
-}
-
-// --- Process Request ---
+// --- Main Logic ---
 $update = $GLOBALS['requestBody'] ?? null;
-
 if (!$update) {
-    Response::json(['error' => 'No data received'], 400);
+    // If no update, do nothing. Telegram might send empty requests to check the hook.
+    exit;
 }
 
-// --- Extract, Validate, and Store Message ---
-if (isset($update['channel_post'])) {
-    $channelPost = $update['channel_post'];
-    $channelId = $channelPost['chat']['id'] ?? null;
-    $messageText = trim($channelPost['text'] ?? '');
+// --- Route based on update type ---
 
-    // Validate Channel ID
-    if (!$allowedChannelId || $channelId != $allowedChannelId) {
-        error_log("Message from unauthorized channel ID: {$channelId}. Allowed: {$allowedChannelId}");
-        Response::json(['error' => 'Forbidden: Message from wrong channel'], 403);
+// 1. Handle posts from the lottery channel
+if (isset($update['channel_post'])) {
+    handleChannelPost($update['channel_post']);
+    exit;
+}
+
+// 2. Handle direct messages from users
+if (isset($update['message'])) {
+    handleUserMessage($update['message']);
+    exit;
+}
+
+
+// --- Function Definitions ---
+
+/**
+ * Handles incoming posts from the designated channel.
+ * @param array $post The channel_post data from the Telegram update.
+ */
+function handleChannelPost(array $post): void {
+    // Security: Check if the post is from the allowed channel
+    if ($post['chat']['id'] != TELEGRAM_CHANNEL_ID) {
+        error_log("Ignoring post from unauthorized channel: " . $post['chat']['id']);
+        return;
     }
 
-    // --- Parse Message and Insert into Database ---
-    if (!empty($messageText)) {
-        // Expected format: "issue_number winning_numbers"
-        // Example: "20231026-001 5,12,18,22,35"
-        $parts = preg_split('/\s+/', $messageText, 2);
+    $messageText = trim($post['text'] ?? '');
+    if (empty($messageText)) {
+        return;
+    }
 
-        if (count($parts) === 2) {
-            $issueNumber = $parts[0];
-            $winningNumbers = $parts[1];
-            $drawingDate = date('Y-m-d');
+    // Expected format: "issue_number winning_numbers"
+    $parts = preg_split('/\s+/', $messageText, 2);
+    if (count($parts) === 2) {
+        try {
+            $conn = getDbConnection();
+            $stmt = $conn->prepare("INSERT INTO lottery_numbers (issue_number, winning_numbers, drawing_date) VALUES (?, ?, ?)");
+            $stmt->bind_param("sss", $parts[0], $parts[1], date('Y-m-d'));
+            $stmt->execute();
+            $stmt->close();
+            $conn->close();
+            error_log("Successfully saved lottery number for issue: " . $parts[0]);
+        } catch (Exception $e) {
+            error_log("Failed to save lottery number: " . $e->getMessage());
+        }
+    }
+}
 
+/**
+ * Handles incoming direct messages from users.
+ * @param array $message The message data from the Telegram update.
+ */
+function handleUserMessage(array $message): void {
+    $chatId = $message['chat']['id'];
+    $text = trim($message['text'] ?? '');
+
+    $keyboard = [
+        'keyboard' => [
+            [['text' => '最新开奖']],
+            // You can add more buttons here, e.g., [['text' => '历史记录'], ['text' => '帮助']]
+        ],
+        'resize_keyboard' => true,
+        'one_time_keyboard' => false
+    ];
+
+    switch ($text) {
+        case '/start':
+            $reply = "欢迎使用开奖查询机器人！\n请使用下方的菜单查询最新开奖结果。";
+            sendMessage($chatId, $reply, $keyboard);
+            break;
+
+        case '最新开奖':
             try {
                 $conn = getDbConnection();
-
-                $stmt = $conn->prepare(
-                    "INSERT INTO lottery_numbers (issue_number, winning_numbers, drawing_date) VALUES (?, ?, ?)"
-                );
-
-                if ($stmt === false) {
-                    throw new Exception("Failed to prepare statement: " . $conn->error);
-                }
-
-                $stmt->bind_param("sss", $issueNumber, $winningNumbers, $drawingDate);
-
-                if ($stmt->execute()) {
-                    Response::json(['status' => 'success', 'message' => 'Lottery number saved to database.']);
+                $sql = "SELECT issue_number, winning_numbers, drawing_date FROM lottery_numbers ORDER BY id DESC LIMIT 1";
+                $result = $conn->query($sql);
+                if ($result && $result->num_rows > 0) {
+                    $row = $result->fetch_assoc();
+                    $reply = "<b>最新开奖结果</b>\n\n" .
+                             "<b>期号:</b> " . htmlspecialchars($row['issue_number']) . "\n" .
+                             "<b>号码:</b> " . htmlspecialchars($row['winning_numbers']) . "\n" .
+                             "<b>日期:</b> " . htmlspecialchars($row['drawing_date']);
                 } else {
-                    throw new Exception("Failed to execute statement: " . $stmt->error);
+                    $reply = "暂无开奖记录，请稍后再试。";
                 }
-
-                $stmt->close();
                 $conn->close();
-
             } catch (Exception $e) {
-                // The global exception handler will catch this
-                throw new Exception('Database error in telegramWebhook: ' . $e->getMessage());
+                error_log("Failed to fetch latest number for user: " . $e->getMessage());
+                $reply = "抱歉，查询时遇到错误，请稍后再试。";
             }
-        } else {
-            error_log("Invalid message format received: '{$messageText}'");
-            Response::json(['error' => 'Invalid message format'], 422); // 422 Unprocessable Entity
-        }
-    } else {
-        Response::json(['status' => 'ok', 'message' => 'Empty message, ignored']);
-    }
+            sendMessage($chatId, $reply, $keyboard);
+            break;
 
-} else {
-    Response::json(['status' => 'ok', 'message' => 'Payload not a channel post, ignored']);
+        default:
+            $reply = "无法识别的命令。请使用下方菜单中的按钮。";
+            sendMessage($chatId, $reply, $keyboard);
+            break;
+    }
 }
