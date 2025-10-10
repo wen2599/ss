@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './RegisterPage.css'; // Will be updated next
+import './RegisterPage.css';
 
 const RegisterPage = () => {
   const [username, setUsername] = useState('');
@@ -8,6 +8,7 @@ const RegisterPage = () => {
 
   const handleRegister = (e) => {
     e.preventDefault();
+    // Handle registration logic here
     console.log('正在使用以下信息注册:', username, email, password);
   };
 

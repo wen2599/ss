@@ -70,7 +70,7 @@ const LotteryPage = () => {
 
   return (
     <div className="page-container">
-      <h1 className="page-title">最新开奖</h1>
+      <h1 className="page-title">最新开奖号码</h1>
       {renderContent()}
        <footer className="page-footer">
         <p>请以官方开奖结果为准</p>
