@@ -5,11 +5,12 @@
 require_once __DIR__ . '/core/DotEnv.php';
 
 // --- Load Environment Variables ---
-// This is the definitive, robust path fix. It uses the server's
-// document root as an absolute anchor to find the .env file.
-// This avoids all issues with relative paths (../) and symlinks.
+// This is the definitive, robust path fix. It uses this file's location
+// to reliably calculate the project root, which is two directories up.
+// This avoids all issues with relative paths (../), symlinks, and
+// differences in server environments (e.g., Apache vs. PHP-S).
 $env = [];
-$dotenvPath = $_SERVER['DOCUMENT_ROOT'] . '/.env';
+$dotenvPath = dirname(__DIR__, 2) . '/.env';
 
 // --- Diagnostic Logging ---
 error_log("Config: Checking for .env file at path: " . $dotenvPath);

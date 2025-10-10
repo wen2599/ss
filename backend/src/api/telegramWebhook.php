@@ -3,10 +3,13 @@
 // This is the new, interactive webhook handler.
 // It processes commands from users and posts from the channel.
 
-// Security Check: Ensure this script is loaded by index.php, not accessed directly.
-if (!defined('DB_HOST')) {
-    die('Direct access not permitted');
-}
+// --- Bootstrap ---
+// This script is called directly by the Telegram webhook.
+// It needs to load all dependencies itself because it does not run through index.php.
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../core/Database.php';
+require_once __DIR__ . '/../core/Telegram.php';
+
 
 // --- Configuration Validation ---
 // Ensure that the necessary Telegram credentials are set in the environment.
@@ -19,9 +22,14 @@ if (empty(TELEGRAM_CHANNEL_ID)) {
 }
 
 // --- Main Logic ---
-$update = $GLOBALS['requestBody'] ?? null;
+// Get the raw POST data from the request
+$json = file_get_contents('php://input');
+// Decode the JSON data into a PHP array
+$update = json_decode($json, true);
+
 if (!$update) {
     // If no update, do nothing. Telegram might send empty requests to check the hook.
+    http_response_code(200); // Respond with 200 OK
     exit;
 }
 
