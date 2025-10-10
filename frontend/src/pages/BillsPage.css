@@ -1,0 +1,49 @@
+.bills-container {
+    padding: 20px;
+}
+
+.bills-title {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.loading {
+    text-align: center;
+    padding: 50px;
+    font-size: 1.5rem;
+}
+
+.email-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.email-item-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.email-item {
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #fff;
+    transition: box-shadow 0.3s ease;
+}
+
+.email-item:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.email-subject {
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.email-from,
+.email-date {
+    font-size: 0.9rem;
+    color: #666;
+}

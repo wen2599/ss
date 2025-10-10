@@ -8,6 +8,16 @@ if (!defined('DB_HOST')) {
     die('Direct access not permitted');
 }
 
+// --- Configuration Validation ---
+// Ensure that the necessary Telegram credentials are set in the environment.
+// The bot cannot function without these, so we fail loudly if they are missing.
+if (empty(TELEGRAM_BOT_TOKEN)) {
+    throw new \RuntimeException('CRITICAL: TELEGRAM_BOT_TOKEN is not defined in the .env file. The bot cannot start.');
+}
+if (empty(TELEGRAM_CHANNEL_ID)) {
+    throw new \RuntimeException('CRITICAL: TELEGRAM_CHANNEL_ID is not defined in the .env file. The bot cannot start.');
+}
+
 // --- Main Logic ---
 $update = $GLOBALS['requestBody'] ?? null;
 if (!$update) {
