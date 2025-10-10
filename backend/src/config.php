@@ -11,10 +11,15 @@ require_once __DIR__ . '/core/DotEnv.php';
 $env = [];
 $dotenvPath = $_SERVER['DOCUMENT_ROOT'] . '/.env';
 
+// --- Diagnostic Logging ---
+error_log("Config: Checking for .env file at path: " . $dotenvPath);
+
 if (file_exists($dotenvPath)) {
+    error_log("Config: .env file found. Loading variables.");
     $dotenv = new DotEnv($dotenvPath);
     $env = $dotenv->getVariables();
 } else {
+    error_log("Config: .env file NOT found at path: " . $dotenvPath);
     // If the file is not found, we throw a fatal exception because
     // the application cannot function without its configuration.
     throw new \RuntimeException("CRITICAL: .env file not found at expected absolute path: {$dotenvPath}.");
