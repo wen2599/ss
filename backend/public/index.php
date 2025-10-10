@@ -101,7 +101,8 @@ if (file_exists($dotenvPath)) {
     $dotenv = new DotEnv($dotenvPath);
     $env = $dotenv->getVariables();
 } else {
-    throw new \RuntimeException("CRITICAL: .env file not found at expected absolute path: {$dotenvPath}.");
+    // We cannot proceed without configuration.
+    throw new \RuntimeException("CRITICAL: .env file not found at the definitive absolute path: {$dotenvPath}.");
 }
 
 // --- Define Constants ---
