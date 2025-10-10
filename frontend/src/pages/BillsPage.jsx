@@ -1,56 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import './BillsPage.css';
+import './BillsPage.css'; // We will create this file
 
 const BillsPage = () => {
     const [emails, setEmails] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
 
     useEffect(() => {
         fetch('/api/get_emails')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('网络响应错误');
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     setEmails(data.emails);
-                } else {
-                    throw new Error(data.message || '获取邮件失败');
                 }
                 setLoading(false);
             })
             .catch(error => {
-                console.error('获取邮件列表时出错:', error);
-                setError(error.message);
+                console.error('Error fetching emails:', error);
                 setLoading(false);
             });
     }, []);
 
     if (loading) {
-        return <div className="loading">加载中...</div>;
-    }
-
-    if (error) {
-        return <div className="bills-container error-message">错误: {error}</div>;
+        return <div className="loading">Loading...</div>;
     }
 
     return (
         <div className="bills-container">
             <h1 className="bills-title">账单中心</h1>
             <div className="email-list">
-                {emails.length > 0 ? emails.map(email => (
+                {emails.map(email => (
                     <Link to={`/bill/${email.id}`} key={email.id} className="email-item-link">
                         <div className="email-item">
                             <div className="email-subject">{email.subject}</div>
-                            <div className="email-from">发件人: {email.from}</div>
+                            <div className="email-from">From: {email.from}</div>
                             <div className="email-date">{new Date(email.created_at).toLocaleString()}</div>
                         </div>
                     </Link>
-                )) : <p>没有找到账单邮件。</p>}
+                ))}
             </div>
         </div>
     );
