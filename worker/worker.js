@@ -1,17 +1,13 @@
 /**
  * Welcome to Cloudflare Workers!
  *
- * This worker handles two main tasks:
- * 1. API Gateway: Proxies and rewrites frontend API requests to the backend server.
- * 2. Email Handler: Receives emails via Cloudflare Email Routing, verifies the sender,
- *    parses the email, and forwards the content to a backend API endpoint.
+ * This worker acts as an API Gateway, proxying and rewriting frontend API
+ * requests to the backend server.
  *
- * This version includes significant improvements in robustness, error handling, and maintainability.
+ * This version is streamlined to focus solely on the API proxy functionality,
+ * removing all email handling logic to resolve module import errors.
  */
 
-import PostalMime from 'postal-mime';
-
-// --- Worker Entry Point ---
 export default {
   /**
    * Handles all incoming HTTP requests.
@@ -24,10 +20,10 @@ export default {
 
     // --- API Gateway Logic ---
     if (url.pathname.startsWith('/api/')) {
-      // No more hardcoded endpoint list. Any /api/ request is proxied.
+      // Any /api/ request is proxied.
       const endpoint = url.pathname.substring(5);
 
-      // This path is now definitive based on our successful debugging.
+      // This path is definitive based on our successful debugging.
       const backendUrl = new URL(`${backendServer}/public/index.php?endpoint=${endpoint}`);
 
       // Preserve original query parameters
@@ -76,79 +72,5 @@ export default {
 
     // --- Static Asset Serving ---
     return env.ASSETS.fetch(request);
-  },
-
-  /**
-   * Handles incoming emails routed by Cloudflare Email Routing.
-   */
-  async email(message, env, ctx) {
-    const { WORKER_SECRET, PUBLIC_API_ENDPOINT } = env;
-    if (!WORKER_SECRET || !PUBLIC_API_ENDPOINT) {
-      console.error('[Worker Email Error] Missing essential environment variables: WORKER_SECRET or PUBLIC_API_ENDPOINT.');
-      return;
-    }
-
-    const senderEmail = message.from;
-    console.log(`[Worker Email] Received email from: ${senderEmail}`);
-
-    // 1. Verify if the sender is a registered user.
-    try {
-      const verificationUrl = `${PUBLIC_API_ENDPOINT}/public/index.php?endpoint=is_user_registered&worker_secret=${WORKER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
-      const verificationResponse = await fetch(verificationUrl);
-
-      if (!verificationResponse.ok) {
-        const errorText = await verificationResponse.text();
-        console.error(`[Worker Email Error] User verification API call failed with status ${verificationResponse.status}. Body: ${errorText}`);
-        return;
-      }
-
-      const verificationData = await verificationResponse.json();
-      if (!verificationData.is_registered) {
-        console.log(`[Worker Email] Sender ${senderEmail} is not a registered user. Discarding email.`);
-        return;
-      }
-      console.log(`[Worker Email] Sender ${senderEmail} verified successfully.`);
-    } catch (error) {
-      console.error(`[Worker Email Error] Network error during user verification: ${error.message}`);
-      return;
-    }
-
-    // 2. Parse the email content.
-    let parsedEmail;
-    try {
-        const parser = new PostalMime();
-        parsedEmail = await parser.parse(message.raw);
-        console.log(`[Worker Email] Successfully parsed email with subject: "${parsedEmail.subject}"`);
-    } catch (e) {
-        console.error(`[Worker Email Error] Failed to parse MIME content: ${e.message}`);
-        return;
-    }
-
-    // 3. Forward the parsed email to the backend.
-    try {
-      const uploadUrl = `${PUBLIC_API_ENDPOINT}/public/index.php?endpoint=email_upload&worker_secret=${WORKER_SECRET}`;
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: message.from,
-          to: message.to,
-          subject: parsedEmail.subject,
-          textContent: parsedEmail.text,
-          htmlContent: parsedEmail.html
-        })
-      });
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error(`[Worker Email Error] Email upload API call failed with status ${uploadResponse.status}. Body: ${errorText}`);
-        return;
-      }
-
-      console.log(`[Worker Email] Successfully forwarded email from ${senderEmail} to backend.`);
-
-    } catch (error) {
-      console.error(`[Worker Email Error] Network error during email upload: ${error.message}`);
-    }
   }
 };
