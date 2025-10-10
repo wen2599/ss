@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './LoginPage.css';
+import { Container, Paper, TextField, Button, Typography } from '@mui/material';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -12,34 +12,49 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="page-container login-page-container">
-      <div className="card login-card">
-        <h2 className="form-title">用户登录</h2>
-        <form onSubmit={handleLogin}>
-          <div className="form-group">
-            <label htmlFor="email">邮箱</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="password">密码</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <button type="submit">登录</button>
+    <Container component="main" maxWidth="xs">
+      <Paper elevation={3} sx={{ marginTop: 8, padding: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <Typography component="h1" variant="h5">
+          用户登录
+        </Typography>
+        <form onSubmit={handleLogin} style={{ width: '100%', marginTop: 3 }}>
+          <TextField
+            variant="outlined"
+            margin="normal"
+            required
+            fullWidth
+            id="email"
+            label="邮箱"
+            name="email"
+            autoComplete="email"
+            autoFocus
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <TextField
+            variant="outlined"
+            margin="normal"
+            required
+            fullWidth
+            name="password"
+            label="密码"
+            type="password"
+            id="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, mb: 2 }}
+          >
+            登录
+          </Button>
         </form>
-      </div>
-    </div>
+      </Paper>
+    </Container>
   );
 };
 
