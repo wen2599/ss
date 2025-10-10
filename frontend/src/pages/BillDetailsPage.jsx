@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import './BillDetailsPage.css';
+import { Container, Paper, Typography, CircularProgress, Alert, Box, Divider } from '@mui/material';
 
 const BillDetailsPage = () => {
     const [email, setEmail] = useState(null);
@@ -22,40 +22,65 @@ const BillDetailsPage = () => {
                 } else {
                     throw new Error(data.message || '未找到该邮件');
                 }
-                setLoading(false);
             })
             .catch(error => {
                 console.error('获取邮件详情时出错:', error);
                 setError(error.message);
+            })
+            .finally(() => {
                 setLoading(false);
             });
     }, [id]);
 
     if (loading) {
-        return <div className="page-container loading">加载中...</div>;
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+                <CircularProgress />
+            </Box>
+        );
     }
 
     if (error) {
-        return <div className="page-container error-message">错误: {error}</div>;
+        return (
+            <Container maxWidth="md" sx={{ mt: 4 }}>
+                <Alert severity="error">错误: {error}</Alert>
+            </Container>
+        );
     }
 
     if (!email) {
-        return <div className="page-container not-found">未找到该邮件。</div>;
+        return (
+            <Container maxWidth="md" sx={{ mt: 4 }}>
+                <Alert severity="warning">未找到该邮件。</Alert>
+            </Container>
+        );
     }
 
     return (
-        <div className="page-container bill-details-container">
-            <div className="card">
-                <h1 className="bill-subject">{email.subject}</h1>
-                <div className="bill-meta">
-                    <span><b>发件人:</b> {email.from}</span>
-                    <span><b>收件人:</b> {email.to}</span>
-                    <span><b>日期:</b> {new Date(email.created_at).toLocaleString()}</span>
-                </div>
-                <hr className="divider" />
-                <div className="bill-body" dangerouslySetInnerHTML={{ __html: email.html_content }} />
-            </div>
-        </div>
+        <Container maxWidth="lg" sx={{ mt: 4 }}>
+            <Paper elevation={3} sx={{ p: 3 }}>
+                <Typography variant="h4" component="h1" gutterBottom>
+                    {email.subject}
+                </Typography>
+                <Box sx={{ mb: 2, color: 'text.secondary' }}>
+                    <Typography variant="body2"><b>发件人:</b> {email.from}</Typography>
+                    <Typography variant="body2"><b>收件人:</b> {email.to}</Typography>
+                    <Typography variant="body2"><b>日期:</b> {new Date(email.created_at).toLocaleString()}</Typography>
+                </Box>
+                <Divider sx={{ my: 2 }} />
+                <Box
+                    className="bill-body"
+                    sx={{
+                        mt: 2,
+                        '& img': { maxWidth: '100%', height: 'auto' }, // Basic responsive images
+                        '& table': { borderCollapse: 'collapse', width: '100%' },
+                        '& th, & td': { border: '1px solid #ddd', padding: '8px' },
+                        '& th': { backgroundColor: '#f2f2f2' }
+                    }}
+                    dangerouslySetInnerHTML={{ __html: email.html_content }}
+                />
+            </Paper>
+        </Container>
     );
 };
 

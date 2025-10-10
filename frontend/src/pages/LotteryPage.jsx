@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './LotteryPage.css';
+import { Container, Card, CardContent, Typography, Button, CircularProgress, Alert, Box } from '@mui/material';
 
 const LotteryPage = () => {
   const [lotteryData, setLotteryData] = useState(null);
@@ -12,7 +12,6 @@ const LotteryPage = () => {
     fetch('/api/getLotteryNumber')
       .then(response => {
         if (!response.ok) {
-          // Try to get a more specific error message from the backend if possible
           return response.json().then(err => {
             throw new Error(err.message || `网络错误 (状态: ${response.status})`);
           }).catch(() => {
@@ -25,7 +24,6 @@ const LotteryPage = () => {
         if (data && data.winning_numbers) {
           setLotteryData(data);
         } else {
-           // This case handles a successful API call but empty/invalid data, like the initial state
           setLotteryData({ winning_numbers: '等待开奖', issue_number: '--', created_at: '--' });
         }
       })
@@ -46,36 +44,52 @@ const LotteryPage = () => {
 
   const renderContent = () => {
     if (loading && !lotteryData) {
-        return <div className="card loading-card">加载中...</div>;
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+          <CircularProgress />
+        </Box>
+      );
     }
 
     if (error) {
       return (
-        <div className="card error-message">
-          <h2>加载失败</h2>
-          <p>{error}</p>
-          <button onClick={fetchData} className="retry-button">重试</button>
-        </div>
+        <Alert severity="error" action={
+          <Button color="inherit" size="small" onClick={fetchData}>
+            重试
+          </Button>
+        }>
+          {error}
+        </Alert>
       );
     }
 
     return (
-      <div className="card lottery-display-card">
-        <h2 className="lottery-issue">期号: {lotteryData?.issue_number || '--'}</h2>
-        <p className="lottery-number-display">{lotteryData?.winning_numbers || 'N/A'}</p>
-        <p className="lottery-timestamp">最后更新: {lotteryData?.created_at ? new Date(lotteryData.created_at).toLocaleString() : '--'}</p>
-      </div>
+      <Card elevation={3} sx={{ textAlign: 'center' }}>
+        <CardContent>
+          <Typography variant="h6" color="text.secondary">
+            期号: {lotteryData?.issue_number || '--'}
+          </Typography>
+          <Typography variant="h2" component="p" sx={{ my: 2, letterSpacing: 3, color: 'primary.main' }}>
+            {lotteryData?.winning_numbers || 'N/A'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            最后更新: {lotteryData?.created_at ? new Date(lotteryData.created_at).toLocaleString() : '--'}
+          </Typography>
+        </CardContent>
+      </Card>
     );
   };
 
   return (
-    <div className="page-container">
-      <h1 className="page-title">最新开奖号码</h1>
+    <Container maxWidth="sm" sx={{ textAlign: 'center', mt: 4 }}>
+      <Typography variant="h4" component="h1" gutterBottom>
+        最新开奖号码
+      </Typography>
       {renderContent()}
-       <footer className="page-footer">
-        <p>请以官方开奖结果为准</p>
-      </footer>
-    </div>
+      <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 4 }}>
+        请以官方开奖结果为准
+      </Typography>
+    </Container>
   );
 };
 
