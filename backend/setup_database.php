@@ -1,8 +1,8 @@
 <?php
 require_once __DIR__ . '/src/core/DotEnv.php';
 
-// Load database credentials directly from the project root's .env file
-$dotenv = new DotEnv(dirname(__DIR__) . '/.env');
+// Load database credentials directly from .env file
+$dotenv = new DotEnv(__DIR__ . '/.env');
 $env = $dotenv->getVariables();
 
 $servername = $env['DB_HOST'] ?? null;
