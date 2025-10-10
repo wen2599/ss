@@ -10,6 +10,7 @@ export default {
 
       // 2. Construct the absolute, correct backend URL.
       // This rewrite points to the main router file that handles all API requests.
+      // NOTE: The path is /public/index.php because the server's document root is the `backend` directory.
       const backendUrl = new URL(`https://wenge.cloudns.ch/public/index.php?endpoint=${endpoint}`);
 
       // 3. Preserve original query parameters from the frontend request.
