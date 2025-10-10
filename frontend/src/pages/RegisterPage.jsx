@@ -9,15 +9,15 @@ const RegisterPage = () => {
   const handleRegister = (e) => {
     e.preventDefault();
     // Handle registration logic here
-    console.log('Registering with:', username, email, password);
+    console.log('正在使用以下信息注册:', username, email, password);
   };
 
   return (
     <div className="register-container">
-      <h2>Register</h2>
+      <h2>注册</h2>
       <form onSubmit={handleRegister}>
         <div className="form-group">
-          <label htmlFor="username">Username</label>
+          <label htmlFor="username">用户名</label>
           <input
             type="text"
             id="username"
@@ -27,7 +27,7 @@ const RegisterPage = () => {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email">邮箱</label>
           <input
             type="email"
             id="email"
@@ -37,7 +37,7 @@ const RegisterPage = () => {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="password">Password</label>
+          <label htmlFor="password">密码</label>
           <input
             type="password"
             id="password"
@@ -46,7 +46,7 @@ const RegisterPage = () => {
             required
           />
         </div>
-        <button type="submit">Register</button>
+        <button type="submit">注册</button>
       </form>
     </div>
   );
