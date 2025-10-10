@@ -31,20 +31,20 @@ const BillsPage = () => {
     }, []);
 
     if (loading) {
-        return <div className="loading">加载中...</div>;
+        return <div className="page-container loading">加载中...</div>;
     }
 
     if (error) {
-        return <div className="bills-container error-message">错误: {error}</div>;
+        return <div className="page-container error-message">错误: {error}</div>;
     }
 
     return (
-        <div className="bills-container">
-            <h1 className="bills-title">账单中心</h1>
+        <div className="page-container bills-container">
+            <h1 className="page-title">账单中心</h1>
             <div className="email-list">
                 {emails.length > 0 ? emails.map(email => (
                     <Link to={`/bill/${email.id}`} key={email.id} className="email-item-link">
-                        <div className="email-item">
+                        <div className="email-item card">
                             <div className="email-subject">{email.subject}</div>
                             <div className="email-from">发件人: {email.from}</div>
                             <div className="email-date">{new Date(email.created_at).toLocaleString()}</div>

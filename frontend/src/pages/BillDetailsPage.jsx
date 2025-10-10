@@ -32,28 +32,28 @@ const BillDetailsPage = () => {
     }, [id]);
 
     if (loading) {
-        return <div className="loading">加载中...</div>;
+        return <div className="page-container loading">加载中...</div>;
     }
 
     if (error) {
-        return <div className="bill-details-container error-message">错误: {error}</div>;
+        return <div className="page-container error-message">错误: {error}</div>;
     }
 
     if (!email) {
-        return <div className="not-found">未找到该邮件。</div>;
+        return <div className="page-container not-found">未找到该邮件。</div>;
     }
 
     return (
-        <div className="bill-details-container">
-            <h1 className="bill-subject">{email.subject}</h1>
-            <div className="bill-meta">
-                <span><b>发件人:</b> {email.from}</span>
-                <span><b>收件人:</b> {email.to}</span>
-                <span><b>日期:</b> {new Date(email.created_at).toLocaleString()}</span>
-            </div>
-            <div className="bill-body">
-                {/* Render the HTML content of the email */}
-                <div dangerouslySetInnerHTML={{ __html: email.html_content }} />
+        <div className="page-container bill-details-container">
+            <div className="card">
+                <h1 className="bill-subject">{email.subject}</h1>
+                <div className="bill-meta">
+                    <span><b>发件人:</b> {email.from}</span>
+                    <span><b>收件人:</b> {email.to}</span>
+                    <span><b>日期:</b> {new Date(email.created_at).toLocaleString()}</span>
+                </div>
+                <hr className="divider" />
+                <div className="bill-body" dangerouslySetInnerHTML={{ __html: email.html_content }} />
             </div>
         </div>
     );
