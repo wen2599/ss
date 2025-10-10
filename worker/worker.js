@@ -1,169 +1,154 @@
 /**
  * Welcome to Cloudflare Workers!
  *
- * This is a template for a Scheduled Worker:
- * - Run on a schedule
- * - Use KV for persistent storage
- * - Send email alerts using MailChannels
+ * This worker handles two main tasks:
+ * 1. API Gateway: Proxies and rewrites frontend API requests to the backend server.
+ * 2. Email Handler: Receives emails via Cloudflare Email Routing, verifies the sender,
+ *    parses the email, and forwards the content to a backend API endpoint.
  *
- * Resources:
- * - https://developers.cloudflare.com/workers/
- * - https://developers.cloudflare.com/workers/runtime-apis/kv/
- * - https://mailchannels.zendesk.com/hc/en-us/articles/4413695934349-Sending-Email-from-Cloudflare-Workers-using-the-MailChannels-Send-API
+ * This version includes significant improvements in robustness, error handling, and maintainability.
  */
 
 import PostalMime from 'postal-mime';
 
-// --- Utility Functions for Email Parsing ---
-
-/**
- * Parses the raw MIME content of an email.
- * @param {ReadableStream} mimeStream - The raw email content stream.
- * @returns {Promise<object>} - A promise that resolves to the parsed email object.
- */
-async function parseMime(mimeStream) {
-    const reader = mimeStream.getReader();
-    const chunks = [];
-    let done, value;
-    while (!({ done, value } = await reader.read()), done) {
-        chunks.push(value);
-    }
-
-    // Combine chunks into a single Uint8Array
-    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-    const combinedChunks = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const chunk of chunks) {
-        combinedChunks.set(chunk, offset);
-        offset += chunk.length;
-    }
-
-    // Create a string from the Uint8Array
-    const rawEmail = new TextDecoder("utf-8").decode(combinedChunks);
-
-    // Use postal-mime to parse the email
-    const parser = new PostalMime();
-    return await parser.parse(rawEmail);
-}
-
-
 // --- Worker Entry Point ---
 export default {
   /**
-   * Rewritten fetch handler to proxy API requests to the backend.
-   * - Any path matching an endpoint in apiEndpoints will be proxied.
-   * - All other requests will be treated as static assets.
+   * Handles all incoming HTTP requests.
+   * - If the path starts with /api/, it acts as an API gateway.
+   * - Otherwise, it serves static assets for the frontend application.
    */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const backendServer = env.PUBLIC_API_ENDPOINT || "https://wenge.cloudns.ch";
 
-    const apiEndpoints = [
-      'check_session', 'login', 'logout', 'register',
-      'get_numbers', 'get_bills', 'get_emails',
-      'is_user_registered', 'email_upload',
-      'telegram_webhook'
-    ];
+    // --- API Gateway Logic ---
+    if (url.pathname.startsWith('/api/')) {
+      // No more hardcoded endpoint list. Any /api/ request is proxied.
+      const endpoint = url.pathname.substring(5);
 
-    let requestedEndpoint = url.pathname.startsWith('/api/')
-      ? url.pathname.substring(5)
-      : url.pathname.substring(1);
+      // This path is now definitive based on our successful debugging.
+      const backendUrl = new URL(`${backendServer}/public/index.php?endpoint=${endpoint}`);
 
-    if (apiEndpoints.includes(requestedEndpoint)) {
-      const backendUrl = `${backendServer}/index.php?endpoint=${requestedEndpoint}${url.search}`;
+      // Preserve original query parameters
+      backendUrl.search = url.search;
 
-      // Append the secret if this is a telegram webhook
-      let headers = new Headers(request.headers);
-      if (requestedEndpoint === 'telegram_webhook') {
-         // Note: We are creating a new headers object to avoid modifying the original request headers.
-         if (env.TELEGRAM_WEBHOOK_SECRET) {
-            headers.set('X-Telegram-Bot-Api-Secret-Token', env.TELEGRAM_WEBHOOK_SECRET);
-         }
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set('Host', new URL(backendServer).hostname);
+
+      // Add Telegram secret header if it's the webhook endpoint.
+      if (endpoint === 'telegramWebhook' && env.TELEGRAM_WEBHOOK_SECRET) {
+        requestHeaders.set('X-Telegram-Bot-Api-Secret-Token', env.TELEGRAM_WEBHOOK_SECRET);
       }
 
-      const backendRequest = new Request(backendUrl, {
-        method: request.method,
-        headers: headers, // Use the new headers object
-        body: request.body,
-        redirect: 'follow'
-      });
+      try {
+        const backendRequest = new Request(backendUrl.toString(), new Request(request, { headers: requestHeaders }));
+        const backendResponse = await fetch(backendRequest);
 
-      return fetch(backendRequest);
+        // Create a new response with mutable headers to add CORS.
+        const responseHeaders = new Headers(backendResponse.headers);
+        const origin = request.headers.get('Origin');
+        if (origin) {
+          responseHeaders.set('Access-Control-Allow-Origin', origin);
+          responseHeaders.set('Vary', 'Origin');
+        }
+        responseHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+        responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Telegram-Bot-Api-Secret-Token');
+
+        return new Response(backendResponse.body, {
+          status: backendResponse.status,
+          statusText: backendResponse.statusText,
+          headers: responseHeaders,
+        });
+
+      } catch (error) {
+        console.error(`[Worker Fetch Error] Failed to proxy to backend: ${error.message}`);
+        const errorResponse = { error: 'Backend Proxy Error', message: error.message };
+        return new Response(JSON.stringify(errorResponse), {
+          status: 502,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
     }
 
-    // For any other request, serve from Cloudflare Pages assets.
+    // --- Static Asset Serving ---
     return env.ASSETS.fetch(request);
   },
 
   /**
    * Handles incoming emails routed by Cloudflare Email Routing.
-   * - Verifies the sender is a registered user.
-   * - Parses the email content.
-   * - Forwards the parsed content to the backend API for storage.
    */
   async email(message, env, ctx) {
-    // Environment variables required for this function to work.
     const { WORKER_SECRET, PUBLIC_API_ENDPOINT } = env;
     if (!WORKER_SECRET || !PUBLIC_API_ENDPOINT) {
-      // Silently fail if essential configuration is missing.
+      console.error('[Worker Email Error] Missing essential environment variables: WORKER_SECRET or PUBLIC_API_ENDPOINT.');
       return;
     }
 
     const senderEmail = message.from;
+    console.log(`[Worker Email] Received email from: ${senderEmail}`);
 
-    // 1. Verify if the sender is a registered user in our system.
+    // 1. Verify if the sender is a registered user.
     try {
-      const verificationUrl = `${PUBLIC_API_ENDPOINT}/index.php?endpoint=is_user_registered&worker_secret=${WORKER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
+      const verificationUrl = `${PUBLIC_API_ENDPOINT}/public/index.php?endpoint=is_user_registered&worker_secret=${WORKER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
       const verificationResponse = await fetch(verificationUrl);
 
-      if (verificationResponse.status !== 200) {
-        // If status is not 200, stop processing.
+      if (!verificationResponse.ok) {
+        const errorText = await verificationResponse.text();
+        console.error(`[Worker Email Error] User verification API call failed with status ${verificationResponse.status}. Body: ${errorText}`);
         return;
       }
 
       const verificationData = await verificationResponse.json();
-      if (!verificationData.success || !verificationData.is_registered) {
-        // If the API call was not successful or user is not registered, stop.
+      if (!verificationData.is_registered) {
+        console.log(`[Worker Email] Sender ${senderEmail} is not a registered user. Discarding email.`);
         return;
       }
+      console.log(`[Worker Email] Sender ${senderEmail} verified successfully.`);
     } catch (error) {
-      // If the verification call fails for any reason, stop processing.
+      console.error(`[Worker Email Error] Network error during user verification: ${error.message}`);
       return;
     }
 
-    // 2. Sender is verified, now parse the email.
+    // 2. Parse the email content.
     let parsedEmail;
     try {
-        parsedEmail = await parseMime(message.raw);
+        const parser = new PostalMime();
+        parsedEmail = await parser.parse(message.raw);
+        console.log(`[Worker Email] Successfully parsed email with subject: "${parsedEmail.subject}"`);
     } catch (e) {
-        // If parsing fails, stop.
+        console.error(`[Worker Email Error] Failed to parse MIME content: ${e.message}`);
         return;
     }
 
-
-    // 3. Forward the parsed email to the backend to be stored.
+    // 3. Forward the parsed email to the backend.
     try {
-      const uploadUrl = `${PUBLIC_API_ENDPOINT}/index.php?endpoint=email_upload&worker_secret=${WORKER_SECRET}`;
-
+      const uploadUrl = `${PUBLIC_API_ENDPOINT}/public/index.php?endpoint=email_upload&worker_secret=${WORKER_SECRET}`;
       const uploadResponse = await fetch(uploadUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from: message.from,
           to: message.to,
-          subject: message.headers.get('subject'),
+          subject: parsedEmail.subject,
           textContent: parsedEmail.text,
           htmlContent: parsedEmail.html
         })
       });
 
-      // We can check `uploadResponse.ok` if we need to handle upload failures.
-      // For now, we'll just complete the process.
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error(`[Worker Email Error] Email upload API call failed with status ${uploadResponse.status}. Body: ${errorText}`);
+        return;
+      }
+
+      console.log(`[Worker Email] Successfully forwarded email from ${senderEmail} to backend.`);
 
     } catch (error) {
-      // If the upload fetch call fails, do nothing.
+      console.error(`[Worker Email Error] Network error during email upload: ${error.message}`);
     }
   }
 };
