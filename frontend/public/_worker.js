@@ -31,7 +31,7 @@ export default {
         newHeaders.set('Access-Control-Allow-Origin', new URL(request.url).origin);
         newHeaders.set('Vary', 'Origin');
         newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Telegram-Bot-Api-Secret-Token');
         
         return new Response(backendResponse.body, {
           status: backendResponse.status,
