@@ -2,36 +2,39 @@ import React, { useState, useEffect } from 'react';
 import './LotteryPage.css';
 
 const LotteryPage = () => {
-  const [lotteryData, setLotteryData] = useState({
-    winning_numbers: '加载中...', // Corrected field name and translated text
-    created_at: 'N/A',         // Corrected field name
-  });
+  const [lotteryData, setLotteryData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const fetchData = () => {
+    setLoading(true);
     setError(null);
     fetch('/api/getLotteryNumber')
-      .then(async (response) => {
+      .then(response => {
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: '发生未知错误。' }));
-          // Use winning_numbers for error message consistency
-          throw new Error(errorData.winning_numbers || `HTTP 错误！状态: ${response.status}`);
+          // Try to get a more specific error message from the backend if possible
+          return response.json().then(err => {
+            throw new Error(err.message || `网络错误 (状态: ${response.status})`);
+          }).catch(() => {
+            throw new Error(`网络错误 (状态: ${response.status})`);
+          });
         }
         return response.json();
       })
-      .then((data) => {
-        // Ensure data has the expected properties before setting state
+      .then(data => {
         if (data && data.winning_numbers) {
-            setLotteryData(data);
+          setLotteryData(data);
         } else {
-            // Handle cases where API returns unexpected JSON structure
-            throw new Error('从服务器收到的数据格式无效。');
+           // This case handles a successful API call but empty/invalid data, like the initial state
+          setLotteryData({ winning_numbers: '等待开奖', issue_number: '--', created_at: '--' });
         }
       })
-      .catch((error) => {
+      .catch(error => {
         console.error('获取开奖数据时出错:', error);
-        setError(error.message);
-        setLotteryData({ winning_numbers: '获取失败', created_at: '-' });
+        setError(error.message || '获取数据失败');
+      })
+      .finally(() => {
+        setLoading(false);
       });
   };
 
@@ -41,27 +44,35 @@ const LotteryPage = () => {
     return () => clearInterval(intervalId);
   }, []);
 
+  const renderContent = () => {
+    if (loading && !lotteryData) {
+        return <div className="card loading-card">加载中...</div>;
+    }
+
+    if (error) {
+      return (
+        <div className="card error-message">
+          <h2>加载失败</h2>
+          <p>{error}</p>
+          <button onClick={fetchData} className="retry-button">重试</button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="card lottery-display-card">
+        <h2 className="lottery-issue">期号: {lotteryData?.issue_number || '--'}</h2>
+        <p className="lottery-number-display">{lotteryData?.winning_numbers || 'N/A'}</p>
+        <p className="lottery-timestamp">最后更新: {lotteryData?.created_at ? new Date(lotteryData.created_at).toLocaleString() : '--'}</p>
+      </div>
+    );
+  };
+
   return (
-    <div className="container">
-      <header className="header">
-        <h1>最新开奖号码</h1>
-      </header>
-      <main className="main-content">
-        {error ? (
-          <div className="card error-card">
-            <h2>数据加载失败</h2>
-            <p>{error}</p>
-            <button onClick={fetchData}>重试</button>
-          </div>
-        ) : (
-          <div className="card lottery-card">
-            {/* Render the correct properties */}
-            <p className="lottery-number">{lotteryData.winning_numbers}</p>
-            <p className="timestamp">最后更新: {lotteryData.created_at}</p>
-          </div>
-        )}
-      </main>
-      <footer className="footer">
+    <div className="page-container">
+      <h1 className="page-title">最新开奖</h1>
+      {renderContent()}
+       <footer className="page-footer">
         <p>请以官方开奖结果为准</p>
       </footer>
     </div>

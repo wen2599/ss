@@ -1,32 +1,16 @@
-.register-container {
-  max-width: 400px;
-  margin: 50px auto;
-  padding: 20px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
+/* --- Register Page Specific Styles --- */
+
+.register-page-container .card {
+  max-width: 450px;
+  margin: 2rem auto; /* Ensures it's centered within the page-container */
 }
 
-.form-group {
-  margin-bottom: 15px;
-}
-
-label {
-  display: block;
-  margin-bottom: 5px;
-}
-
-input {
-  width: 100%;
-  padding: 8px;
-  box-sizing: border-box;
-}
-
-button {
-  width: 100%;
-  padding: 10px;
-  background-color: #28a745;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
+/* The .form-title class is shared from LoginPage.css, but we can redefine it if needed.
+   For now, we assume it's loaded or we can add it here if there are issues. */
+.form-title {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 2rem;
 }
