@@ -9,7 +9,6 @@ require_once __DIR__ . '/core/DotEnv.php';
 // document root as an absolute anchor to find the .env file.
 // This avoids all issues with relative paths (../) and symlinks.
 $env = [];
-// Based on debug output, DOCUMENT_ROOT points to /public_html, and the .env file is inside it.
 $dotenvPath = $_SERVER['DOCUMENT_ROOT'] . '/.env';
 
 if (file_exists($dotenvPath)) {
