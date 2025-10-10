@@ -1,37 +1,26 @@
 <?php
 
-// API handler to provide the latest lottery number to the frontend from the database.
-// Core dependencies are now loaded by the main index.php router.
+// API handler to provide the latest lottery number to the frontend
 
-try {
-    $conn = getDbConnection();
+require_once __DIR__ . '/../core/Response.php';
 
-    // Query to get the most recent lottery number entry
-    $sql = "SELECT issue_number, winning_numbers, drawing_date, created_at
-            FROM lottery_numbers
-            ORDER BY id DESC
-            LIMIT 1";
+// Path to the stored data
+$storagePath = __DIR__ . '/../../data/lottery_latest.json';
 
-    $result = $conn->query($sql);
+if (file_exists($storagePath)) {
+    $content = file_get_contents($storagePath);
+    $data = json_decode($content, true);
 
-    if ($result && $result->num_rows > 0) {
-        // Fetch the data
-        $row = $result->fetch_assoc();
-        Response::json($row);
+    // Check if json is valid
+    if (json_last_error() === JSON_ERROR_NONE) {
+        Response::json($data);
     } else {
-        // If no records are found, return a placeholder response
-        Response::json([
-            'issue_number' => 'N/A',
-            'winning_numbers' => '等待开奖',
-            'drawing_date' => null,
-            'created_at' => null
-        ], 404);
+        Response::json(['error' => 'Data file is corrupted'], 500);
     }
-
-    $conn->close();
-
-} catch (Exception $e) {
-    // The global exception handler in index.php will catch this
-    // and return a formatted JSON error.
-    throw new Exception('Could not retrieve lottery data: ' . $e->getMessage());
+} else {
+    // If the file doesn't exist yet, return a placeholder
+    Response::json([
+        'lottery_number' => 'Waiting for first number...',
+        'received_at_utc' => null
+    ], 404);
 }

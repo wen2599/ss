@@ -18,35 +18,8 @@ class DotEnv
     }
 
     /**
-     * Loads the .env file variables into the environment.
-     */
-    public function load() :void
-    {
-        if (!is_readable($this->path)) {
-            throw new \RuntimeException(sprintf('%s file is not readable', $this->path));
-        }
-
-        $lines = file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-
-            // Skip comments
-            if (strpos(trim($line), '#') === 0) {
-                continue;
-            }
-
-            list($name, $value) = explode('=', $line, 2);
-            $name = trim($name);
-            $value = trim($value);
-
-            // Always set the environment variables from the .env file
-            putenv(sprintf('%s=%s', $name, $value));
-            $_ENV[$name] = $value;
-            $_SERVER[$name] = $value;
-        }
-    }
-
-    /**
      * Reads the .env file and returns the variables as an array.
+     * This method is generally more reliable than relying on putenv/getenv.
      */
     public function getVariables() :array
     {
@@ -59,6 +32,10 @@ class DotEnv
         foreach ($lines as $line) {
             // Skip comments
             if (strpos(trim($line), '#') === 0) {
+                continue;
+            }
+
+            if (strpos($line, '=') === false) {
                 continue;
             }
 
