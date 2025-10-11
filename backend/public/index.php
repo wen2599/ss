@@ -3,6 +3,7 @@
 // --- Bootstrap Application ---
 // This single line loads all configurations, core libraries, and error handlers.
 require_once __DIR__ . '/../src/config.php';
+// This line is essential to make the sendMessage function available to the webhook handler.
 require_once __DIR__ . '/../src/core/Telegram.php';
 
 // --- API Routing ---
