@@ -1,98 +1,41 @@
-/* Modern Professional Gray Bill Details Page Theme */
 .bill-details-container {
-  background: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  padding: calc(var(--spacing-unit) * 1.5);
-  box-shadow: var(--box-shadow);
+    padding: 20px;
+    max-width: 900px;
+    margin: auto;
 }
 
-.bill-details-header {
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: var(--spacing-unit);
-  margin-bottom: var(--spacing-unit);
+.bill-subject {
+    font-size: 2rem;
+    margin-bottom: 10px;
 }
 
-.bill-details-header h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-color);
-  margin: 0;
+.bill-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 20px;
+    color: #555;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
 }
 
-.bill-details-meta {
-  font-size: 0.9rem;
-  color: var(--subtle-text-color);
-  margin-top: 0.5rem;
+.bill-body {
+    line-height: 1.6;
 }
 
-.tabs {
-  display: flex;
-  border-bottom: 2px solid var(--border-color);
-  margin-bottom: var(--spacing-unit);
+/* Basic styling for the content that comes from the email */
+.bill-body table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-.tab {
-  padding: 0.75rem 1.25rem;
-  cursor: pointer;
-  font-weight: 600;
-  color: var(--subtle-text-color);
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
+.bill-body th, .bill-body td {
+    border: 1px solid #ddd;
+    padding: 8px;
 }
 
-.tab:hover {
-  color: var(--text-color);
-}
-
-.tab.active {
-  color: var(--accent-color);
-  border-bottom-color: var(--accent-color);
-}
-
-.tab-content {
-  padding: var(--spacing-unit) 0;
-}
-
-.parsed-data,
-.raw-html-content {
-  line-height: 1.7;
-}
-
-.raw-html-content {
-  background-color: #f7fafc; /* A very light gray for code blocks */
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  padding: var(--spacing-unit);
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.875rem;
-}
-
-.betting-slips-container {
-  margin-top: calc(var(--spacing-unit) * 2);
-}
-
-.betting-slips-container h3 {
-  font-size: 1.25rem;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 0.5rem;
-  margin-bottom: var(--spacing-unit);
-}
-
-.betting-slip-card {
-  background: #f7fafc;
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  padding: var(--spacing-unit);
-  margin-bottom: var(--spacing-unit);
-}
-
-.betting-slip-card p {
-  margin: 0 0 0.5rem 0;
-}
-
-.betting-slip-card strong {
-  color: var(--text-color);
+.loading, .not-found {
+    text-align: center;
+    padding: 50px;
+    font-size: 1.5rem;
 }

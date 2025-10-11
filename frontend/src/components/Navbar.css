@@ -1,67 +1,11 @@
-/* Modern Professional Gray Navbar Theme */
 .navbar {
-  background-color: var(--card-background);
-  padding: var(--spacing-unit) calc(var(--spacing-unit) * 2);
-  box-shadow: var(--box-shadow);
-  border-bottom: 1px solid var(--border-color);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: sticky; /* Make navbar sticky */
-  top: 0;
-  z-index: 1000;
-  margin-bottom: calc(var(--spacing-unit) * 2);
+  justify-content: space-around;
+  padding: 10px;
+  background-color: #f0f0f0;
 }
 
-.navbar-logo {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-color);
+.navbar a {
   text-decoration: none;
-}
-
-.navbar-links {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  gap: calc(var(--spacing-unit) * 1.5);
-}
-
-.navbar-links li {
-  margin: 0;
-}
-
-.navbar-links a {
-  text-decoration: none;
-  color: var(--subtle-text-color);
-  font-weight: 600;
-  font-size: 1rem;
-  padding: 0.5rem 0;
-  position: relative;
-  transition: color 0.2s ease-in-out;
-}
-
-.navbar-links a:hover {
-  color: var(--accent-color);
-}
-
-/* Style for the active link */
-.navbar-links a.active {
-  color: var(--accent-color);
-  border-bottom: 2px solid var(--accent-color);
-}
-
-.navbar-logout-button {
-  background: none;
-  border: none;
-  color: var(--subtle-text-color);
-  font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: color 0.2s ease-in-out;
-}
-
-.navbar-logout-button:hover {
-  color: var(--accent-color);
+  color: #333;
 }
