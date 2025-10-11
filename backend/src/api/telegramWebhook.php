@@ -1,88 +1,58 @@
-
 <?php
 
-// --- Enhanced Error Handling & Logging ---
-// This section is crucial for debugging. It ensures that ANY error,
-// even fatal ones, get written to a log file WE can access.
-
-// REDIRECT ERROR LOGS: All logs will go to /public_html/debug_webhook.log
-ini_set('error_log', dirname(__DIR__, 3) . '/debug_webhook.log');
-
-ini_set('display_errors', 0); // NEVER display errors to the public
-ini_set('log_errors', 1);     // ALWAYS log errors
-error_reporting(E_ALL);
-
-// Global Exception Handler: Catches any error that isn't caught elsewhere.
-set_exception_handler(function($exception) {
-    error_log("!!! UNCAUGHT EXCEPTION !!!\nFile: " . $exception->getFile() . "\nLine: " . $exception->getLine() . "\nMessage: " . $exception->getMessage() . "\nTrace: " . $exception->getTraceAsString());
-    exit();
-});
-
-error_log("--- [Webhook START] --- Script was triggered.");
-
-// --- File Includes ---
-try {
-    require_once dirname(__DIR__) . '/config.php';
-    error_log("[OK] config.php loaded successfully.");
-
-    require_once dirname(__DIR__) . '/core/Database.php';
-    error_log("[OK] Database.php loaded successfully.");
-
-    require_once dirname(__DIR__) . '/core/Telegram.php';
-    error_log("[OK] Telegram.php loaded successfully.");
-} catch (Throwable $t) {
-    error_log("!!! FATAL: Failed to include a required file. Error: " . $t->getMessage());
-    exit();
-}
+// This script is now a clean API handler.
+// All bootstrapping (config, db, etc.) is handled by the main index.php,
+// which already required `config.php`.
 
 // --- Main Logic ---
-$json = file_get_contents('php://input');
-if ($json === false) {
-    error_log("!!! CRITICAL: file_get_contents('php://input') failed. No data received.");
-    exit();
-}
-if (empty($json)) {
-    error_log("--- [Webhook END] --- Received an empty request. This is normal. Exiting.");
-    exit();
-}
+// The request body is already parsed and available in $GLOBALS['requestBody']
+// from the bootstrap process, so we can use it directly.
+$update = $GLOBALS['requestBody'];
 
-error_log("Received Raw Update from Telegram:\n" . $json);
-
-$update = json_decode($json, true);
-
+// --- Basic Validation ---
 if (!$update) {
-    error_log("!!! CRITICAL: Failed to decode JSON. The received data may be malformed.");
+    // This can happen if Telegram sends an empty POST request to check the webhook.
+    // We can safely exit without an error.
     exit;
 }
 
-error_log("JSON decoded successfully. Update ID: " . ($update['update_id'] ?? 'Not found'));
-
 // --- Routing ---
+// Route the update to the appropriate handler based on its content.
 try {
     if (isset($update['channel_post'])) {
-        error_log("Routing to: handleChannelPost");
         handleChannelPost($update['channel_post']);
-        error_log("Finished: handleChannelPost");
         exit;
     }
 
     if (isset($update['message'])) {
-        error_log("Routing to: handleUserMessage");
         handleUserMessage($update['message']);
-        error_log("Finished: handleUserMessage");
         exit;
     }
 
-    error_log("No 'channel_post' or 'message' key found in the update. Nothing to do.");
+    // If neither key is present, there's nothing to do.
+    error_log("Webhook received an update with no 'channel_post' or 'message' key.");
 
 } catch (Throwable $e) {
-    error_log("!!! FATAL ERROR during routing/handling !!!\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nMessage: " . $e->getMessage());
+    // The global exception handler in config.php will catch this,
+    // log it, and send a 500 response.
+    throw $e;
 }
 
-error_log("--- [Webhook END] --- Script finished.");
-
-
 // --- Function Definitions ---
-// NOTE: The actual function content is not included here for brevity,
-// but it remains the same as in the previous version.
+// These functions are called by the routing logic above.
 
+function handleChannelPost(array $post): void
+{
+    // Placeholder for channel post handling logic
+    // For now, we just log it.
+    error_log("Received channel post: " . json_encode($post));
+}
+
+function handleUserMessage(array $message): void
+{
+    $chatId = $message['chat']['id'];
+    $text = $message['text'] ?? '';
+
+    // Simple echo bot for demonstration
+    sendMessage($chatId, "You said: " . htmlspecialchars($text));
+}
