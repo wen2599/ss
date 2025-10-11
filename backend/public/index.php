@@ -2,7 +2,7 @@
 
 // --- Bootstrap Application ---
 // This single line loads all configurations, core libraries, and error handlers.
-require_once dirname(__DIR__) . '/bootstrap.php';
+require_once __DIR__ . '/../src/config.php';
 
 // --- API Routing ---
 // Get the requested endpoint from the query string.
