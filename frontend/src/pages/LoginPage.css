@@ -1,32 +1,95 @@
+/* Modern Professional Gray Login Page Theme */
+.login-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+}
+
 .login-container {
+  background: var(--card-background);
+  padding: calc(var(--spacing-unit) * 2.5);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow-lg);
+  width: 100%;
   max-width: 400px;
-  margin: 50px auto;
-  padding: 20px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
+  text-align: center;
+  border: 1px solid var(--border-color);
 }
 
-.form-group {
-  margin-bottom: 15px;
+.login-container h2 {
+  margin-bottom: calc(var(--spacing-unit) * 1.5);
+  color: var(--text-color);
+  font-size: 1.75rem;
+  font-weight: 700;
 }
 
-label {
+.login-form .form-group {
+  margin-bottom: calc(var(--spacing-unit) * 1.5);
+  text-align: left;
+}
+
+.login-form label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--text-color);
 }
 
-input {
+.login-form input {
   width: 100%;
-  padding: 8px;
-  box-sizing: border-box;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box; /* Ensure padding doesn't affect width */
 }
 
-button {
+.login-form input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.3);
+}
+
+.login-button {
   width: 100%;
-  padding: 10px;
-  background-color: #007bff;
+  padding: 0.75rem;
+  background-color: var(--accent-color);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--border-radius);
+  font-size: 1.1rem;
+  font-weight: 700;
   cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.login-button:hover {
+  background-color: #2b6cb0; /* Darker blue */
+}
+
+.login-button:disabled {
+  background-color: #a0aec0; /* Lighter gray when disabled */
+  cursor: not-allowed;
+}
+
+.error-message {
+  color: var(--error-color);
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.register-link {
+  margin-top: calc(var(--spacing-unit) * 1.5);
+}
+
+.register-link a {
+  color: var(--accent-color);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.register-link a:hover {
+  text-decoration: underline;
 }

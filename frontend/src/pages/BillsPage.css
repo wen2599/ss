@@ -1,49 +1,61 @@
-.bills-container {
-    padding: 20px;
+/* Modern Professional Gray Bills Page Theme */
+.bills-page-container {
+  width: 100%;
 }
 
-.bills-title {
-    text-align: center;
-    margin-bottom: 20px;
+.bills-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
-.loading {
-    text-align: center;
-    padding: 50px;
-    font-size: 1.5rem;
+.bill-item {
+  background: var(--card-background);
+  padding: var(--spacing-unit);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-unit);
+  cursor: pointer;
+  transition: box-shadow 0.2s, border-color 0.2s;
 }
 
-.email-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+.bill-item:hover {
+  box-shadow: var(--box-shadow);
+  border-color: var(--accent-color);
 }
 
-.email-item-link {
-    text-decoration: none;
-    color: inherit;
+.bill-item.selected {
+  border-left: 4px solid var(--accent-color);
+  box-shadow: var(--box-shadow);
 }
 
-.email-item {
-    padding: 15px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background-color: #fff;
-    transition: box-shadow 0.3s ease;
+.bill-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.email-item:hover {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+.bill-subject {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text-color);
 }
 
-.email-subject {
-    font-size: 1.2rem;
-    font-weight: bold;
-    margin-bottom: 5px;
+.bill-date {
+  font-size: 0.875rem;
+  color: var(--subtle-text-color);
 }
 
-.email-from,
-.email-date {
-    font-size: 0.9rem;
-    color: #666;
+.bill-from {
+  font-size: 0.9rem;
+  color: var(--subtle-text-color);
+  margin-top: 0.5rem;
+}
+
+.loading-message,
+.no-bills-message {
+  text-align: center;
+  padding: calc(var(--spacing-unit) * 2);
+  color: var(--subtle-text-color);
+  font-size: 1.1rem;
 }

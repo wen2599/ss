@@ -1,21 +1,66 @@
-.lottery-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: calc(100vh - 80px);
-    text-align: center;
-    background-color: #f0f2f5;
+/* Modern Professional Gray Lottery Page Theme */
+.lottery-page-container {
+  width: 100%;
 }
 
-.lottery-title {
-    font-size: 2.5rem;
-    color: #333;
-    margin-bottom: 20px;
+.lottery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: calc(var(--spacing-unit) * 1.5);
 }
 
-.lottery-number {
-    font-size: 4rem;
-    color: #d9534f;
-    font-weight: bold;
+.lottery-card {
+  background: var(--card-background);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: calc(var(--spacing-unit) * 1.5);
+  text-align: center;
+  box-shadow: var(--box-shadow);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.lottery-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--box-shadow-lg);
+}
+
+.lottery-card h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-color);
+  margin: 0 0 0.5rem 0;
+}
+
+.issue-number {
+  font-size: 0.9rem;
+  color: var(--subtle-text-color);
+  margin-bottom: var(--spacing-unit);
+}
+
+.winning-numbers {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--accent-color);
+  margin: 0;
+  letter-spacing: 2px;
+  word-break: break-all;
+}
+
+.drawing-date {
+  font-size: 0.875rem;
+  color: var(--subtle-text-color);
+  margin-top: var(--spacing-unit);
+}
+
+.loading-message,
+.error-message {
+  text-align: center;
+  padding: calc(var(--spacing-unit) * 2);
+  color: var(--subtle-text-color);
+  font-size: 1.1rem;
+}
+
+.error-message {
+  color: var(--error-color);
+  font-weight: 600;
 }
