@@ -1,55 +1,64 @@
 <?php
 
-// Global Configuration File
+// --- UNIFIED BOOTSTRAP ---
+// This file is now the single source of truth for application initialization.
+// It handles error reporting, dependency loading, and configuration.
 
+// --- Global Error & Exception Handling ---
+ini_set('display_errors', 0); // Do not display errors to the user
+error_reporting(E_ALL);
+
+set_exception_handler(function ($exception) {
+    error_log("Unhandled Exception: " . $exception->getMessage());
+    // Check if headers have already been sent before trying to send new ones.
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'An internal server error occurred.']);
+    }
+    exit;
+});
+
+set_error_handler(function ($severity, $message, $file, $line) {
+    if (!(error_reporting() & $severity)) {
+        return;
+    }
+    throw new ErrorException($message, 0, $severity, $file, $line);
+});
+
+// --- Core File Includes ---
 require_once __DIR__ . '/core/DotEnv.php';
+require_once __DIR__ . '/core/Response.php';
+require_once __DIR__ . '/core/Database.php';
+require_once __DIR__ . '/core/Telegram.php';
 
-// --- Load Environment Variables ---
-// This is the definitive, robust path fix. It starts from this file's directory
-// and walks up the directory tree to find the project root where .env is located.
-$env = [];
-$currentDir = __DIR__; // Start in the current directory (/src)
-$projectRoot = null;
+// --- Environment Variable Loading ---
+// The .env file is located in the `backend` directory, which is the parent of this file's directory.
+$dotenvPath = dirname(__DIR__) . '/.env';
 
-// Traverse up from /src to find the project root (the one containing .env)
-while (true) {
-    if (file_exists($currentDir . '/.env')) {
-        $projectRoot = $currentDir;
-        break;
-    }
-    // Go one level up
-    $parentDir = dirname($currentDir);
-    // If we've reached the top of the filesystem and haven't found it, stop.
-    if ($parentDir === $currentDir) {
-        break;
-    }
-    $currentDir = $parentDir;
-}
-
-if ($projectRoot) {
-    $dotenvPath = $projectRoot . '/.env';
-    error_log("Config: Found .env file at: " . $dotenvPath);
-    $dotenv = new DotEnv($dotenvPath);
-    $env = $dotenv->getVariables();
-} else {
-    $errorMessage = "CRITICAL: .env file could not be found in any parent directory.";
+if (!file_exists($dotenvPath) || !is_readable($dotenvPath)) {
+    $errorMessage = "CRITICAL: .env file could not be found or is not readable at the expected path: {$dotenvPath}";
     error_log($errorMessage);
     throw new \RuntimeException($errorMessage);
 }
 
+$dotenv = new DotEnv($dotenvPath);
+$env = $dotenv->getVariables();
 
-// --- Error Reporting (for development) ---
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
-// --- Database Configuration ---
+// --- Global Constants Definition ---
 define('DB_HOST', $env['DB_HOST'] ?? null);
 define('DB_PORT', $env['DB_PORT'] ?? 3306);
 define('DB_DATABASE', $env['DB_DATABASE'] ?? null);
 define('DB_USER', $env['DB_USER'] ?? null);
 define('DB_PASSWORD', $env['DB_PASSWORD'] ?? null);
-
-// --- Telegram Configuration ---
 define('TELEGRAM_BOT_TOKEN', $env['TELEGRAM_BOT_TOKEN'] ?? null);
 define('TELEGRAM_WEBHOOK_SECRET', $env['TELEGRAM_WEBHOOK_SECRET'] ?? null);
 define('TELEGRAM_CHANNEL_ID', $env['TELEGRAM_CHANNEL_ID'] ?? null);
+
+// --- Global Request Body ---
+// This should only run in the context of a web request, not a CLI script.
+if (php_sapi_name() !== 'cli') {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT') {
+        $GLOBALS['requestBody'] = json_decode(file_get_contents('php://input'), true);
+    }
+}
