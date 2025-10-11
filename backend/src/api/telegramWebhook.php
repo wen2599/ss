@@ -3,14 +3,13 @@
 // This is the new, interactive webhook handler.
 // It processes commands from users and posts from the channel.
 
-// --- Bootstrap ---
-// This script is called directly by the Telegram webhook.
-// It needs to load all dependencies itself because it does not run through index.php.
 require_once dirname(__DIR__) . '/config.php';
 require_once dirname(__DIR__) . '/core/Database.php';
 require_once dirname(__DIR__) . '/core/Telegram.php';
 
 // --- Configuration Validation ---
+// Ensure that the necessary Telegram credentials are set in the environment.
+// The bot cannot function without these, so we fail loudly if they are missing.
 if (empty(TELEGRAM_BOT_TOKEN)) {
     throw new \RuntimeException('CRITICAL: TELEGRAM_BOT_TOKEN is not defined. The bot cannot start.');
 }
@@ -19,27 +18,35 @@ if (empty(TELEGRAM_CHANNEL_ID)) {
 }
 
 // --- Main Logic ---
-$json = file_get_contents('php://input');
-$update = json_decode($json, true);
-
+$update = $GLOBALS['requestBody'] ?? null;
 if (!$update) {
-    http_response_code(200);
+    // If no update, do nothing. Telegram might send empty requests to check the hook.
     exit;
 }
 
 // --- Route based on update type ---
+
+// 1. Handle posts from the lottery channel
 if (isset($update['channel_post'])) {
     handleChannelPost($update['channel_post']);
     exit;
 }
 
+// 2. Handle direct messages from users
 if (isset($update['message'])) {
     handleUserMessage($update['message']);
     exit;
 }
 
+
 // --- Function Definitions ---
+
+/**
+ * Handles incoming posts from the designated channel.
+ * @param array $post The channel_post data from the Telegram update.
+ */
 function handleChannelPost(array $post): void {
+    // Security: Check if the post is from the allowed channel
     if ($post['chat']['id'] != TELEGRAM_CHANNEL_ID) {
         error_log("Ignoring post from unauthorized channel: " . $post['chat']['id']);
         return;
@@ -50,6 +57,7 @@ function handleChannelPost(array $post): void {
         return;
     }
 
+    // Expected format: "issue_number winning_numbers"
     $parts = preg_split('/\s+/', $messageText, 2);
     if (count($parts) === 2) {
         try {
@@ -66,12 +74,19 @@ function handleChannelPost(array $post): void {
     }
 }
 
+/**
+ * Handles incoming direct messages from users.
+ * @param array $message The message data from the Telegram update.
+ */
 function handleUserMessage(array $message): void {
     $chatId = $message['chat']['id'];
     $text = trim($message['text'] ?? '');
 
     $keyboard = [
-        'keyboard' => [[['text' => '最新开奖']]],
+        'keyboard' => [
+            [['text' => '最新开奖']],
+            // You can add more buttons here, e.g., [['text' => '历史记录'], ['text' => '帮助']]
+        ],
         'resize_keyboard' => true,
         'one_time_keyboard' => false
     ];
