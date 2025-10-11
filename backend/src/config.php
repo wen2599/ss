@@ -5,25 +5,38 @@
 require_once __DIR__ . '/core/DotEnv.php';
 
 // --- Load Environment Variables ---
-// This is the definitive, robust path fix. It uses the server's
-// document root as an absolute anchor to find the .env file.
-// This avoids all issues with relative paths (../) and symlinks.
+// This is the definitive, robust path fix. It starts from this file's directory
+// and walks up the directory tree to find the project root where .env is located.
 $env = [];
-$dotenvPath = $_SERVER['DOCUMENT_ROOT'] . '/.env';
+$currentDir = __DIR__; // Start in the current directory (/src)
+$projectRoot = null;
 
-// --- Diagnostic Logging ---
-error_log("Config: Checking for .env file at path: " . $dotenvPath);
+// Traverse up from /src to find the project root (the one containing .env)
+while (true) {
+    if (file_exists($currentDir . '/.env')) {
+        $projectRoot = $currentDir;
+        break;
+    }
+    // Go one level up
+    $parentDir = dirname($currentDir);
+    // If we've reached the top of the filesystem and haven't found it, stop.
+    if ($parentDir === $currentDir) { 
+        break;
+    }
+    $currentDir = $parentDir;
+}
 
-if (file_exists($dotenvPath)) {
-    error_log("Config: .env file found. Loading variables.");
+if ($projectRoot) {
+    $dotenvPath = $projectRoot . '/.env';
+    error_log("Config: Found .env file at: " . $dotenvPath);
     $dotenv = new DotEnv($dotenvPath);
     $env = $dotenv->getVariables();
 } else {
-    error_log("Config: .env file NOT found at path: " . $dotenvPath);
-    // If the file is not found, we throw a fatal exception because
-    // the application cannot function without its configuration.
-    throw new \RuntimeException("CRITICAL: .env file not found at expected absolute path: {$dotenvPath}.");
+    $errorMessage = "CRITICAL: .env file could not be found in any parent directory.";
+    error_log($errorMessage);
+    throw new \RuntimeException($errorMessage);
 }
+
 
 // --- Error Reporting (for development) ---
 ini_set('display_errors', 1);
