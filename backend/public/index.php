@@ -44,10 +44,10 @@ set_error_handler(function ($severity, $message, $file, $line) {
 // --- Main Application Logic ---
 
 // 1. Load Core Libraries & Config
-require_once $_SERVER['DOCUMENT_ROOT'] . '/src/core/Response.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/src/config.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/src/core/Database.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/src/core/Telegram.php';
+require_once __DIR__ . '/../src/core/Response.php';
+require_once __DIR__ . '/../src/config.php';
+require_once __DIR__ . '/../src/core/Database.php';
+require_once __DIR__ . '/../src/core/Telegram.php';
 
 // 2. Set global request body for POST/PUT requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT') {
