@@ -9,7 +9,7 @@ require_once __DIR__ . '/src/config.php';
 // !!! IMPORTANT !!!
 // Replace the placeholder below with the actual, public HTTPS URL of your application.
 // Telegram will send all bot updates to this address.
-$publicAppUrl = 'https://<REPLACE-WITH-YOUR-PUBLIC-APP-URL>';
+$publicAppUrl = 'https://wenge.cloudns.ch';
 
 
 // --- SCRIPT LOGIC (No need to edit below this line) ---
