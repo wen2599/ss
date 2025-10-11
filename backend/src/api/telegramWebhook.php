@@ -3,9 +3,9 @@
 // This is the new, interactive webhook handler.
 // It processes commands from users and posts from the channel.
 
-require_once dirname(__DIR__) . '/config.php';
-require_once dirname(__DIR__) . '/core/Database.php';
-require_once dirname(__DIR__) . '/core/Telegram.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/src/config.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/src/core/Database.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/src/core/Telegram.php';
 
 // --- Configuration Validation ---
 // Ensure that the necessary Telegram credentials are set in the environment.
