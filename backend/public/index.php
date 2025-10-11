@@ -13,8 +13,8 @@ if (function_exists('getallheaders')) {
     $logData .= "Headers: Not available\n";
 }
 $logData .= "Body: " . file_get_contents('php://input') . "\n\n";
-// Log to the project root directory.
-file_put_contents(dirname(__DIR__, 2) . '/request.log', $logData, FILE_APPEND);
+// Log to the backend directory.
+file_put_contents(dirname(__DIR__) . '/request.log', $logData, FILE_APPEND);
 
 
 // --- Global Error & Exception Handling ---
@@ -44,10 +44,10 @@ set_error_handler(function ($severity, $message, $file, $line) {
 // --- Main Application Logic ---
 
 // 1. Load Core Libraries & Config
-require_once __DIR__ . '/../src/core/Response.php';
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/../src/core/Database.php';
-require_once __DIR__ . '/../src/core/Telegram.php';
+require_once dirname(__DIR__) . '/src/core/Response.php';
+require_once dirname(__DIR__) . '/src/config.php';
+require_once dirname(__DIR__) . '/src/core/Database.php';
+require_once dirname(__DIR__) . '/src/core/Telegram.php';
 
 // 2. Set global request body for POST/PUT requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT') {
@@ -59,7 +59,7 @@ $endpoint = $_GET['endpoint'] ?? null;
 
 // 4. Route the request to the correct API handler
 if ($endpoint) {
-    $handlerPath = __DIR__ . '/../src/api/' . basename($endpoint) . '.php';
+    $handlerPath = dirname(__DIR__) . '/src/api/' . basename($endpoint) . '.php';
 
     if (file_exists($handlerPath)) {
         require $handlerPath;
