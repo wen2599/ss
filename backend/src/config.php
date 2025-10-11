@@ -55,10 +55,11 @@ define('DB_HOST', $env['DB_HOST'] ?? null);
 define('DB_PORT', $env['DB_PORT'] ?? 3306);
 define('DB_DATABASE', $env['DB_DATABASE'] ?? null);
 define('DB_USER', $env['DB_USER'] ?? null);
-define('DB_PASSWORD', $env['DB_PASSWORD'] ?? null); // <-- Corrected this line
+define('DB_PASSWORD', $env['DB_PASSWORD'] ?? null);
 define('TELEGRAM_BOT_TOKEN', $env['TELEGRAM_BOT_TOKEN'] ?? null);
 define('TELEGRAM_WEBHOOK_SECRET', $env['TELEGRAM_WEBHOOK_SECRET'] ?? null);
 define('TELEGRAM_CHANNEL_ID', $env['TELEGRAM_CHANNEL_ID'] ?? null);
+define('TELEGRAM_ADMIN_ID', $env['TELEGRAM_ADMIN_ID'] ?? null);
 
 // --- Global Request Body ---
 if (php_sapi_name() !== 'cli') {

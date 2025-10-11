@@ -3,18 +3,18 @@
 // --- Bootstrap Application ---
 // This single line loads all configurations, core libraries, and error handlers.
 require_once __DIR__ . '/../src/config.php';
-// This line is essential to make the sendMessage function available to the webhook handler.
-require_once __DIR__ . '/../src/core/Telegram.php';
 
 // --- API Routing ---
 // Get the requested endpoint from the query string.
 $endpoint = $_GET['endpoint'] ?? null;
 
-if ($endpoint) {
-    // Sanitize the endpoint to prevent directory traversal attacks.
+if ($endpoint === 'telegramWebhook') {
+    // The main entry point for all incoming Telegram updates.
+    require_once __DIR__ . '/../src/api/telegramWebhook.php';
+} elseif ($endpoint) {
+    // Support for other potential, non-Telegram API endpoints.
     $handlerPath = realpath(__DIR__ . '/../src/api/' . basename($endpoint) . '.php');
 
-    // Ensure the handler file exists and is within the intended directory.
     if ($handlerPath && strpos($handlerPath, realpath(__DIR__ . '/../src/api')) === 0) {
         require $handlerPath;
     } else {
