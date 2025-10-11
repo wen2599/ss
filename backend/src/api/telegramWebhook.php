@@ -29,15 +29,15 @@ if (isset($update['message'])) {
             $keyboard = [
                 'inline_keyboard' => [
                     [
-                        ['text' => 'Function 1', 'callback_data' => 'admin_action_1'],
-                        ['text' => 'Function 2', 'callback_data' => 'admin_action_2']
+                        ['text' => '功能 1', 'callback_data' => 'admin_action_1'],
+                        ['text' => '功能 2', 'callback_data' => 'admin_action_2']
                     ]
                 ]
             ];
 
             sendTelegramRequest('sendMessage', [
                 'chat_id' => $chat_id,
-                'text' => 'Admin Menu',
+                'text' => '管理员菜单',
                 'reply_markup' => json_encode($keyboard)
             ]);
         } else {
@@ -46,15 +46,15 @@ if (isset($update['message'])) {
     }
     // --- /start Command ---
     elseif ($text === '/start') {
-        $welcomeMessage = "Welcome! I am your bot assistant. Here are the available commands:\n\n" .
-                          "/start - Show this welcome message\n" .
-                          "/admin - Access the admin menu\n" .
-                          "/hello - Check if the bot is active";
+        $welcomeMessage = "欢迎！我是您的机器人助手。可用命令如下：\n\n" .
+                          "/start - 显示欢迎信息和命令列表\n" .
+                          "/admin - 访问管理员菜单\n" .
+                          "/hello - 测试机器人是否在线";
         sendMessage($chat_id, $welcomeMessage);
     }
     // --- /hello Command (for simple testing) ---
     elseif ($text === '/hello') {
-        sendMessage($chat_id, 'Hello there! The bot is active.');
+        sendMessage($chat_id, '您好！机器人当前在线。');
     }
 
 }
@@ -71,9 +71,9 @@ elseif (isset($update['callback_query'])) {
     // Re-confirm that the user is the admin
     if (isset($user_id) && (string)$user_id === trim(TELEGRAM_ADMIN_ID)) {
         if ($callback_data === 'admin_action_1') {
-            sendMessage($chat_id, "You clicked Function 1! Backend logic would execute here.");
+            sendMessage($chat_id, "您点击了功能1！后台逻辑在这里执行。");
         } elseif ($callback_data === 'admin_action_2') {
-            sendMessage($chat_id, "You clicked Function 2! Backend logic would execute here.");
+            sendMessage($chat_id, "您点击了功能2！后台逻辑在这里执行。");
         }
     } else {
         error_log("Unauthorized callback_query from user_id: {$user_id}");
