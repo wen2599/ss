@@ -1,8 +1,8 @@
 <?php
-require_once __DIR__ . '/src/core/DotEnv.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/src/core/DotEnv.php';
 
 // Load database credentials directly from .env file
-$dotenv = new DotEnv(__DIR__ . '/.env');
+$dotenv = new DotEnv($_SERVER['DOCUMENT_ROOT'] . '/.env');
 $env = $dotenv->getVariables();
 
 $servername = $env['DB_HOST'] ?? null;
@@ -29,7 +29,7 @@ if ($conn->connect_error) {
 }
 
 // Read SQL file
-$sql = file_get_contents(__DIR__ . '/database/create_lottery_table.sql');
+$sql = file_get_contents($_SERVER['DOCUMENT_ROOT'] . '/database/create_lottery_table.sql');
 
 // Execute multi query
 if ($conn->multi_query($sql)) {

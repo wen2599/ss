@@ -2,7 +2,7 @@
 
 // Global Configuration File
 
-require_once __DIR__ . '/core/DotEnv.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/src/core/DotEnv.php';
 
 // --- Load Environment Variables ---
 // This is the definitive, robust path fix. It uses the server's

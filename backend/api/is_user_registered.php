@@ -1,5 +1,5 @@
 <?php
-require_once 'db.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/api/db.php';
 
 // Get the email from the query string
 $email = isset($_GET['email']) ? trim($_GET['email']) : '';
