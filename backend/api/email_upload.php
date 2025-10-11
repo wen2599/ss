@@ -1,5 +1,5 @@
 <?php
-require_once $_SERVER['DOCUMENT_ROOT'] . '/api/db.php';
+require_once __DIR__ . '/db.php';
 
 // Get the raw POST data
 $json_data = file_get_contents('php://input');
