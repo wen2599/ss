@@ -6,9 +6,9 @@
 // --- Bootstrap ---
 // This script is called directly by the Telegram webhook.
 // It needs to load all dependencies itself because it does not run through index.php.
-require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/../core/Database.php';
-require_once __DIR__ . '/../core/Telegram.php';
+require_once dirname(__DIR__) . '/config.php';
+require_once dirname(__DIR__) . '/core/Database.php';
+require_once dirname(__DIR__) . '/core/Telegram.php';
 
 // --- Logging Utility ---
 function log_to_file($message) {
