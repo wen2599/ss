@@ -22,6 +22,19 @@ if (isset($update['message'])) {
     $user_id = $message['from']['id'];
     $text = $message['text'] ?? '';
 
+    // Map clean button text to commands
+    switch ($text) {
+        case 'ℹ️ 欢迎信息':
+            $text = '/start';
+            break;
+        case '⚙️ 管理员菜单':
+            $text = '/admin';
+            break;
+        case '🤖 在线测试':
+            $text = '/hello';
+            break;
+    }
+
     // --- /admin Command ---
     if ($text === '/admin') {
         // Use trim to remove any extra whitespace from the environment variable
@@ -42,15 +55,28 @@ if (isset($update['message'])) {
             ]);
         } else {
              error_log("Permission denied for /admin command from user_id: {$user_id}. Expected admin_id: " . TELEGRAM_ADMIN_ID);
+             sendMessage($chat_id, '您无权访问此菜单。');
         }
     }
     // --- /start Command ---
     elseif ($text === '/start') {
-        $welcomeMessage = "欢迎！我是您的机器人助手。可用命令如下：\n\n" .
-                          "/start - 显示欢迎信息和命令列表\n" .
-                          "/admin - 访问管理员菜单\n" .
-                          "/hello - 测试机器人是否在线";
-        sendMessage($chat_id, $welcomeMessage);
+        $welcomeMessage = "欢迎！我是您的机器人助手。请使用下方的键盘菜单进行操作：";
+
+        $keyboard = [
+            'keyboard' => [
+                [['text' => 'ℹ️ 欢迎信息']],
+                [['text' => '⚙️ 管理员菜单']],
+                [['text' => '🤖 在线测试']]
+            ],
+            'resize_keyboard' => true,
+            'is_persistent' => true
+        ];
+
+        sendTelegramRequest('sendMessage', [
+            'chat_id' => $chat_id,
+            'text' => $welcomeMessage,
+            'reply_markup' => json_encode($keyboard)
+        ]);
     }
     // --- /hello Command (for simple testing) ---
     elseif ($text === '/hello') {
