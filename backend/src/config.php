@@ -2,15 +2,14 @@
 
 // --- UNIFIED BOOTSTRAP ---
 // This file is now the single source of truth for application initialization.
-// It handles error reporting, dependency loading, and configuration.
+// It handles error reporting, dependency loading, and configuration for all entry points.
 
 // --- Global Error & Exception Handling ---
 ini_set('display_errors', 0); // Do not display errors to the user
 error_reporting(E_ALL);
 
 set_exception_handler(function ($exception) {
-    error_log("Unhandled Exception: " . $exception->getMessage());
-    // Check if headers have already been sent before trying to send new ones.
+    error_log("Unhandled Exception: " . $exception);
     if (!headers_sent()) {
         http_response_code(500);
         header('Content-Type: application/json');

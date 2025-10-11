@@ -1,6 +1,6 @@
 <?php
 // A one-time script to set the Telegram webhook.
-// From your project root (e.g., public_html), run: php backend/set_webhook.php
+// This script is intended to be run from the command line: `php backend/set_webhook.php`
 
 // --- Bootstrap Application ---
 // This single line loads all configurations, core libraries, and error handlers.
@@ -14,7 +14,7 @@ $publicAppUrl = 'https://wenge.cloudns.ch'; // The backend domain.
 // --- VALIDATION ---
 // Validate that the bot token is available (it's loaded as a constant from config.php)
 if (empty(TELEGRAM_BOT_TOKEN)) {
-    die("[ERROR] TELEGRAM_BOT_TOKEN is not defined. Please check your .env file.\n");
+    die("[ERROR] TELEGRAM_BOT_TOKEN is not defined in your .env file.\n");
 }
 
 // Construct the full, CORRECT webhook URL.
