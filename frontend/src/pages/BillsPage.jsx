@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { Link } from 'react-router-dom';
 import './BillsPage.css';
 
 const BillsPage = () => {
     const [emails, setEmails] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const navigate = useNavigate(); // Initialize navigate
 
     useEffect(() => {
         fetch('/api/get_emails')
@@ -31,10 +30,6 @@ const BillsPage = () => {
             });
     }, []);
 
-    const handleBillClick = (id) => {
-        navigate(`/bill/${id}`); // Use navigate for programmatic navigation
-    };
-
     if (loading) {
         return <div className="page-container loading">加载中...</div>;
     }
@@ -48,13 +43,14 @@ const BillsPage = () => {
             <h1 className="page-title">账单中心</h1>
             <div className="email-list">
                 {emails.length > 0 ? emails.map(email => (
-                    // Use a div with an onClick handler instead of a Link
-                    <div key={email.id} className="email-item card" onClick={() => handleBillClick(email.id)}>
-                        <div className="email-subject">{email.subject}</div>
-                        <div className="email-from">发件人: {email.from}</div>
-                        <div className="email-date">{new Date(email.created_at).toLocaleString()}</div>
-                    </div>
-                )) : <p>沒有找到賬單郵件。</p>}
+                    <Link to={`/bill/${email.id}`} key={email.id} className="email-item-link">
+                        <div className="email-item card">
+                            <div className="email-subject">{email.subject}</div>
+                            <div className="email-from">发件人: {email.from}</div>
+                            <div className="email-date">{new Date(email.created_at).toLocaleString()}</div>
+                        </div>
+                    </Link>
+                )) : <p>没有找到账单邮件。</p>}
             </div>
         </div>
     );
