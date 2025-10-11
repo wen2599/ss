@@ -45,7 +45,6 @@ const BillDetailsPage = () => {
         return <div className="page-container not-found">未找到该邮件。</div>;
     }
 
-    // This component now correctly renders the betting slips data.
     const ParsedDetails = () => (
         <div className="parsed-data">
             {email.betting_slips && email.betting_slips.length > 0 ? (
@@ -71,17 +70,17 @@ const BillDetailsPage = () => {
         <div className="raw-html-content" dangerouslySetInnerHTML={{ __html: email.html_content }} />
     );
 
+
     return (
         <div className="page-container bill-details-container">
             <div className="card">
-                <div className="bill-details-header">
-                    <h1 className="bill-subject">{email.subject}</h1>
-                    <div className="bill-meta">
-                        <span><b>发件人:</b> {email.from}</span>
-                        <span><b>收件人:</b> {email.to}</span>
-                        <span><b>日期:</b> {new Date(email.created_at).toLocaleString()}</span>
-                    </div>
+                <h1 className="bill-subject">{email.subject}</h1>
+                <div className="bill-meta">
+                    <span><b>发件人:</b> {email.from}</span>
+                    <span><b>收件人:</b> {email.to}</span>
+                    <span><b>日期:</b> {new Date(email.created_at).toLocaleString()}</span>
                 </div>
+                <hr className="divider" />
 
                 <div className="tabs">
                     <button
