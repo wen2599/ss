@@ -2,7 +2,7 @@
 
 // API handler for chart data
 
-require_once __DIR__ . '/../core/Response.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/src/core/Response.php';
 
 // Handle different HTTP methods
 switch ($_SERVER['REQUEST_METHOD']) {
@@ -24,7 +24,7 @@ switch ($_SERVER['REQUEST_METHOD']) {
         // --- Save Chart Data ---
         $postData = $GLOBALS['requestBody'] ?? null;
         if ($postData) {
-            file_put_contents(__DIR__ . '/../../data/saved_data.log', json_encode($postData) . PHP_EOL, FILE_APPEND);
+            file_put_contents($_SERVER['DOCUMENT_ROOT'] . '/data/saved_data.log', json_encode($postData) . PHP_EOL, FILE_APPEND);
             Response::json(['status' => 'success', 'received' => $postData]);
         } else {
             Response::json(['error' => 'No data received'], 400);

@@ -1,5 +1,5 @@
 <?php
-require_once 'db.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/api/db.php';
 
 header('Content-Type: application/json');
 
