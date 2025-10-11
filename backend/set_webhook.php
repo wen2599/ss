@@ -2,33 +2,39 @@
 // A one-time script to set the Telegram webhook.
 // From your project root (e.g., public_html), run: php backend/set_webhook.php
 
-// Load the bot configuration (which should include the token)
-require_once __DIR__ . '/src/config.php';
+// --- DEPENDENCY LOADING ---
+// Load the DotEnv class to read the .env file.
+// This file is located in the `src/core` directory.
+require_once __DIR__ . '/src/core/DotEnv.php';
 
-// --- CONFIGURATION ---
-// !!! IMPORTANT !!!
-// Replace the placeholder below with the actual, public HTTPS URL of your application.
-// Telegram will send all bot updates to this address.
-$publicAppUrl = 'https://wenge.cloudns.ch';
+// --- CONFIGURATION LOADING ---
+// Load environment variables directly from the .env file in the 'backend' directory.
+// This approach is robust and avoids the complex loading logic in the old config.php.
+$dotenvPath = __DIR__ . '/.env';
+if (!file_exists($dotenvPath)) {
+    die("[ERROR] .env file not found at: {$dotenvPath}\nPlease create it based on .env.example.\n");
+}
+$dotenv = new DotEnv($dotenvPath);
+$env = $dotenv->getVariables();
 
+$botToken = $env['TELEGRAM_BOT_TOKEN'] ?? null;
+$publicAppUrl = 'https://wenge.cloudns.ch'; // The backend domain.
 
 // --- SCRIPT LOGIC (No need to edit below this line) ---
 
-// Construct the full webhook URL
-$webhookUrl = rtrim($publicAppUrl, '/') . '/backend/public/index.php?endpoint=telegramWebhook';
-
+// --- VALIDATION ---
 // Validate that the bot token is available
-if (empty(TELEGRAM_BOT_TOKEN)) {
-    die("[ERROR] TELEGRAM_BOT_TOKEN is not defined. Please check your configuration in 'backend/src/config.php'.\n");
+if (empty($botToken)) {
+    die("[ERROR] TELEGRAM_BOT_TOKEN is not defined in your .env file.\n");
 }
 
-// Validate that the placeholder URL has been changed
-if (strpos($webhookUrl, '<REPLACE-WITH-YOUR-PUBLIC-APP-URL>') !== false) {
-    die("[ACTION REQUIRED] Please edit the file 'backend/set_webhook.php' and replace the placeholder URL with your actual public application URL.\n");
-}
+// Construct the full, CORRECT webhook URL.
+// The '/backend' part is intentionally omitted because the web server's root
+// is already pointing to the 'backend' directory, as per user instructions.
+$webhookUrl = rtrim($publicAppUrl, '/') . '/public/index.php?endpoint=telegramWebhook';
 
 // Prepare the API request to Telegram
-$apiUrl = "https://api.telegram.org/bot" . TELEGRAM_BOT_TOKEN . "/setWebhook?url=" . urlencode($webhookUrl);
+$apiUrl = "https://api.telegram.org/bot" . $botToken . "/setWebhook?url=" . urlencode($webhookUrl);
 
 printf("Attempting to set webhook to: %s\n", $webhookUrl);
 
