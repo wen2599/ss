@@ -10,9 +10,7 @@ $endpoint = $_GET['endpoint'] ?? null;
 
 if ($endpoint === 'telegramWebhook') {
     // The main entry point for all incoming Telegram updates.
-    // The included script is responsible for handling everything, including the final response.
     require_once __DIR__ . '/../src/api/telegramWebhook.php';
-
 } elseif ($endpoint) {
     // Support for other potential, non-Telegram API endpoints.
     $handlerPath = realpath(__DIR__ . '/../src/api/' . basename($endpoint) . '.php');
