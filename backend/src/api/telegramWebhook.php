@@ -1,15 +1,16 @@
 <?php
 
-// This script is now included by the main router (index.php) and relies on it
-// for bootstrapping, environment loading, and initial input validation.
+// This script is included by the main router, so bootstrapping is already handled.
 
-// The router has already decoded the JSON body into $GLOBALS['requestBody']
-$update = $GLOBALS['requestBody'] ?? null;
+// --- Input Processing ---
+// Get the raw POST data from Telegram
+$raw_input = file_get_contents('php://input');
+// Decode the JSON update
+$update = json_decode($raw_input, true);
 
-// If there's no update, it might have been a direct access attempt or an empty call.
-// The router should ideally handle this, but as a safeguard:
+// If the update is invalid or empty, there's nothing to do.
+// The router will send the final 'ok' response.
 if (!$update) {
-    // Silently exit. Logging or responding might be handled by the router.
     return;
 }
 
@@ -42,6 +43,14 @@ if (isset($update['message'])) {
         } else {
              error_log("Permission denied for /admin command from user_id: {$user_id}. Expected admin_id: " . TELEGRAM_ADMIN_ID);
         }
+    }
+    // --- /start Command ---
+    elseif ($text === '/start') {
+        $welcomeMessage = "Welcome! I am your bot assistant. Here are the available commands:\n\n" .
+                          "/start - Show this welcome message\n" .
+                          "/admin - Access the admin menu\n" .
+                          "/hello - Check if the bot is active";
+        sendMessage($chat_id, $welcomeMessage);
     }
     // --- /hello Command (for simple testing) ---
     elseif ($text === '/hello') {
