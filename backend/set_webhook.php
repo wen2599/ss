@@ -1,9 +1,11 @@
 <?php
 // A one-time script to set the Telegram webhook.
-// From your terminal, run: php backend/set_webhook.php
+// On your server, you might need to run this from your web root (e.g., public_html).
+// Example: php set_webhook.php
 
 // Load the bot configuration (which should include the token)
-require_once __DIR__ . '/src/config.php';
+// This path assumes 'backend' is a sub-directory of where this script is located.
+require_once __DIR__ . '/backend/src/config.php';
 
 // --- CONFIGURATION ---
 // !!! IMPORTANT !!!
