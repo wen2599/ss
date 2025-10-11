@@ -4,17 +4,16 @@
 
 // --- Bootstrap Application ---
 // This single line loads all configurations, core libraries, and error handlers.
-// This ensures we use the same database credentials as the main application.
-require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/src/config.php';
 
 // --- VALIDATION ---
-// Validate that the required database credentials are set (they are loaded as constants from bootstrap.php)
+// Validate that the required database credentials are set (they are loaded as constants from config.php)
 if (empty(DB_HOST) || empty(DB_USER) || empty(DB_DATABASE)) {
     die("Error: Database credentials are not fully configured in your .env file.\n");
 }
 
 // --- SCRIPT LOGIC ---
-// Create connection using the constants defined in bootstrap.php
+// Create connection using the constants defined in config.php
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_DATABASE, DB_PORT);
 
 // Check connection
