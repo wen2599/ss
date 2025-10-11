@@ -26,25 +26,21 @@ set_error_handler(function ($severity, $message, $file, $line) {
 });
 
 // --- Core File Includes ---
-// Correct the path for Telegram.php to be relative to this file's location.
 require_once __DIR__ . '/core/DotEnv.php';
 require_once __DIR__ . '/core/Response.php';
 require_once __DIR__ . '/core/Database.php';
-require_once __DIR__ . '/core/Telegram.php'; // This was potentially a problem, now fixed.
+require_once __DIR__ . '/core/Telegram.php';
 
-// --- Environment Variable Loading (CONTEXT-AWARE) ---
-// This logic now correctly finds the .env file whether run from web or CLI.
-$isCli = (php_sapi_name() === 'cli');
-// For CLI, we assume the script is run from the project root ('ss'),
-// so the path to `backend` must be included.
-// For Web (non-CLI), the web server root is `public_html` which acts as our `backend` directory.
-$basePath = $isCli ? __DIR__ . '/../../backend' : dirname(__DIR__);
-$dotenvPath = $basePath . '/.env';
+// --- Environment Variable Loading ---
+// The .env file is located in the root of the backend directory (which is public_html on the server).
+// dirname(__DIR__) correctly resolves to '/.../public_html' from within '/.../public_html/src'.
+$dotenvPath = dirname(__DIR__) . '/.env';
 
 if (!file_exists($dotenvPath) || !is_readable($dotenvPath)) {
     $errorMessage = "CRITICAL: .env file could not be found or is not readable at the expected path: {$dotenvPath}";
     error_log($errorMessage);
     // Use die() for CLI for clearer error messages in the terminal
+    $isCli = (php_sapi_name() === 'cli');
     if ($isCli) {
         die($errorMessage . "\n");
     }
@@ -59,14 +55,13 @@ define('DB_HOST', $env['DB_HOST'] ?? null);
 define('DB_PORT', $env['DB_PORT'] ?? 3306);
 define('DB_DATABASE', $env['DB_DATABASE'] ?? null);
 define('DB_USER', $env['DB_USER'] ?? null);
-define('DB_PASSWORD', $env['DB_PASSWORD'] ?? null);
+define('DB_PASSWORD', 'DB_PASSWORD' ?? null);
 define('TELEGRAM_BOT_TOKEN', $env['TELEGRAM_BOT_TOKEN'] ?? null);
 define('TELEGRAM_WEBHOOK_SECRET', $env['TELEGRAM_WEBHOOK_SECRET'] ?? null);
 define('TELEGRAM_CHANNEL_ID', $env['TELEGRAM_CHANNEL_ID'] ?? null);
 
 // --- Global Request Body ---
-// This should only run in the context of a web request, not a CLI script.
-if (!$isCli) {
+if (php_sapi_name() !== 'cli') {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT') {
         $GLOBALS['requestBody'] = json_decode(file_get_contents('php://input'), true);
     }
