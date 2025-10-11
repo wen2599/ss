@@ -12,8 +12,8 @@ require_once dirname(__DIR__) . '/core/Telegram.php';
 
 // --- Logging Utility ---
 function log_to_file($message) {
-    // Logs to a file in the `backend` directory.
-    $log_file = dirname(__DIR__) . '/telegram_webhook.log';
+    // Logs to a file in the `backend` directory (the app root).
+    $log_file = dirname(__DIR__, 2) . '/telegram_webhook.log';
     $timestamp = date('Y-m-d H:i:s');
     // Using print_r for arrays/objects, and ensuring the message is a string.
     $log_message = is_string($message) ? $message : print_r($message, true);
