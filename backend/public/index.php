@@ -1,4 +1,12 @@
 <?php
+// =================================================================
+// FOR DEBUGGING PURPOSES: Force display of all errors.
+// This will expose the root cause of the 502 Bad Gateway error.
+// =================================================================
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 // Allow requests from the specific frontend origin.
 header("Access-Control-Allow-Origin: https://ss.wenxiuxiu.eu.org");
 // Allow credentials (cookies, authorization headers, etc.) to be sent.
