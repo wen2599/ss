@@ -3,20 +3,15 @@
 // --- Custom .env Loader ---
 function loadDotEnv($path)
 {
-    // --- DEBUGGING STEP ---
-    // We will stop the script here to show the exact path being checked for the .env file.
-    // Compare this path with where you have placed your .env file.
-    die("DEBUG: Attempting to load .env file from the following absolute path: " . realpath(dirname($path)) . DIRECTORY_SEPARATOR . basename($path) . "\n");
-    // --- END DEBUGGING STEP ---
-
     if (!file_exists($path)) {
         // Silently fail if the .env file doesn't exist.
+        // This allows for environments where config is set via server, not a file.
         return;
     }
 
     $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
-        // ... (rest of the function is unchanged)
+        // Skip comments
         if (strpos(trim($line), '#') === 0) {
             continue;
         }
@@ -25,10 +20,12 @@ function loadDotEnv($path)
         $name = trim($name);
         $value = trim($value);
 
+        // Remove quotes from the value
         if (substr($value, 0, 1) == '"' && substr($value, -1) == '"') {
             $value = substr($value, 1, -1);
         }
 
+        // Set as environment variables
         putenv(sprintf('%s=%s', $name, $value));
         $_ENV[$name] = $value;
         $_SERVER[$name] = $value;
@@ -36,7 +33,8 @@ function loadDotEnv($path)
 }
 
 // --- UNIFIED BOOTSTRAP ---
-// This path assumes `config.php` is in `backend/src`, and `.env` is at the project root.
+// Load the .env file from the parent directory (which is the project root).
+// This path assumes `config.php` is in `backend/src`, and `.env` is at the root.
 loadDotEnv(__DIR__ . '/../../.env');
 
 // --- Session Start ---
@@ -71,6 +69,8 @@ require_once __DIR__ . '/core/Database.php';
 require_once __DIR__ . '/core/Telegram.php';
 
 // --- Global Constants Definition (from Environment Variables) ---
+// The getenv() function fetches the values loaded from your .env file.
+// The null coalescing operator (??) provides a default value if the env var is not set.
 define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
 define('DB_PORT', getenv('DB_PORT') ?: 3306);
 define('DB_DATABASE', getenv('DB_DATABASE') ?: 'my_database');
