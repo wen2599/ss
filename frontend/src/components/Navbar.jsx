@@ -22,19 +22,19 @@ const Navbar = () => {
     return (
         <nav className="navbar">
             <div className="navbar-brand">
-                <Link to="/">EmailApp</Link>
+                <Link to="/">账单中心</Link>
             </div>
             <ul className="navbar-links">
                 {isAuthenticated ? (
                     <>
                         <li><span className="navbar-user">{user?.email}</span></li>
-                        <li><Link to="/bills">My Emails</Link></li>
-                        <li><button onClick={handleLogout} className="logout-button">Logout</button></li>
+                        <li><Link to="/bills">我的账单</Link></li>
+                        <li><button onClick={handleLogout} className="logout-button">退出登录</button></li>
                     </>
                 ) : (
                     <>
-                        <li><Link to="/login">Login</Link></li>
-                        <li><Link to="/register">Register</Link></li>
+                        <li><Link to="/login">登录</Link></li>
+                        <li><Link to="/register">注册</Link></li>
                     </>
                 )}
             </ul>

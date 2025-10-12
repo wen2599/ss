@@ -1,63 +1,65 @@
+
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext.jsx';
-import { api } from '../api.js';
-import './LoginPage.css';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext'; // Corrected path
+import { api } from '../api'; // Corrected path
 
 const LoginPage = () => {
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState(null);
+    const [error, setError] = useState('');
     const navigate = useNavigate();
     const { login } = useAuth();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError(null);
+        setError('');
 
         try {
-            const response = await api.login(email, password);
-            // Assuming the login API on success returns user data inside a 'user' property 
-            // and the checkAuth endpoint is what confirms the session is active.
-            const authCheckResponse = await api.checkAuth();
-            if (authCheckResponse.data.isAuthenticated) {
-                login(authCheckResponse.data.user);
+            const response = await api.login(username, password);
+            if (response.data.status === 'success') {
+                login(response.data.user);
                 navigate('/bills');
             } else {
-                 setError('Login failed. Please try again.');
+                setError(response.data.message || '登录失败，请检查您的凭据。');
             }
         } catch (err) {
-            setError(err.response?.data?.error || 'An error occurred during login.');
+            setError(err.response?.data?.message || '发生网络错误，请稍后再试。');
         }
     };
 
     return (
-        <div className="login-page">
-            <form onSubmit={handleSubmit} className="login-form">
-                <h2>Login</h2>
-                {error && <p className="error-message">{error}</p>}
-                <div className="input-group">
-                    <label htmlFor="email">Email</label>
-                    <input
-                        type="email"
-                        id="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                    />
+        <div className="container">
+            <div className="card">
+                <h2>用户登录</h2>
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label htmlFor="username">用户名</label>
+                        <input
+                            type="text"
+                            id="username"
+                            required
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="password">密码</label>
+                        <input
+                            type="password"
+                            id="password"
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+                    </div>
+                    <button type="submit" className="btn">登录</button>
+                    {error && <p className="error-message">{error}</p>}
+                </form>
+                <div className="toggle-link">
+                    <p>还没有账户？ <Link to="/register">立即注册</Link></p>
                 </div>
-                <div className="input-group">
-                    <label htmlFor="password">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                </div>
-                <button type="submit" className="login-button">Login</button>
-            </form>
+            </div>
         </div>
     );
 };

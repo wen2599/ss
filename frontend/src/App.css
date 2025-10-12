@@ -1,11 +1,11 @@
 
 :root {
-  --background-color: #121212;
-  --card-background: #1e1e1e;
-  --text-color: #e0e0e0;
+  --background-color: #f4f7f9;
+  --card-background: #ffffff;
+  --text-color: #333333;
   --primary-color: #007bff;
   --border-radius: 8px;
-  --box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 body {
@@ -44,45 +44,100 @@ body {
   margin-bottom: 1rem;
 }
 
-.lottery-number {
-  font-size: 3rem;
-  font-weight: bold;
-  color: var(--primary-color);
-  margin: 0;
-  letter-spacing: 2px;
+.form-group {
+  margin-bottom: 1.5rem;
+  text-align: left;
 }
 
-.timestamp {
-  font-size: 0.9rem;
-  color: #888;
-  margin-top: 1rem;
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
 }
 
-.error-card h2 {
-  color: #dc3545;
+.form-group input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: var(--border-radius);
+  box-sizing: border-box;
+  font-size: 1rem;
 }
 
-.error-card p {
-  color: var(--text-color);
-}
-
-.error-card button {
+.btn {
+  width: 100%;
+  padding: 0.85rem;
+  border: none;
+  border-radius: var(--border-radius);
   background-color: var(--primary-color);
   color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
+  font-size: 1.1rem;
   cursor: pointer;
-  margin-top: 1rem;
-  transition: background-color 0.2s;
+  transition: background-color 0.3s;
 }
 
-.error-card button:hover {
+.btn:hover {
   background-color: #0056b3;
 }
 
-.footer {
+.error-message {
+  color: #d9534f;
+  margin-top: 1rem;
+}
+
+.success-message {
+  color: #5cb85c;
+  margin-top: 1rem;
+}
+
+.toggle-link {
+  margin-top: 1.5rem;
+}
+
+.toggle-link a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.toggle-link a:hover {
+  text-decoration: underline;
+}
+
+/* Dashboard Styles */
+.dashboard-card {
   margin-top: 2rem;
-  font-size: 0.8rem;
-  color: #aaa;
+}
+
+.dashboard-card h2 {
+  color: var(--primary-color);
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-item strong {
+  color: #555;
+}
+
+.btn-logout {
+  margin-top: 1.5rem;
+  background-color: #d9534f;
+}
+
+.btn-logout:hover {
+  background-color: #c9302c;
+}
+
+.telegram-link a {
+  color: #0088cc;
+  text-decoration: none;
 }

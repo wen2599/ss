@@ -1,66 +1,79 @@
+
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext.jsx';
-import { api } from '../api.js';
-import './RegisterPage.css';
+import { Link, useNavigate } from 'react-router-dom';
+import { api } from '../api'; // Corrected path
 
 const RegisterPage = () => {
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState(null);
+    const [email, setEmail] = useState('');
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
     const navigate = useNavigate();
-    const { login } = useAuth();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError(null);
-
-        if (password.length < 8) {
-            setError('Password must be at least 8 characters long.');
-            return;
-        }
+        setError('');
+        setSuccess('');
 
         try {
-            await api.register(email, password);
-            const authCheckResponse = await api.checkAuth();
-            if (authCheckResponse.data.isAuthenticated) {
-                login(authCheckResponse.data.user);
-                navigate('/bills');
+            const response = await api.register(username, password, email);
+            if (response.data.status === 'success') {
+                setSuccess('注册成功！您现在可以登录了。');
+                setTimeout(() => {
+                    navigate('/login');
+                }, 2000);
             } else {
-                setError('Registration failed. Please try again.');
+                setError(response.data.message || '注册失败，请稍后再试。');
             }
         } catch (err) {
-            setError(err.response?.data?.error || 'An error occurred during registration.');
+            setError(err.response?.data?.message || '发生网络错误，请稍后再试。');
         }
     };
 
     return (
-        <div className="register-page">
-            <form onSubmit={handleSubmit} className="register-form">
-                <h2>Register</h2>
-                {error && <p className="error-message">{error}</p>}
-                <div className="input-group">
-                    <label htmlFor="email">Email</label>
-                    <input
-                        type="email"
-                        id="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                    />
+        <div className="container">
+            <div className="card">
+                <h2>创建新账户</h2>
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label htmlFor="username">用户名</label>
+                        <input
+                            type="text"
+                            id="username"
+                            required
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="email">电子邮箱</label>
+                        <input
+                            type="email"
+                            id="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="password">密码</label>
+                        <input
+                            type="password"
+                            id="password"
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+                    </div>
+                    <button type="submit" className="btn">注册</button>
+                    {error && <p className="error-message">{error}</p>}
+                    {success && <p className="success-message">{success}</p>}
+                </form>
+                <div className="toggle-link">
+                    <p>已有账户？ <Link to="/login">立即登录</Link></p>
                 </div>
-                <div className="input-group">
-                    <label htmlFor="password">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                </div>
-                <button type="submit" className="register-button">Register</button>
-            </form>
+            </div>
         </div>
     );
 };

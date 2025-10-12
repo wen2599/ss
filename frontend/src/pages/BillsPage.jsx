@@ -15,7 +15,7 @@ const BillsPage = () => {
                 setEmails(response.data);
                 setError(null);
             } catch (err) {
-                setError('Failed to fetch emails. Please make sure you are logged in.');
+                setError('无法获取邮件，请确保您已登录。');
                 console.error(err);
             } finally {
                 setLoading(false);
@@ -26,7 +26,7 @@ const BillsPage = () => {
     }, []);
 
     if (loading) {
-        return <div className="loading">Loading emails...</div>;
+        return <div className="loading">正在加载邮件...</div>;
     }
 
     if (error) {
@@ -35,7 +35,7 @@ const BillsPage = () => {
 
     return (
         <div className="bills-page">
-            <h1>Your Emails</h1>
+            <h1>您的电子账单</h1>
             {emails.length > 0 ? (
                 <ul className="email-list">
                     {emails.map((email) => (
@@ -47,7 +47,7 @@ const BillsPage = () => {
                     ))}
                 </ul>
             ) : (
-                <p>You have no emails.</p>
+                <p>您还没有任何账单邮件。</p>
             )}
         </div>
     );
