@@ -1,5 +1,9 @@
 <?php
 
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 // --- Bootstrap Application ---
 // This single line loads all configurations, core libraries, and error handlers.
 require_once __DIR__ . '/../src/config.php';

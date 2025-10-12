@@ -56,6 +56,20 @@ if ($conn->multi_query($sqlBills)) {
     echo "[ERROR] Error setting up 'bills' table: " . $conn->error . "\n";
 }
 
+// Now, handle the users SQL file for the users table
+echo "Attempting to set up the 'users' table...\n";
+$sqlUsers = file_get_contents(__DIR__ . '/database/create_users_table.sql');
+
+if ($sqlUsers === false) {
+    die("Error: Could not read the SQL file at /database/create_users_table.sql\n");
+}
+
+if ($conn->multi_query($sqlUsers)) {
+    echo "[SUCCESS] 'users' table created successfully!\n";
+} else {
+    echo "[ERROR] Error setting up 'users' table: " . $conn->error . "\n";
+}
+
 
 $conn->close();
 echo "Database setup script finished.\n";
