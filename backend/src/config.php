@@ -1,4 +1,4 @@
-'''<?php
+<?php
 
 // --- Custom .env Loader ---
 function loadDotEnv($path)
@@ -83,4 +83,3 @@ if (php_sapi_name() !== 'cli') {
         $GLOBALS['requestBody'] = json_decode(file_get_contents('php://input'), true);
     }
 }
-''
