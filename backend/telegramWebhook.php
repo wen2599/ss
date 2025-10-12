@@ -42,14 +42,18 @@ if ($userState) {
         } else {
             sendTelegramMessage($chatId, "❌ 更新 API 密钥失败！请检查 `.env` 文件的权限和路径是否正确。", getAdminKeyboard());
         }
-        setUserState($userId, null);
+        if (!setUserState($userId, null)) {
+            sendTelegramMessage($chatId, "⚠️ 系统警告：无法更新用户状态，请检查服务器文件权限。");
+        }
 
     // --- State: Awaiting Gemini Prompt ---
     } elseif ($userState === 'awaiting_gemini_prompt') {
         sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
         $response = call_gemini_api($text);
         sendTelegramMessage($chatId, $response, getAdminKeyboard());
-        setUserState($userId, null);
+        if (!setUserState($userId, null)) {
+            sendTelegramMessage($chatId, "⚠️ 系统警告：无法更新用户状态，请检查服务器文件权限。");
+        }
     
     // --- State: Awaiting Email Authorization ---
     } elseif ($userState === 'awaiting_email_authorization') {
@@ -62,46 +66,69 @@ if ($userState) {
         } else {
             sendTelegramMessage($chatId, "❌ 您输入的不是一个有效的邮箱地址，请重新输入或点击 '返回主菜单'。", getAdminKeyboard());
         }
-        setUserState($userId, null); // Reset state after one attempt.
+        if (!setUserState($userId, null)) { // Reset state after one attempt.
+            sendTelegramMessage($chatId, "⚠️ 系统警告：无法更新用户状态，请检查服务器文件权限。");
+        }
 
     } else {
-        setUserState($userId, null); // Clear invalid state
+        if (!setUserState($userId, null)) { // Clear invalid state
+             sendTelegramMessage($chatId, "⚠️ 系统警告：无法重置用户状态，请检查服务器文件权限。");
+        }
         sendTelegramMessage($chatId, "系统状态异常，已重置。请重新选择操作。", getAdminKeyboard());
     }
 
 // This block handles initial commands when the user is not in a specific state.
 } else {
+    $stateToSet = null;
+    $messageToSend = null;
+    $keyboard = getAdminKeyboard();
+
     switch ($text) {
         case '/start':
         case '/':
-            sendTelegramMessage($chatId, "欢迎回来，管理员！请选择一个操作。", getAdminKeyboard());
+            $messageToSend = "欢迎回来，管理员！请选择一个操作。";
             break;
         case '授权新邮箱':
-            setUserState($userId, 'awaiting_email_authorization');
-            sendTelegramMessage($chatId, "好的，请发送您想要授权注册的电子邮件地址。");
+            $stateToSet = 'awaiting_email_authorization';
+            $messageToSend = "好的，请发送您想要授权注册的电子邮件地址。";
+            $keyboard = null; // No keyboard when asking for input
             break;
         case '请求 Gemini':
-            setUserState($userId, 'awaiting_gemini_prompt');
-            sendTelegramMessage($chatId, "好的，请直接输入您想对 Gemini 说的话。");
+            $stateToSet = 'awaiting_gemini_prompt';
+            $messageToSend = "好的，请直接输入您想对 Gemini 说的话。";
+            $keyboard = null; // No keyboard when asking for input
             break;
         case '更换 API 密钥':
-            sendTelegramMessage($chatId, "请选择您想要更新的 API 密钥：", getApiKeySelectionKeyboard());
+            $messageToSend = "请选择您想要更新的 API 密钥：";
+            $keyboard = getApiKeySelectionKeyboard();
             break;
         case 'Gemini API Key':
-            setUserState($userId, 'awaiting_api_key_GEMINI_API_KEY');
-            sendTelegramMessage($chatId, "好的，请发送您的新 Gemini API 密钥。");
+            $stateToSet = 'awaiting_api_key_GEMINI_API_KEY';
+            $messageToSend = "好的，请发送您的新 Gemini API 密钥。";
+            $keyboard = null; // No keyboard when asking for input
             break;
         case 'DeepSeek API Key':
-            setUserState($userId, 'awaiting_api_key_DEEPSEEK_API_KEY');
-            sendTelegramMessage($chatId, "好的，请发送您的新 DeepSeek API 密钥。");
+            $stateToSet = 'awaiting_api_key_DEEPSEEK_API_KEY';
+            $messageToSend = "好的，请发送您的新 DeepSeek API 密钥。";
+            $keyboard = null; // No keyboard when asking for input
             break;
         case '返回主菜单':
-            setUserState($userId, null);
-            sendTelegramMessage($chatId, "已返回主菜单。", getAdminKeyboard());
+            $stateToSet = null;
+            $messageToSend = "已返回主菜单。";
             break;
         default:
-            sendTelegramMessage($chatId, "无法识别的指令，请使用下方键盘操作。", getAdminKeyboard());
+            $messageToSend = "无法识别的指令，请使用下方键盘操作。";
             break;
+    }
+
+    if ($stateToSet !== null || in_array($text, ['/start', '/', '返回主菜单', '更换 API 密钥'])) {
+        if (!setUserState($userId, $stateToSet)) {
+            sendTelegramMessage($chatId, "⚠️ 系统警告：无法更新用户状态，请检查服务器文件权限。");
+        }
+    }
+
+    if ($messageToSend) {
+        sendTelegramMessage($chatId, $messageToSend, $keyboard);
     }
 }
 
