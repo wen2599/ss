@@ -1,14 +1,9 @@
 <?php
 
 // --- Final, Absolute Path .env Loader ---
-
-// __DIR__ is a "magic constant" that always returns the absolute path of the directory
-// containing the current file. Since this file is in `/src/`, we go one level up
-// to find the `.env` file in the project root (e.g., public_html).
 $envPath = __DIR__ . '/../.env';
 
 if (!file_exists($envPath)) {
-    // This check is our final guarantee. The path below should be the correct one on your server.
     die("FATAL ERROR: The .env file was not found at the absolute path: " . $envPath . "\n");
 } else if (!is_readable($envPath)) {
     die("FATAL ERROR: The .env file was found, but it is NOT READABLE by the PHP process. Please check file permissions (e.g., chmod 644 .env).\n");
@@ -61,7 +56,7 @@ set_error_handler(function ($severity, $message, $file, $line) {
 
 require_once __DIR__ . '/core/Response.php';
 require_once __DIR__ . '/core/Database.php';
-require_once __DIR__ . '/core/Telegram.php';
+// require_once __DIR__ . '/core/Telegram.php'; // Temporarily disabled
 
 define('DB_HOST', $_ENV['DB_HOST'] ?? 'localhost');
 define('DB_PORT', $_ENV['DB_PORT'] ?? 3306);
