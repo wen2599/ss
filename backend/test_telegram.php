@@ -1,8 +1,8 @@
 <?php
 // public/test_telegram.php
 
-// Adjust path to require config from the backend directory
-require_once __DIR__ . '/../backend/config.php';
+// Correctly require the config file from the same directory
+require_once __DIR__ . '/config.php';
 
 // Get the admin chat ID and bot token from environment variables
 $adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
