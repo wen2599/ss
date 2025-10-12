@@ -20,11 +20,6 @@ if (!$update || !isset($update['message'])) {
 $message = $update['message'];
 $chatId = $message['chat']['id'];
 $userId = $message['from']['id'] ?? $chatId;
-
-// --- Temporary Chat ID Logger ---
-$log_message = "Received message from Chat ID: {$chatId} and User ID: {$userId}\n";
-file_put_contents('chat_id_log.txt', $log_message, FILE_APPEND);
-// --- End Logger ---
 $text = trim($message['text'] ?? '');
 
 // --- Admin Verification ---
