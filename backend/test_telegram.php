@@ -1,14 +1,17 @@
 <?php
-// test_telegram.php
+// public/test_telegram.php
 
-require_once __DIR__ . '/config.php';
+// Adjust path to require config from the backend directory
+require_once __DIR__ . '/../backend/config.php';
 
 // Get the admin chat ID and bot token from environment variables
 $adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
 $botToken = getenv('TELEGRAM_BOT_TOKEN');
 
 if (!$adminChatId || !$botToken) {
-    echo "Error: Environment variables for Telegram are not set.";
+    header('Content-Type: application/json');
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'Error: Environment variables for Telegram are not set.']);
     exit;
 }
 
