@@ -40,5 +40,3 @@ function setUserState($userId, $state) {
 
     file_put_contents(STATE_FILE, json_encode($states));
 }
-
-?>

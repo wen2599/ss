@@ -1,34 +1,7 @@
 <?php
 
-// --- Environment & Autoloading ---
-
-/**
- * Loads environment variables from the .env file located in the same directory.
- * This function is defined once and called immediately.
- */
-function loadEnv() {
-    $envPath = __DIR__ . '/.env';
-    if (!file_exists($envPath)) {
-        return;
-    }
-    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) {
-            continue;
-        }
-        list($name, $value) = explode('=', $line, 2);
-        $value = trim($value, '"');
-        putenv(trim($name) . '=' . $value);
-    }
-}
-loadEnv(); // Load environment variables on script start.
-
-// --- Helper Scripts Inclusion ---
-require_once __DIR__ . '/db_operations.php';
-require_once __DIR__ . '/telegram_helpers.php';
-require_once __DIR__ . '/user_state_manager.php';
-require_once __DIR__ . '/ai_helpers.php';
-require_once __DIR__ . '/env_manager.php';
+// --- Unified Configuration and Helpers ---
+require_once __DIR__ . '/config.php';
 
 // --- Security Validation ---
 $secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
@@ -65,7 +38,6 @@ if ($userState) {
     if (strpos($userState, 'awaiting_api_key_') === 0) {
         $keyToUpdate = substr($userState, strlen('awaiting_api_key_'));
         if (update_env_file($keyToUpdate, $text)) {
-            loadEnv(); // Reload environment variables immediately.
             sendTelegramMessage($chatId, "✅ API 密钥 `{$keyToUpdate}` 已成功更新！新配置已生效。", getAdminKeyboard());
         } else {
             sendTelegramMessage($chatId, "❌ 更新 API 密钥失败！请检查 `.env` 文件的权限和路径是否正确。", getAdminKeyboard());
