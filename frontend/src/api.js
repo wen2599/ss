@@ -63,9 +63,9 @@ export const loginUser = (credentials) => {
 };
 
 export const getEmails = () => {
-    return fetchJson(`${API_BASE_URL}/get_emails.php`);
+    return fetchJson(`/api/get_emails`);
 };
 
 export const getEmailById = (id) => {
-    return fetchJson(`${API_BASE_URL}/get_emails.php?id=${id}`);
+    return fetchJson(`/api/get_emails?id=${id}`);
 };

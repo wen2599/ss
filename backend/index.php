@@ -21,24 +21,12 @@ $requestUri = $_SERVER['REQUEST_URI'];
 $path = parse_url($requestUri, PHP_URL_PATH);
 
 // Simple router
-if (isset($_GET['endpoint'])) {
-    $endpoint = $_GET['endpoint'];
-    switch ($endpoint) {
-        case 'telegramWebhook':
-            require __DIR__ . '/telegramWebhook.php';
-            break;
-        default:
-            http_response_code(404);
-            echo json_encode(['status' => 'error', 'message' => 'Endpoint not found']);
-            break;
-    }
-} else {
-    switch ($path) {
-        case '/api/status':
-            echo json_encode(['status' => 'ok', 'message' => 'API is running']);
-            break;
+switch ($path) {
+    case '/api/status':
+        echo json_encode(['status' => 'ok', 'message' => 'API is running']);
+        break;
 
-        case '/api/db-check':
+    case '/api/db-check':
         // --- Database Connection ---
         $host = getenv('DB_HOST');
         $port = getenv('DB_PORT');
@@ -67,11 +55,15 @@ if (isset($_GET['endpoint'])) {
         // Handle the email upload by including the dedicated script.
         require __DIR__ . '/email_handler.php';
         break;
+
+    case '/api/get_emails':
+        // Handle the get emails by including the dedicated script.
+        require __DIR__ . '/get_emails.php';
+        break;
         
     default:
         // Handle 404 Not Found for any other API routes
         http_response_code(404);
         echo json_encode(['status' => 'error', 'message' => 'Endpoint not found']);
         break;
-    }
 }
