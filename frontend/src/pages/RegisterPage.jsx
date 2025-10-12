@@ -1,86 +1,104 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import './RegisterPage.css';
-import { checkEmailAuthorization, registerUser } from '../api'; // Import API functions
+import { useNavigate, Link } from 'react-router-dom';
+import './LoginPage.css'; // Reusing login page styles
+import { registerUser, checkEmailAuthorization } from '../api';
 
 function RegisterPage() {
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  
-  const navigate = useNavigate();
+    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const navigate = useNavigate();
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError('');
-    setMessage('');
-    setIsLoading(true);
+    const handleEmailBlur = async () => {
+        if (!email) return;
+        setIsCheckingEmail(true);
+        setError('');
+        try {
+            const res = await checkEmailAuthorization(email);
+            if (!res.is_authorized) {
+                setError('该邮箱未被授权注册，请联系管理员。');
+            }
+        } catch (err) {
+            setError(err.message || '检查邮箱授权时出错。');
+        } finally {
+            setIsCheckingEmail(false);
+        }
+    };
 
-    try {
-      // Step 1: Check if the email is authorized
-      setMessage('Checking email authorization...');
-      const authResponse = await checkEmailAuthorization(email);
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        setError('');
+        setSuccess('');
+        setIsLoading(true);
 
-      if (!authResponse.is_authorized) {
-        setError('This email is not authorized to register. Please contact an administrator.');
-        setIsLoading(false);
-        return;
-      }
+        try {
+            const response = await registerUser({ username, email, password });
+            if (response.success) {
+                setSuccess('注册成功！您现在可以登录了。');
+                setTimeout(() => navigate('/login'), 2000);
+            } else {
+                setError(response.message || '注册失败。');
+            }
+        } catch (err) {
+            setError(err.message || '注册时发生错误。');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-      // Step 2: If authorized, proceed with registration
-      setMessage('Email authorized. Proceeding with registration...');
-      const registerData = { email, username, password };
-      const registerResponse = await registerUser(registerData);
-
-      // Handle success
-      setMessage(registerResponse.message || 'Registration successful! Redirecting to login...');
-      
-      // Redirect to login page after a short delay
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
-
-    } catch (err) {
-      // Handle errors from either API call
-      setError(err.message || 'An unexpected error occurred.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div className="register-container">
-      <form onSubmit={handleRegister} className="register-form">
-        <h2>Create Account</h2>
-        
-        {message && <p className="message">{message}</p>}
-        {error && <p className="error">{error}</p>}
-
-        <div className="input-group">
-          <label htmlFor="email">Email</label>
-          <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoading} />
+    return (
+        <div className="auth-page">
+            <div className="card">
+                <h1>创建新账户</h1>
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label>用户名</label>
+                        <input
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            required
+                            disabled={isLoading}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>电子邮件</label>
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            onBlur={handleEmailBlur}
+                            required
+                            disabled={isLoading}
+                        />
+                        {isCheckingEmail && <p>正在检查邮箱...</p>}
+                    </div>
+                    <div className="form-group">
+                        <label>密码</label>
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            disabled={isLoading}
+                        />
+                    </div>
+                    <button type="submit" className="btn" disabled={isLoading || isCheckingEmail}>
+                        {isLoading ? '注册中...' : '注册'}
+                    </button>
+                    {error && <p className="error-message">{error}</p>}
+                    {success && <p className="success-message">{success}</p>}
+                </form>
+                <div className="toggle-link">
+                    <p>已经有账户了？ <Link to="/login">立即登录</Link></p>
+                </div>
+            </div>
         </div>
-
-        <div className="input-group">
-          <label htmlFor="username">Username</label>
-          <input type="text" id="username" value={username} onChange={(e) => setUsername(e.target.value)} required disabled={isLoading} />
-        </div>
-
-        <div className="input-group">
-          <label htmlFor="password">Password</label>
-          <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLoading} />
-        </div>
-
-        <button type="submit" className="register-button" disabled={isLoading}>
-          {isLoading ? 'Processing...' : 'Register'}
-        </button>
-      </form>
-    </div>
-  );
+    );
 }
 
 export default RegisterPage;
