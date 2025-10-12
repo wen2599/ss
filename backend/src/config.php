@@ -2,10 +2,14 @@
 
 // --- UNIFIED BOOTSTRAP ---
 // This file is now the single source of truth for application initialization.
-// It handles error reporting, dependency loading, and configuration for all entry points.
+
+// --- Session Start ---
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 
 // --- Global Error & Exception Handling ---
-ini_set('display_errors', 0); // Do not display errors to the user
+ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
 set_exception_handler(function ($exception) {
@@ -26,40 +30,20 @@ set_error_handler(function ($severity, $message, $file, $line) {
 });
 
 // --- Core File Includes ---
-require_once __DIR__ . '/core/DotEnv.php';
 require_once __DIR__ . '/core/Response.php';
 require_once __DIR__ . '/core/Database.php';
 require_once __DIR__ . '/core/Telegram.php';
 
-// --- Environment Variable Loading ---
-// The .env file is located in the root of the backend directory (which is public_html on the server).
-// dirname(__DIR__) correctly resolves to '/.../public_html' from within '/.../public_html/src'.
-$dotenvPath = dirname(__DIR__) . '/.env';
-
-if (!file_exists($dotenvPath) || !is_readable($dotenvPath)) {
-    $errorMessage = "CRITICAL: .env file could not be found or is not readable at the expected path: {$dotenvPath}";
-    error_log($errorMessage);
-    // Use die() for CLI for clearer error messages in the terminal
-    $isCli = (php_sapi_name() === 'cli');
-    if ($isCli) {
-        die($errorMessage . "\n");
-    }
-    throw new \RuntimeException($errorMessage);
-}
-
-$dotenv = new DotEnv($dotenvPath);
-$env = $dotenv->getVariables();
-
 // --- Global Constants Definition ---
-define('DB_HOST', $env['DB_HOST'] ?? null);
-define('DB_PORT', $env['DB_PORT'] ?? 3306);
-define('DB_DATABASE', $env['DB_DATABASE'] ?? null);
-define('DB_USER', $env['DB_USER'] ?? null);
-define('DB_PASSWORD', $env['DB_PASSWORD'] ?? null);
-define('TELEGRAM_BOT_TOKEN', $env['TELEGRAM_BOT_TOKEN'] ?? null);
-define('TELEGRAM_WEBHOOK_SECRET', $env['TELEGRAM_WEBHOOK_SECRET'] ?? null);
-define('TELEGRAM_CHANNEL_ID', $env['TELEGRAM_CHANNEL_ID'] ?? null);
-define('TELEGRAM_ADMIN_ID', $env['TELEGRAM_ADMIN_ID'] ?? null);
+define('DB_HOST', 'localhost');
+define('DB_PORT', 3306);
+define('DB_DATABASE', 'my_database');
+define('DB_USER', 'root');
+define('DB_PASSWORD', '');
+define('TELEGRAM_BOT_TOKEN', null); // Replace with your bot token if needed
+define('TELEGRAM_WEBHOOK_SECRET', null);
+define('TELEGRAM_CHANNEL_ID', null);
+define('TELEGRAM_ADMIN_ID', null);
 
 // --- Global Request Body ---
 if (php_sapi_name() !== 'cli') {
