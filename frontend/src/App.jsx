@@ -6,7 +6,7 @@ import BillsPage from './pages/BillsPage.jsx';
 import BillDetailsPage from './pages/BillDetailsPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
-import { AuthProvider } from './context/AuthContext.js';
+import { AuthProvider } from './context/AuthContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx'; // Import the guard
 import './App.css';
 

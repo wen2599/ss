@@ -51,7 +51,7 @@ const BillsPage = () => {
                         <li key={email.id} className="email-item" onClick={() => handleBillClick(email.id)}>
                             <div className="email-sender">{email.sender}</div>
                             <div className="email-subject">{email.subject}</div>
-                            <div className="email-date">{new Date(email.received_at).toLocaleDateString()}</div>
+                            <div className="email-date">{new Date(email.created_at).toLocaleDateString()}</div>
                         </li>
                     ))}
                 </ul>

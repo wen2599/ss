@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.js'; // Import useAuth
+import { useAuth } from '../context/AuthContext.jsx'; // Import useAuth
 import './Navbar.css';
 
 const Navbar = () => {

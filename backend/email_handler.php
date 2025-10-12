@@ -41,20 +41,45 @@ if (empty($emailJson)) {
     exit;
 }
 
-// At this point, you would insert the raw email data into the database.
-// For now, as requested, we will log it to a file as a placeholder for DB storage.
-// The raw $emailJson (containing from, to, subject, body) is what we will store.
+// Decode the JSON email data.
+$emailData = json_decode($emailJson, true);
 
-$logFile = __DIR__ . '/email_log.txt';
-$currentTime = date('Y-m-d H:i:s');
-// We log the raw JSON, which is exactly what we'd store in a 'raw_email' column in the DB.
-$logEntry = "--- [{$currentTime}] Email Received ---
-{$emailJson}\n\n";
-file_put_contents($logFile, $logEntry, FILE_APPEND);
+// Validate the decoded data.
+if (json_last_error() !== JSON_ERROR_NONE || !isset($emailData['from']) || !isset($emailData['to']) || !isset($emailData['subject'])) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Bad Request: Invalid or incomplete email data.']);
+    exit;
+}
 
-// --- Respond to the Worker ---
-// Acknowledge receipt of the email.
-http_response_code(200);
-echo json_encode(['status' => 'ok', 'message' => 'Email received and logged for future processing.']);
+// --- Database Interaction ---
+require_once 'config.php';
+
+try {
+    $pdo = get_db_connection();
+    if (!$pdo) {
+        throw new Exception("Database connection failed.");
+    }
+
+    $stmt = $pdo->prepare(
+        "INSERT INTO emails (sender, recipient, subject, html_content) VALUES (:sender, :recipient, :subject, :html_content)"
+    );
+
+    $stmt->execute([
+        ':sender' => $emailData['from'],
+        ':recipient' => $emailData['to'],
+        ':subject' => $emailData['subject'],
+        ':html_content' => $emailData['body'] ?? null
+    ]);
+
+    // --- Respond to the Worker ---
+    http_response_code(200);
+    echo json_encode(['status' => 'ok', 'message' => 'Email successfully stored in the database.']);
+
+} catch (Exception $e) {
+    http_response_code(500);
+    // Log the error for debugging, but don't expose details to the client.
+    error_log("Failed to store email: " . $e->getMessage());
+    echo json_encode(['status' => 'error', 'message' => 'Internal Server Error: Could not process the email.']);
+}
 
 ?>

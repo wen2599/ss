@@ -47,8 +47,8 @@ const BillDetailsPage = () => {
             <div className="card">
                 <h1 className="bill-subject">{email.subject}</h1>
                 <div className="bill-meta">
-                    <span><b>发件人:</b> {email.from || email.sender}</span>
-                    <span><b>收件人:</b> {email.to}</span>
+                    <span><b>发件人:</b> {email.sender}</span>
+                    <span><b>收件人:</b> {email.recipient}</span>
                     <span><b>日期:</b> {new Date(email.created_at).toLocaleString()}</span>
                 </div>
                 <hr className="divider" />
