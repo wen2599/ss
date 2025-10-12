@@ -10,13 +10,19 @@ header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-W
 
 // Handle preflight OPTIONS requests.
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-    // End script execution for preflight requests.
     exit(0);
 }
 
 // Bootstrap the application by loading the master configuration.
-// This file is responsible for loading the .env file and setting up constants.
 require_once __DIR__ . '/../src/config.php';
+
+// ======================= DEBUGGING BREAKPOINT =======================
+// If we see this message, it means config.php loaded successfully.
+// If we still get a 500 error, it means config.php is the file that is failing.
+header('Content-Type: application/json');
+echo json_encode(['debug_status' => 'config.php loaded successfully']);
+exit();
+// ==================================================================
 
 // Define the base path for API endpoint files.
 $apiBasePath = __DIR__ . '/../src/api/';
@@ -34,7 +40,6 @@ if (!str_ends_with($filePath, '.php')) {
 }
 
 // If the endpoint file exists, include it to handle the request.
-// Otherwise, return a 404 Not Found error.
 if (file_exists($filePath)) {
     require_once $filePath;
 } else {
