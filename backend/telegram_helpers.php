@@ -20,7 +20,7 @@ function sendTelegramMessage($chatId, $text, $replyMarkup = null) {
     $payload = [
         'chat_id' => $chatId,
         'text' => $text,
-        'parse_mode' => 'Markdown', // Use Markdown for better formatting.
+        'parse_mode' => 'HTML', // Change to HTML mode, which is more forgiving.
     ];
 
     if ($replyMarkup) {
