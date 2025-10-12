@@ -1,16 +1,18 @@
 <?php
 
-// --- Final, CWD-based .env Loader ---
+// --- Final, Absolute Path .env Loader ---
 
-// The setup_database.php script (and eventually our front controller) will set the
-// Current Working Directory (CWD) to `backend`. From there, the .env file is one level up.
-$envPath = '../.env';
+// __DIR__ is a "magic constant" in PHP that always returns the absolute path
+// of the directory containing the current file (in this case, /backend/src).
+// This is the most reliable way to locate other files.
+$envPath = __DIR__ . '/../../.env';
 
 if (!file_exists($envPath)) {
-    // This is the definitive check. It tells us the CWD and the path we tried.
-    die("FATAL ERROR: .env file not found. CWD: " . getcwd() . ". Attempted path: " . realpath(dirname($envPath)) . DIRECTORY_SEPARATOR . basename($envPath) . "\n");
+    // This check is our final guarantee. If it fails, something is fundamentally wrong
+    // with the file's location, not the code.
+    die("FATAL ERROR: The .env file was not found at the absolute path: " . $envPath . "\n");
 } else if (!is_readable($envPath)) {
-    die("FATAL ERROR: .env file exists but is NOT READABLE. Please check permissions (e.g., chmod 644 .env).\n");
+    die("FATAL ERROR: The .env file was found, but it is NOT READABLE by the PHP process. Please check file permissions (e.g., chmod 644 .env).\n");
 }
 
 // --- Custom .env Loader ---

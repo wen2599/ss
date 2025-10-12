@@ -2,10 +2,6 @@
 // A one-time script to set up the database schema.
 // From your project root (e.g., public_html), run: php backend/setup_database.php
 
-// --- Change Directory ---
-// This ensures that all relative paths are resolved correctly from the script's location.
-chdir(__DIR__);
-
 // --- Bootstrap Application ---
 // This single line loads all configurations, core libraries, and error handlers.
 require_once __DIR__ . '/src/config.php';
