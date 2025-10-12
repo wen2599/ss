@@ -31,6 +31,7 @@ $endpointMap = [
     '/api/login' => 'login_user.php',
     '/api/emails' => 'get_emails.php',
     '/api/is_user_registered' => 'check_email.php',
+    '/api/check_auth' => 'check_email.php', // Alias for frontend compatibility
     '/api/upload' => 'email_handler.php', // For email uploads from the worker
     // Add other path-based routes here
 ];

@@ -19,24 +19,44 @@ function getUserState($userId) {
 }
 
 /**
- * Sets the state for a given user.
+ * Sets the state for a given user, with improved error handling.
  *
  * @param int $userId The user's Telegram Chat ID.
  * @param string|null $state The state to set. Use null to clear the state.
+ * @return bool True on success, false on failure.
  */
 function setUserState($userId, $state) {
     $states = [];
     if (file_exists(STATE_FILE)) {
-        $states = json_decode(file_get_contents(STATE_FILE), true);
+        $content = file_get_contents(STATE_FILE);
+        // Handle case where file is empty or contains invalid JSON
+        $states = $content ? json_decode($content, true) : [];
+        if (json_last_error() !== JSON_ERROR_NONE) {
+             error_log("Error decoding user state file: " . json_last_error_msg());
+             $states = []; // Reset states if file is corrupt
+        }
     }
 
     if ($state === null) {
-        // Clear the state for the user.
         unset($states[$userId]);
     } else {
-        // Set the new state for the user.
         $states[$userId] = $state;
     }
 
-    file_put_contents(STATE_FILE, json_encode($states));
+    // Check if the directory is writable before attempting to write.
+    $directory = dirname(STATE_FILE);
+    if (!is_writable($directory)) {
+        error_log("State file directory is not writable: {$directory}");
+        return false;
+    }
+
+    // Attempt to write the file and check for failure.
+    $result = file_put_contents(STATE_FILE, json_encode($states, JSON_PRETTY_PRINT));
+
+    if ($result === false) {
+        error_log("Failed to write to state file: " . STATE_FILE);
+        return false;
+    }
+
+    return true;
 }
