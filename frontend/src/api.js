@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:8000'; // Adjust this to your actual backend URL
+
+const API_BASE_URL = ''; // Use relative paths for API calls
 
 /**
  * A helper function to handle fetch requests and responses.
@@ -63,9 +64,10 @@ export const loginUser = (credentials) => {
 };
 
 export const getEmails = () => {
-    return fetchJson(`/api/get_emails`);
+    return fetchJson(`${API_BASE_URL}/get_emails.php`);
 };
 
 export const getEmailById = (id) => {
-    return fetchJson(`/api/get_emails?id=${id}`);
+    return fetchJson(`${API_BASE_URL}/get_emails.php?id=${id}`);
 };
+
