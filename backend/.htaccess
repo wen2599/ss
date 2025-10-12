@@ -1,10 +1,18 @@
+# Block access to sensitive files
+<FilesMatch "(\.env|\.log|config\.php|database_schema\.sql|initialize_database\.php)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
 
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteCond %{REQUEST_FILENAME} !-l
-  RewriteRule . /index.html [L]
-</IfModule>
+# Enable rewriting
+RewriteEngine On
+
+# Redirect all requests to /api/ to the main router
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api/(.*)$ index.php [L]
+
+# Redirect requests with ?endpoint= to the main router
+RewriteCond %{REQUEST_URI} !^/index\.php$
+RewriteCond %{QUERY_STRING} ^endpoint=
+RewriteRule ^(.*)$ index.php [L]
