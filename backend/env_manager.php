@@ -3,7 +3,7 @@
 /**
  * Updates or adds a key-value pair in the .env file.
  *
- * This function reads the entire .env file, line by line,
+ * This function reads the entire .env file from the project root,
  * and either updates an existing key or adds a new one at the end.
  * It preserves comments and blank lines.
  *
@@ -12,7 +12,8 @@
  * @return bool True on success, false on failure.
  */
 function update_env_file($keyToUpdate, $newValue) {
-    $envPath = __DIR__ . '/.env';
+    // Correctly point to the .env file in the project root.
+    $envPath = __DIR__ . '/../.env';
 
     if (!file_exists($envPath) || !is_readable($envPath) || !is_writable($envPath)) {
         error_log(".env file does not exist or is not readable/writable at: {$envPath}");
@@ -29,23 +30,23 @@ function update_env_file($keyToUpdate, $newValue) {
     $newLines = [];
 
     foreach ($lines as $line) {
-        // Check if the line contains the key we want to update.
+        // Skip comments and empty lines
         if (strpos(trim($line), '#') === 0 || strpos($line, '=') === false) {
-            $newLines[] = $line; // Preserve comments and empty lines.
+            $newLines[] = $line;
             continue;
         }
 
         list($key, $value) = explode('=', $line, 2);
         if (trim($key) === $keyToUpdate) {
-            // Update the line with the new value.
+            // Update the line with the new value, ensuring it's quoted.
             $newLines[] = trim($key) . "=\"{$newValue}\"";
             $keyFound = true;
         } else {
-            $newLines[] = $line; // Keep other keys as they are.
+            $newLines[] = $line;
         }
     }
 
-    // If the key was not found in the file, add it to the end.
+    // If the key was not found, add it to the end.
     if (!$keyFound) {
         $newLines[] = "{$keyToUpdate}=\"{$newValue}\"";
     }

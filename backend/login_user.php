@@ -1,7 +1,6 @@
 <?php
 
-require_once 'db_operations.php';
-require_once 'jwt_handler.php'; // Include the JWT handler
+require_once __DIR__ . '/config.php'; // Use the central config file
 
 // --- Setup Headers ---
 header('Content-Type: application/json');

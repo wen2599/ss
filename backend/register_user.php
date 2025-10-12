@@ -1,6 +1,6 @@
 <?php
 
-require_once 'db_operations.php';
+require_once __DIR__ . '/config.php'; // Use the central config file
 
 // Set headers for CORS and JSON response
 header('Content-Type: application/json');
