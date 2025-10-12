@@ -97,5 +97,3 @@ function isEmailAuthorized($email) {
         return false;
     }
 }
-
-?>

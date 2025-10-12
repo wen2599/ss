@@ -1,0 +1,10 @@
+# Block access to sensitive files
+<Files ".env">
+    Require all denied
+</Files>
+<Files "execution_log.txt">
+    Require all denied
+</Files>
+<Files "telegram_webhook_log.txt">
+    Require all denied
+</Files>

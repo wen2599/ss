@@ -76,5 +76,3 @@ function getApiKeySelectionKeyboard() {
         'one_time_keyboard' => true, // This keyboard should be temporary.
     ];
 }
-
-?>
