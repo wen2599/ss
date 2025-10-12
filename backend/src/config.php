@@ -56,7 +56,7 @@ set_error_handler(function ($severity, $message, $file, $line) {
 
 require_once __DIR__ . '/core/Response.php';
 require_once __DIR__ . '/core/Database.php';
-// require_once __DIR__ . '/core/Telegram.php'; // Temporarily disabled
+require_once __DIR__ . '/core/Telegram.php';
 
 define('DB_HOST', $_ENV['DB_HOST'] ?? 'localhost');
 define('DB_PORT', $_ENV['DB_PORT'] ?? 3306);
