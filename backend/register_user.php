@@ -23,12 +23,14 @@ if (!$data) {
 }
 
 $email = $data['email'] ?? null;
-$username = $data['username'] ?? null;
 $password = $data['password'] ?? null;
 
-if (empty($email) || empty($username) || empty($password)) {
+// The username is now the email.
+$username = $email;
+
+if (empty($email) || empty($password)) {
     http_response_code(400);
-    echo json_encode(['error' => 'Missing required fields: email, username, and password.']);
+    echo json_encode(['error' => 'Missing required fields: email and password.']);
     exit;
 }
 
@@ -50,12 +52,12 @@ if (!$pdo) {
 $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
 try {
-    // 1. Check if username or email already exists
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
-    $stmt->execute([$username, $email]);
+    // 1. Check if email already exists (since username is the email)
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt->execute([$email]);
     if ($stmt->fetch()) {
         http_response_code(409); // Conflict
-        echo json_encode(['error' => 'A user with this username or email already exists.']);
+        echo json_encode(['error' => 'A user with this email already exists.']);
         exit;
     }
 

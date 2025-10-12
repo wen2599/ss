@@ -4,7 +4,6 @@ import './LoginPage.css'; // Reusing login page styles
 import { registerUser, checkEmailAuthorization } from '../api';
 
 function RegisterPage() {
-    const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -36,7 +35,8 @@ function RegisterPage() {
         setIsLoading(true);
 
         try {
-            const response = await registerUser({ username, email, password });
+            // Use the email as the username
+            const response = await registerUser({ username: email, email, password });
             if (response.success) {
                 setSuccess('注册成功！您现在可以登录了。');
                 setTimeout(() => navigate('/login'), 2000);
@@ -55,16 +55,6 @@ function RegisterPage() {
             <div className="card">
                 <h1>创建新账户</h1>
                 <form onSubmit={handleSubmit}>
-                    <div className="form-group">
-                        <label>用户名</label>
-                        <input
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            required
-                            disabled={isLoading}
-                        />
-                    </div>
                     <div className="form-group">
                         <label>电子邮件</label>
                         <input
