@@ -1,48 +1,20 @@
 <?php
-// Allow requests from the specific frontend origin.
-header("Access-Control-Allow-Origin: https://ss.wenxiuxiu.eu.org");
-// Allow credentials (cookies, authorization headers, etc.) to be sent.
-header("Access-Control-Allow-Credentials: true");
-// Specify which methods are allowed for CORS requests.
-header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-// Specify which headers are allowed for CORS requests.
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 
-// Handle preflight OPTIONS requests.
-if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-    exit(0);
-}
+// Set headers for CORS and content type.
+header("Access-Control-Allow-Origin: *");
+header("Content-Type: application/json");
 
-// Bootstrap the application by loading the master configuration.
-require_once __DIR__ . '/../src/config.php';
+// Set a 200 OK status code.
+http_response_code(200);
 
-// ======================= DEBUGGING BREAKPOINT =======================
-// If we see this message, it means config.php loaded successfully.
-// If we still get a 500 error, it means config.php is the file that is failing.
-header('Content-Type: application/json');
-echo json_encode(['debug_status' => 'config.php loaded successfully']);
-exit();
-// ==================================================================
+// Create a simple success message.
+$response = [
+    'status' => 'success',
+    'message' => 'The basic PHP environment is working correctly.'
+];
 
-// Define the base path for API endpoint files.
-$apiBasePath = __DIR__ . '/../src/api/';
+// Output the JSON response and terminate the script.
+echo json_encode($response);
 
-// Get the requested endpoint from the query string.
-$endpoint = $_GET['endpoint'] ?? '';
+exit;
 
-// Sanitize the endpoint name to prevent directory traversal attacks.
-$endpoint = basename($endpoint);
-
-// Construct the full path to the endpoint file.
-$filePath = $apiBasePath . $endpoint;
-if (!str_ends_with($filePath, '.php')) {
-    $filePath .= '.php';
-}
-
-// If the endpoint file exists, include it to handle the request.
-if (file_exists($filePath)) {
-    require_once $filePath;
-} else {
-    http_response_code(404);
-    echo json_encode(['error' => "Endpoint '{$endpoint}' not found."]);
-}
