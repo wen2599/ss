@@ -1,17 +1,13 @@
 import axios from 'axios';
 
+const API_URL = 'http://localhost:5000/api';
+
 const apiClient = axios.create({
-    baseURL: 'https://wenge.cloudns.ch/api', // All requests are now prefixed with /api
-    withCredentials: true, // This is crucial for sending session cookies
+    baseURL: API_URL,
+    withCredentials: true, // Send cookies with requests
 });
 
 export const api = {
-    // Auth
-    register: (email, password) => apiClient.post('/register', { email, password }),
-    login: (email, password) => apiClient.post('/login', { email, password }),
-    logout: () => apiClient.post('/logout'),
-    checkAuth: () => apiClient.get('/check_auth'),
-
-    // Emails
-    getEmails: () => apiClient.get('/get_emails'),
+    getEmails: () => apiClient.get('/emails'),
+    // Add other non-auth API calls here if needed
 };

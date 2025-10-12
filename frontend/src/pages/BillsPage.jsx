@@ -15,7 +15,7 @@ const BillsPage = () => {
                 setEmails(response.data);
                 setError(null);
             } catch (err) {
-                setError('无法获取邮件，请确保您已登录。');
+                setError('无法获取邮件。');
                 console.error(err);
             } finally {
                 setLoading(false);
