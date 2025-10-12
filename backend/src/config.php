@@ -1,37 +1,37 @@
 <?php
 
+// --- Final Diagnostic Check ---
+$envPath = __DIR__ . '/../../.env';
+
+if (!file_exists($envPath)) {
+    die("FATAL ERROR: The .env file was not found at the expected path: " . realpath(__DIR__ . '/../../') . DIRECTORY_SEPARATOR . ".env\n");
+} else if (!is_readable($envPath)) {
+    die("FATAL ERROR: The .env file was found, but it is NOT READABLE by the PHP process. Please check file permissions (e.g., chmod 644 .env).\n");
+}
+
 // --- Custom .env Loader ---
 function loadDotEnv($path)
 {
-    if (!file_exists($path)) {
-        return; // Silently fail if file not found
-    }
-
+    // We already confirmed the file exists and is readable, so just load it.
     $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) {
-            continue;
-        }
+        if (strpos(trim($line), '#') === 0) continue;
 
         list($name, $value) = explode('=', $line, 2);
         $name = trim($name);
         $value = trim($value);
 
-        // Remove quotes from the value
         if (substr($value, 0, 1) == '"' && substr($value, -1) == '"') {
             $value = substr($value, 1, -1);
         }
 
-        // Directly populate the $_ENV superglobal, which is more reliable on shared hosting
         $_ENV[$name] = $value;
         $_SERVER[$name] = $value;
     }
 }
 
 // --- UNIFIED BOOTSTRAP ---
-// Determine the root path and load the .env file.
-$rootDir = __DIR__ . '/../../';
-loadDotEnv($rootDir . '.env');
+loadDotEnv($envPath);
 
 // --- Session Start ---
 if (session_status() == PHP_SESSION_NONE) {
@@ -53,9 +53,7 @@ set_exception_handler(function ($exception) {
 });
 
 set_error_handler(function ($severity, $message, $file, $line) {
-    if (!(error_reporting() & $severity)) {
-        return;
-    }
+    if (!(error_reporting() & $severity)) return;
     throw new ErrorException($message, 0, $severity, $file, $line);
 });
 
@@ -65,7 +63,6 @@ require_once __DIR__ . '/core/Database.php';
 require_once __DIR__ . '/core/Telegram.php';
 
 // --- Global Constants Definition ---
-// Prioritize reading from $_ENV, as it's more reliable than getenv().
 define('DB_HOST', $_ENV['DB_HOST'] ?? 'localhost');
 define('DB_PORT', $_ENV['DB_PORT'] ?? 3306);
 define('DB_DATABASE', $_ENV['DB_DATABASE'] ?? 'my_database');
