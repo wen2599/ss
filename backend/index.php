@@ -1,9 +1,84 @@
 <?php
-// public/index.php
+// --- Main API Router ---
 
-// Set the base path for the entire application
-$basePath = __DIR__ . '/../';
+// --- Configuration and Helpers ---
+// This brings in environment variables and helper functions.
+require_once __DIR__ . '/config.php';
 
-// The actual, more complex logic is in backend/index.php
-// We simply include it here. This keeps the public root clean.
-require_once $basePath . 'backend/index.php';
+// --- CORS and Headers ---
+// Allow requests from any origin. In production, you might want to restrict this.
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Telegram-Bot-Api-Secret-Token");
+
+// Handle pre-flight OPTIONS requests for CORS.
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit();
+}
+
+// --- Routing Logic ---
+$requestUri = $_SERVER['REQUEST_URI'];
+$queryParams = $_GET;
+
+// Remove query string from URI to get the path.
+$path = parse_url($requestUri, PHP_URL_PATH);
+
+// --- Endpoint Mapping ---
+// Maps clean URL paths to their corresponding handler files.
+$endpointMap = [
+    '/api/register' => 'register_user.php',
+    '/api/login' => 'login_user.php',
+    '/api/emails' => 'get_emails.php',
+    '/api/is_user_registered' => 'check_email.php',
+    '/api/upload' => 'email_handler.php', // For email uploads from the worker
+    // Add other path-based routes here
+];
+
+// --- Route 1: Query Parameter-based Routing (for legacy or specific cases) ---
+if (isset($queryParams['endpoint'])) {
+    $endpoint = $queryParams['endpoint'];
+
+    if ($endpoint === 'telegramWebhook') {
+        // The Telegram webhook has specific requirements and does not use the standard JSON API format.
+        // It also performs its own security check.
+        require_once __DIR__ . '/telegramWebhook.php';
+        exit();
+    }
+    // Add other query-based endpoints here if needed.
+}
+
+// --- Route 2: Path-based API Routing ---
+elseif (isset($endpointMap[$path])) {
+    $handlerScript = __DIR__ . '/' . $endpointMap[$path];
+    if (file_exists($handlerScript)) {
+        // Set a standard header for JSON responses.
+        header('Content-Type: application/json');
+        // Include the specific endpoint handler.
+        require_once $handlerScript;
+        exit();
+    }
+}
+
+// --- Route 3: Simple Status Check for Root API path ---
+elseif ($path === '/api' || $path === '/api/') {
+    header('Content-Type: application/json');
+    http_response_code(200);
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'Backend API is running.'
+    ]);
+    exit();
+}
+
+
+// --- Fallback: Not Found ---
+// If no route matches, return a 404 error.
+header('Content-Type: application/json');
+http_response_code(404);
+echo json_encode([
+    'status' => 'error',
+    'message' => 'Endpoint not found.'
+]);
+
+?>
