@@ -1,11 +1,11 @@
 
 :root {
-  --background-color: #f0f2f5;
-  --card-background: #ffffff;
-  --text-color: #333;
+  --background-color: #121212;
+  --card-background: #1e1e1e;
+  --text-color: #e0e0e0;
   --primary-color: #007bff;
   --border-radius: 8px;
-  --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 body {
@@ -63,7 +63,7 @@ body {
 }
 
 .error-card p {
-  color: #333;
+  color: var(--text-color);
 }
 
 .error-card button {

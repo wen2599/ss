@@ -6,6 +6,7 @@ const BillsPage = () => {
     const [emails, setEmails] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         fetch('/api/get_emails')
@@ -30,6 +31,11 @@ const BillsPage = () => {
             });
     }, []);
 
+    const filteredEmails = emails.filter(email =>
+        email.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        email.from.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     if (loading) {
         return <div className="page-container loading">加载中...</div>;
     }
@@ -41,8 +47,17 @@ const BillsPage = () => {
     return (
         <div className="page-container bills-container">
             <h1 className="page-title">账单中心</h1>
+            <div className="toolbar">
+                <input
+                    type="text"
+                    placeholder="搜索账单主题或发件人..."
+                    className="search-input"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                />
+            </div>
             <div className="email-list">
-                {emails.length > 0 ? emails.map(email => (
+                {filteredEmails.length > 0 ? filteredEmails.map(email => (
                     <Link to={`/bill/${email.id}`} key={email.id} className="email-item-link">
                         <div className="email-item card">
                             <div className="email-subject">{email.subject}</div>
@@ -50,7 +65,9 @@ const BillsPage = () => {
                             <div className="email-date">{new Date(email.created_at).toLocaleString()}</div>
                         </div>
                     </Link>
-                )) : <p>没有找到账单邮件。</p>}
+                )) : (
+                    <p>没有找到与“{searchTerm}”相关的账单。</p>
+                )}
             </div>
         </div>
     );

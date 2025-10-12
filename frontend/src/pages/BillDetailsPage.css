@@ -1,41 +1,107 @@
 .bill-details-container {
-    padding: 20px;
+    padding: 2rem;
     max-width: 900px;
-    margin: auto;
+    margin: 0 auto;
+}
+
+/* Target the card specifically within the bill details page */
+.bill-details-container .card {
+    background: var(--card-background);
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    color: var(--text-color);
 }
 
 .bill-subject {
-    font-size: 2rem;
-    margin-bottom: 10px;
+    font-size: 2.2rem;
+    margin-bottom: 1rem;
+    color: var(--text-color);
+    line-height: 1.3;
 }
 
 .bill-meta {
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    margin-bottom: 20px;
-    color: #555;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 15px;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #444; /* Darker border */
+}
+
+.bill-meta span {
+    font-size: 1rem;
+    color: #a0a0a0; /* Lighter gray for meta text */
+}
+
+.bill-meta span b {
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.divider {
+    border: none;
+    border-top: 1px solid #444;
+    margin: 1.5rem 0;
 }
 
 .bill-body {
-    line-height: 1.6;
+    line-height: 1.7;
+    font-size: 1rem;
+    color: var(--text-color);
 }
 
-/* Basic styling for the content that comes from the email */
+/* 
+  Force styles onto the dangerouslySetInnerHTML content.
+  This is important for overriding potential inline styles or styles from the email source
+  that are not dark-theme friendly. We use !important where necessary to ensure visibility.
+*/
+.bill-body * {
+    color: var(--text-color) !important;
+    background-color: transparent !important;
+}
+
+.bill-body a {
+    color: var(--primary-color) !important;
+    text-decoration: none;
+}
+
+.bill-body a:hover {
+    text-decoration: underline;
+}
+
 .bill-body table {
     width: 100%;
     border-collapse: collapse;
+    margin: 1rem 0;
 }
 
 .bill-body th, .bill-body td {
-    border: 1px solid #ddd;
-    padding: 8px;
+    border: 1px solid #555 !important;
+    padding: 12px;
+    text-align: left;
 }
 
-.loading, .not-found {
+.bill-body th {
+    background-color: #2a2a2e !important;
+}
+
+.bill-body h1, .bill-body h2, .bill-body h3, .bill-body h4, .bill-body h5, .bill-body h6 {
+    margin: 1.5rem 0 1rem;
+}
+
+.bill-body ul, .bill-body ol {
+    margin: 1rem 0 1rem 2rem;
+    padding: 0;
+}
+
+.bill-body li {
+    margin-bottom: 0.5rem;
+}
+
+.loading, .not-found, .error-message {
     text-align: center;
     padding: 50px;
     font-size: 1.5rem;
+    color: var(--text-color);
 }
