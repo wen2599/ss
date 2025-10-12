@@ -2,14 +2,13 @@
 
 // --- Final, Absolute Path .env Loader ---
 
-// __DIR__ is a "magic constant" in PHP that always returns the absolute path
-// of the directory containing the current file (in this case, /backend/src).
-// This is the most reliable way to locate other files.
-$envPath = __DIR__ . '/../../.env';
+// __DIR__ is a "magic constant" that always returns the absolute path of the directory
+// containing the current file. Since this file is in `/src/`, we go one level up
+// to find the `.env` file in the project root (e.g., public_html).
+$envPath = __DIR__ . '/../.env';
 
 if (!file_exists($envPath)) {
-    // This check is our final guarantee. If it fails, something is fundamentally wrong
-    // with the file's location, not the code.
+    // This check is our final guarantee. The path below should be the correct one on your server.
     die("FATAL ERROR: The .env file was not found at the absolute path: " . $envPath . "\n");
 } else if (!is_readable($envPath)) {
     die("FATAL ERROR: The .env file was found, but it is NOT READABLE by the PHP process. Please check file permissions (e.g., chmod 644 .env).\n");
