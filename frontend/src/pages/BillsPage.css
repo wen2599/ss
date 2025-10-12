@@ -1,102 +1,57 @@
-.bills-container {
-    padding: 2rem;
-    max-width: 900px;
-    margin: 0 auto;
+.bills-page {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 2rem;
 }
 
-.page-title {
-    color: var(--text-color);
+.bills-page h1 {
     text-align: center;
     margin-bottom: 2rem;
-    font-size: 2.5rem;
-}
-
-.loading, .error-message {
-    text-align: center;
-    padding: 50px;
-    font-size: 1.5rem;
-    color: var(--text-color);
+    color: var(--primary-text);
 }
 
 .email-list {
+    list-style: none;
+    padding: 0;
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 1rem;
-}
-
-.email-item-link {
-    text-decoration: none;
-    color: inherit;
-    transition: transform 0.2s ease-in-out;
-    display: block;
-}
-
-.email-item-link:hover {
-    transform: translateY(-5px);
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
 }
 
 .email-item {
-    padding: 1.5rem;
-    background: var(--card-background);
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
-    box-shadow: var(--box-shadow);
-    transition: background-color 0.3s ease, border-left-color 0.3s ease;
-    border-left: 5px solid transparent;
+    padding: 1.5rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    cursor: pointer;
 }
 
 .email-item:hover {
-    background-color: #2a2a2e; 
-    border-left-color: var(--primary-color);
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+}
+
+.email-sender {
+    font-weight: bold;
+    color: var(--primary-text);
+    margin-bottom: 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .email-subject {
-    font-size: 1.3rem;
-    font-weight: bold;
-    color: var(--text-color);
-    margin-bottom: 0.5rem;
-}
-
-.email-from {
-    font-size: 1rem;
-    color: #a0a0a0;
+    color: var(--secondary-text);
     margin-bottom: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .email-date {
-    font-size: 0.9rem;
-    color: #888;
+    font-size: 0.875rem;
+    color: var(--secondary-text);
     text-align: right;
-}
-
-.bills-container p {
-    color: var(--text-color);
-    text-align: center;
-    font-size: 1.2rem;
-    padding: 2rem;
-    background: var(--card-background);
-    border-radius: var(--border-radius);
-}
-
-.toolbar {
-    margin-bottom: 2rem;
-    display: flex;
-    justify-content: center;
-}
-
-.search-input {
-    width: 100%;
-    max-width: 500px;
-    padding: 12px 20px;
-    font-size: 1rem;
-    color: var(--text-color);
-    background-color: var(--background-color);
-    border: 1px solid #555;
-    border-radius: var(--border-radius);
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.search-input:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
 }

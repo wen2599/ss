@@ -21,10 +21,10 @@ const BillsPage = () => {
                 if (response.success) {
                     setEmails(response.emails);
                 } else {
-                    setError(response.message || '无法获取邮件。');
+                    setError(response.message || '无法获取账单列表');
                 }
             } catch (err) {
-                setError('无法获取邮件。');
+                setError('获取账单失败，请稍后重试。');
                 console.error(err);
             } finally {
                 setLoading(false);
@@ -35,7 +35,7 @@ const BillsPage = () => {
     }, []);
 
     if (loading) {
-        return <div className="loading">正在加载邮件...</div>;
+        return <div className="loading">正在加载账单...</div>;
     }
 
     if (error) {
@@ -44,19 +44,19 @@ const BillsPage = () => {
 
     return (
         <div className="bills-page">
-            <h1>您的电子账单</h1>
+            <h1>我的电子账单</h1>
             {emails.length > 0 ? (
                 <ul className="email-list">
                     {emails.map((email) => (
                         <li key={email.id} className="email-item" onClick={() => handleBillClick(email.id)}>
                             <div className="email-sender">{email.sender}</div>
                             <div className="email-subject">{email.subject}</div>
-                            <div className="email-date">{new Date(email.created_at).toLocaleDateString()}</div>
+                            <div className="email-date">{new Date(email.created_at).toLocaleDateString('zh-CN')}</div>
                         </li>
                     ))}
                 </ul>
             ) : (
-                <p>您还没有任何账单邮件。</p>
+                <p>您当前没有任何账单。</p>
             )}
         </div>
     );
