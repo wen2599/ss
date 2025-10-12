@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './LoginPage.css';
 import { loginUser } from '../api';
-import { useAuth } from '../context/AuthContext.js'; // Import the useAuth hook
+import { useAuth } from '../context/AuthContext.jsx'; // Import the useAuth hook
 
 function LoginPage() {
   const [email, setEmail] = useState('');

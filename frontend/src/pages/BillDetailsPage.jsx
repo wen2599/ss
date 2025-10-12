@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { getEmailById } from '../api.js';
 import './BillDetailsPage.css';
 
 const BillDetailsPage = () => {
@@ -9,26 +10,24 @@ const BillDetailsPage = () => {
     const { id } = useParams();
 
     useEffect(() => {
-        fetch(`/api/get_emails?id=${id}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('网络响应错误');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success && data.emails.length > 0) {
-                    setEmail(data.emails[0]);
+        const fetchEmail = async () => {
+            try {
+                setLoading(true);
+                const response = await getEmailById(id);
+                if (response.success && response.emails.length > 0) {
+                    setEmail(response.emails[0]);
                 } else {
-                    throw new Error(data.message || '未找到该邮件');
+                    throw new Error(response.message || '未找到该邮件');
                 }
-                setLoading(false);
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error('获取邮件详情时出错:', error);
                 setError(error.message);
+            } finally {
                 setLoading(false);
-            });
+            }
+        };
+
+        fetchEmail();
     }, [id]);
 
     if (loading) {
@@ -48,8 +47,8 @@ const BillDetailsPage = () => {
             <div className="card">
                 <h1 className="bill-subject">{email.subject}</h1>
                 <div className="bill-meta">
-                    <span><b>发件人:</b> {email.from}</span>
-                    <span><b>收件人:</b> {email.to}</span>
+                    <span><b>发件人:</b> {email.sender}</span>
+                    <span><b>收件人:</b> {email.recipient}</span>
                     <span><b>日期:</b> {new Date(email.created_at).toLocaleString()}</span>
                 </div>
                 <hr className="divider" />
