@@ -1,55 +1,41 @@
 <?php
 
-// --- Environment & Autoloading ---
+// --- Telegram Webhook Endpoint ---
 
-/**
- * Loads environment variables from the .env file located in the same directory.
- * This function is defined once and called immediately.
- */
-function loadEnv() {
-    $envPath = __DIR__ . '/.env';
-    if (!file_exists($envPath)) {
-        return;
-    }
-    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) {
-            continue;
-        }
-        list($name, $value) = explode('=', $line, 2);
-        $value = trim($value, '"');
-        putenv(trim($name) . '=' . $value);
-    }
-}
-loadEnv(); // Load environment variables on script start.
-
-// --- Helper Scripts Inclusion ---
-require_once __DIR__ . '/db_operations.php';
-require_once __DIR__ . '/telegram_helpers.php';
+// Bootstrap the application
+require_once __DIR__ . '/config.php';
+// Include helpers specific to the bot's functionality
 require_once __DIR__ . '/user_state_manager.php';
 require_once __DIR__ . '/ai_helpers.php';
 require_once __DIR__ . '/env_manager.php';
 
+
 // --- Security Validation ---
 $secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
 $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
-if (empty($secretToken) || $receivedToken !== $secretToken) {
+
+// We must have a secret token configured, and it must match what Telegram sends.
+if (empty($secretToken) || !hash_equals($secretToken, $receivedToken)) {
     http_response_code(403);
-    exit('Forbidden: Secret token mismatch.');
+    error_log("Forbidden: Secret token mismatch or not configured.");
+    exit('Forbidden');
 }
 
 // --- Main Webhook Logic ---
 $update = json_decode(file_get_contents('php://input'), true);
+
 if (!$update || !isset($update['message'])) {
+    // If it's not a message, we don't process it.
+    // This could be a channel post, a callback query we don't handle yet, etc.
     exit();
 }
 
 $message = $update['message'];
 $chatId = $message['chat']['id'];
-$userId = $message['from']['id'] ?? $chatId;
+$userId = $message['from']['id'] ?? $chatId; // Use user ID for state tracking
 $text = trim($message['text'] ?? '');
 
-// --- Admin Verification ---
+// --- Admin-Only Access Control ---
 $adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
 if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
     sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
@@ -59,82 +45,80 @@ if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
 // --- State-Driven Conversation Logic ---
 $userState = getUserState($userId);
 
-// This block handles responses when the user is in a specific conversation state.
 if ($userState) {
     // --- State: Awaiting New API Key ---
     if (strpos($userState, 'awaiting_api_key_') === 0) {
         $keyToUpdate = substr($userState, strlen('awaiting_api_key_'));
+        // The `update_env_file` function is now in `env_manager.php`
         if (update_env_file($keyToUpdate, $text)) {
-            loadEnv(); // Reload environment variables immediately.
-            sendTelegramMessage($chatId, "✅ API 密钥 `{$keyToUpdate}` 已成功更新！新配置已生效。", getAdminKeyboard());
+            // We don't need to reload env manually anymore, but a confirmation is good.
+            sendTelegramMessage($chatId, "✅ API 密钥 `{$keyToUpdate}` 已成功更新！", getAdminKeyboard());
         } else {
-            sendTelegramMessage($chatId, "❌ 更新 API 密钥失败！请检查 `.env` 文件的权限和路径是否正确。", getAdminKeyboard());
+            sendTelegramMessage($chatId, "❌ 更新 API 密钥失败！请检查 `.env` 文件的权限。", getAdminKeyboard());
         }
-        setUserState($userId, null);
+        setUserState($userId, null); // Clear state after action
 
     // --- State: Awaiting Gemini Prompt ---
     } elseif ($userState === 'awaiting_gemini_prompt') {
         sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
+        // `call_gemini_api` is now in `ai_helpers.php`
         $response = call_gemini_api($text);
         sendTelegramMessage($chatId, $response, getAdminKeyboard());
         setUserState($userId, null);
-    
+
     // --- State: Awaiting Email Authorization ---
     } elseif ($userState === 'awaiting_email_authorization') {
         if (filter_var($text, FILTER_VALIDATE_EMAIL)) {
+            // `authorizeEmail` is in `db_operations.php`, included by config.php
             if (authorizeEmail($text)) {
-                sendTelegramMessage($chatId, "✅ 邮箱 `{$text}` 已成功授权，用户现在可以凭此邮箱注册。", getAdminKeyboard());
+                sendTelegramMessage($chatId, "✅ 邮箱 `{$text}` 已成功授权。", getAdminKeyboard());
             } else {
-                sendTelegramMessage($chatId, "⚠️ 邮箱 `{$text}` 已存在或数据库出错，无法重复授权。", getAdminKeyboard());
+                sendTelegramMessage($chatId, "⚠️ 邮箱 `{$text}` 已存在或数据库出错。", getAdminKeyboard());
             }
         } else {
-            sendTelegramMessage($chatId, "❌ 您输入的不是一个有效的邮箱地址，请重新输入或点击 '返回主菜单'。", getAdminKeyboard());
+            sendTelegramMessage($chatId, "❌ 无效的邮箱地址，请重新输入。", getAdminKeyboard());
         }
-        setUserState($userId, null); // Reset state after one attempt.
+        setUserState($userId, null); // Reset state
 
     } else {
-        setUserState($userId, null); // Clear invalid state
-        sendTelegramMessage($chatId, "系统状态异常，已重置。请重新选择操作。", getAdminKeyboard());
+        // Clear any unknown or residual state.
+        setUserState($userId, null);
+        sendTelegramMessage($chatId, "系统状态异常，已重置。", getAdminKeyboard());
     }
 
-// This block handles initial commands when the user is not in a specific state.
 } else {
+    // --- Command Handling (No active state) ---
     switch ($text) {
         case '/start':
-        case '/':
-            sendTelegramMessage($chatId, "欢迎回来，管理员！请选择一个操作。", getAdminKeyboard());
+        case '返回主菜单':
+            sendTelegramMessage($chatId, "欢迎回来，管理员！请选择操作。", getAdminKeyboard());
             break;
         case '授权新邮箱':
             setUserState($userId, 'awaiting_email_authorization');
-            sendTelegramMessage($chatId, "好的，请发送您想要授权注册的电子邮件地址。");
+            sendTelegramMessage($chatId, "请输入您想授权的电子邮件地址。");
             break;
         case '请求 Gemini':
             setUserState($userId, 'awaiting_gemini_prompt');
-            sendTelegramMessage($chatId, "好的，请直接输入您想对 Gemini 说的话。");
+            sendTelegramMessage($chatId, "请输入您想对 Gemini 说的话。");
             break;
         case '更换 API 密钥':
-            sendTelegramMessage($chatId, "请选择您想要更新的 API 密钥：", getApiKeySelectionKeyboard());
+            sendTelegramMessage($chatId, "请选择要更新的 API 密钥：", getApiKeySelectionKeyboard());
             break;
         case 'Gemini API Key':
             setUserState($userId, 'awaiting_api_key_GEMINI_API_KEY');
-            sendTelegramMessage($chatId, "好的，请发送您的新 Gemini API 密钥。");
+            sendTelegramMessage($chatId, "请输入新的 Gemini API 密钥。");
             break;
         case 'DeepSeek API Key':
             setUserState($userId, 'awaiting_api_key_DEEPSEEK_API_KEY');
-            sendTelegramMessage($chatId, "好的，请发送您的新 DeepSeek API 密钥。");
-            break;
-        case '返回主菜单':
-            setUserState($userId, null);
-            sendTelegramMessage($chatId, "已返回主菜单。", getAdminKeyboard());
+            sendTelegramMessage($chatId, "请输入新的 DeepSeek API 密钥。");
             break;
         default:
-            sendTelegramMessage($chatId, "无法识别的指令，请使用下方键盘操作。", getAdminKeyboard());
+            sendTelegramMessage($chatId, "无法识别的指令，请使用键盘操作。", getAdminKeyboard());
             break;
     }
 }
 
-// Acknowledge receipt to Telegram.
+// Finally, acknowledge receipt to Telegram to prevent re-delivery.
 http_response_code(200);
 echo json_encode(['status' => 'ok']);
-
 ?>

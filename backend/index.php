@@ -1,61 +1,58 @@
 <?php
 
-// --- Environment Variable Loading ---
-$dotenv = file_get_contents(__DIR__ . '/../.env');
-$lines = explode("\n", $dotenv);
+// --- Main API Router ---
 
-foreach ($lines as $line) {
-    if (strpos(trim($line), '#') === 0 || empty(trim($line))) {
-        continue;
-    }
+// Bootstrap the application
+require_once __DIR__ . '/config.php';
 
-    list($name, $value) = explode('=', $line, 2);
-    putenv(trim($name) . '=' . trim($value));
-}
+// Set global headers for JSON responses
+header('Content-Type: application/json');
 
-// --- Basic Routing ---
-header('Content-Type: application/json'); // Set content type for all API responses
-
-// Get the request path from the URL
+// --- Routing Logic ---
 $requestUri = $_SERVER['REQUEST_URI'];
 $path = parse_url($requestUri, PHP_URL_PATH);
+$endpoint = $_GET['endpoint'] ?? null; // For query string-based routing
 
-// Simple router
-switch ($path) {
-    case '/api/status':
+// Priority 1: Check for `endpoint` query parameter
+if ($endpoint) {
+    $filePath = __DIR__ . '/' . basename($endpoint) . '.php';
+    if (file_exists($filePath)) {
+        require $filePath;
+        exit;
+    }
+}
+
+// Priority 2: Check for path-based routing (e.g., /api/status)
+// This is more for a modern API structure.
+$api_path = str_replace('/api/', '', $path);
+
+switch ($api_path) {
+    case 'status':
         echo json_encode(['status' => 'ok', 'message' => 'API is running']);
         break;
 
-    case '/api/db-check':
-        // --- Database Connection ---
-        $host = getenv('DB_HOST');
-        $port = getenv('DB_PORT');
-        $dbname = getenv('DB_DATABASE');
-        $user = getenv('DB_USER');
-        $pass = getenv('DB_PASSWORD');
-
-        $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
-
-        try {
-            $pdo = new PDO($dsn, $user, $pass);
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    case 'db-check':
+        // The database connection is now handled by get_db_connection() from db_operations.php
+        $pdo = get_db_connection();
+        if ($pdo) {
             echo json_encode(['status' => 'ok', 'message' => '数据库连接成功!']);
-        } catch (PDOException $e) {
+        } else {
+            // get_db_connection logs the detailed error, so we send a generic one here.
             http_response_code(500);
-            echo json_encode(['status' => 'error', 'message' => '数据库连接失败: ' . $e->getMessage()]);
+            echo json_encode(['status' => 'error', 'message' => '数据库连接失败.']);
         }
         break;
 
-    case '/api/telegram_webhook':
-        // Handle the Telegram webhook by including the dedicated script.
+    // --- Deprecated Path-Based Routes ---
+    // These are kept for compatibility but should be migrated to query string endpoints.
+    case 'telegram_webhook':
         require __DIR__ . '/telegramWebhook.php';
         break;
 
-    case '/api/email_upload':
-        // Handle the email upload by including the dedicated script.
+    case 'email_upload':
         require __DIR__ . '/email_handler.php';
         break;
-        
+
     default:
         // Handle 404 Not Found for any other API routes
         http_response_code(404);
