@@ -1,18 +1,21 @@
-# Block access to sensitive files
-<FilesMatch "(\.env|\.log|config\.php|database_schema\.sql|initialize_database\.php)$">
-    Order Allow,Deny
-    Deny from all
-</FilesMatch>
-
-# Enable rewriting
+# Enable the rewrite engine
 RewriteEngine On
 
-# Redirect all requests to /api/ to the main router
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^api/(.*)$ index.php [L]
+# --- Security: Block access to sensitive files ---
+# Use a RewriteRule with the [F] flag to forbid access. This is generally more reliable
+# than <FilesMatch> across different server configurations.
+RewriteRule ^\.env$ - [F,L]
+RewriteRule \.log$ - [F,L]
+RewriteRule ^(config|initialize_database|database_schema|db_operations|telegram_helpers|user_state_manager|ai_helpers|env_manager)\.php$ - [F,L]
 
-# Redirect requests with ?endpoint= to the main router
-RewriteCond %{REQUEST_URI} !^/index\.php$
-RewriteCond %{QUERY_STRING} ^endpoint=
+# --- Front Controller: Route all requests through index.php ---
+# This ensures consistent handling of all incoming API calls and webhook pings.
+
+# Condition 1: The request is not for a real, existing file.
+RewriteCond %{REQUEST_FILENAME} !-f
+# Condition 2: The request is not for a real, existing directory.
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Rule: If both conditions are met, rewrite the request to index.php.
+# The [L] flag means this is the last rule to be processed.
 RewriteRule ^(.*)$ index.php [L]
