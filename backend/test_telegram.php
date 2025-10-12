@@ -1,7 +1,6 @@
 <?php
 // public/test_telegram.php
 
-// Correctly require the config file from the same directory
 require_once __DIR__ . '/config.php';
 
 // Get the admin chat ID and bot token from environment variables
