@@ -26,7 +26,7 @@ try {
         }
     } else {
         // Fetch all emails, ordered by most recent.
-        $stmt = $pdo->query("SELECT id, sender, subject, created_at FROM emails ORDER BY created_at DESC");
+        $stmt = $pdo->query("SELECT id, sender, recipient, subject, html_content, created_at FROM emails ORDER BY created_at DESC");
         $emails = $stmt->fetchAll();
         echo json_encode(['success' => true, 'emails' => $emails]);
     }
