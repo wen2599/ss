@@ -1,0 +1,21 @@
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # If the request is for a file in the 'public' directory, serve it directly.
+  # This will handle the test_telegram.php request.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f
+  RewriteRule ^(.*)$ public/$1 [L]
+
+  # Route API calls (/api/...) to the backend router.
+  RewriteCond %{REQUEST_URI} ^/api/
+  RewriteRule ^api/(.*)$ backend/index.php?endpoint=$1 [QSA,L]
+
+  # Serve the React application's entry point for all other requests.
+  # This ensures your frontend works as expected.
+  RewriteCond %{REQUEST_URI} !^/api
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /frontend/build/index.html [L]
+</IfModule>
