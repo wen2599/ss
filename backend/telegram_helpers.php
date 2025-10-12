@@ -11,7 +11,9 @@
 function sendTelegramMessage($chatId, $text, $replyMarkup = null) {
     $token = getenv('TELEGRAM_BOT_TOKEN');
     if (empty($token) || $token === 'your_telegram_bot_token_here') {
-        // Silently fail if the bot token is not configured, to avoid error loops.
+        // --- CRITICAL DIAGNOSTIC ---
+        // This is a major change. We MUST know if this is happening.
+        error_log("CRITICAL: sendTelegramMessage failed because TELEGRAM_BOT_TOKEN is not configured.");
         return false;
     }
 
