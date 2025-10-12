@@ -84,7 +84,7 @@ switch ($route) {
 
     case '/api/get_emails':
     case 'get_emails':
-        require __DIR__ . '/db_operations.php';
+        require __DIR__ . '/get_emails.php';
         break;
 
     default:

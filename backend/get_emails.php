@@ -1,39 +1,31 @@
 <?php
-// This endpoint retrieves email records from the database.
+// backend/get_emails.php
+
+// Include the file with database functions
+require_once __DIR__ . '/db_operations.php';
 
 header('Content-Type: application/json');
-require_once 'config.php';
+
+$pdo = get_db_connection();
+
+if (!$pdo) {
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'Failed to connect to the database.']);
+    exit;
+}
 
 try {
-    $pdo = get_db_connection();
-    if (!$pdo) {
-        throw new Exception("Database connection failed.");
-    }
+    // Prepare and execute the query to fetch all emails from the 'emails' table
+    $stmt = $pdo->prepare("SELECT id, sender, recipient, subject, html_content, created_at FROM emails ORDER BY created_at DESC");
+    $stmt->execute();
+    $emails = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $emailId = $_GET['id'] ?? null;
+    // Return the emails as a JSON response
+    echo json_encode(['status' => 'success', 'emails' => $emails]);
 
-    if ($emailId) {
-        // Fetch a single email by its ID.
-        $stmt = $pdo->prepare("SELECT id, sender, recipient, subject, html_content, created_at FROM emails WHERE id = :id");
-        $stmt->execute([':id' => $emailId]);
-        $email = $stmt->fetch();
-
-        if ($email) {
-            echo json_encode(['success' => true, 'emails' => [$email]]);
-        } else {
-            http_response_code(404);
-            echo json_encode(['success' => false, 'message' => 'Email not found.']);
-        }
-    } else {
-        // Fetch all emails, ordered by most recent.
-        $stmt = $pdo->query("SELECT id, sender, recipient, subject, html_content, created_at FROM emails ORDER BY created_at DESC");
-        $emails = $stmt->fetchAll();
-        echo json_encode(['success' => true, 'emails' => $emails]);
-    }
-
-} catch (Exception $e) {
+} catch (PDOException $e) {
+    // Log the error and return a generic error message
+    error_log("Error fetching emails: " . $e->getMessage());
     http_response_code(500);
-    error_log("Failed to get emails: " . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => 'Internal Server Error: Could not retrieve emails.']);
+    echo json_encode(['status' => 'error', 'message' => 'An error occurred while fetching emails.']);
 }
-?>
