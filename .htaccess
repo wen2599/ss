@@ -2,11 +2,20 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # If the request is for a file in the backend or public folder, serve it directly.
-    RewriteCond %{REQUEST_FILENAME} -f
-    RewriteRule ^(backend|public)/(.*)$ $1/$2 [L]
+    # Rule 1: Serve files from the public directory
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f
+    RewriteRule ^(.*)$ public/$1 [L]
 
-    # Otherwise, serve the frontend application.
+    # Rule 2: Serve files from the backend directory
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{DOCUMENT_ROOT}/backend%{REQUEST_URI} -f
+    RewriteRule ^(.*)$ backend/$1 [L]
+
+    # Rule 3: Serve the frontend application
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteCond %{REQUEST_URI} !^/backend/
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule . /index.html [L]
 </IfModule>
-
