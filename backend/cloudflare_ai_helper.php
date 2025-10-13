@@ -1,33 +1,6 @@
 <?php
 
-/**
- * 通用的 API 调用辅助函数，处理 cURL 请求和基础错误。
- *
- * @param string $url API 的 URL 端点。
- * @param array $payload 要发送的请求体数据。
- * @param array $headers HTTP 请求头。
- * @param int $timeout 超时时间（秒）。
- * @return array 包含 http_code, response_body, curl_error 的数组。
- */
-function _call_api_curl($url, $payload, $headers, $timeout = 90) {
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-
-    $responseBody = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-
-    return [
-        'http_code' => $httpCode,
-        'response_body' => $responseBody,
-        'curl_error' => $curlError
-    ];
-}
+require_once __DIR__ . '/api_curl_helper.php';
 
 /**
  * 调用 Cloudflare Workers AI REST API。
@@ -37,12 +10,13 @@ function _call_api_curl($url, $payload, $headers, $timeout = 90) {
  */
 function call_cloudflare_ai_api($prompt) {
     // 从环境变量获取信息，这是最佳实践
-    $accountId = getenv('CLOUDFLARE_ACCOUNT_ID');
-    $apiToken = getenv('CLOUDFLARE_API_TOKEN');
+    $accountId = $_ENV['CLOUDFLARE_ACCOUNT_ID'] ?? null;
+    $apiToken = $_ENV['CLOUDFLARE_API_TOKEN'] ?? null;
 
     // 检查凭证是否已配置
     if (empty($accountId) || empty($apiToken)) {
-        return '❌ **错误**: Cloudflare 账户ID或API令牌未配置。请检查环境变量。';
+        error_log("Cloudflare AI not configured: Account ID or API Token is missing.");
+        return '❌ **错误**: Cloudflare AI 未配置。请联系管理员。';
     }
 
     // 您可以在这里更换其他模型，例如 @cf/mistral/mistral-7b-instruct-v0.1

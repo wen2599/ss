@@ -8,8 +8,11 @@ function load_env() {
         foreach ($lines as $line) {
             if (strpos(trim($line), '#') === 0) continue;
             list($name, $value) = explode('=', $line, 2);
+            $name = trim($name);
             $value = trim($value, '"');
-            putenv(trim($name) . '=' . $value);
+            // Use both $_ENV and $_SERVER for compatibility
+            $_ENV[$name] = $value;
+            $_SERVER[$name] = $value;
         }
     }
 }
@@ -19,10 +22,11 @@ load_env();
 require_once __DIR__ . '/db_operations.php';
 require_once __DIR__ . '/telegram_helpers.php';
 require_once __DIR__ . '/user_state_manager.php';
+require_once __DIR__ . '/api_curl_helper.php'; // Shared cURL function
 require_once __DIR__ . '/gemini_ai_helper.php';
 require_once __DIR__ . '/cloudflare_ai_helper.php';
 require_once __DIR__ . '/env_manager.php';
 
 // --- JWT Configuration ---
-define('JWT_SECRET_KEY', getenv('JWT_SECRET_KEY') ?: 'your-super-secret-and-long-key-that-no-one-knows');
-define('JWT_TOKEN_LIFETIME', getenv('JWT_TOKEN_LIFETIME') ?: 86400);
+define('JWT_SECRET_KEY', $_ENV['JWT_SECRET_KEY'] ?? 'your-super-secret-and-long-key-that-no-one-knows');
+define('JWT_TOKEN_LIFETIME', $_ENV['JWT_TOKEN_LIFETIME'] ?? 86400);
