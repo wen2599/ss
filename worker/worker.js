@@ -33,20 +33,16 @@ export default {
     const url = new URL(request.url);
     const backendServer = env.PUBLIC_API_ENDPOINT || "https://wenge.cloudns.ch";
 
-    // Check if the request path starts with /api/
-    if (url.pathname.startsWith('/api/')) {
-      // Create a new URL object for the backend request
+    // If the request is for a .php file, proxy it to the backend.
+    if (url.pathname.endsWith('.php')) {
       const backendUrl = new URL(url.pathname, backendServer);
       backendUrl.search = url.search;
 
-      // Rewrite the path to remove the `/api` prefix
-      backendUrl.pathname = backendUrl.pathname.replace('/api', '');
-
       let headers = new Headers(request.headers);
-      const requestedEndpoint = url.pathname.substring(5); // e.g., 'telegram_webhook' or 'email_upload'
+      const requestedEndpoint = url.pathname.substring(1); // e.g., 'telegramWebhook.php'
 
       // Add the Telegram secret token if the request is for the Telegram webhook.
-      if (requestedEndpoint === 'telegram_webhook' && env.TELEGRAM_WEBHOOK_SECRET) {
+      if (requestedEndpoint === 'telegramWebhook.php' && env.TELEGRAM_WEBHOOK_SECRET) {
         headers.set('X-Telegram-Bot-Api-Secret-Token', env.TELEGRAM_WEBHOOK_SECRET);
       }
 
