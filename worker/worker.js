@@ -31,7 +31,8 @@ export default {
    */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const backendServer = env.PUBLIC_API_ENDPOINT || "https://wenge.cloudns.ch";
+    // TEMPORARY DIAGNOSTIC: Force HTTP to test for SSL issues.
+    const backendServer = (env.PUBLIC_API_ENDPOINT || "https://wenge.cloudns.ch").replace('https://', 'http://');
 
     // Check if the request path starts with /api/
     if (url.pathname.startsWith('/api/')) {
