@@ -55,7 +55,7 @@ function getAdminKeyboard() {
     return [
         'keyboard' => [
             [['text' => '授权新邮箱']],
-            [['text' => '请求 Gemini'], ['text' => '请求 DeepSeek']],
+            [['text' => '请求 Gemini'], ['text' => '请求 DeepSeek'], ['text' => '请求 Cloudflare']],
             [['text' => '更换 API 密钥']],
         ],
         'resize_keyboard' => true,
@@ -73,6 +73,7 @@ function getApiKeySelectionKeyboard() {
         'keyboard' => [
             [['text' => 'Gemini API Key']],
             [['text' => 'DeepSeek API Key']],
+            [['text' => 'Cloudflare API Token']],
             [['text' => '返回主菜单']] // A way to exit the process.
         ],
         'resize_keyboard' => true,

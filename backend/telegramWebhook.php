@@ -63,6 +63,14 @@ if ($userState) {
             sendTelegramMessage($chatId, "⚠️ 系统警告：无法更新用户状态，请检查服务器文件权限。");
         }
 
+    } elseif ($userState === 'awaiting_cloudflare_prompt') {
+        sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
+        $response = call_cloudflare_ai_api($text);
+        sendTelegramMessage($chatId, $response, getAdminKeyboard());
+        if (!setUserState($userId, null)) {
+            sendTelegramMessage($chatId, "⚠️ 系统警告：无法更新用户状态，请检查服务器文件权限。");
+        }
+
     // --- State: Awaiting Email Authorization ---
     } elseif ($userState === 'awaiting_email_authorization') {
         if (filter_var($text, FILTER_VALIDATE_EMAIL)) {
@@ -111,6 +119,11 @@ if ($userState) {
             $messageToSend = "好的，请直接输入您想对 DeepSeek 说的话。";
             $keyboard = null; // No keyboard when asking for input
             break;
+        case '请求 Cloudflare':
+            $stateToSet = 'awaiting_cloudflare_prompt';
+            $messageToSend = "好的，请直接输入您想对 Cloudflare AI 说的话。";
+            $keyboard = null; // No keyboard when asking for input
+            break;
         case '更换 API 密钥':
             $messageToSend = "请选择您想要更新的 API 密钥：";
             $keyboard = getApiKeySelectionKeyboard();
@@ -123,6 +136,11 @@ if ($userState) {
         case 'DeepSeek API Key':
             $stateToSet = 'awaiting_api_key_DEEPSEEK_API_KEY';
             $messageToSend = "好的，请发送您的新 DeepSeek API 密钥。";
+            $keyboard = null; // No keyboard when asking for input
+            break;
+        case 'Cloudflare API Token':
+            $stateToSet = 'awaiting_api_key_CLOUDFLARE_API_TOKEN';
+            $messageToSend = "好的，请发送您的新 Cloudflare API 令牌。";
             $keyboard = null; // No keyboard when asking for input
             break;
         case '返回主菜单':
