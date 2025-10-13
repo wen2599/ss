@@ -52,5 +52,9 @@ function update_env_file($keyToUpdate, $newValue) {
         return false;
     }
 
+    // --- IMPORTANT: Reload environment variables for the current script ---
+    $_ENV[$keyToUpdate] = $newValue;
+    $_SERVER[$keyToUpdate] = $newValue;
+
     return true;
 }

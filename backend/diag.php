@@ -9,11 +9,28 @@ echo "--- Starting Full Diagnostic Test ---\n\n";
 // --- Step 1: Test Core File Includes ---
 echo "Step 1: Loading core configuration...\n";
 try {
-    // Use @ to suppress warnings on include, we will catch the fatal error if it happens.
-    @require_once __DIR__ . '/config.php';
-    echo "  [SUCCESS] config.php was included without a fatal error.\n\n";
+    // Manually load the environment for this standalone script
+    function load_env_diag() {
+        $envPath = __DIR__ . '/.env';
+        if (file_exists($envPath)) {
+            $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            foreach ($lines as $line) {
+                if (strpos(trim($line), '#') === 0) continue;
+                list($name, $value) = explode('=', $line, 2);
+                $name = trim($name);
+                $value = trim($value, '"');
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+            }
+        }
+    }
+    load_env_diag();
+
+    // Include only what's necessary for the diagnostic
+    require_once __DIR__ . '/telegram_helpers.php';
+    echo "  [SUCCESS] Core components were included without a fatal error.\n\n";
 } catch (Throwable $t) {
-    echo "  [FATAL] A fatal error occurred while including config.php. This is the root cause.\n";
+    echo "  [FATAL] A fatal error occurred during inclusion. This is the root cause.\n";
     echo "  Error: " . $t->getMessage() . "\n";
     echo "  File: " . $t->getFile() . " on line " . $t->getLine() . "\n\n";
     exit(1); // Exit immediately on fatal error.
@@ -21,8 +38,8 @@ try {
 
 // --- Step 2: Test Environment Variable Loading ---
 echo "Step 2: Checking if .env variables are loaded...\n";
-$telegramToken = getenv('TELEGRAM_BOT_TOKEN');
-$adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
+$telegramToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
+$adminChatId = $_ENV['TELEGRAM_ADMIN_CHAT_ID'] ?? null;
 
 if ($telegramToken && $adminChatId) {
     echo "  [SUCCESS] Essential environment variables (TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_CHAT_ID) are loaded.\n\n";
@@ -38,21 +55,7 @@ if ($telegramToken && $adminChatId) {
 echo "Step 3: Attempting to send a test message via Telegram API...\n";
 $testMessage = "✅ This is a test message from the new `diag.php` script. If you received this, your Telegram Bot Token and Admin Chat ID are correct, and the PHP code can successfully send messages.";
 
-// Temporarily use a known-good helper function to isolate the test
-function simpleTelegramSend($chatId, $text, $token) {
-    $url = "https://api.telegram.org/bot{$token}/sendMessage";
-    $payload = ['chat_id' => $chatId, 'text' => $text, 'parse_mode' => 'HTML'];
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-    $response = curl_exec($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    return $http_code === 200;
-}
-
-if (simpleTelegramSend($adminChatId, $testMessage, $telegramToken)) {
+if (sendTelegramMessage($adminChatId, $testMessage)) {
     echo "  [SUCCESS] Test message sent to your Telegram admin account.\n";
     echo "  If you received the message, the core PHP application is fully functional.\n\n";
 } else {
