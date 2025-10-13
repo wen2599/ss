@@ -35,8 +35,12 @@ export default {
 
     // Check if the request path starts with /api/
     if (url.pathname.startsWith('/api/')) {
-      // Correctly construct the backend URL by preserving the path.
-      const backendUrl = `${backendServer}${url.pathname}${url.search}`;
+      // Create a new URL object for the backend request
+      const backendUrl = new URL(url.pathname, backendServer);
+      backendUrl.search = url.search;
+
+      // Rewrite the path to remove the `/api` prefix
+      backendUrl.pathname = backendUrl.pathname.replace('/api', '');
 
       let headers = new Headers(request.headers);
       const requestedEndpoint = url.pathname.substring(5); // e.g., 'telegram_webhook' or 'email_upload'
