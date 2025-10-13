@@ -137,16 +137,6 @@ if ($userState) {
             $messageToSend = "好的，请发送您的新 Gemini API 密钥。";
             $keyboard = null; // No keyboard when asking for input
             break;
-        case 'Cloudflare API Token':
-            $stateToSet = 'awaiting_api_key_CLOUDFLARE_API_TOKEN';
-            $messageToSend = "好的，请发送您的新 Cloudflare API 令牌。";
-            $keyboard = null; // No keyboard when asking for input
-            break;
-        case 'Cloudflare Account ID':
-            $stateToSet = 'awaiting_api_key_CLOUDFLARE_ACCOUNT_ID';
-            $messageToSend = "好的，请发送您的新 Cloudflare 账户 ID。";
-            $keyboard = null; // No keyboard when asking for input
-            break;
         case '返回主菜单':
             $stateToSet = null;
             $messageToSend = "已返回主菜单。";

@@ -70,7 +70,6 @@ function getApiKeySelectionKeyboard() {
     return [
         'keyboard' => [
             [['text' => 'Gemini API Key']],
-            [['text' => 'Cloudflare API Token'], ['text' => 'Cloudflare Account ID']],
             [['text' => '返回主菜单']] // A way to exit the process.
         ],
         'resize_keyboard' => true,
