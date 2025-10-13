@@ -9,7 +9,7 @@
  * @return bool True on success, false on failure.
  */
 function sendTelegramMessage($chatId, $text, $replyMarkup = null) {
-    $token = getenv('TELEGRAM_BOT_TOKEN');
+    $token = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
     if (empty($token) || $token === 'your_telegram_bot_token_here') {
         error_log("CRITICAL: sendTelegramMessage failed because TELEGRAM_BOT_TOKEN is not configured.");
         return false;

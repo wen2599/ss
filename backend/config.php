@@ -8,9 +8,11 @@ function load_env() {
         foreach ($lines as $line) {
             if (strpos(trim($line), '#') === 0) continue;
             list($name, $value) = explode('=', $line, 2);
-            // Trim whitespace first, then quotes for robustness
-            $value = trim(trim($value), '"');
-            putenv(trim($name) . '=' . $value);
+            $name = trim($name);
+            $value = trim($value, '"');
+            // Use both $_ENV and $_SERVER for compatibility
+            $_ENV[$name] = $value;
+            $_SERVER[$name] = $value;
         }
     }
 }
@@ -26,6 +28,6 @@ require_once __DIR__ . '/cloudflare_ai_helper.php';
 require_once __DIR__ . '/env_manager.php';
 
 // --- JWT Configuration ---
-define('JWT_SECRET_KEY', getenv('JWT_SECRET_KEY') ?: 'your-super-secret-and-long-key-that-no-one-knows');
-define('JWT_TOKEN_LIFETIME', getenv('JWT_TOKEN_LIFETIME') ?: 86400);
+define('JWT_SECRET_KEY', $_ENV['JWT_SECRET_KEY'] ?? 'your-super-secret-and-long-key-that-no-one-knows');
+define('JWT_TOKEN_LIFETIME', $_ENV['JWT_TOKEN_LIFETIME'] ?? 86400);
 ?>
