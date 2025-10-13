@@ -55,14 +55,6 @@ if ($userState) {
             sendTelegramMessage($chatId, "⚠️ 系统警告：无法更新用户状态，请检查服务器文件权限。");
         }
     
-    } elseif ($userState === 'awaiting_deepseek_prompt') {
-        sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
-        $response = call_deepseek_api($text);
-        sendTelegramMessage($chatId, $response, getAdminKeyboard());
-        if (!setUserState($userId, null)) {
-            sendTelegramMessage($chatId, "⚠️ 系统警告：无法更新用户状态，请检查服务器文件权限。");
-        }
-
     } elseif ($userState === 'awaiting_cloudflare_prompt') {
         sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
         $response = call_cloudflare_ai_api($text);
@@ -114,11 +106,6 @@ if ($userState) {
             $messageToSend = "好的，请直接输入您想对 Gemini 说的话。";
             $keyboard = null; // No keyboard when asking for input
             break;
-        case '请求 DeepSeek':
-            $stateToSet = 'awaiting_deepseek_prompt';
-            $messageToSend = "好的，请直接输入您想对 DeepSeek 说的话。";
-            $keyboard = null; // No keyboard when asking for input
-            break;
         case '请求 Cloudflare':
             $stateToSet = 'awaiting_cloudflare_prompt';
             $messageToSend = "好的，请直接输入您想对 Cloudflare AI 说的话。";
@@ -131,11 +118,6 @@ if ($userState) {
         case 'Gemini API Key':
             $stateToSet = 'awaiting_api_key_GEMINI_API_KEY';
             $messageToSend = "好的，请发送您的新 Gemini API 密钥。";
-            $keyboard = null; // No keyboard when asking for input
-            break;
-        case 'DeepSeek API Key':
-            $stateToSet = 'awaiting_api_key_DEEPSEEK_API_KEY';
-            $messageToSend = "好的，请发送您的新 DeepSeek API 密钥。";
             $keyboard = null; // No keyboard when asking for input
             break;
         case 'Cloudflare API Token':
