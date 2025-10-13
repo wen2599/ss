@@ -12,7 +12,6 @@ on:
       - main
     paths:
       - '*.php' # Trigger the workflow if any .php file in the root directory changes
-      - '!.github/workflows/**' # Do not trigger on workflow changes to avoid loops
 
 jobs:
   deploy:
