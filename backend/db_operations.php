@@ -46,54 +46,41 @@ function get_db_connection() {
 }
 
 /**
- * Adds a new email to the authorization list in the database.
+ * Retrieves all users from the database.
  *
- * Called by the Telegram bot when an admin uses the '授权新邮箱' command.
- *
- * @param string $email The email address to authorize.
- * @return bool True on success, false if the email already exists or on database error.
+ * @return array An array of user objects (or an empty array if none found).
  */
-function authorizeEmail($email) {
+function getAllUsers() {
     $pdo = get_db_connection();
-    if (!$pdo) return false;
+    if (!$pdo) return [];
 
     try {
-        // First, check if the email already exists to prevent duplicates.
-        $stmt = $pdo->prepare("SELECT id FROM authorized_emails WHERE email = ?");
-        $stmt->execute([$email]);
-        if ($stmt->fetch()) {
-            return false; // Email is already in the database.
-        }
-
-        // If not, insert the new email with a default 'pending' status.
-        $stmt = $pdo->prepare("INSERT INTO authorized_emails (email, status) VALUES (?, 'pending')");
-        return $stmt->execute([$email]);
-
+        $stmt = $pdo->query("SELECT id, email, created_at FROM users ORDER BY created_at DESC");
+        return $stmt->fetchAll();
     } catch (PDOException $e) {
-        error_log("Error in authorizeEmail for {$email}: " . $e->getMessage());
-        return false;
+        error_log("Error in getAllUsers: " . $e->getMessage());
+        return [];
     }
 }
 
 /**
- * Checks if an email is present in the authorized_emails table.
+ * Deletes a user from the database by their email address.
  *
- * Called by the new `check_email.php` endpoint to verify if a user is allowed to register.
- *
- * @param string $email The email to check.
- * @return bool True if the email is found, false otherwise.
+ * @param string $email The email of the user to delete.
+ * @return bool True on successful deletion, false otherwise.
  */
-function isEmailAuthorized($email) {
+function deleteUserByEmail($email) {
     $pdo = get_db_connection();
     if (!$pdo) return false;
 
     try {
-        $stmt = $pdo->prepare("SELECT id FROM authorized_emails WHERE email = ?");
+        $stmt = $pdo->prepare("DELETE FROM users WHERE email = ?");
         $stmt->execute([$email]);
-        // fetch() returns a row if found, or false if not. We convert this to a boolean.
-        return $stmt->fetch() !== false;
+        // rowCount() returns the number of affected rows.
+        // If it's greater than 0, the deletion was successful.
+        return $stmt->rowCount() > 0;
     } catch (PDOException $e) {
-        error_log("Error in isEmailAuthorized for {$email}: " . $e->getMessage());
+        error_log("Error in deleteUserByEmail for {$email}: " . $e->getMessage());
         return false;
     }
 }
