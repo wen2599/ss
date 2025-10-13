@@ -9,6 +9,12 @@ require_once __DIR__ . '/api_curl_helper.php';
  * @return string 模型的文本响应或错误信息。
  */
 function call_cloudflare_ai_api($prompt) {
+    // --- Temporary Debugging ---
+    $accountIdIsSet = !empty($_ENV['CLOUDFLARE_ACCOUNT_ID']);
+    $apiTokenIsSet = !empty($_ENV['CLOUDFLARE_API_TOKEN']);
+    error_log("Cloudflare Credential Check: Account ID is " . ($accountIdIsSet ? "Set" : "NOT SET") . ", API Token is " . ($apiTokenIsSet ? "Set" : "NOT SET"));
+    // --- End Temporary Debugging ---
+
     // 从环境变量获取信息，这是最佳实践
     $accountId = $_ENV['CLOUDFLARE_ACCOUNT_ID'] ?? null;
     $apiToken = $_ENV['CLOUDFLARE_API_TOKEN'] ?? null;
