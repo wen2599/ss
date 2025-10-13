@@ -11,7 +11,7 @@ on:
     branches:
       - main
     paths:
-      - 'backend/**' # Trigger the workflow if any file in the backend directory changes
+      - '*.php' # Trigger the workflow if any .php file in the root directory changes
       - '!.github/workflows/**' # Do not trigger on workflow changes to avoid loops
 
 jobs:
@@ -40,4 +40,4 @@ jobs:
         run: |
           rsync -avz --delete \
             --exclude '.env' \
-            ./backend/ ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}
+            ./ ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}
