@@ -1,7 +1,5 @@
 <?php
 
-require_once __DIR__ . '/api_curl_helper.php';
-
 /**
  * 调用 Cloudflare Workers AI REST API。
  *
