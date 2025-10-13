@@ -52,12 +52,29 @@ function sendTelegramMessage($chatId, $text, $replyMarkup = null) {
 function getAdminKeyboard() {
     return [
         'keyboard' => [
-            [['text' => '授权新邮箱']],
+            [['text' => '用户管理']],
             [['text' => '请求 Gemini'], ['text' => '请求 Cloudflare']],
             [['text' => '更换 API 密钥']],
         ],
         'resize_keyboard' => true,
         'one_time_keyboard' => false,
+    ];
+}
+
+/**
+ * Generates a keyboard for the user management menu.
+ *
+ * @return array The keyboard markup.
+ */
+function getUserManagementKeyboard() {
+    return [
+        'keyboard' => [
+            [['text' => '查看用户列表']],
+            [['text' => '删除用户']],
+            [['text' => '返回主菜单']]
+        ],
+        'resize_keyboard' => true,
+        'one_time_keyboard' => true,
     ];
 }
 

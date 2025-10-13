@@ -32,7 +32,6 @@ if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
 // --- State-Driven Conversation Logic ---
 $userState = getUserState($userId);
 
-// This block handles responses when the user is in a specific conversation state.
 if ($userState) {
     // --- State: Awaiting New API Key ---
     if (strpos($userState, 'awaiting_api_key_') === 0) {
@@ -42,52 +41,42 @@ if ($userState) {
         } else {
             sendTelegramMessage($chatId, "❌ 更新 API 密钥失败！请检查 `.env` 文件的权限和路径是否正确。", getAdminKeyboard());
         }
-        if (!setUserState($userId, null)) {
-            sendTelegramMessage($chatId, "⚠️ 系统警告：无法更新用户状态，请检查服务器文件权限。");
-        }
+        setUserState($userId, null);
 
     // --- State: Awaiting Gemini Prompt ---
     } elseif ($userState === 'awaiting_gemini_prompt') {
         sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
         $response = call_gemini_api($text);
         sendTelegramMessage($chatId, $response, getAdminKeyboard());
-        if (!setUserState($userId, null)) {
-            sendTelegramMessage($chatId, "⚠️ 系统警告：无法更新用户状态，请检查服务器文件权限。");
-        }
+        setUserState($userId, null);
     
+    // --- State: Awaiting Cloudflare Prompt ---
     } elseif ($userState === 'awaiting_cloudflare_prompt') {
         sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
         $response = call_cloudflare_ai_api($text);
         sendTelegramMessage($chatId, $response, getAdminKeyboard());
-        if (!setUserState($userId, null)) {
-            sendTelegramMessage($chatId, "⚠️ 系统警告：无法更新用户状态，请检查服务器文件权限。");
-        }
+        setUserState($userId, null);
 
-    // --- State: Awaiting Email Authorization ---
-    } elseif ($userState === 'awaiting_email_authorization') {
+    // --- State: Awaiting User Deletion ---
+    } elseif ($userState === 'awaiting_user_deletion') {
         if (filter_var($text, FILTER_VALIDATE_EMAIL)) {
-            if (authorizeEmail($text)) {
-                sendTelegramMessage($chatId, "✅ 邮箱 `{$text}` 已成功授权，用户现在可以凭此邮箱注册。", getAdminKeyboard());
+            if (deleteUserByEmail($text)) {
+                sendTelegramMessage($chatId, "✅ 用户 `{$text}` 已成功删除。", getUserManagementKeyboard());
             } else {
-                sendTelegramMessage($chatId, "⚠️ 邮箱 `{$text}` 已存在或数据库出错，无法重复授权。", getAdminKeyboard());
+                sendTelegramMessage($chatId, "⚠️ 删除失败。用户 `{$text}` 不存在或数据库出错。", getUserManagementKeyboard());
             }
         } else {
-            sendTelegramMessage($chatId, "❌ 您输入的不是一个有效的邮箱地址，请重新输入或点击 '返回主菜单'。", getAdminKeyboard());
+            sendTelegramMessage($chatId, "❌ 您输入的不是一个有效的邮箱地址，请重新输入或返回主菜单。", getUserManagementKeyboard());
         }
-        if (!setUserState($userId, null)) { // Reset state after one attempt.
-            sendTelegramMessage($chatId, "⚠️ 系统警告：无法更新用户状态，请检查服务器文件权限。");
-        }
+        setUserState($userId, null); // Reset state after one attempt.
 
     } else {
-        if (!setUserState($userId, null)) { // Clear invalid state
-             sendTelegramMessage($chatId, "⚠️ 系统警告：无法重置用户状态，请检查服务器文件权限。");
-        }
+        setUserState($userId, null); // Clear invalid state
         sendTelegramMessage($chatId, "系统状态异常，已重置。请重新选择操作。", getAdminKeyboard());
     }
 
 // This block handles initial commands when the user is not in a specific state.
 } else {
-    $stateToSet = null;
     $messageToSend = null;
     $keyboard = getAdminKeyboard();
 
@@ -96,43 +85,57 @@ if ($userState) {
         case '/':
             $messageToSend = "欢迎回来，管理员！请选择一个操作。";
             break;
-        case '授权新邮箱':
-            $stateToSet = 'awaiting_email_authorization';
-            $messageToSend = "好的，请发送您想要授权注册的电子邮件地址。";
+
+        // --- User Management ---
+        case '用户管理':
+            $messageToSend = "请选择一个用户管理操作:";
+            $keyboard = getUserManagementKeyboard();
+            break;
+        case '查看用户列表':
+            $users = getAllUsers();
+            if (empty($users)) {
+                $messageToSend = "数据库中没有找到任何用户。";
+            } else {
+                $messageToSend = "注册用户列表:\n\n";
+                foreach ($users as $user) {
+                    $messageToSend .= "📧 **邮箱:** `{$user['email']}`\n";
+                    $messageToSend .= "📅 **注册于:** {$user['created_at']}\n\n";
+                }
+            }
+            $keyboard = getUserManagementKeyboard(); // Show menu again
+            break;
+        case '删除用户':
+            setUserState($userId, 'awaiting_user_deletion');
+            $messageToSend = "好的，请发送您想要删除的用户的电子邮件地址。";
             $keyboard = null; // No keyboard when asking for input
             break;
+
+        // --- AI & API Management ---
         case '请求 Gemini':
-            $stateToSet = 'awaiting_gemini_prompt';
+            setUserState($userId, 'awaiting_gemini_prompt');
             $messageToSend = "好的，请直接输入您想对 Gemini 说的话。";
-            $keyboard = null; // No keyboard when asking for input
+            $keyboard = null;
             break;
         case '请求 Cloudflare':
-            $stateToSet = 'awaiting_cloudflare_prompt';
+            setUserState($userId, 'awaiting_cloudflare_prompt');
             $messageToSend = "好的，请直接输入您想对 Cloudflare AI 说的话。";
-            $keyboard = null; // No keyboard when asking for input
+            $keyboard = null;
             break;
         case '更换 API 密钥':
             $messageToSend = "请选择您想要更新的 API 密钥：";
             $keyboard = getApiKeySelectionKeyboard();
             break;
         case 'Gemini API Key':
-            $stateToSet = 'awaiting_api_key_GEMINI_API_KEY';
+            setUserState($userId, 'awaiting_api_key_GEMINI_API_KEY');
             $messageToSend = "好的，请发送您的新 Gemini API 密钥。";
-            $keyboard = null; // No keyboard when asking for input
+            $keyboard = null;
             break;
         case '返回主菜单':
-            $stateToSet = null;
             $messageToSend = "已返回主菜单。";
             break;
         default:
             $messageToSend = "无法识别的指令，请使用下方键盘操作。";
             break;
-    }
-
-    if ($stateToSet !== null || in_array($text, ['/start', '/', '返回主菜单', '更换 API 密钥'])) {
-        if (!setUserState($userId, $stateToSet)) {
-            sendTelegramMessage($chatId, "⚠️ 系统警告：无法更新用户状态，请检查服务器文件权限。");
-        }
     }
 
     if ($messageToSend) {
