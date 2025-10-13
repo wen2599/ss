@@ -60,7 +60,8 @@ export default {
         method: request.method,
         headers: headers, 
         body: request.body,
-        redirect: 'follow'
+        redirect: 'follow',
+        duplex: 'half',
       });
 
       // Forward the request to the backend and return the response.
