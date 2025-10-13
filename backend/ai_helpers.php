@@ -40,7 +40,13 @@ function call_gemini_api($prompt) {
     curl_close($ch);
 
     if ($http_code !== 200) {
-        return "❌ **API 请求失败**:\n状态码: {$http_code}\n响应: {$response}\nCURL 错误: {$curl_error}";
+        $responseData = json_decode($response, true);
+        $errorMessage = $responseData['error']['message'] ?? '未知错误';
+
+        if (strpos($errorMessage, 'Insufficient Balance') !== false || $http_code === 402) {
+            return "❌ **API 请求失败**: 账户余额不足。请检查您的 Gemini 账户并充值。";
+        }
+        return "❌ **API 请求失败**:\n状态码: {$http_code}\n错误: {$errorMessage}\nCURL 错误: {$curl_error}";
     }
 
     $responseData = json_decode($response, true);
@@ -95,7 +101,13 @@ function call_deepseek_api($prompt) {
     curl_close($ch);
 
     if ($http_code !== 200) {
-        return "❌ **API 请求失败**:\n状态码: {$http_code}\n响应: {$response}\nCURL 错误: {$curl_error}";
+        $responseData = json_decode($response, true);
+        $errorMessage = $responseData['error']['message'] ?? '未知错误';
+
+        if (strpos($errorMessage, 'Insufficient Balance') !== false || $http_code === 402) {
+            return "❌ **API 请求失败**: 账户余额不足。请检查您的 DeepSeek 账户并充值。";
+        }
+        return "❌ **API 请求失败**:\n状态码: {$http_code}\n错误: {$errorMessage}\nCURL 错误: {$curl_error}";
     }
 
     $responseData = json_decode($response, true);
