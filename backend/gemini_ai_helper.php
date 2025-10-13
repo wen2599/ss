@@ -12,7 +12,7 @@ function call_gemini_api($prompt) {
         return '❌ **错误**: Gemini API 密钥未配置。请检查环境变量 GEMINI_API_KEY。';
     }
 
-    $apiUrl = "https://generativelanguage.googleapis.com/v1/models/gemini-1.0-pro:generateContent?key={$apiKey}";
+    $apiUrl = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={$apiKey}";
 
     $payload = [
         'contents' => [
