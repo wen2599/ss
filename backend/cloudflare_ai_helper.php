@@ -9,20 +9,13 @@ require_once __DIR__ . '/api_curl_helper.php';
  * @return string 模型的文本响应或错误信息。
  */
 function call_cloudflare_ai_api($prompt) {
-    // --- Temporary Debugging ---
-    $accountIdIsSet = !empty($_ENV['CLOUDFLARE_ACCOUNT_ID']);
-    $apiTokenIsSet = !empty($_ENV['CLOUDFLARE_API_TOKEN']);
-    error_log("Cloudflare Credential Check: Account ID is " . ($accountIdIsSet ? "Set" : "NOT SET") . ", API Token is " . ($apiTokenIsSet ? "Set" : "NOT SET"));
-    // --- End Temporary Debugging ---
-
     // 从环境变量获取信息，这是最佳实践
-    $accountId = $_ENV['CLOUDFLARE_ACCOUNT_ID'] ?? null;
-    $apiToken = $_ENV['CLOUDFLARE_API_TOKEN'] ?? null;
+    $accountId = getenv('CLOUDFLARE_ACCOUNT_ID');
+    $apiToken = getenv('CLOUDFLARE_API_TOKEN');
 
     // 检查凭证是否已配置
     if (empty($accountId) || empty($apiToken)) {
-        error_log("Cloudflare AI not configured: Account ID or API Token is missing.");
-        return '❌ **错误**: Cloudflare AI 未配置。请联系管理员。';
+        return '❌ **错误**: Cloudflare 账户ID或API令牌未配置。请检查环境变量。';
     }
 
     // 您可以在这里更换其他模型，例如 @cf/mistral/mistral-7b-instruct-v0.1

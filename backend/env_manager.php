@@ -52,9 +52,9 @@ function update_env_file($keyToUpdate, $newValue) {
         return false;
     }
 
-    // --- IMPORTANT: Reload environment variables for the current script ---
-    $_ENV[$keyToUpdate] = $newValue;
-    $_SERVER[$keyToUpdate] = $newValue;
+    // --- IMPORTANT: Reload environment variables ---
+    // Use putenv to update the environment for the currently running script.
+    putenv("{$keyToUpdate}={$newValue}");
 
     return true;
 }

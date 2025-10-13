@@ -1,23 +1,13 @@
 <?php
 
-// --- Initial Entry Log ---
-// Create a log entry as soon as the script is hit. This helps confirm the webhook is being triggered.
-error_log("telegramWebhook.php: Received a request from Telegram.");
-
 // --- Unified Configuration and Helpers ---
 require_once __DIR__ . '/config.php';
 
 // --- Security Validation ---
-$secretToken = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? null;
+$secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
 $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
-
-// Add logging to see what tokens are being received
-// IMPORTANT: Do not log the actual tokens in production for a long time. This is for debugging.
-error_log("Secret Token: " . ($secretToken ? 'Set' : 'Not Set'));
-error_log("Received Token: " . ($receivedToken ? 'Set' : 'Not Set'));
 if (empty($secretToken) || $receivedToken !== $secretToken) {
     http_response_code(403);
-    error_log("Forbidden: Secret token mismatch. Received: " . $receivedToken);
     exit('Forbidden: Secret token mismatch.');
 }
 
@@ -33,15 +23,8 @@ $userId = $message['from']['id'] ?? $chatId;
 $text = trim($message['text'] ?? '');
 
 // --- Admin Verification ---
-$adminChatId = $_ENV['TELEGRAM_ADMIN_CHAT_ID'] ?? null;
-
-// Add logging to see what chat IDs are being checked
-error_log("Admin Chat ID: " . $adminChatId);
-error_log("Received Chat ID: " . $chatId);
-
+$adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
 if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
-    // Log the unauthorized attempt
-    error_log("Unauthorized access attempt by chat ID: " . $chatId);
     sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
     exit();
 }
