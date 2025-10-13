@@ -1,5 +1,5 @@
 
-const API_BASE_URL = '/backend'; // Use relative paths for API calls
+const API_BASE_URL = '/'; // The backend files are in the root directory
 
 /**
  * A helper function to handle fetch requests and responses.
