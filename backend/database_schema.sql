@@ -1,19 +1,21 @@
--- SQL schema for the authorized_emails table
--- This ensures consistent table structure across all environments.
-
-CREATE TABLE IF NOT EXISTS `authorized_emails` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `email` VARCHAR(255) NOT NULL UNIQUE,
-  `status` VARCHAR(50) NOT NULL DEFAULT 'pending',
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+-- Main user table for authentication
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(255) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `emails` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `sender` VARCHAR(255) NOT NULL,
-  `recipient` VARCHAR(255) NOT NULL,
-  `subject` VARCHAR(255) NOT NULL,
-  `html_content` TEXT,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Table for authorizing emails before registration (currently unused but kept for potential future use)
+CREATE TABLE IF NOT EXISTS `authorized_emails` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `email` varchar(255) NOT NULL,
+  `status` varchar(50) NOT NULL DEFAULT 'pending',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
