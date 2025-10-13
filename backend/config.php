@@ -19,6 +19,7 @@ load_env();
 require_once __DIR__ . '/db_operations.php';
 require_once __DIR__ . '/telegram_helpers.php';
 require_once __DIR__ . '/user_state_manager.php';
+require_once __DIR__ . '/api_curl_helper.php'; // Load the generic cURL helper first
 require_once __DIR__ . '/gemini_ai_helper.php';
 require_once __DIR__ . '/cloudflare_ai_helper.php';
 require_once __DIR__ . '/env_manager.php';
