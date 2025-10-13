@@ -51,6 +51,12 @@ if ($userState) {
         sendTelegramMessage($chatId, $response, getAdminKeyboard());
         setUserState($userId, null);
     
+    } elseif ($userState === 'awaiting_deepseek_prompt') {
+        sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
+        $response = call_deepseek_api($text);
+        sendTelegramMessage($chatId, $response, getAdminKeyboard());
+        setUserState($userId, null);
+
     // --- State: Awaiting Email Authorization ---
     } elseif ($userState === 'awaiting_email_authorization') {
         if (filter_var($text, FILTER_VALIDATE_EMAIL)) {
@@ -83,6 +89,10 @@ if ($userState) {
         case '请求 Gemini':
             setUserState($userId, 'awaiting_gemini_prompt');
             sendTelegramMessage($chatId, "好的，请直接输入您想对 Gemini 说的话。");
+            break;
+        case '请求 DeepSeek':
+            setUserState($userId, 'awaiting_deepseek_prompt');
+            sendTelegramMessage($chatId, "好的，请直接输入您想对 DeepSeek 说的话。");
             break;
         case '更换 API 密钥':
             sendTelegramMessage($chatId, "请选择您想要更新的 API 密钥：", getApiKeySelectionKeyboard());

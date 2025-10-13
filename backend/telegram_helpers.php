@@ -52,7 +52,8 @@ function sendTelegramMessage($chatId, $text, $replyMarkup = null) {
 function getAdminKeyboard() {
     return [
         'keyboard' => [
-            [['text' => '授权新邮箱'], ['text' => '请求 Gemini']],
+            [['text' => '授权新邮箱']],
+            [['text' => '请求 Gemini'], ['text' => '请求 DeepSeek']],
             [['text' => '更换 API 密钥']],
         ],
         'resize_keyboard' => true,
