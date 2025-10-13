@@ -75,6 +75,7 @@ function RegisterPage() {
                             onChange={(e) => setPassword(e.target.value)}
                             required
                             disabled={isLoading}
+                            autoComplete="new-password"
                         />
                     </div>
                     <button type="submit" className="btn" disabled={isLoading || isCheckingEmail}>
