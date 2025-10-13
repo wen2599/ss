@@ -1,10 +1,14 @@
+# Enable the rewrite engine
+RewriteEngine On
 
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteCond %{REQUEST_FILENAME} !-l
-  RewriteRule . /index.html [L]
-</IfModule>
+# Set the rewrite base to the current directory
+RewriteBase /
+
+# --- Front Controller ---
+# If the request is not for an existing file...
+RewriteCond %{REQUEST_FILENAME} !-f
+# ...and the request is not for an existing directory...
+RewriteCond %{REQUEST_FILENAME} !-d
+# ...then rewrite the request to index.php.
+# The [L] flag means this is the last rule.
+RewriteRule . index.php [L]
