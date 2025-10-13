@@ -9,10 +9,9 @@ require_once __DIR__ . '/api_curl_helper.php';
  * @return string Gemini 的文本响应或错误信息。
  */
 function call_gemini_api($prompt) {
-    $apiKey = $_ENV['GEMINI_API_KEY'] ?? null;
+    $apiKey = getenv('GEMINI_API_KEY');
     if (empty($apiKey) || $apiKey === 'your_gemini_api_key_here') {
-        error_log("Gemini AI not configured: API key is missing.");
-        return '❌ **错误**: Gemini API 密钥未配置。请联系管理员。';
+        return '❌ **错误**: Gemini API 密钥未配置。请检查环境变量 GEMINI_API_KEY。';
     }
 
     $apiUrl = "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={$apiKey}";
