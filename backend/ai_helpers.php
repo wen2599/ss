@@ -12,8 +12,8 @@ function call_gemini_api($prompt) {
         return '❌ **错误**: Gemini API 密钥未配置。请通过键盘更新密钥。 ';
     }
 
-    // Using a recent, capable model. The v1beta endpoint is often used for the latest features.
-    $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={$apiKey}";
+    // Using the standard, stable model and API endpoint.
+    $apiUrl = "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={$apiKey}";
 
     $payload = [
         'contents' => [
@@ -22,7 +22,26 @@ function call_gemini_api($prompt) {
                     ['text' => $prompt]
                 ]
             ]
-        ]
+        ],
+        // Add safety settings to reduce the chance of the API blocking the response.
+        'safetySettings' => [
+            [
+                'category' => 'HARM_CATEGORY_HARASSMENT',
+                'threshold' => 'BLOCK_NONE',
+            ],
+            [
+                'category' => 'HARM_CATEGORY_HATE_SPEECH',
+                'threshold' => 'BLOCK_NONE',
+            ],
+            [
+                'category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+                'threshold' => 'BLOCK_NONE',
+            ],
+            [
+                'category' => 'HARM_CATEGORY_DANGEROUS_CONTENT',
+                'threshold' => 'BLOCK_NONE',
+            ],
+        ],
     ];
 
     $ch = curl_init($apiUrl);
