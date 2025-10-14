@@ -1,8 +1,8 @@
 <?php
 // backend/get_emails.php
 
-// Include the file with database functions
-require_once __DIR__ . '/db_operations.php';
+// Include the main configuration file which handles environment variables and autoloading.
+require_once __DIR__ . '/config.php';
 
 header('Content-Type: application/json');
 
