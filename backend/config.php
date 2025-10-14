@@ -16,6 +16,13 @@ function load_env() {
 }
 load_env();
 
+// --- PHP Error Reporting Configuration (for debugging) ---
+ini_set('display_errors', '1'); // Temporarily display errors
+ini_set('log_errors', '1');     // Log errors
+ini_set('error_log', __DIR__ . '/debug.log'); // Direct errors to a specific file
+error_reporting(E_ALL); // Report all errors
+
+
 // --- Helper Scripts Inclusion ---
 require_once __DIR__ . '/db_operations.php';
 require_once __DIR__ . '/telegram_helpers.php';
