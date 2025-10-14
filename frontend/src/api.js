@@ -10,6 +10,7 @@ const API_BASE_URL = ''; // The backend files are in the root directory
  */
 const fetchJson = async (url, options = {}) => {
     const response = await fetch(url, {
+        credentials: 'include', // Send cookies with all requests
         headers: {
             'Content-Type': 'application/json',
             ...options.headers,
@@ -60,6 +61,16 @@ export const loginUser = (credentials) => {
     return fetchJson(`${API_BASE_URL}/login_user.php`, {
         method: 'POST',
         body: JSON.stringify(credentials),
+    });
+};
+
+/**
+ * Logs out the current user.
+ * @returns {Promise<any>} - The response from the server.
+ */
+export const logoutUser = () => {
+    return fetchJson(`${API_BASE_URL}/logout_user.php`, {
+        method: 'POST',
     });
 };
 

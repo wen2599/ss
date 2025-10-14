@@ -1,17 +1,6 @@
 <?php
 
-require_once 'db_operations.php';
-require_once 'jwt_handler.php'; // Include the JWT handler
-
-// --- Setup Headers ---
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *'); // For development. Restrict in production.
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization'); // Allow Authorization header
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit;
-}
+require_once __DIR__ . '/api_header.php';
 
 // --- Input and Validation ---
 $data = json_decode(file_get_contents('php://input'), true);
@@ -45,19 +34,18 @@ try {
     $user = $stmt->fetch();
 
     if ($user && password_verify($password, $user['password_hash'])) {
-        // --- JWT Generation ---
-        $payload = [
-            'user_id' => $user['id'],
-            'username' => $user['username'],
-            'email' => $user['email']
-        ];
-
-        $token = generate_jwt($payload);
+        // --- Session Creation ---
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['email'] = $user['email'];
 
         http_response_code(200);
         echo json_encode([
             'message' => 'Login successful!',
-            'token' => $token
+            'user' => [
+                'id' => $user['id'],
+                'email' => $user['email'],
+                'username' => $user['username']
+            ]
         ]);
 
     } else {

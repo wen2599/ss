@@ -1,45 +1,43 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { jwtDecode } from 'jwt-decode'; // A lightweight library to decode JWTs
+import { logoutUser as apiLogout } from '../api'; // Import the new logout API function
 
 // 1. Create the context
 const AuthContext = createContext(null);
 
 // 2. Create the AuthProvider component
 export const AuthProvider = ({ children }) => {
-    const [token, setToken] = useState(localStorage.getItem('authToken'));
-    const [user, setUser] = useState(null);
-
-    useEffect(() => {
-        // When the token changes, update the user state
-        if (token) {
-            try {
-                const decodedUser = jwtDecode(token);
-                setUser(decodedUser);
-                localStorage.setItem('authToken', token);
-            } catch (error) {
-                console.error("Invalid token:", error);
-                setUser(null);
-                localStorage.removeItem('authToken');
-            }
-        } else {
-            setUser(null);
-            localStorage.removeItem('authToken');
+    // Check for user data in localStorage to persist session across page refreshes
+    const [user, setUser] = useState(() => {
+        const storedUser = localStorage.getItem('user');
+        try {
+            return storedUser ? JSON.parse(storedUser) : null;
+        } catch (error) {
+            console.error("Failed to parse user from localStorage", error);
+            return null;
         }
-    }, [token]);
+    });
 
-    const login = (newToken) => {
-        setToken(newToken);
+    const login = (userData) => {
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
     };
 
-    const logout = () => {
-        setToken(null);
+    const logout = async () => {
+        try {
+            await apiLogout(); // Call the backend to destroy the session
+        } catch (error) {
+            console.error("Logout failed on server:", error);
+        } finally {
+            // Always clear client-side state
+            setUser(null);
+            localStorage.removeItem('user');
+        }
     };
 
     // The value provided to the consumer components
     const value = {
-        token,
         user,
-        isAuthenticated: !!user, // Double negation converts object to boolean
+        isAuthenticated: !!user,
         login,
         logout,
     };

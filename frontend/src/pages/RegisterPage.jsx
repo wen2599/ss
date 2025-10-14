@@ -1,47 +1,29 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './LoginPage.css'; // Reusing login page styles
-import { registerUser, checkEmailAuthorization } from '../api';
+import { registerUser } from '../api';
+import { useAuth } from '../context/AuthContext.jsx';
 
 function RegisterPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const [isCheckingEmail, setIsCheckingEmail] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
-
-    const handleEmailBlur = async () => {
-        if (!email) return;
-        setIsCheckingEmail(true);
-        setError('');
-        try {
-            const res = await checkEmailAuthorization(email);
-            if (!res.is_authorized) {
-                setError('该邮箱未被授权注册，请联系管理员。');
-            }
-        } catch (err) {
-            setError(err.message || '检查邮箱授权时出错。');
-        } finally {
-            setIsCheckingEmail(false);
-        }
-    };
+    const { login } = useAuth();
 
     const handleSubmit = async (event) => {
         event.preventDefault();
         setError('');
-        setSuccess('');
         setIsLoading(true);
 
         try {
-            // Use the email as the username
             const response = await registerUser({ username: email, email, password });
-            if (response.success) {
-                setSuccess('注册成功！您现在可以登录了。');
-                setTimeout(() => navigate('/login'), 2000);
+            if (response.user) {
+                login(response.user);
+                navigate('/bills');
             } else {
-                setError(response.message || '注册失败。');
+                setError(response.error || '注册失败。');
             }
         } catch (err) {
             setError(err.message || '注册时发生错误。');

@@ -19,8 +19,12 @@ function LoginPage() {
 
     try {
       const response = await loginUser({ email, password });
-      login(response.token);
-      navigate('/bills');
+      if (response.user) {
+        login(response.user);
+        navigate('/bills');
+      } else {
+        setError(response.error || '登录失败，请检查您的凭据。');
+      }
     } catch (err) {
       setError(err.message || '登录时发生错误。');
     } finally {
