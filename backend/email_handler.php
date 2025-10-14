@@ -1,29 +1,16 @@
 <?php
 
-// --- Environment Variable Loading ---
-function load_env() {
-    if (file_exists(__DIR__ . '/../.env')) {
-        $dotenv = file_get_contents(__DIR__ . '/../.env');
-        $lines = explode("\n", $dotenv);
-
-        foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0 || empty(trim($line))) {
-                continue;
-            }
-            list($name, $value) = explode('=', $line, 2);
-            putenv(trim($name) . '=' . trim($value));
-        }
-    }
-}
-
-load_env();
+// --- Unified Configuration and Helpers ---
+require_once __DIR__ . '/config.php';
 
 // --- Security Check ---
 // This secret ensures that only our Cloudflare Worker can call this endpoint.
-$secretToken = getenv('EMAIL_HANDLER_SECRET'); 
-$receivedToken = $_SERVER['HTTP_X_EMAIL_HANDLER_SECRET_TOKEN'] ?? '';
+$secretToken = getenv('EMAIL_HANDLER_SECRET');
+// Cloudflare Worker sends 'worker_secret' as a form field.
+$receivedToken = $_POST['worker_secret'] ?? '';
 
 if (empty($secretToken) || $receivedToken !== $secretToken) {
+    error_log("Email Handler: Forbidden - Invalid or missing secret token. Received: " . $receivedToken);
     http_response_code(403);
     echo json_encode(['status' => 'error', 'message' => 'Forbidden: Invalid or missing secret token.']);
     exit;
@@ -31,55 +18,66 @@ if (empty($secretToken) || $receivedToken !== $secretToken) {
 
 // --- Process and Store Email Data ---
 
-// Get the raw POST data (the email JSON from the worker).
-$emailJson = file_get_contents('php://input');
+// Expecting multipart/form-data from the worker
+$sender = $_POST['user_email'] ?? null;
+$subject = $_POST['subject'] ?? 'No Subject'; // Assuming subject might be in form data or we can derive it.
+$htmlContent = $_POST['html_body'] ?? null;
+$textContent = $_POST['raw_email_file'] ?? null; // For simplicity, we'll get content from this for now.
 
-// Basic validation to ensure we received something.
-if (empty($emailJson)) {
+// Placeholder for recipient, as Worker does not send it explicitly in form data.
+// You might need to adjust your worker or backend logic to get a specific recipient.
+$recipient = getenv('CATCH_ALL_EMAIL') ?? 'unknown@example.com'; // Use a default or environment variable
+
+// Basic validation
+if (empty($sender)) {
+    error_log("Email Handler: Bad Request - Missing sender email.");
     http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => 'Bad Request: No data received.']);
+    echo json_encode(['status' => 'error', 'message' => 'Bad Request: Missing sender email.']);
     exit;
 }
 
-// Decode the JSON email data.
-$emailData = json_decode($emailJson, true);
-
-// Validate the decoded data.
-if (json_last_error() !== JSON_ERROR_NONE || !isset($emailData['from']) || !isset($emailData['to']) || !isset($emailData['subject'])) {
-    http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => 'Bad Request: Invalid or incomplete email data.']);
-    exit;
+// If subject is not in POST, try to get it from the raw_email_file content (simple heuristic)
+if ($subject === 'No Subject' && $textContent) {
+    if (preg_match('/Subject:\s*(.*)/i', $textContent, $matches)) {
+        $subject = trim($matches[1]);
+    }
 }
 
 // --- Database Interaction ---
-require_once 'config.php';
+$pdo = get_db_connection();
+if (!$pdo) {
+    error_log("Email Handler: Database connection failed.");
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'Failed to connect to the database.']);
+    exit;
+}
 
 try {
-    $pdo = get_db_connection();
-    if (!$pdo) {
-        throw new Exception("Database connection failed.");
-    }
-
     $stmt = $pdo->prepare(
         "INSERT INTO emails (sender, recipient, subject, html_content) VALUES (:sender, :recipient, :subject, :html_content)"
     );
 
-    $stmt->execute([
-        ':sender' => $emailData['from'],
-        ':recipient' => $emailData['to'],
-        ':subject' => $emailData['subject'],
-        ':html_content' => $emailData['body'] ?? null
+    $isSuccess = $stmt->execute([
+        ':sender' => $sender,
+        ':recipient' => $recipient,
+        ':subject' => $subject,
+        ':html_content' => $htmlContent // Store HTML content if available
     ]);
 
-    // --- Respond to the Worker ---
-    http_response_code(200);
-    echo json_encode(['status' => 'ok', 'message' => 'Email successfully stored in the database.']);
+    if ($isSuccess) {
+        error_log("Email Handler: Email from " . $sender . " successfully stored.");
+        http_response_code(200);
+        echo json_encode(['status' => 'ok', 'message' => 'Email successfully stored in the database.']);
+    } else {
+        error_log("Email Handler: Failed to store email from " . $sender . " - PDO execute failed.");
+        http_response_code(500);
+        echo json_encode(['status' => 'error', 'message' => 'Internal Server Error: Could not store the email.']);
+    }
 
-} catch (Exception $e) {
+} catch (PDOException $e) {
+    error_log("Email Handler: Database error during storage: " . $e->getMessage());
     http_response_code(500);
-    // Log the error for debugging, but don't expose details to the client.
-    error_log("Failed to store email: " . $e->getMessage());
-    echo json_encode(['status' => 'error', 'message' => 'Internal Server Error: Could not process the email.']);
+    echo json_encode(['status' => 'error', 'message' => 'Internal Server Error: Database error during email storage.']);
 }
 
 ?>
