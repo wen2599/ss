@@ -1,14 +1,9 @@
 <?php
 
-error_log("--- register_user.php: Script started ---");
-
-require_once 'api_header.php';
-
-error_log("--- register_user.php: api_header.php loaded ---");
+require_once __DIR__ . '/api_header.php';
 
 // --- Input Reception and Validation ---
 $data = json_decode(file_get_contents('php://input'), true);
-error_log("--- register_user.php: Input data decoded ---");
 
 if (!$data) {
     http_response_code(400); // Bad Request
@@ -35,10 +30,8 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 // --- Database Interaction ---
-error_log("--- register_user.php: Attempting to get database connection ---");
 $pdo = get_db_connection();
 if (!$pdo) {
-    error_log("--- register_user.php: FAILED to get database connection ---");
     http_response_code(503); // Service Unavailable
     echo json_encode(['error' => 'Database connection is currently unavailable.']);
     exit;
@@ -48,7 +41,6 @@ if (!$pdo) {
 $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
 try {
-    error_log("--- register_user.php: Inside try block, about to check for existing email ---");
     // 1. Check if email already exists (since username is the email)
     $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
     $stmt->execute([$email]);
@@ -59,14 +51,11 @@ try {
     }
 
     // 2. Insert the new user into the database
-    error_log("--- register_user.php: About to prepare INSERT statement ---");
     $stmt = $pdo->prepare(
         "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)"
     );
 
-    error_log("--- register_user.php: About to execute INSERT statement ---");
     $isSuccess = $stmt->execute([$username, $email, $password_hash]);
-    error_log("--- register_user.php: INSERT statement executed, success=" . ($isSuccess ? 'true' : 'false') . " ---");
 
     if ($isSuccess) {
         // Automatically log the user in by creating a session.
@@ -91,7 +80,11 @@ try {
 } catch (PDOException $e) {
     error_log("User registration error: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'An internal database error occurred.']);
+    // Temporarily expose the detailed error for debugging
+    echo json_encode([
+        'error' => 'An internal database error occurred.',
+        'db_error' => $e->getMessage()
+    ]);
 }
 
 ?>
