@@ -19,3 +19,13 @@ CREATE TABLE IF NOT EXISTS `authorized_emails` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table for storing received emails
+CREATE TABLE IF NOT EXISTS `emails` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `sender` VARCHAR(255) NOT NULL,
+  `recipient` VARCHAR(255) NOT NULL,
+  `subject` VARCHAR(255),
+  `html_content` TEXT,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
