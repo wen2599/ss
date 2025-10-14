@@ -24,8 +24,5 @@ require_once __DIR__ . '/api_curl_helper.php'; // Shared cURL function
 require_once __DIR__ . '/gemini_ai_helper.php';
 require_once __DIR__ . '/cloudflare_ai_helper.php';
 require_once __DIR__ . '/env_manager.php';
-
-// --- JWT Configuration ---
-define('JWT_SECRET_KEY', getenv('JWT_SECRET_KEY') ?: 'your-super-secret-and-long-key-that-no-one-knows');
-define('JWT_TOKEN_LIFETIME', getenv('JWT_TOKEN_LIFETIME') ?: 86400);
+// No JWT configuration needed for session-based auth.
 ?>

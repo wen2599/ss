@@ -1,10 +1,14 @@
 <?php
 // backend/get_emails.php
 
-// Include the file with database functions
-require_once __DIR__ . '/db_operations.php';
+require_once __DIR__ . '/api_header.php';
 
-header('Content-Type: application/json');
+// --- Authentication Check ---
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401); // Unauthorized
+    echo json_encode(['status' => 'error', 'message' => 'You must be logged in to view emails.']);
+    exit;
+}
 
 $pdo = get_db_connection();
 

@@ -1,17 +1,6 @@
 <?php
 
-require_once 'db_operations.php';
-
-// Set headers for CORS and JSON response
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *'); // For development only. Restrict in production.
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-// Handle browser preflight requests
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit;
-}
+require_once __DIR__ . '/api_header.php';
 
 // --- Input Reception and Validation ---
 $data = json_decode(file_get_contents('php://input'), true);
@@ -69,8 +58,20 @@ try {
     $isSuccess = $stmt->execute([$username, $email, $password_hash]);
 
     if ($isSuccess) {
+        // Automatically log the user in by creating a session.
+        $user_id = $pdo->lastInsertId();
+        $_SESSION['user_id'] = $user_id;
+        $_SESSION['email'] = $email;
+
         http_response_code(201); // Created
-        echo json_encode(['message' => 'User registered successfully.']);
+        echo json_encode([
+            'message' => 'User registered successfully.',
+            'user' => [
+                'id' => $user_id,
+                'email' => $email,
+                'username' => $username
+            ]
+        ]);
     } else {
         http_response_code(500); // Internal Server Error
         echo json_encode(['error' => 'Failed to register the user due to a server issue.']);

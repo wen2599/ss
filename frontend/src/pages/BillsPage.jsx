@@ -18,7 +18,7 @@ const BillsPage = () => {
             try {
                 setLoading(true);
                 const response = await getEmails();
-                if (response.status === 'success') {
+                if (response.success) {
                     setEmails(response.emails);
                 } else {
                     setError(response.message || '无法获取账单列表');
