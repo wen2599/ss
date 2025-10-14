@@ -9,8 +9,11 @@ $secretToken = getenv('EMAIL_HANDLER_SECRET');
 // Cloudflare Worker sends 'worker_secret' as a form field.
 $receivedToken = $_POST['worker_secret'] ?? '';
 
+error_log("Email Handler Debug: secretToken (from env) = [" . ($secretToken ? $secretToken : "EMPTY") . "]");
+error_log("Email Handler Debug: receivedToken (from POST) = [" . ($receivedToken ? $receivedToken : "EMPTY") . "]");
+
 if (empty($secretToken) || $receivedToken !== $secretToken) {
-    error_log("Email Handler: Forbidden - Invalid or missing secret token. Received: " . $receivedToken . ", Expected: " . ($secretToken ? "[SET]" : "[EMPTY]"));
+    error_log("Email Handler: Forbidden - Invalid or missing secret token. Received: " . ($receivedToken ? $receivedToken : "[EMPTY]") . ", Expected: " . ($secretToken ? $secretToken : "[EMPTY]"));
     http_response_code(403);
     echo json_encode(['status' => 'error', 'message' => 'Forbidden: Invalid or missing secret token.']);
     exit;
