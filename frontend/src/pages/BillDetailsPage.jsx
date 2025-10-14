@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getEmailById } from '../api.js';
+import { getBillById } from '../api.js';
 import './BillDetailsPage.css';
 
 const BillDetailsPage = () => {
-    const [email, setEmail] = useState(null);
+    const [bill, setBill] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const { id } = useParams();
 
     useEffect(() => {
-        const fetchEmail = async () => {
+        const fetchBill = async () => {
             try {
                 setLoading(true);
-                const response = await getEmailById(id);
-                if (response.success && response.emails.length > 0) {
-                    setEmail(response.emails[0]);
+                const response = await getBillById(id);
+                if (response.status === 'success' && response.bills.length > 0) {
+                    setBill(response.bills[0]);
                 } else {
                     throw new Error(response.message || '未找到该账单');
                 }
@@ -27,7 +27,7 @@ const BillDetailsPage = () => {
             }
         };
 
-        fetchEmail();
+        fetchBill();
     }, [id]);
 
     if (loading) {
@@ -38,7 +38,7 @@ const BillDetailsPage = () => {
         return <div className="error-message">{error}</div>;
     }
 
-    if (!email) {
+    if (!bill) {
         return <div className="not-found">未找到该账单。</div>;
     }
 
@@ -46,13 +46,20 @@ const BillDetailsPage = () => {
         <div className="bill-details-container">
             <Link to="/bills" className="back-link">← 返回账单列表</Link>
             <div className="card">
-                <h1 className="bill-subject">{email.subject}</h1>
+                <h1 className="bill-subject">{bill.subject}</h1>
                 <div className="bill-meta">
-                    <span><b>发件人:</b> {email.sender}</span>
-                    <span><b>收件人:</b> {email.recipient}</span>
-                    <span><b>日期:</b> {new Date(email.created_at).toLocaleString('zh-CN')}</span>
+                    <span><b>发件人:</b> {bill.sender}</span>
+                    <span><b>账单日期:</b> {new Date(bill.bill_date).toLocaleDateString('zh-CN')}</span>
+                    <span><b>金额:</b> {`${bill.amount} ${bill.currency}`}</span>
                 </div>
-                <div className="bill-body" dangerouslySetInnerHTML={{ __html: email.html_content }} />
+                {bill.pdf_url && (
+                    <div className="bill-actions">
+                        <a href={bill.pdf_url} target="_blank" rel="noopener noreferrer" className="pdf-link">
+                            查看 PDF 账单
+                        </a>
+                    </div>
+                )}
+                <div className="bill-body" dangerouslySetInnerHTML={{ __html: bill.html_content }} />
             </div>
         </div>
     );

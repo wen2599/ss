@@ -6,43 +6,21 @@ require_once __DIR__ . '/config.php';
 // --- Security Validation ---
 $secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
 $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
-if (!empty($secretToken) && $receivedToken !== $secretToken) {
+if (empty($secretToken) || $receivedToken !== $secretToken) {
     http_response_code(403);
-    error_log("Forbidden: Secret token mismatch.");
     exit('Forbidden: Secret token mismatch.');
 }
 
 // --- Main Webhook Logic ---
 $update = json_decode(file_get_contents('php://input'), true);
-
-if (!$update) {
+if (!$update || !isset($update['message'])) {
     exit();
 }
 
-// --- Determine Update Type and Extract Data ---
-$chatId = null;
-$userId = null;
-$text = null;
-$callbackQueryId = null;
-$isCallback = false;
-
-if (isset($update['callback_query'])) {
-    $isCallback = true;
-    $callbackQuery = $update['callback_query'];
-    $callbackQueryId = $callbackQuery['id'];
-    $chatId = $callbackQuery['message']['chat']['id'];
-    $userId = $callbackQuery['from']['id'];
-    $text = $callbackQuery['data']; // Use callback_data as the command
-    answerCallbackQuery($callbackQueryId); // Acknowledge the button press immediately
-} elseif (isset($update['message']) || isset($update['channel_post'])) {
-    $message = $update['message'] ?? $update['channel_post'];
-    $chatId = $message['chat']['id'];
-    $userId = $message['from']['id'] ?? $chatId; // Fallback to chatId if 'from' is not set (e.g., in channels)
-    $text = trim($message['text'] ?? '');
-} else {
-    exit(); // Exit if it's an unsupported update type
-}
-
+$message = $update['message'];
+$chatId = $message['chat']['id'];
+$userId = $message['from']['id'] ?? $chatId;
+$text = trim($message['text'] ?? '');
 
 // --- Admin Verification ---
 $adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
@@ -51,79 +29,69 @@ if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
     exit();
 }
 
-// --- Centralized Handler Function ---
-handleRequest($userId, $chatId, $text, $isCallback);
+// --- State-Driven Conversation Logic ---
+$userState = getUserState($userId);
 
-http_response_code(200);
-echo json_encode(['status' => 'ok']);
-
-
-/**
- * Handles all incoming requests, both text messages and callback queries.
- *
- * @param int    $userId     The user's Telegram ID.
- * @param int    $chatId     The chat's Telegram ID.
- * @param string $text       The command or message text.
- * @param bool   $isCallback True if the request is from a callback query.
- */
-function handleRequest($userId, $chatId, $text, $isCallback) {
-    $userState = getUserState($userId);
-
-    // --- State-Driven Conversation Logic ---
-    if ($userState && !$isCallback) { // Callbacks should not be affected by text input states
-        if (strpos($userState, 'awaiting_api_key_') === 0) {
-            $keyToUpdate = substr($userState, strlen('awaiting_api_key_'));
-            if (update_env_file($keyToUpdate, $text)) {
-                sendTelegramMessage($chatId, "✅ API 密钥 `{$keyToUpdate}` 已成功更新！新配置已生效。", getAdminKeyboard());
-            } else {
-                sendTelegramMessage($chatId, "❌ 更新 API 密钥失败！", getAdminKeyboard());
-            }
-            setUserState($userId, null);
-        } elseif ($userState === 'awaiting_gemini_prompt') {
-            sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
-            $response = call_gemini_api($text);
-            sendTelegramMessage($chatId, $response, getAdminKeyboard());
-            setUserState($userId, null);
-        } elseif ($userState === 'awaiting_cloudflare_prompt') {
-            sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
-            $response = call_cloudflare_ai_api($text);
-            sendTelegramMessage($chatId, $response, getAdminKeyboard());
-            setUserState($userId, null);
-        } elseif ($userState === 'awaiting_user_deletion') {
-            if (filter_var($text, FILTER_VALIDATE_EMAIL)) {
-                if (deleteUserByEmail($text)) {
-                    sendTelegramMessage($chatId, "✅ 用户 `{$text}` 已成功删除。", getUserManagementKeyboard());
-                } else {
-                    sendTelegramMessage($chatId, "⚠️ 删除失败。用户 `{$text}` 不存在或数据库出错。", getUserManagementKeyboard());
-                }
-            } else {
-                sendTelegramMessage($chatId, "❌ 无效的邮箱地址。请重新输入或返回。", getUserManagementKeyboard());
-            }
-            setUserState($userId, null);
+if ($userState) {
+    // --- State: Awaiting New API Key ---
+    if (strpos($userState, 'awaiting_api_key_') === 0) {
+        $keyToUpdate = substr($userState, strlen('awaiting_api_key_'));
+        if (update_env_file($keyToUpdate, $text)) {
+            sendTelegramMessage($chatId, "✅ API 密钥 `{$keyToUpdate}` 已成功更新！新配置已生效。", getAdminKeyboard());
         } else {
-            setUserState($userId, null); // Clear invalid state
-            sendTelegramMessage($chatId, "系统状态异常，已重置。", getAdminKeyboard());
+            sendTelegramMessage($chatId, "❌ 更新 API 密钥失败！请检查 `.env` 文件的权限和路径是否正确。", getAdminKeyboard());
         }
-        return; // Stop further processing
+        setUserState($userId, null);
+
+    // --- State: Awaiting Gemini Prompt ---
+    } elseif ($userState === 'awaiting_gemini_prompt') {
+        sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
+        $response = call_gemini_api($text);
+        sendTelegramMessage($chatId, $response, getAdminKeyboard());
+        setUserState($userId, null);
+
+    // --- State: Awaiting Cloudflare Prompt ---
+    } elseif ($userState === 'awaiting_cloudflare_prompt') {
+        sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
+        $response = call_cloudflare_ai_api($text);
+        sendTelegramMessage($chatId, $response, getAdminKeyboard());
+        setUserState($userId, null);
+
+    // --- State: Awaiting User Deletion ---
+    } elseif ($userState === 'awaiting_user_deletion') {
+        if (filter_var($text, FILTER_VALIDATE_EMAIL)) {
+            if (deleteUserByEmail($text)) {
+                sendTelegramMessage($chatId, "✅ 用户 `{$text}` 已成功删除。", getUserManagementKeyboard());
+            } else {
+                sendTelegramMessage($chatId, "⚠️ 删除失败。用户 `{$text}` 不存在或数据库出错。", getUserManagementKeyboard());
+            }
+        } else {
+            sendTelegramMessage($chatId, "❌ 您输入的不是一个有效的邮箱地址，请重新输入或返回主菜单。", getUserManagementKeyboard());
+        }
+        setUserState($userId, null); // Reset state after one attempt.
+
+    } else {
+        setUserState($userId, null); // Clear invalid state
+        sendTelegramMessage($chatId, "系统状态异常，已重置。请重新选择操作。", getAdminKeyboard());
     }
 
-    // --- Command/Callback Logic ---
+// This block handles initial commands when the user is not in a specific state.
+} else {
     $messageToSend = null;
-    $keyboard = null;
+    $keyboard = getAdminKeyboard();
 
     switch ($text) {
         case '/start':
-        case 'main_menu':
+        case '/':
             $messageToSend = "欢迎回来，管理员！请选择一个操作。";
-            $keyboard = getAdminKeyboard();
             break;
 
         // --- User Management ---
-        case 'user_management':
+        case '用户管理':
             $messageToSend = "请选择一个用户管理操作:";
             $keyboard = getUserManagementKeyboard();
             break;
-        case 'list_users':
+        case '查看用户列表':
             $users = getAllUsers();
             if (empty($users)) {
                 $messageToSend = "数据库中没有找到任何用户。";
@@ -134,37 +102,39 @@ function handleRequest($userId, $chatId, $text, $isCallback) {
                     $messageToSend .= "📅 **注册于:** {$user['created_at']}\n\n";
                 }
             }
-            $keyboard = getUserManagementKeyboard();
+            $keyboard = getUserManagementKeyboard(); // Show menu again
             break;
-        case 'delete_user':
+        case '删除用户':
             setUserState($userId, 'awaiting_user_deletion');
             $messageToSend = "好的，请发送您想要删除的用户的电子邮件地址。";
+            $keyboard = null; // No keyboard when asking for input
             break;
 
         // --- AI & API Management ---
-        case 'ask_gemini':
+        case '请求 Gemini':
             setUserState($userId, 'awaiting_gemini_prompt');
             $messageToSend = "好的，请直接输入您想对 Gemini 说的话。";
+            $keyboard = null;
             break;
-        case 'ask_cloudflare':
+        case '请求 Cloudflare':
             setUserState($userId, 'awaiting_cloudflare_prompt');
             $messageToSend = "好的，请直接输入您想对 Cloudflare AI 说的话。";
+            $keyboard = null;
             break;
-        case 'change_api_key':
+        case '更换 API 密钥':
             $messageToSend = "请选择您想要更新的 API 密钥：";
             $keyboard = getApiKeySelectionKeyboard();
             break;
-        case (preg_match('/^set_api_key_/', $text) ? $text : !$text):
-            $keyToSet = substr($text, strlen('set_api_key_'));
-            setUserState($userId, 'awaiting_api_key_' . $keyToSet);
-            $messageToSend = "好的，请发送您的新 `{$keyToSet}`。";
+        case 'Gemini API Key':
+            setUserState($userId, 'awaiting_api_key_GEMINI_API_KEY');
+            $messageToSend = "好的，请发送您的新 Gemini API 密钥。";
+            $keyboard = null;
             break;
-
+        case '返回主菜单':
+            $messageToSend = "已返回主菜单。";
+            break;
         default:
-            if (!$isCallback) { // Only show error for actual messages, not unknown callbacks
-                $messageToSend = "无法识别的指令，请使用下方键盘操作。";
-                $keyboard = getAdminKeyboard();
-            }
+            $messageToSend = "无法识别的指令，请使用下方键盘操作。";
             break;
     }
 
@@ -172,4 +142,9 @@ function handleRequest($userId, $chatId, $text, $isCallback) {
         sendTelegramMessage($chatId, $messageToSend, $keyboard);
     }
 }
+
+// Acknowledge receipt to Telegram.
+http_response_code(200);
+echo json_encode(['status' => 'ok']);
+
 ?>
