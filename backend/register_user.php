@@ -80,7 +80,11 @@ try {
 } catch (PDOException $e) {
     error_log("User registration error: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'An internal database error occurred.']);
+    // Temporarily expose the detailed error for debugging
+    echo json_encode([
+        'error' => 'An internal database error occurred.',
+        'db_error' => $e->getMessage()
+    ]);
 }
 
 ?>
