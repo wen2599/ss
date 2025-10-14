@@ -2,7 +2,7 @@
 
 error_log("--- register_user.php: Script started ---");
 
-require_once __DIR__ . '/api_header.php';
+require_once 'api_header.php';
 
 error_log("--- register_user.php: api_header.php loaded ---");
 
