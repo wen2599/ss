@@ -10,7 +10,7 @@ $secretToken = getenv('EMAIL_HANDLER_SECRET');
 $receivedToken = $_POST['worker_secret'] ?? '';
 
 if (empty($secretToken) || $receivedToken !== $secretToken) {
-    error_log("Email Handler: Forbidden - Invalid or missing secret token. Received: " . $receivedToken);
+    error_log("Email Handler: Forbidden - Invalid or missing secret token. Received: " . $receivedToken . ", Expected: " . ($secretToken ? "[SET]" : "[EMPTY]"));
     http_response_code(403);
     echo json_encode(['status' => 'error', 'message' => 'Forbidden: Invalid or missing secret token.']);
     exit;
