@@ -52,7 +52,7 @@ try {
 
     // 2. Insert the new user into the database
     $stmt = $pdo->prepare(
-        "INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, NOW())"
+        "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)"
     );
 
     $isSuccess = $stmt->execute([$username, $email, $password_hash]);
