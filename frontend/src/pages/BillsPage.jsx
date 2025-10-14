@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getEmails } from '../api.js';
+import { getBills } from '../api.js';
 import './BillsPage.css';
 
 const BillsPage = () => {
-    const [emails, setEmails] = useState([]);
+    const [bills, setBills] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
@@ -14,12 +14,12 @@ const BillsPage = () => {
     };
 
     useEffect(() => {
-        const fetchEmails = async () => {
+        const fetchBills = async () => {
             try {
                 setLoading(true);
-                const response = await getEmails();
-                if (response.success) {
-                    setEmails(response.emails);
+                const response = await getBills();
+                if (response.status === 'success') {
+                    setBills(response.bills);
                 } else {
                     setError(response.message || '无法获取账单列表');
                 }
@@ -31,7 +31,7 @@ const BillsPage = () => {
             }
         };
 
-        fetchEmails();
+        fetchBills();
     }, []);
 
     if (loading) {
@@ -45,13 +45,14 @@ const BillsPage = () => {
     return (
         <div className="bills-page">
             <h1>我的电子账单</h1>
-            {emails.length > 0 ? (
-                <ul className="email-list">
-                    {emails.map((email) => (
-                        <li key={email.id} className="email-item" onClick={() => handleBillClick(email.id)}>
-                            <div className="email-sender">{email.sender}</div>
-                            <div className="email-subject">{email.subject}</div>
-                            <div className="email-date">{new Date(email.created_at).toLocaleDateString('zh-CN')}</div>
+            {bills.length > 0 ? (
+                <ul className="bill-list">
+                    {bills.map((bill) => (
+                        <li key={bill.id} className="bill-item" onClick={() => handleBillClick(bill.id)}>
+                            <div className="bill-sender">{bill.sender}</div>
+                            <div className="bill-subject">{bill.subject}</div>
+                            <div className="bill-amount">{`${bill.amount} ${bill.currency}`}</div>
+                            <div className="bill-date">{new Date(bill.bill_date).toLocaleDateString('zh-CN')}</div>
                         </li>
                     ))}
                 </ul>

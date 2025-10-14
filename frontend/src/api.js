@@ -63,11 +63,11 @@ export const logoutUser = () => {
     });
 };
 
-export const getEmails = () => {
-    return fetchJson(`${API_BASE_URL}/get_emails.php`);
+export const getBills = () => {
+    return fetchJson(`${API_BASE_URL}/get_bills.php`);
 };
 
-export const getEmailById = (id) => {
-    return fetchJson(`${API_BASE_URL}/get_emails.php?id=${id}`);
+export const getBillById = (id) => {
+    return fetchJson(`${API_BASE_URL}/get_bills.php?id=${id}`);
 };
 
