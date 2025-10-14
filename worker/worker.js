@@ -74,15 +74,17 @@ export default {
   async email(message, env, ctx) {
     const { PUBLIC_API_ENDPOINT, EMAIL_HANDLER_SECRET } = env;
     if (!PUBLIC_API_ENDPOINT || !EMAIL_HANDLER_SECRET) {
-      console.error("Missing required environment variables for email processing.");
+      console.error("Worker Email Handler: Missing required environment variables for email processing.");
       return; // Stop processing if configuration is missing.
     }
+    
+    console.log("Worker Email Handler Debug: EMAIL_HANDLER_SECRET from env is: [" + (EMAIL_HANDLER_SECRET ? EMAIL_HANDLER_SECRET : "EMPTY") + "]");
 
     let parsedEmail;
     try {
         parsedEmail = await parseMime(message.raw);
     } catch (e) {
-        console.error('Error parsing email mime:', e);
+        console.error('Worker Email Handler: Error parsing email mime:', e);
         return;
     }
 
@@ -109,11 +111,13 @@ export default {
 
       if (!response.ok) {
           const errorText = await response.text();
-          console.error(`Error forwarding email to backend: ${response.status} ${response.statusText}`, errorText);
+          console.error(`Worker Email Handler: Error forwarding email to backend: ${response.status} ${response.statusText}`, errorText);
+      } else {
+          console.log("Worker Email Handler: Email successfully forwarded to backend.");
       }
 
     } catch (error) {
-      console.error('Fetch error when forwarding email to backend:', error);
+      console.error('Worker Email Handler: Fetch error when forwarding email to backend:', error);
     }
   }
 };
