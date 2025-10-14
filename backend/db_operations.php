@@ -20,10 +20,18 @@ function get_db_connection() {
         $user = getenv('DB_USER');
         $pass = getenv('DB_PASSWORD');
 
-        // All credentials are required.
-        if (empty($host) || empty($port) || empty($dbname) || empty($user)) {
-             error_log("Database connection error: Required environment variables are not set.");
-             return null;
+        // Check for all required credentials and collect missing ones.
+        $requiredVars = ['DB_HOST' => $host, 'DB_PORT' => $port, 'DB_DATABASE' => $dbname, 'DB_USER' => $user];
+        $missingVars = [];
+        foreach ($requiredVars as $key => $value) {
+            if (empty($value)) {
+                $missingVars[] = $key;
+            }
+        }
+
+        if (!empty($missingVars)) {
+            error_log("Database connection error: The following required environment variables are not set: " . implode(', ', $missingVars));
+            return null;
         }
 
         $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";

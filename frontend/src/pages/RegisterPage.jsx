@@ -46,6 +46,7 @@ function RegisterPage() {
                             onChange={(e) => setEmail(e.target.value)}
                             required
                             disabled={isLoading}
+                            autoComplete="email"
                         />
                     </div>
                     <div className="form-group">
