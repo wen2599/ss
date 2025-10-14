@@ -32,7 +32,8 @@ $endpointMap = [
     '/emails' => 'get_emails.php',
     '/is_user_registered' => 'check_email.php',
     '/check_auth' => 'check_email.php', // Alias for frontend compatibility
-    '/upload' => 'email_handler.php', // For email uploads from the worker
+    '/upload' => 'email_handler.php', // Existing route for email uploads from the worker
+    '/email_upload' => 'email_handler.php', // NEW: Corrected route for email uploads from the worker
     // Add other path-based routes here
 ];
 
@@ -59,8 +60,7 @@ elseif (isset($endpointMap[$path])) {
         require_once $handlerScript;
         exit();
     }
-}
-
+} 
 // --- Route 3: Simple Status Check for Root API path ---
 elseif ($path === '/' || $path === '/api' || $path === '/api/') {
     header('Content-Type: application/json');
@@ -72,9 +72,9 @@ elseif ($path === '/' || $path === '/api' || $path === '/api/') {
     exit();
 }
 
-
 // --- Fallback: Not Found ---
 // If no route matches, return a 404 error.
+error_log("Backend API: Endpoint not found for path: " . $path . " and query: " . $requestUri); // Log unmatched routes
 header('Content-Type: application/json');
 http_response_code(404);
 echo json_encode([
