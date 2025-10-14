@@ -26,17 +26,6 @@ const fetchJson = async (url, options = {}) => {
     return response.json();
 };
 
-/**
- * Checks if an email is authorized for registration.
- * @param {string} email - The email to check.
- * @returns {Promise<{is_authorized: boolean}>} - The authorization status.
- */
-export const checkEmailAuthorization = (email) => {
-    return fetchJson(`${API_BASE_URL}/check_email.php`, {
-        method: 'POST',
-        body: JSON.stringify({ email }),
-    });
-};
 
 /**
  * Registers a new user.
