@@ -43,11 +43,9 @@ function RegisterPage() {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            onBlur={handleEmailBlur}
                             required
                             disabled={isLoading}
                         />
-                        {isCheckingEmail && <p>正在检查邮箱...</p>}
                     </div>
                     <div className="form-group">
                         <label>密码</label>
@@ -60,11 +58,10 @@ function RegisterPage() {
                             autoComplete="new-password"
                         />
                     </div>
-                    <button type="submit" className="btn" disabled={isLoading || isCheckingEmail}>
+                    <button type="submit" className="btn" disabled={isLoading}>
                         {isLoading ? '注册中...' : '注册'}
                     </button>
                     {error && <p className="error-message">{error}</p>}
-                    {success && <p className="success-message">{success}</p>}
                 </form>
                 <div className="toggle-link">
                     <p>已经有账户了？ <Link to="/login">立即登录</Link></p>
