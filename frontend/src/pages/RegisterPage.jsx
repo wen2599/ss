@@ -23,10 +23,19 @@ function RegisterPage() {
                 login(response.user);
                 navigate('/bills');
             } else {
-                setError(response.error || '注册失败。');
+                // Check for the detailed db_error field and display it
+                const errorMessage = response.db_error ? `${response.error} (Details: ${response.db_error})` : (response.error || '注册失败。');
+                setError(errorMessage);
             }
         } catch (err) {
-            setError(err.message || '注册时发生错误。');
+            // Attempt to parse the error message as JSON to get the detailed error
+            try {
+                const errorJson = JSON.parse(err.message);
+                const errorMessage = errorJson.db_error ? `${errorJson.error} (Details: ${errorJson.db_error})` : (errorJson.error || '注册时发生错误。');
+                setError(errorMessage);
+            } catch (e) {
+                setError(err.message || '注册时发生错误。');
+            }
         } finally {
             setIsLoading(false);
         }
