@@ -6,11 +6,11 @@ require_once __DIR__ . '/config.php';
 // --- Security Check ---
 // This secret ensures that only our Cloudflare Worker can call this endpoint.
 $secretToken = getenv('EMAIL_HANDLER_SECRET');
-// Cloudflare Worker sends 'worker_secret' as a form field.
-$receivedToken = $_POST['worker_secret'] ?? '';
+// Cloudflare Worker sends 'X-Email-Handler-Secret-Token' in the header.
+$receivedToken = $_SERVER['HTTP_X_EMAIL_HANDLER_SECRET_TOKEN'] ?? '';
 
 error_log("Email Handler Debug: secretToken (from env) = [" . ($secretToken ? $secretToken : "EMPTY") . "]");
-error_log("Email Handler Debug: receivedToken (from POST) = [" . ($receivedToken ? $receivedToken : "EMPTY") . "]");
+error_log("Email Handler Debug: receivedToken (from header) = [" . ($receivedToken ? $receivedToken : "EMPTY") . "]");
 
 if (empty($secretToken) || $receivedToken !== $secretToken) {
     error_log("Email Handler: Forbidden - Invalid or missing secret token. Received: " . ($receivedToken ? $receivedToken : "[EMPTY]") . ", Expected: " . ($secretToken ? $secretToken : "[EMPTY]"));
@@ -21,30 +21,23 @@ if (empty($secretToken) || $receivedToken !== $secretToken) {
 
 // --- Process and Store Email Data ---
 
-// Expecting multipart/form-data from the worker
-$sender = $_POST['user_email'] ?? null;
-$subject = $_POST['subject'] ?? 'No Subject'; // Assuming subject might be in form data or we can derive it.
-$htmlContent = $_POST['html_body'] ?? null;
-$textContent = $_POST['raw_email_file'] ?? null; // For simplicity, we'll get content from this for now.
-
-// Placeholder for recipient, as Worker does not send it explicitly in form data.
-// You might need to adjust your worker or backend logic to get a specific recipient.
-$recipient = getenv('CATCH_ALL_EMAIL') ?? 'unknown@example.com'; // Use a default or environment variable
+// Expecting application/json from the worker
+$rawInput = file_get_contents('php://input');
+$emailData = json_decode($rawInput, true);
 
 // Basic validation
-if (empty($sender)) {
-    error_log("Email Handler: Bad Request - Missing sender email.");
+if (json_last_error() !== JSON_ERROR_NONE || !isset($emailData['from']) || !isset($emailData['to']) || !isset($emailData['subject'])) {
+    error_log("Email Handler: Bad Request - Invalid or incomplete JSON email data. Raw input: " . $rawInput);
     http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => 'Bad Request: Missing sender email.']);
+    echo json_encode(['status' => 'error', 'message' => 'Bad Request: Invalid or incomplete email data.']);
     exit;
 }
 
-// If subject is not in POST, try to get it from the raw_email_file content (simple heuristic)
-if ($subject === 'No Subject' && $textContent) {
-    if (preg_match('/Subject:\s*(.*)/i', $textContent, $matches)) {
-        $subject = trim($matches[1]);
-    }
-}
+$sender = $emailData['from'];
+$recipient = $emailData['to']; // Worker sends 'to' explicitly
+$subject = $emailData['subject'];
+$htmlContent = $emailData['html'] ?? null;
+$textContent = $emailData['body'] ?? null;
 
 // --- Database Interaction ---
 $pdo = get_db_connection();
