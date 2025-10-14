@@ -13,11 +13,8 @@ if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
     exit();
 }
 
-// Use the existing function from db_operations.php
-if (isEmailAuthorized($email)) {
-    $response['is_authorized'] = true;
-}
-
+// Since the authorization check is removed, we can just return true.
+$response['is_authorized'] = true;
 echo json_encode($response);
 
 ?>
