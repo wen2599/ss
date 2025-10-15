@@ -11,11 +11,12 @@ $secretToken = getenv('EMAIL_HANDLER_SECRET');
 $receivedToken = $_REQUEST['worker_secret'] ?? '';
 
 // Basic logging to help debug authentication issues.
-error_log("Email Handler Debug: secretToken (from env) = [" . ($secretToken ? 'SET' : 'EMPTY') . "]");
-error_log("Email Handler Debug: receivedToken (from REQUEST) = [" . ($receivedToken ? 'RECEIVED' : 'EMPTY') . "]");
+// Changed for more verbose logging
+error_log("Email Handler Debug: secretToken (from env) = [" . (isset($secretToken) ? (empty($secretToken) ? 'EMPTY_STRING' : $secretToken) : 'NOT_SET') . "]");
+error_log("Email Handler Debug: receivedToken (from REQUEST) = [" . (isset($receivedToken) ? (empty($receivedToken) ? 'EMPTY_STRING' : $receivedToken) : 'NOT_SET') . "]");
 
 if (empty($secretToken) || $receivedToken !== $secretToken) {
-    error_log("Email Handler: Forbidden - Invalid or missing secret token.");
+    error_log("Email Handler: Forbidden - Invalid or missing secret token. Received: [" . ($receivedToken ? $receivedToken : "EMPTY_OR_NOT_SET") . "], Expected: [" . ($secretToken ? $secretToken : "EMPTY_OR_NOT_SET") . "]");
     http_response_code(403);
     echo json_encode(['status' => 'error', 'message' => 'Forbidden: Invalid or missing secret token.']);
     exit;
