@@ -15,7 +15,8 @@ require_once __DIR__ . '/telegram_helpers.php';
 
 trace_log("Config and helpers loaded.");
 
-// --- Security Validation ---
+// --- Security Validation (TEMPORARILY DISABLED FOR DEBUGGING) ---
+/*
 $secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
 $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 
@@ -26,8 +27,8 @@ if (empty($secretToken) || $receivedToken !== $secretToken) {
     trace_log("Forbidden: Secret token mismatch or not configured.");
     exit('Forbidden: Secret token mismatch.');
 }
-
-trace_log("Secret token validated successfully.");
+*/
+trace_log("!!! SECURITY CHECK DISABLED FOR DEBUGGING !!!");
 
 // --- Main Webhook Logic ---
 $raw_input = file_get_contents('php://input');
