@@ -77,6 +77,127 @@ function getFileManagementKeyboard() {
     ];
 }
 
+/**
+ * Handles stateful user input (e.g., when the bot is expecting a specific piece of information).
+ *
+ * @param int    $chatId The chat ID.
+ * @param int    $userId The user ID.
+ * @param string $text   The user's input text.
+ * @param string $state  The current user state.
+ */
+function handleStatefulInput($chatId, $userId, $text, $state) {
+    if ($state === 'awaiting_gemini_api_key') {
+        if (update_env_file('GEMINI_API_KEY', $text)) {
+            sendTelegramMessage($chatId, "✅ Gemini API 密钥已成功更新。", getAdminKeyboard());
+        } else {
+            sendTelegramMessage($chatId, "❌ 更新 Gemini API 密钥失败。请检查文件权限。", getAdminKeyboard());
+        }
+        setUserState($userId, null); // Clear state
+    } elseif ($state === 'awaiting_user_to_delete') {
+        if (deleteUserByEmail($text)) {
+            sendTelegramMessage($chatId, "✅ 用户 '{$text}' 已成功删除。", getUserManagementKeyboard());
+        } else {
+            sendTelegramMessage($chatId, "❌ 删除用户 '{$text}' 失败。用户可能不存在或数据库出错。", getUserManagementKeyboard());
+        }
+        setUserState($userId, null); // Clear state
+    } elseif ($state === 'awaiting_gemini_prompt') {
+        $response = call_gemini_api($text);
+        sendTelegramMessage($chatId, $response, getAdminKeyboard());
+        setUserState($userId, null);
+    } elseif ($state === 'awaiting_cloudflare_prompt') {
+        $response = call_cloudflare_ai_api($text);
+        sendTelegramMessage($chatId, $response, getAdminKeyboard());
+        setUserState($userId, null);
+    } else {
+        // Fallback for an unknown state
+        sendTelegramMessage($chatId, "🤔 未知的状态，已重置。请重新开始。", getAdminKeyboard());
+        setUserState($userId, null);
+    }
+}
+
+
+/**
+ * Processes incoming commands from the user.
+ * This is the main router for the bot's functionality.
+ *
+ * @param int    $chatId  The ID of the chat where the command was sent.
+ * @param int    $userId  The ID of the user who sent the command.
+ * @param string $command The command text from the user.
+ */
+function processCommand($chatId, $userId, $command) {
+    // First, check if the user is in a specific state
+    $state = getUserState($userId);
+    if ($state) {
+        handleStatefulInput($chatId, $userId, $command, $state);
+        return;
+    }
+
+    // Main command routing
+    switch ($command) {
+        case '/start':
+            sendTelegramMessage($chatId, "你好！欢迎使用管理机器人。", getAdminKeyboard());
+            break;
+        case '返回主菜单':
+            setUserState($userId, null); // Clear any lingering state
+            sendTelegramMessage($chatId, "返回主菜单。", getAdminKeyboard());
+            break;
+
+        // User Management
+        case '用户管理':
+            sendTelegramMessage($chatId, "请选择一个用户管理操作:", getUserManagementKeyboard());
+            break;
+        case '查看用户列表':
+            $users = getAllUsers();
+            if (empty($users)) {
+                $message = "没有已注册的用户。";
+            } else {
+                $message = "<b>用户列表:</b>\n\n";
+                foreach ($users as $user) {
+                    $message .= "• <b>邮箱:</b> <code>" . htmlspecialchars($user['email']) . "</code>\n";
+                    $message .= "  <b>注册时间:</b> " . $user['created_at'] . "\n\n";
+                }
+            }
+            sendTelegramMessage($chatId, $message, getUserManagementKeyboard());
+            break;
+        case '删除用户':
+            setUserState($userId, 'awaiting_user_to_delete');
+            sendTelegramMessage($chatId, "请输入要删除用户的邮箱地址:", ['remove_keyboard' => true]);
+            break;
+
+        // File Management
+        case '文件管理':
+            sendTelegramMessage($chatId, "请选择一个文件管理操作:", getFileManagementKeyboard());
+            break;
+        case '列出文件':
+            $output = shell_exec('ls -la');
+            sendTelegramMessage($chatId, "<pre>" . htmlspecialchars($output) . "</pre>", getFileManagementKeyboard());
+            break;
+
+        // API Key Management
+        case '更换 API 密钥':
+            sendTelegramMessage($chatId, "请选择要更换的 API 密钥:", getApiKeySelectionKeyboard());
+            break;
+        case 'Gemini API Key':
+            setUserState($userId, 'awaiting_gemini_api_key');
+            sendTelegramMessage($chatId, "请输入新的 Gemini API 密钥:", ['remove_keyboard' => true]);
+            break;
+
+        // AI Prompts
+        case '请求 Gemini':
+            setUserState($userId, 'awaiting_gemini_prompt');
+            sendTelegramMessage($chatId, "请输入你的 Gemini 提示:", ['remove_keyboard' => true]);
+            break;
+        case '请求 Cloudflare':
+            setUserState($userId, 'awaiting_cloudflare_prompt');
+            sendTelegramMessage($chatId, "请输入你的 Cloudflare AI 提示:", ['remove_keyboard' => true]);
+            break;
+
+        default:
+            sendTelegramMessage($chatId, "未知命令。请使用键盘上的选项。", getAdminKeyboard());
+            break;
+    }
+}
+
 
 /**
  * Generates a keyboard for the user management menu.
