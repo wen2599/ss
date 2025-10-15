@@ -4,17 +4,25 @@
 // Debugging array to collect info
 $debug_info = [];
 
-// Set session cookie parameters before starting the session.
-// This ensures the cookie is sent to the correct domain and path, and is secure.
-$domain = 'ss.wenxiuxiu.eu.org'; // Explicitly set the domain
-session_set_cookie_params([
-    'lifetime' => 3600, // Session lifetime in seconds (e.g., 1 hour)
-    'path' => '/', // The path on the server in which the cookie will be available on.
-    'domain' => $domain, // The domain that the cookie is available to.
-    'secure' => true, // Only send the cookie over HTTPS
-    'httponly' => true, // Prevent JavaScript access to the cookie
-    'samesite' => 'Lax' // Strict, Lax, None
-]);
+// Determine if the environment is local development
+$is_local = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false);
+
+// Set session cookie parameters dynamically
+$cookie_params = [
+    'lifetime' => 3600,
+    'path' => '/',
+    'httponly' => true,
+    'samesite' => 'Lax' // Use Lax for better cross-site request compatibility
+];
+
+// For production, set the domain and secure flag
+if (!$is_local) {
+    $cookie_params['domain'] = 'ss.wenxiuxiu.eu.org';
+    $cookie_params['secure'] = true; // Enforce HTTPS on production
+}
+// For local development, the domain should not be set, and secure should be false.
+
+session_set_cookie_params($cookie_params);
 
 // Start the session.
 session_start();
@@ -25,7 +33,14 @@ $debug_info['api_header_session_id'] = session_id();
 $debug_info['api_header_session_data'] = $_SESSION;
 
 // --- CORS and Security Headers ---
-$allowed_origins = ['http://localhost:3000', 'https://ss.wenxiuxiu.eu.org'];
+// Add all relevant local development ports to prevent CORS issues.
+$allowed_origins = [
+    'http://localhost:3000',
+    'http://localhost:5173', // Default Vite port
+    'http://localhost:5174',
+    'http://localhost:5175', // Fallback Vite ports
+    'https://ss.wenxiuxiu.eu.org'
+];
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
 if (in_array($origin, $allowed_origins)) {
