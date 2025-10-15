@@ -26,7 +26,7 @@ try {
         $email = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($email) {
-            echo json_encode(['status' => 'success', 'email' => $email]);
+            echo json_encode(['status' => 'success', 'emails' => [$email]]);
         } else {
             http_response_code(404); // Not Found
             echo json_encode(['status' => 'error', 'message' => '未找到该账单']);
