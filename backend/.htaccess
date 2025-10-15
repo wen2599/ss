@@ -1,4 +1,12 @@
-# All rewrite rules have been temporarily disabled for debugging.
-# This file can be left empty or with just this comment.
-RewriteEngine On
-RewriteBase /
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Allow the Telegram webhook to be accessed directly
+  RewriteRule ^telegramWebhook\.php$ - [L]
+
+  # Route all other requests through the front controller
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.php [L]
+</IfModule>
