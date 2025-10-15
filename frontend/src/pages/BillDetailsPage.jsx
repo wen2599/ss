@@ -14,7 +14,7 @@ const BillDetailsPage = () => {
             try {
                 setLoading(true);
                 const response = await getEmailById(id);
-                if (response.success && response.emails.length > 0) {
+                if (response.status === 'success' && response.emails && response.emails.length > 0) {
                     setEmail(response.emails[0]);
                 } else {
                     throw new Error(response.message || '未找到该账单');

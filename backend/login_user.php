@@ -52,6 +52,7 @@ try {
 
         http_response_code(200);
         echo json_encode([
+            'status' => 'success',
             'message' => 'Login successful!',
             'user' => [
                 'id' => $user['id'],
