@@ -2,12 +2,17 @@
 
 require_once __DIR__ . '/api_header.php';
 
+global $debug_info; // Access the global debug_info array
+
 // --- Input and Validation ---
 $data = json_decode(file_get_contents('php://input'), true);
 
 if (!$data) {
     http_response_code(400);
-    echo json_encode(['error' => 'Invalid JSON received.']);
+    echo json_encode([
+        'error' => 'Invalid JSON received.',
+        'debug' => $debug_info // Include debug info
+    ]);
     exit;
 }
 
@@ -16,7 +21,10 @@ $password = $data['password'] ?? null;
 
 if (empty($email) || empty($password)) {
     http_response_code(400);
-    echo json_encode(['error' => 'Email and password are required.']);
+    echo json_encode([
+        'error' => 'Email and password are required.',
+        'debug' => $debug_info // Include debug info
+    ]);
     exit;
 }
 
@@ -24,7 +32,10 @@ if (empty($email) || empty($password)) {
 $pdo = get_db_connection();
 if (!$pdo) {
     http_response_code(503);
-    echo json_encode(['error' => 'Database connection is currently unavailable.']);
+    echo json_encode([
+        'error' => 'Database connection is currently unavailable.',
+        'debug' => $debug_info // Include debug info
+    ]);
     exit;
 }
 
@@ -38,6 +49,10 @@ try {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['email'] = $user['email'];
 
+        // Add session data to debug info AFTER setting it
+        $debug_info['login_session_data_after_set'] = $_SESSION;
+        $debug_info['login_session_id_after_set'] = session_id();
+
         http_response_code(200);
         echo json_encode([
             'message' => 'Login successful!',
@@ -45,18 +60,25 @@ try {
                 'id' => $user['id'],
                 'email' => $user['email'],
                 'username' => $user['username']
-            ]
+            ],
+            'debug' => $debug_info // Include debug info in success response
         ]);
 
     } else {
         http_response_code(401); // Unauthorized
-        echo json_encode(['error' => 'Invalid email or password.']);
+        echo json_encode([
+            'error' => 'Invalid email or password.',
+            'debug' => $debug_info // Include debug info in error response
+        ]);
     }
 
 } catch (PDOException $e) {
     error_log("User login error: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'An internal database error occurred.']);
+    echo json_encode([
+        'error' => 'An internal database error occurred.',
+        'debug' => $debug_info // Include debug info in error response
+    ]);
 }
 
 ?>

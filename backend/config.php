@@ -16,6 +16,13 @@ function load_env() {
 }
 load_env();
 
+// --- Session Configuration ---
+$session_save_path = __DIR__ . '/sessions';
+if (!file_exists($session_save_path)) {
+    mkdir($session_save_path, 0777, true);
+}
+ini_set('session.save_path', $session_save_path);
+
 // --- PHP Error Reporting Configuration (for debugging) ---
 ini_set('display_errors', '1'); // Temporarily display errors
 ini_set('log_errors', '1');     // Log errors
