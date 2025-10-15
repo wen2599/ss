@@ -1,6 +1,18 @@
 <?php
 // api_header.php
 
+// Set session cookie parameters before starting the session.
+// This ensures the cookie is sent to the correct domain and path, and is secure.
+$domain = ($_SERVER['HTTP_HOST'] != 'localhost') ? $_SERVER['HTTP_HOST'] : false;
+session_set_cookie_params([
+    'lifetime' => 3600, // Session lifetime in seconds (e.g., 1 hour)
+    'path' => '/', // The path on the server in which the cookie will be available on.
+    'domain' => $domain, // The domain that the cookie is available to.
+    'secure' => true, // Only send the cookie over HTTPS
+    'httponly' => true, // Prevent JavaScript access to the cookie
+    'samesite' => 'Lax' // Strict, Lax, None
+]);
+
 // Start the session.
 session_start();
 
