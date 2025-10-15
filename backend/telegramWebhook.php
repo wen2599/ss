@@ -1,46 +1,23 @@
 <?php
 
-// --- Enhanced Debug Logging ---
-function trace_log($message) {
-    $log_file = __DIR__ . '/webhook_trace.log';
-    $timestamp = date('Y-m-d H:i:s');
-    file_put_contents($log_file, "[$timestamp] " . print_r($message, true) . "\n", FILE_APPEND);
-}
-
-trace_log("--- Webhook triggered ---");
-
 // --- Unified Configuration and Helpers ---
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/telegram_helpers.php';
 
-trace_log("Config and helpers loaded.");
-
-// --- Security Validation (TEMPORARILY DISABLED FOR DEBUGGING) ---
-/*
+// --- Security Validation ---
 $secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
 $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 
-trace_log("Secret Token Check: Received token is set: " . !empty($receivedToken));
-
 if (empty($secretToken) || $receivedToken !== $secretToken) {
     http_response_code(403);
-    trace_log("Forbidden: Secret token mismatch or not configured.");
     exit('Forbidden: Secret token mismatch.');
 }
-*/
-trace_log("!!! SECURITY CHECK DISABLED FOR DEBUGGING !!!");
 
 // --- Main Webhook Logic ---
-$raw_input = file_get_contents('php://input');
-trace_log("Raw Input: " . $raw_input);
-
-$update = json_decode($raw_input, true);
-trace_log("Decoded Update: " . json_encode($update, JSON_PRETTY_PRINT));
-
+$update = json_decode(file_get_contents('php://input'), true);
 
 // We only process 'message' updates in this simplified model.
 if (!isset($update['message'])) {
-    trace_log("Exiting: No 'message' key found in the update.");
     exit();
 }
 
@@ -48,8 +25,6 @@ $message = $update['message'];
 $chatId = $message['chat']['id'];
 $userId = $message['from']['id'] ?? $chatId;
 $command = trim($message['text'] ?? '');
-
-trace_log("Processing: ChatID=$chatId, UserID=$userId, Command='$command'");
 
 // --- Admin Verification ---
 $adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
