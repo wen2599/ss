@@ -4,41 +4,37 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/telegram_helpers.php';
 
-// This check ensures that the main webhook logic only runs when the script is called directly,
-// not when it's included by another script (like our test_logic.php).
-if (!defined('IS_LOGIC_TEST')) {
-    // --- Security Validation ---
-    $secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
-    $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
+// --- Security Validation ---
+$secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
+$receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 
-    if (empty($secretToken) || $receivedToken !== $secretToken) {
-        http_response_code(403);
-        exit('Forbidden: Secret token mismatch.');
-    }
-
-    // --- Main Webhook Logic ---
-    $update = json_decode(file_get_contents('php://input'), true);
-
-    // We only process 'message' updates in this simplified model.
-    if (!isset($update['message'])) {
-        exit();
-    }
-
-    $message = $update['message'];
-    $chatId = $message['chat']['id'];
-    $userId = $message['from']['id'] ?? $chatId;
-    $command = trim($message['text'] ?? '');
-
-    // --- Admin Verification ---
-    $adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
-    if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
-        sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
-        exit();
-    }
-
-    // --- Process the Command ---
-    processCommand($chatId, $userId, $command);
+if (empty($secretToken) || $receivedToken !== $secretToken) {
+    http_response_code(403);
+    exit('Forbidden: Secret token mismatch.');
 }
+
+// --- Main Webhook Logic ---
+$update = json_decode(file_get_contents('php://input'), true);
+
+// We only process 'message' updates in this simplified model.
+if (!isset($update['message'])) {
+    exit();
+}
+
+$message = $update['message'];
+$chatId = $message['chat']['id'];
+$userId = $message['from']['id'] ?? $chatId;
+$command = trim($message['text'] ?? '');
+
+// --- Admin Verification ---
+$adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
+if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
+    sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
+    exit();
+}
+
+// --- Process the Command ---
+processCommand($chatId, $userId, $command);
 
 
 /**
