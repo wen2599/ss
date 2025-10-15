@@ -1,18 +1,34 @@
 <?php
 
+// --- Raw Input Logging (Most Critical) ---
+$raw_input = file_get_contents('php://input');
+$log_file = __DIR__ . '/webhook_debug.log';
+$log_message = "--- [" . date('Y-m-d H:i:s') . "] ---\n";
+$log_message .= "RAW INPUT: " . $raw_input . "\n";
+file_put_contents($log_file, $log_message, FILE_APPEND);
+
+
 // --- Unified Configuration and Helpers ---
 require_once __DIR__ . '/config.php';
 
 // --- Security Validation ---
 $secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
 $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
+
+// --- Logging Security Check ---
+$log_message = "SECRET_TOKEN (from env): " . ($secretToken ? 'Set' : 'NOT SET') . "\n";
+$log_message .= "RECEIVED_TOKEN (from header): " . ($receivedToken ? 'Set' : 'NOT SET') . "\n";
+$log_message .= "TOKEN_MATCH: " . (($receivedToken === $secretToken) ? 'Yes' : 'NO') . "\n";
+file_put_contents($log_file, $log_message, FILE_APPEND);
+// --- End Logging ---
+
 if (empty($secretToken) || $receivedToken !== $secretToken) {
     http_response_code(403);
     exit('Forbidden: Secret token mismatch.');
 }
 
 // --- Main Webhook Logic ---
-$update = json_decode(file_get_contents('php://input'), true);
+$update = json_decode($raw_input, true);
 
 // Handle both regular messages and channel posts
 if (isset($update['message'])) {
