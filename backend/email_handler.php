@@ -76,7 +76,7 @@ if ($action === 'process_email') {
     // Validate required fields
     if (empty($from) || empty($to) || empty($body)) {
         write_debug_log("Email Handler: Missing required fields (from, to, or body) for process_email.", $debugLogFile);
-        http_response_code(400); // Bad Request
+        http_response_code(400); // Bad Gateway
         echo json_encode(['status' => 'error', 'message' => 'Missing required fields: from, to, or body.']);
         exit;
     }
