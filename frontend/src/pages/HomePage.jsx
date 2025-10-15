@@ -9,9 +9,13 @@ const colorMap = {
     '🔴': 'red',
 };
 
-const LotteryBanner = ({ result }) => {
+const LotteryBanner = ({ result, type }) => {
     if (!result) {
-        return <div className="lottery-banner-placeholder"><h2>正在获取最新开奖结果...</h2></div>;
+        return (
+            <div className="lottery-banner-placeholder">
+                <h2>未能加载 {type} 的最新开奖结果</h2>
+            </div>
+        );
     }
 
     const { issue_number, winning_numbers, zodiac_signs, colors, drawing_date } = result;
@@ -25,7 +29,7 @@ const LotteryBanner = ({ result }) => {
     return (
         <div className="lottery-banner">
             <div className="banner-header">
-                <h2>第 {issue_number} 期 开奖结果</h2>
+                <h2>{result.lottery_type} - 第 {issue_number} 期</h2>
                 <span>{new Date(drawing_date).toLocaleDateString('zh-CN')}</span>
             </div>
             <div className="results-grid">
@@ -50,46 +54,47 @@ const LotteryBanner = ({ result }) => {
 };
 
 const HomePage = () => {
-    const [lotteryTypes] = useState(['新澳门六合彩', '香港六合彩', '老澳门六合彩']);
-    const [activeType, setActiveType] = useState(lotteryTypes[0]);
-    const [lotteryResult, setLotteryResult] = useState(null);
+    const [results, setResults] = useState({
+        '新澳门六合彩': null,
+        '香港六合彩': null,
+        '老澳门六合彩': null,
+    });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchResults = async () => {
-            setLoading(true);
+        const fetchAllResults = async () => {
             try {
-                const response = await getLotteryResults(activeType);
-                if (response.status === 'success') {
-                    setLotteryResult(response.data);
-                } else {
-                    setLotteryResult(null); // Clear previous result on error
-                }
+                const types = ['新澳门六合彩', '香港六合彩', '老澳门六合彩'];
+                const promises = types.map(type => getLotteryResults(type));
+                const responses = await Promise.all(promises);
+
+                const newResults = {};
+                responses.forEach((response, index) => {
+                    if (response.status === 'success') {
+                        newResults[types[index]] = response.data;
+                    }
+                });
+
+                setResults(newResults);
             } catch (error) {
-                console.error(`Failed to fetch results for ${activeType}:`, error);
-                setLotteryResult(null);
+                console.error("Failed to fetch lottery results:", error);
             } finally {
                 setLoading(false);
             }
         };
-        fetchResults();
-    }, [activeType]);
+        fetchAllResults();
+    }, []);
 
     return (
         <div className="home-page">
             <div className="lottery-container">
-                <div className="lottery-tabs">
-                    {lotteryTypes.map(type => (
-                        <button
-                            key={type}
-                            className={`tab-button ${activeType === type ? 'active' : ''}`}
-                            onClick={() => setActiveType(type)}
-                        >
-                            {type}
-                        </button>
-                    ))}
-                </div>
-                {loading ? <div className="lottery-banner-placeholder"><h2>正在加载...</h2></div> : <LotteryBanner result={lotteryResult} />}
+                {loading ? (
+                    <div className="lottery-banner-placeholder"><h2>正在加载开奖结果...</h2></div>
+                ) : (
+                    Object.entries(results).map(([type, result]) => (
+                        <LotteryBanner key={type} result={result} type={type} />
+                    ))
+                )}
             </div>
             <header className="hero-section">
                 <h1>欢迎使用您的个人账单管理系统</h1>
