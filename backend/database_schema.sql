@@ -43,9 +43,12 @@ CREATE TABLE IF NOT EXISTS `emails` (
 -- Table for storing lottery results
 CREATE TABLE IF NOT EXISTS `lottery_results` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `lottery_type` VARCHAR(100) NOT NULL,
   `issue_number` VARCHAR(255) NOT NULL,
   `winning_numbers` VARCHAR(255) NOT NULL,
+  `zodiac_signs` VARCHAR(255) NOT NULL,
+  `colors` VARCHAR(255) NOT NULL,
   `drawing_date` DATE,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY `issue_number` (`issue_number`)
+  UNIQUE KEY `type_issue` (`lottery_type`, `issue_number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

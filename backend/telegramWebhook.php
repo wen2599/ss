@@ -155,51 +155,92 @@ echo json_encode(['status' => 'ok']);
 
 
 /**
- * Parses a message containing lottery results and saves them to the database.
+ * Parses a complex, multi-line message containing lottery results and saves them to the database.
  *
  * @param int $chatId The chat ID to send confirmation/error messages to.
  * @param string $text The message text from Telegram.
  */
 function handleLotteryResult($chatId, $text) {
-    // Example format: "265期特码, 蛇猪鸡鼠虎龙兔各数5#..."
-    // Or "265期开奖号码: 01,02,03,04,05,06,07"
+    // Determine Lottery Type
+    $lotteryType = '';
+    if (strpos($text, '新澳门六合彩') !== false) {
+        $lotteryType = '新澳门六合彩';
+    } elseif (strpos($text, '香港六合彩') !== false) {
+        $lotteryType = '香港六合彩';
+    } elseif (strpos($text, '老澳') !== false) {
+        $lotteryType = '老澳门六合彩';
+    } else {
+        sendTelegramMessage($chatId, "⚠️ 无法识别开奖类型。");
+        return;
+    }
 
     // Extract Issue Number
-    preg_match('/(\d+)期/', $text, $issueMatches);
+    preg_match('/第:?(\d+)\s*期/', $text, $issueMatches);
     $issueNumber = $issueMatches[1] ?? null;
-
     if (!$issueNumber) {
         sendTelegramMessage($chatId, "❌ 无法从消息中解析期号。");
         return;
     }
 
-    // Extract Winning Numbers (assuming a simple comma-separated list for now)
-    // This regex looks for a sequence of two-digit numbers separated by commas.
-    preg_match_all('/(\d{2})/', $text, $numberMatches);
-    $winningNumbers = $numberMatches[0] ?? [];
-
-    if (count($winningNumbers) < 7) {
-        sendTelegramMessage($chatId, "❌ 无法从消息中解析出至少7个开奖号码。请检查格式。");
+    $lines = explode("\n", trim($text));
+    if (count($lines) < 3) {
+        sendTelegramMessage($chatId, "❌ 消息格式不完整，至少需要3行（开奖结果，号码，生肖）。");
         return;
     }
 
-    // We only want the first 7 numbers for the main result
+    // Extract Numbers, Zodiacs, and Colors
+    $numbersLine = $lines[1];
+    $zodiacsLine = $lines[2];
+    $colorsLine = isset($lines[3]) && preg_match('/[🟢🔵🔴]/u', $lines[3]) ? $lines[3] : '';
+
+    // Extract numbers (handles two-digit numbers)
+    preg_match_all('/\b(\d{2})\b/', $numbersLine, $numberMatches);
+    $winningNumbers = $numberMatches[0];
+
+    // Extract zodiac signs (handles multi-character signs)
+    preg_match_all('/(\p{Han})/u', $zodiacsLine, $zodiacMatches);
+    $zodiacSigns = $zodiacMatches[0];
+
+    // Extract colors (using unicode characters)
+    preg_match_all('/([🟢🔵🔴])/u', $colorsLine, $colorMatches);
+    $colors = $colorMatches[0];
+
+    // Validation
+    if (count($winningNumbers) < 7 || count($zodiacSigns) < 7) {
+        sendTelegramMessage($chatId, "❌ 解析失败: 号码或生肖数量不足7个。");
+        return;
+    }
+
+    // We only want the first 7 of each
     $winningNumbersStr = implode(',', array_slice($winningNumbers, 0, 7));
+    $zodiacSignsStr = implode(',', array_slice($zodiacSigns, 0, 7));
+    $colorsStr = implode(',', array_slice($colors, 0, 7)); // Colors might be empty, that's okay
 
     try {
         $pdo = get_db_connection();
         $stmt = $pdo->prepare(
-            "INSERT INTO lottery_results (issue_number, winning_numbers, drawing_date)
-             VALUES (?, ?, CURDATE())
-             ON DUPLICATE KEY UPDATE winning_numbers = VALUES(winning_numbers), drawing_date = VALUES(drawing_date)"
+            "INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date)
+             VALUES (:lottery_type, :issue_number, :winning_numbers, :zodiac_signs, :colors, CURDATE())
+             ON DUPLICATE KEY UPDATE
+                winning_numbers = VALUES(winning_numbers),
+                zodiac_signs = VALUES(zodiac_signs),
+                colors = VALUES(colors),
+                drawing_date = VALUES(drawing_date)"
         );
-        $stmt->execute([$issueNumber, $winningNumbersStr]);
 
-        sendTelegramMessage($chatId, "✅ 成功记录第 {$issueNumber} 期开奖号码: `{$winningNumbersStr}`");
+        $stmt->execute([
+            ':lottery_type' => $lotteryType,
+            ':issue_number' => $issueNumber,
+            ':winning_numbers' => $winningNumbersStr,
+            ':zodiac_signs' => $zodiacSignsStr,
+            ':colors' => $colorsStr
+        ]);
+
+        sendTelegramMessage($chatId, "✅ 成功记录【{$lotteryType}】第 {$issueNumber} 期开奖号码:\n号码: `{$winningNumbersStr}`\n生肖: `{$zodiacSignsStr}`\n波色: `{$colorsStr}`");
 
     } catch (PDOException $e) {
         error_log("Lottery Result DB Error: " . $e->getMessage());
-        sendTelegramMessage($chatId, "❌ 保存开奖号码时发生数据库错误。");
+        sendTelegramMessage($chatId, "❌ 保存【{$lotteryType}】第 {$issueNumber} 期开奖号码时发生数据库错误。");
     }
 }
 
