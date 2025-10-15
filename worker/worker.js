@@ -230,8 +230,20 @@ export default {
       const backendUrl = new URL(url.pathname, backendServer);
       backendUrl.search = url.search;
 
-      // Forward the request as-is to the backend.
-      const backendRequest = new Request(backendUrl, request);
+      // Create a new headers object from the original request to make it mutable
+      const requestHeaders = new Headers(request.headers);
+
+      // Ensure the host header is set to the backend's hostname
+      requestHeaders.set('Host', new URL(backendServer).hostname);
+
+      // Forward the request to the backend, ensuring all headers are passed along.
+      const backendRequest = new Request(backendUrl, {
+        method: request.method,
+        headers: requestHeaders,
+        body: request.body,
+        redirect: 'follow'
+      });
+
       return fetch(backendRequest);
     }
 
