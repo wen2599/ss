@@ -191,7 +191,6 @@ function handleLotteryResult($chatId, $text) {
     // Extract Numbers, Zodiacs, and Colors
     $numbersLine = $lines[1];
     $zodiacsLine = $lines[2];
-    $colorsLine = isset($lines[3]) && preg_match('/[🟢🔵🔴]/u', $lines[3]) ? $lines[3] : '';
 
     // Extract numbers (handles two-digit numbers)
     preg_match_all('/\b(\d{2})\b/', $numbersLine, $numberMatches);
@@ -201,10 +200,6 @@ function handleLotteryResult($chatId, $text) {
     preg_match_all('/(\p{Han})/u', $zodiacsLine, $zodiacMatches);
     $zodiacSigns = $zodiacMatches[0];
 
-    // Extract colors (using unicode characters)
-    preg_match_all('/([🟢🔵🔴])/u', $colorsLine, $colorMatches);
-    $colors = $colorMatches[0];
-
     // Validation
     if (count($winningNumbers) < 7 || count($zodiacSigns) < 7) {
         sendTelegramMessage($chatId, "❌ 解析失败: 号码或生肖数量不足7个。");
@@ -212,9 +207,17 @@ function handleLotteryResult($chatId, $text) {
     }
 
     // We only want the first 7 of each
-    $winningNumbersStr = implode(',', array_slice($winningNumbers, 0, 7));
-    $zodiacSignsStr = implode(',', array_slice($zodiacSigns, 0, 7));
-    $colorsStr = implode(',', array_slice($colors, 0, 7)); // Colors might be empty, that's okay
+    $winningNumbers = array_slice($winningNumbers, 0, 7);
+    $zodiacSigns = array_slice($zodiacSigns, 0, 7);
+
+    // Determine colors based on the numbers
+    $colors = array_map(function($num) {
+        return get_emoji_for_color(get_color_for_number($num));
+    }, $winningNumbers);
+
+    $winningNumbersStr = implode(',', $winningNumbers);
+    $zodiacSignsStr = implode(',', $zodiacSigns);
+    $colorsStr = implode(',', $colors);
 
     try {
         $pdo = get_db_connection();
