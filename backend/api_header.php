@@ -4,17 +4,8 @@
 // Debugging array to collect info
 $debug_info = [];
 
-// Debugging array to collect info
-$debug_info = [];
-
 // Determine if the environment is local development
 $is_local = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false);
-
-$debug_info['environment'] = [
-    'is_local' => $is_local,
-    'http_host' => $_SERVER['HTTP_HOST'] ?? 'Not Set',
-    'server_name' => $_SERVER['SERVER_NAME'] ?? 'Not Set'
-];
 
 // Set session cookie parameters dynamically
 $cookie_params = [

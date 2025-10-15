@@ -87,7 +87,79 @@ function decodeSubject(subject) {
 }
 
 
-// ========== 2. Core Worker Logic ==========
+// ========== 2. New Helper Function for Body Extraction ==========
+
+/**
+ * Parses a raw email string to find and decode the HTML body.
+ * @param {string} rawEmail - The full raw email content.
+ * @returns {string} The decoded HTML body, or a fallback.
+ */
+function extractHTMLBody(rawEmail) {
+  const headers = parseHeaders(rawEmail.split(/\r\n\r\n/)[0]);
+  const contentType = headers['content-type'] || '';
+  const bodyStartIndex = rawEmail.indexOf('\r\n\r\n');
+
+  if (bodyStartIndex === -1) {
+    return ''; // No body found
+  }
+  const emailBody = rawEmail.substring(bodyStartIndex + 4);
+
+  if (contentType.includes('multipart/')) {
+    const boundaryMatch = contentType.match(/boundary="?([^"]+)"?/);
+    if (!boundaryMatch) {
+      return emailBody; // Cannot parse without boundary, return raw body
+    }
+
+    // The boundary in the body is prefixed with "--"
+    const boundary = `--${boundaryMatch[1]}`;
+    const parts = emailBody.split(new RegExp(`\\s*${boundary}(--)?\\s*`));
+
+    let htmlPart = '';
+    let textPart = '';
+
+    for (const part of parts) {
+      if (!part.trim()) continue;
+
+      const partHeadersEndIndex = part.indexOf('\r\n\r\n');
+      if (partHeadersEndIndex === -1) continue;
+
+      const partHeadersRaw = part.substring(0, partHeadersEndIndex);
+      const partBody = part.substring(partHeadersEndIndex + 4);
+      const partHeaders = parseHeaders(partHeadersRaw);
+
+      const partContentType = partHeaders['content-type'] || '';
+      const contentEncoding = (partHeaders['content-transfer-encoding'] || '').toLowerCase();
+
+      let decodedPartBody = partBody;
+      if (contentEncoding === 'base64') {
+        decodedPartBody = decodeBase64(partBody);
+      } else if (contentEncoding === 'quoted-printable') {
+        decodedPartBody = decodeQuotedPrintable(partBody);
+      }
+
+      if (partContentType.includes('text/html')) {
+        htmlPart = decodedPartBody;
+        break; // Prefer HTML part, so we can stop here
+      } else if (partContentType.includes('text/plain')) {
+        textPart = decodedPartBody;
+      }
+    }
+    // Return HTML if found, otherwise fallback to plain text, or finally the raw body.
+    return htmlPart || textPart || emailBody;
+  } else {
+    // Not a multipart email, so the whole body is the content.
+    const contentEncoding = (headers['content-transfer-encoding'] || '').toLowerCase();
+    if (contentEncoding === 'base64') {
+      return decodeBase64(emailBody);
+    } else if (contentEncoding === 'quoted-printable') {
+      return decodeQuotedPrintable(emailBody);
+    }
+    return emailBody;
+  }
+}
+
+
+// ========== 3. Core Worker Logic ==========
 
 export default {
   /**
@@ -161,7 +233,7 @@ export default {
       const rawEmail = await streamToString(message.raw);
       const headers = parseHeaders(rawEmail.split(/\r\n\r\n/)[0]);
       const subject = decodeSubject(headers['subject']);
-      const body = rawEmail; // Forward the full raw email content as the body for now
+      const body = extractHTMLBody(rawEmail); // Use the new function to get clean HTML
 
       const formData = new FormData();
       formData.append('worker_secret', EMAIL_HANDLER_SECRET);
