@@ -156,40 +156,40 @@ function handleCommand($chatId, $userId, $command) {
             $messageToSend = "欢迎回来，管理员！请选择一个操作。";
             break;
 
-        // --- File Management ---
-        case '文件管理':
-            $messageToSend = "请选择一个文件管理操作:";
-            $keyboard = getFileManagementKeyboard();
-            break;
-        case '列出文件':
-            $files = scandir(__DIR__);
-            if ($files === false) {
-                $messageToSend = "❌ 无法读取当前目录的文件列表。";
-            } else {
-                // Security: Blacklist sensitive files and directories.
-                $blacklist = [
-                    '.', '..', '.env', '.env.example', '.git', '.gitignore', '.htaccess',
-                    'config.php', 'vendor', 'composer.json', 'composer.lock',
-                    'telegramWebhook.php', // Don't show the webhook handler itself
-                    'test_telegram.php' // Don't show the test file
-                ];
+        // --- File Management (Temporarily Disabled for Debugging) ---
+        // case '文件管理':
+        //     $messageToSend = "请选择一个文件管理操作:";
+        //     $keyboard = getFileManagementKeyboard();
+        //     break;
+        // case '列出文件':
+        //     $files = scandir(__DIR__);
+        //     if ($files === false) {
+        //         $messageToSend = "❌ 无法读取当前目录的文件列表。";
+        //     } else {
+        //         // Security: Blacklist sensitive files and directories.
+        //         $blacklist = [
+        //             '.', '..', '.env', '.env.example', '.git', '.gitignore', '.htaccess',
+        //             'config.php', 'vendor', 'composer.json', 'composer.lock',
+        //             'telegramWebhook.php', // Don't show the webhook handler itself
+        //             'test_telegram.php' // Don't show the test file
+        //         ];
 
-                $messageToSend = "📁 **当前目录文件列表:**\n\n";
-                $messageToSend .= "```\n"; // Use pre-formatted block for clean output
-                $foundFiles = false;
-                foreach ($files as $file) {
-                    if (!in_array($file, $blacklist, true)) {
-                        $messageToSend .= $file . "\n";
-                        $foundFiles = true;
-                    }
-                }
-                if (!$foundFiles) {
-                    $messageToSend .= "(没有可显示的文件)\n";
-                }
-                $messageToSend .= "```";
-            }
-            $keyboard = getFileManagementKeyboard(); // Show menu again
-            break;
+        //         $messageToSend = "📁 **当前目录文件列表:**\n\n";
+        //         $messageToSend .= "```\n"; // Use pre-formatted block for clean output
+        //         $foundFiles = false;
+        //         foreach ($files as $file) {
+        //             if (!in_array($file, $blacklist, true)) {
+        //                 $messageToSend .= $file . "\n";
+        //                 $foundFiles = true;
+        //             }
+        //         }
+        //         if (!$foundFiles) {
+        //             $messageToSend .= "(没有可显示的文件)\n";
+        //         }
+        //         $messageToSend .= "```";
+        //     }
+        //     $keyboard = getFileManagementKeyboard(); // Show menu again
+        //     break;
 
         // --- User Management ---
         case '用户管理':

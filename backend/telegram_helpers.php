@@ -86,23 +86,9 @@ function answerCallbackQuery($callbackQueryId) {
 function getAdminKeyboard() {
     return [
         'inline_keyboard' => [
-            [['text' => '👤 用户管理', 'callback_data' => '用户管理'], ['text' => '📁 文件管理', 'callback_data' => '文件管理']],
+            [['text' => '👤 用户管理', 'callback_data' => '用户管理']],
             [['text' => '🧠 请求 Gemini', 'callback_data' => '请求 Gemini'], ['text' => '☁️ 请求 Cloudflare', 'callback_data' => '请求 Cloudflare']],
             [['text' => '🔑 更换 API 密钥', 'callback_data' => '更换 API 密钥']],
-        ]
-    ];
-}
-
-/**
- * Generates a keyboard for the file management menu.
- *
- * @return array The keyboard markup.
- */
-function getFileManagementKeyboard() {
-    return [
-        'inline_keyboard' => [
-            [['text' => '📄 列出文件', 'callback_data' => '列出文件']],
-            [['text' => '⬅️ 返回主菜单', 'callback_data' => '/start']]
         ]
     ];
 }
