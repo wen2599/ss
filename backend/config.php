@@ -52,13 +52,13 @@ ini_set('error_log', __DIR__ . '/debug.log'); // Direct errors to a specific fil
 error_reporting(E_ALL); // Report all errors
 
 
-// --- Helper Scripts Inclusion (Temporarily Disabled for Debugging) ---
-// require_once __DIR__ . '/db_operations.php';
-// require_once __DIR__ . '/telegram_helpers.php';
-// require_once __DIR__ . '/user_state_manager.php';
-// require_once __DIR__ . '/api_curl_helper.php'; // Shared cURL function
-// require_once __DIR__ . '/gemini_ai_helper.php';
-// require_once __DIR__ . '/cloudflare_ai_helper.php';
-// require_once __DIR__ . '/env_manager.php';
+// --- Helper Scripts Inclusion ---
+require_once __DIR__ . '/db_operations.php';
+require_once __DIR__ . '/telegram_helpers.php';
+require_once __DIR__ . '/user_state_manager.php';
+require_once __DIR__ . '/api_curl_helper.php'; // Shared cURL function
+require_once __DIR__ . '/gemini_ai_helper.php';
+require_once __DIR__ . '/cloudflare_ai_helper.php';
+require_once __DIR__ . '/env_manager.php';
 // No JWT configuration needed for session-based auth.
 ?>
