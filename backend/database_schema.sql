@@ -39,3 +39,13 @@ CREATE TABLE IF NOT EXISTS `emails` (
   `is_processed` BOOLEAN NOT NULL DEFAULT FALSE,
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table for storing lottery results
+CREATE TABLE IF NOT EXISTS `lottery_results` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `issue_number` VARCHAR(255) NOT NULL,
+  `winning_numbers` VARCHAR(255) NOT NULL,
+  `drawing_date` DATE,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `issue_number` (`issue_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

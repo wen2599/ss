@@ -77,6 +77,12 @@ if ($userState) {
 
 // This block handles initial commands when the user is not in a specific state.
 } else {
+    // --- Lottery Result Processing (Priority Check) ---
+    if (strpos($text, '开奖') !== false || strpos($text, '特码') !== false) {
+        handleLotteryResult($chatId, $text);
+        exit(); // Stop further processing
+    }
+
     $messageToSend = null;
     $keyboard = getAdminKeyboard();
 
@@ -146,5 +152,55 @@ if ($userState) {
 // Acknowledge receipt to Telegram.
 http_response_code(200);
 echo json_encode(['status' => 'ok']);
+
+
+/**
+ * Parses a message containing lottery results and saves them to the database.
+ *
+ * @param int $chatId The chat ID to send confirmation/error messages to.
+ * @param string $text The message text from Telegram.
+ */
+function handleLotteryResult($chatId, $text) {
+    // Example format: "265期特码, 蛇猪鸡鼠虎龙兔各数5#..."
+    // Or "265期开奖号码: 01,02,03,04,05,06,07"
+
+    // Extract Issue Number
+    preg_match('/(\d+)期/', $text, $issueMatches);
+    $issueNumber = $issueMatches[1] ?? null;
+
+    if (!$issueNumber) {
+        sendTelegramMessage($chatId, "❌ 无法从消息中解析期号。");
+        return;
+    }
+
+    // Extract Winning Numbers (assuming a simple comma-separated list for now)
+    // This regex looks for a sequence of two-digit numbers separated by commas.
+    preg_match_all('/(\d{2})/', $text, $numberMatches);
+    $winningNumbers = $numberMatches[0] ?? [];
+
+    if (count($winningNumbers) < 7) {
+        sendTelegramMessage($chatId, "❌ 无法从消息中解析出至少7个开奖号码。请检查格式。");
+        return;
+    }
+
+    // We only want the first 7 numbers for the main result
+    $winningNumbersStr = implode(',', array_slice($winningNumbers, 0, 7));
+
+    try {
+        $pdo = get_db_connection();
+        $stmt = $pdo->prepare(
+            "INSERT INTO lottery_results (issue_number, winning_numbers, drawing_date)
+             VALUES (?, ?, CURDATE())
+             ON DUPLICATE KEY UPDATE winning_numbers = VALUES(winning_numbers), drawing_date = VALUES(drawing_date)"
+        );
+        $stmt->execute([$issueNumber, $winningNumbersStr]);
+
+        sendTelegramMessage($chatId, "✅ 成功记录第 {$issueNumber} 期开奖号码: `{$winningNumbersStr}`");
+
+    } catch (PDOException $e) {
+        error_log("Lottery Result DB Error: " . $e->getMessage());
+        sendTelegramMessage($chatId, "❌ 保存开奖号码时发生数据库错误。");
+    }
+}
 
 ?>
