@@ -1,7 +1,7 @@
 <?php
 // backend/delete_bill.php
 
-require_once __DIR__ . '/api_header.php';
+// This script is now routed through index.php, which handles the header.
 
 // --- Authentication Check ---
 if (!isset($_SESSION['user_id'])) {

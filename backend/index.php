@@ -1,21 +1,9 @@
 <?php
 // --- Main API Router ---
 
-// --- Configuration and Helpers ---
-// This brings in environment variables and helper functions.
-require_once __DIR__ . '/config.php';
-
-// --- CORS and Headers ---
-// Allow requests from any origin. In production, you might want to restrict this.
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Telegram-Bot-Api-Secret-Token");
-
-// Handle pre-flight OPTIONS requests for CORS.
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit();
-}
+// --- Standard API Entrypoint ---
+// This brings in session management, CORS headers, and all helper functions.
+require_once __DIR__ . '/api_header.php';
 
 // --- Routing Logic ---
 $requestUri = $_SERVER['REQUEST_URI'];

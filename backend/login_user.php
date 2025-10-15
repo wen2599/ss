@@ -1,8 +1,6 @@
 <?php
 
-require_once __DIR__ . '/api_header.php';
-
-global $debug_info; // Access the global debug_info array
+// This script is now routed through index.php, which handles the header.
 
 // --- Input and Validation ---
 $data = json_decode(file_get_contents('php://input'), true);

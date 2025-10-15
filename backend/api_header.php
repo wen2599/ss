@@ -6,7 +6,7 @@ $debug_info = [];
 
 // Set session cookie parameters before starting the session.
 // This ensures the cookie is sent to the correct domain and path, and is secure.
-$domain = 'ss.wenxiuxiu.eu.org'; // Explicitly set the domain
+$domain = $_SERVER['HTTP_HOST']; // Dynamically get the domain
 session_set_cookie_params([
     'lifetime' => 3600, // Session lifetime in seconds (e.g., 1 hour)
     'path' => '/', // The path on the server in which the cookie will be available on.
