@@ -6,11 +6,11 @@ require_once __DIR__ . '/config.php';
 // --- Security Check ---
 // This secret ensures that only our Cloudflare Worker can call this endpoint.
 $secretToken = getenv('EMAIL_HANDLER_SECRET');
-// Cloudflare Worker sends 'worker_secret' as a form field.
-$receivedToken = $_POST['worker_secret'] ?? '';
+// Use $_REQUEST to accept the secret from either GET or POST requests.
+$receivedToken = $_REQUEST['worker_secret'] ?? '';
 
 error_log("Email Handler Debug: secretToken (from env) = [" . ($secretToken ? $secretToken : "EMPTY") . "]");
-error_log("Email Handler Debug: receivedToken (from POST) = [" . ($receivedToken ? $receivedToken : "EMPTY") . "]");
+error_log("Email Handler Debug: receivedToken (from REQUEST) = [" . ($receivedToken ? $receivedToken : "EMPTY") . "]");
 
 if (empty($secretToken) || $receivedToken !== $secretToken) {
     error_log("Email Handler: Forbidden - Invalid or missing secret token. Received: " . ($receivedToken ? $receivedToken : "[EMPTY]") . ", Expected: " . ($secretToken ? $secretToken : "[EMPTY]"));
@@ -19,75 +19,89 @@ if (empty($secretToken) || $receivedToken !== $secretToken) {
     exit;
 }
 
-// --- Process and Store Email Data ---
+// --- Action Routing ---
+// Determine the action based on the 'action' query parameter.
+$action = $_GET['action'] ?? 'process_email'; // Default to processing email
 
-// Expecting multipart/form-data from the worker
-$sender = $_POST['user_email'] ?? null;
-$subject = $_POST['subject'] ?? 'No Subject'; // Worker might not send subject as explicit form field
-$recipient = getenv('CATCH_ALL_EMAIL') ?? 'unknown@example.com'; // Worker does not send recipient via form data
+if ($action === 'is_user_registered') {
+    // --- User Verification Logic ---
+    $email = $_GET['email'] ?? null;
+    if (empty($email)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'is_registered' => false, 'message' => 'Email parameter is missing.']);
+        exit;
+    }
 
-$htmlContent = null;
-$textContent = null;
+    try {
+        $pdo = get_db_connection();
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $userExists = $stmt->fetchColumn();
 
-// Check for HTML body as a file upload
-if (isset($_FILES['html_body']) && $_FILES['html_body']['error'] === UPLOAD_ERR_OK) {
-    $htmlContent = file_get_contents($_FILES['html_body']['tmp_name']);
-}
-
-// Check for chat_file (plain text content) as a file upload
-if (isset($_FILES['chat_file']) && $_FILES['chat_file']['error'] === UPLOAD_ERR_OK) {
-    $textContent = file_get_contents($_FILES['chat_file']['tmp_name']);
-    // If subject not explicitly set, try to derive from text content (heuristic)
-    if ($subject === 'No Subject' && $textContent) {
-        if (preg_match('/Subject:\s*(.*)/i', $textContent, $matches)) {
-            $subject = trim($matches[1]);
+        if ($userExists) {
+            echo json_encode(['success' => true, 'is_registered' => true]);
+        } else {
+            echo json_encode(['success' => true, 'is_registered' => false, 'message' => 'User not found.']);
         }
-    }
-}
-
-// Basic validation
-if (empty($sender)) {
-    error_log("Email Handler: Bad Request - Missing sender email.");
-    http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => 'Bad Request: Missing sender email.']);
-    exit;
-}
-
-// --- Database Interaction ---
-$pdo = get_db_connection();
-if (!$pdo) {
-    error_log("Email Handler: Database connection failed.");
-    http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'Failed to connect to the database.']);
-    exit;
-}
-
-try {
-    $stmt = $pdo->prepare(
-        "INSERT INTO emails (sender, recipient, subject, html_content) VALUES (:sender, :recipient, :subject, :html_content)"
-    );
-
-    $isSuccess = $stmt->execute([
-        ':sender' => $sender,
-        ':recipient' => $recipient,
-        ':subject' => $subject,
-        ':html_content' => $htmlContent // Store HTML content if available
-    ]);
-
-    if ($isSuccess) {
-        error_log("Email Handler: Email from " . $sender . " successfully stored.");
-        http_response_code(200);
-        echo json_encode(['status' => 'ok', 'message' => 'Email successfully stored in the database.']);
-    } else {
-        error_log("Email Handler: Failed to store email from " . $sender . " - PDO execute failed.");
+    } catch (PDOException $e) {
+        error_log("Database error in is_user_registered: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['status' => 'error', 'message' => 'Internal Server Error: Could not store the email.']);
+        echo json_encode(['success' => false, 'is_registered' => false, 'message' => 'Internal server error during user check.']);
+    }
+    exit;
+}
+
+
+if ($action === 'process_email') {
+     // --- Email Processing Logic ---
+    $from = $_POST['from'] ?? 'Unknown Sender';
+    $to = $_POST['to'] ?? 'Unknown Recipient';
+    $subject = $_POST['subject'] ?? 'No Subject';
+    $body = $_POST['body'] ?? ''; // The HTML content of the email
+    
+    // Validate required fields
+    if (empty($from) || empty($to) || empty($body)) {
+        http_response_code(400); // Bad Request
+        echo json_encode(['status' => 'error', 'message' => 'Missing required fields: from, to, or body.']);
+        exit;
+    }
+    
+    // Find the user by their email address
+    $pdo = get_db_connection();
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt->execute([$from]);
+    $user = $stmt->fetch();
+    
+    if (!$user) {
+        // Important: We stop here but don't return an error to the Worker,
+        // as the Worker has already checked for user registration.
+        // Logging is sufficient.
+        error_log("Email Handler: Received email from '$from' but user no longer exists in DB. Ignoring.");
+        // Return a success to prevent the worker from retrying.
+        echo json_encode(['status' => 'success', 'message' => 'User not found, but acknowledged.']);
+        exit;
+    }
+    
+    $userId = $user['id'];
+    
+    // Insert the email into the database
+    try {
+        $stmt = $pdo->prepare("INSERT INTO emails (user_id, sender, recipient, subject, html_content) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$userId, $from, $to, $subject, $body]);
+    
+        http_response_code(200);
+        echo json_encode(['status' => 'success', 'message' => 'Email processed successfully.']);
+    
+    } catch (PDOException $e) {
+        error_log("Email Handler DB Error: " . $e->getMessage());
+        http_response_code(500); // Internal Server Error
+        echo json_encode(['status' => 'error', 'message' => 'Failed to save email to the database.']);
     }
 
-} catch (PDOException $e) {
-    error_log("Email Handler: Database error during storage: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'Internal Server Error: Database error during email storage.']);
 }
+
+// Fallback for unknown actions
+http_response_code(400);
+echo json_encode(['status' => 'error', 'message' => 'Unknown action.']);
 
 ?>
