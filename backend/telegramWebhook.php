@@ -22,10 +22,20 @@ $chatId = $message['chat']['id'];
 $userId = $message['from']['id'] ?? $chatId;
 $text = trim($message['text'] ?? '');
 
+// --- Lottery Result Processing (Priority Check) ---
+// This happens for any message in a channel the bot is in, before the admin check.
+if (strpos($text, '开奖') !== false || strpos($text, '特码') !== false) {
+    handleLotteryResult($chatId, $text);
+    http_response_code(200); // Acknowledge receipt and exit
+    echo json_encode(['status' => 'ok']);
+    exit();
+}
+
 // --- Admin Verification ---
+// All logic below this point is for admin commands sent directly to the bot.
 $adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
 if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
-    sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
+    // We don't send a message here because we don't want to reply to non-admins in a channel.
     exit();
 }
 
@@ -77,12 +87,6 @@ if ($userState) {
 
 // This block handles initial commands when the user is not in a specific state.
 } else {
-    // --- Lottery Result Processing (Priority Check) ---
-    if (strpos($text, '开奖') !== false || strpos($text, '特码') !== false) {
-        handleLotteryResult($chatId, $text);
-        exit(); // Stop further processing
-    }
-
     $messageToSend = null;
     $keyboard = getAdminKeyboard();
 
