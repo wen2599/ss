@@ -1,5 +1,5 @@
 
-const API_BASE_URL = ''; // The backend files are in the root directory
+const API_BASE_URL = 'https://wenge.cloudns.ch';
 
 /**
  * A helper function to handle fetch requests and responses.
