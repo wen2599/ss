@@ -10,8 +10,14 @@ try {
     // Get the current date and time.
     $timestamp = date('Y-m-d H:i:s T');
 
-    // Get all request headers.
-    $headers = getallheaders();
+    // Get all request headers using a compatible method.
+    $headers = [];
+    foreach ($_SERVER as $key => $value) {
+        if (substr($key, 0, 5) == 'HTTP_') {
+            $header = str_replace(' ', '-', ucwords(str_replace('_', ' ', strtolower(substr($key, 5)))));
+            $headers[$header] = $value;
+        }
+    }
     $headersJson = json_encode($headers, JSON_PRETTY_PRINT);
 
     // Get the raw request body.
