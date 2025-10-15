@@ -30,5 +30,6 @@ require_once __DIR__ . '/user_state_manager.php';
 require_once __DIR__ . '/api_curl_helper.php'; // Shared cURL function
 require_once __DIR__ . '/gemini_ai_helper.php';
 require_once __DIR__ . '/cloudflare_ai_helper.php';
+require_once __DIR__ . '/lottery_helpers.php';
 // No JWT configuration needed for session-based auth.
 ?>

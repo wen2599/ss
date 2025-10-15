@@ -13,19 +13,34 @@ if (empty($secretToken) || $receivedToken !== $secretToken) {
 
 // --- Main Webhook Logic ---
 $update = json_decode(file_get_contents('php://input'), true);
-if (!$update || !isset($update['message'])) {
+
+// Handle both regular messages and channel posts
+if (isset($update['message'])) {
+    $message = $update['message'];
+} elseif (isset($update['channel_post'])) {
+    $message = $update['channel_post'];
+} else {
+    // If it's neither a message nor a channel post we care about, exit.
     exit();
 }
-
-$message = $update['message'];
 $chatId = $message['chat']['id'];
 $userId = $message['from']['id'] ?? $chatId;
 $text = trim($message['text'] ?? '');
 
+// --- Lottery Result Processing (Priority Check) ---
+// This happens for any message in a channel the bot is in, before the admin check.
+if (strpos($text, '开奖') !== false || strpos($text, '特码') !== false) {
+    handleLotteryResult($chatId, $text);
+    http_response_code(200); // Acknowledge receipt and exit
+    echo json_encode(['status' => 'ok']);
+    exit();
+}
+
 // --- Admin Verification ---
+// All logic below this point is for admin commands sent directly to the bot.
 $adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
 if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
-    sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
+    // We don't send a message here because we don't want to reply to non-admins in a channel.
     exit();
 }
 
@@ -146,5 +161,104 @@ if ($userState) {
 // Acknowledge receipt to Telegram.
 http_response_code(200);
 echo json_encode(['status' => 'ok']);
+
+
+/**
+ * Parses a complex, multi-line message containing lottery results and saves them to the database.
+ *
+ * @param int $chatId The chat ID to send confirmation/error messages to.
+ * @param string $text The message text from Telegram.
+ */
+function handleLotteryResult($chatId, $text) {
+    // Determine Lottery Type
+    $lotteryType = '';
+    if (strpos($text, '新澳门六合彩') !== false) {
+        $lotteryType = '新澳门六合彩';
+    } elseif (strpos($text, '香港六合彩') !== false) {
+        $lotteryType = '香港六合彩';
+    } elseif (strpos($text, '老澳') !== false) {
+        $lotteryType = '老澳门六合彩';
+    } else {
+        sendTelegramMessage($chatId, "⚠️ 无法识别开奖类型。");
+        return;
+    }
+
+    // Extract Issue Number
+    preg_match('/第:?(\d+)\s*期/', $text, $issueMatches);
+    $issueNumber = $issueMatches[1] ?? null;
+    if (!$issueNumber) {
+        sendTelegramMessage($chatId, "❌ 无法从消息中解析期号。");
+        return;
+    }
+
+    $lines = explode("\n", trim($text));
+    if (count($lines) < 2) {
+        sendTelegramMessage($chatId, "❌ 消息格式不完整，至少需要2行（开奖结果，号码）。");
+        return;
+    }
+
+    // Extract Numbers
+    $numbersLine = $lines[1];
+    preg_match_all('/\b(\d{2})\b/', $numbersLine, $numberMatches);
+    $winningNumbers = $numberMatches[0];
+
+    // Validation
+    if (count($winningNumbers) < 7) {
+        sendTelegramMessage($chatId, "❌ 解析失败: 号码数量不足7个。");
+        return;
+    }
+
+    // We only want the first 7 numbers
+    $winningNumbers = array_slice($winningNumbers, 0, 7);
+
+    // Determine Zodiacs and Colors based on the numbers
+    $zodiacs = array_map(function($num) {
+        return get_zodiac_for_number($num);
+    }, $winningNumbers);
+
+    $colors = array_map(function($num) {
+        return get_emoji_for_color(get_color_for_number($num));
+    }, $winningNumbers);
+
+    $winningNumbersStr = implode(',', $winningNumbers);
+    $zodiacSignsStr = implode(',', $zodiacs);
+    $colorsStr = implode(',', $colors);
+
+    try {
+        $pdo = get_db_connection();
+        $stmt = $pdo->prepare(
+            "INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date)
+             VALUES (:lottery_type, :issue_number, :winning_numbers, :zodiac_signs, :colors, CURDATE())
+             ON DUPLICATE KEY UPDATE
+                winning_numbers = VALUES(winning_numbers),
+                zodiac_signs = VALUES(zodiac_signs),
+                colors = VALUES(colors),
+                drawing_date = VALUES(drawing_date)"
+        );
+
+        $stmt->execute([
+            ':lottery_type' => $lotteryType,
+            ':issue_number' => $issueNumber,
+            ':winning_numbers' => $winningNumbersStr,
+            ':zodiac_signs' => $zodiacSignsStr,
+            ':colors' => $colorsStr
+        ]);
+
+        $report = "✅ *开奖结果记录成功*\n\n";
+        $report .= "类型: `{$lotteryType}`\n";
+        $report .= "期号: `{$issueNumber}`\n";
+        $report .= "号码: `{$winningNumbersStr}`\n";
+        $report .= "生肖: `{$zodiacSignsStr}`\n";
+        $report .= "波色: `{$colorsStr}`\n";
+        sendTelegramMessage($chatId, $report);
+
+    } catch (PDOException $e) {
+        error_log("Lottery Result DB Error: " . $e->getMessage());
+        $error_report = "❌ *数据库错误*\n\n";
+        $error_report .= "在保存【{$lotteryType}】第 {$issueNumber} 期开奖结果时发生错误。\n\n";
+        $error_report .= "错误信息: `{$e->getMessage()}`";
+        sendTelegramMessage($chatId, $error_report);
+    }
+}
 
 ?>
