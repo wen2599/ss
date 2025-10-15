@@ -56,7 +56,7 @@ if (strpos($text, '开奖') !== false || strpos($text, '特码') !== false) {
 // All logic below this point is for admin commands sent directly to the bot.
 $adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
 if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
-    // We don't send a message here because we don't want to reply to non-admins in a channel.
+    sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。 (Admin Check Failed)");
     exit();
 }
 
