@@ -1,33 +1,54 @@
 <?php
 
-// Failsafe Webhook Script
+// --- Failsafe Webhook Script ---
 // This script sends a status message at every step to diagnose the issue.
 
-// --- Failsafe Error Reporting ---
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-<?php
+// --- Enhanced Failsafe .env Loader ---
+// This more robust loader populates both putenv and $_ENV for wider compatibility.
+function failsafe_load_env() {
+    $envPath = __DIR__ . '/.env';
+    if (!file_exists($envPath)) {
+        // This is a critical failure, we should try to report it if possible.
+        // The sender function might not have credentials, but we try anyway.
+        send_failsafe_message("<b>❌ FATAL FAILURE: .env file not found.</b> Bot cannot be configured.");
+        exit();
+    }
 
-// FINAL DIAGNOSTIC SCRIPT
-// This version hardcodes credentials to bypass any .env file reading issues.
-// This is for TESTING ONLY and is NOT secure for production.
+    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) continue;
+        if (strpos($line, '=') !== false) {
+            list($name, $value) = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim($value);
+            // Remove surrounding quotes
+            if (strlen($value) > 1 && (($value[0] === '"' && $value[strlen($value) - 1] === '"') || ($value[0] === "'" && $value[strlen($value) - 1] === "'"))) {
+                $value = substr($value, 1, -1);
+            }
+            $_ENV[$name] = $value;
+            putenv("$name=$value");
+        }
+    }
+}
 
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+// --- Enhanced Failsafe Telegram Sender ---
+// This version can be called even before the env is loaded to report critical errors.
+function send_failsafe_message($text) {
+    // Attempt to get credentials, but handle the case where they might not be loaded yet.
+    $bot_token = $_ENV['TELEGRAM_BOT_TOKEN'] ?? getenv('TELEGRAM_BOT_TOKEN');
+    $admin_id = $_ENV['TELEGRAM_ADMIN_ID'] ?? getenv('TELEGRAM_ADMIN_ID');
 
-// --- Hardcoded Credentials for Final Test ---
-define('TELEGRAM_BOT_TOKEN', '7222421940:AAEUTuFvonFCP1o-nRtNWbojCzSM9GQ--jU');
-define('TELEGRAM_ADMIN_ID', '1878794912');
-define('TELEGRAM_WEBHOOK_SECRET', 'A7kZp9sR3bV2nC1mE6gH_jL5tP8vF4qW');
+    if (!$bot_token || !$admin_id) {
+        return; // Silently fail if not configured
+    }
 
-
-// --- Self-Contained Telegram Sender ---
-function send_final_diagnostic($text) {
-    $url = "https://api.telegram.org/bot" . TELEGRAM_BOT_TOKEN . "/sendMessage";
+    $url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
     $payload = [
-        'chat_id' => TELEGRAM_ADMIN_ID,
-        'text' => "FINAL DIAGNOSTIC: " . $text,
+        'chat_id' => $admin_id,
+        'text' => "BOT STATUS: " . $text,
         'parse_mode' => 'HTML'
     ];
 
@@ -42,27 +63,34 @@ function send_final_diagnostic($text) {
 }
 
 // --- Start Execution ---
-send_failsafe_message("<b>1. Webhook triggered.</b> Script starting execution.");
+failsafe_load_env(); // Load environment variables first.
+send_failsafe_message("<b>1. Webhook triggered.</b> Environment loaded.");
 
 // --- Step 2: Load Core Files ---
 try {
     require_once __DIR__ . '/config.php';
     require_once __DIR__ . '/telegram_helpers.php';
-    send_failsafe_message("<b>2. Core files loaded.</b> <code>config.php</code> and <code>telegram_helpers.php</code> were included successfully.");
+    send_failsafe_message("<b>2. Core files loaded.</b> <code>config.php</code> & <code>telegram_helpers.php</code> included.");
 } catch (Throwable $e) {
     send_failsafe_message("<b>❌ FATAL ERROR at Step 2.</b> Failed to load core files. Error: " . $e->getMessage());
     exit();
 }
 
-// --- Step 3: Security Validation ---
-$secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
+// --- Step 3: Security Validation (Enhanced Debugging) ---
+$secretTokenFromEnv = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? null;
 $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
-if (empty($secretToken) || $receivedToken !== $secretToken) {
-    send_failsafe_message("<b>❌ FAILURE at Step 3.</b> Security token mismatch or not configured. Request will be forbidden.");
+
+// For debugging, let's report what we've found.
+$envTokenDisplay = $secretTokenFromEnv ? 'found and is ' . strlen($secretTokenFromEnv) . ' chars long.' : 'is NOT SET in .env file!';
+$receivedTokenDisplay = $receivedToken ? 'received and is ' . strlen($receivedToken) . ' chars long.' : 'was NOT RECEIVED from Telegram.';
+send_failsafe_message("<b>3. Validating Security.</b>\n- .env token: <code>" . $envTokenDisplay . "</code>\n- Header token: <code>" . $receivedTokenDisplay . "</code>");
+
+if (empty($secretTokenFromEnv) || $receivedToken !== $secretTokenFromEnv) {
+    send_failsafe_message("<b>❌ FAILURE at Step 3.</b> Security token mismatch or not configured. Request forbidden.");
     http_response_code(403);
     exit('Forbidden: Secret token mismatch.');
 }
-send_failsafe_message("<b>3. Security token validated.</b>");
+send_failsafe_message("<b>3a. Security token validated successfully.</b>");
 
 
 // --- Step 4: Read Input ---
@@ -92,14 +120,12 @@ $message = $update['message'];
 $chatId = $message['chat']['id'];
 $userId = $message['from']['id'] ?? $chatId;
 $command = trim($message['text'] ?? '');
-send_failsafe_message("<b>6. Data extracted.</b> ChatID: {$chatId}, Command: '{$command}'");
+send_failsafe_message("<b>6. Data extracted.</b> ChatID: {$chatId}, UserID: {$userId}, Command: '{$command}'");
 
 // --- Step 7: Admin Verification ---
-$adminUserId = getenv('TELEGRAM_ADMIN_ID');
+$adminUserId = $_ENV['TELEGRAM_ADMIN_ID'] ?? null;
 if (empty($adminUserId) || (string)$userId !== (string)$adminUserId) {
-    send_failsafe_message("<b>❌ FAILURE at Step 7.</b> Received message from an unauthorized User ID: {$userId}. Expected: {$adminUserId}.");
-    // Do not exit, but you could send a gentle message to the user if you wanted.
-    // For security, we just stop processing.
+    send_failsafe_message("<b>❌ FAILURE at Step 7.</b> Received message from unauthorized User ID: {$userId}. Expected: {$adminUserId}.");
     http_response_code(200); // Respond OK to Telegram to prevent webhook retries
     exit();
 }
@@ -118,5 +144,4 @@ try {
 // Acknowledge receipt to Telegram's server.
 http_response_code(200);
 echo json_encode(['status' => 'ok']);
-
 ?>
