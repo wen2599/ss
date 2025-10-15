@@ -32,10 +32,12 @@ failsafe_load_env();
 // A minimal, self-contained function to send a message. It does not rely on any other files.
 function send_failsafe_message($text) {
     $bot_token = getenv('TELEGRAM_BOT_TOKEN');
-    $admin_id = getenv('TELEGRAM_ADMIN_CHAT_ID');
+    // CORRECTED: Use the correct admin ID variable.
+    $admin_id = getenv('TELEGRAM_ADMIN_ID');
 
     if (!$bot_token || !$admin_id) {
         // Cannot send status if credentials are not even in .env
+        // This was the source of the silent failure.
         return;
     }
 
