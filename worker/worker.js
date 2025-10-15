@@ -22,23 +22,6 @@ function decodeQuotedPrintable(input) {
     .replace(/=([A-Fa-f0-9]{2})/g, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
 }
 
-// Base64 解码 (UTF-8)
-function decodeBase64(input) {
-  try {
-    // Standard base64 decoding
-    const binaryString = atob(input.replace(/(\r\n|\n|\r)/gm, ""));
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-    }
-    // Decode as UTF-8
-    return new TextDecoder('utf-8').decode(bytes);
-  } catch (e) {
-    console.error("Base64 decoding failed:", e);
-    return input; // Return original input if decoding fails
-  }
-}
-
 // 解析邮件头
 function parseHeaders(headers) {
   const headerMap = {};
@@ -129,30 +112,68 @@ function extractHTMLBody(rawEmail) {
 
       const partContentType = partHeaders['content-type'] || '';
       const contentEncoding = (partHeaders['content-transfer-encoding'] || '').toLowerCase();
+      const charsetMatch = partContentType.match(/charset="?([^"]+)"?/i);
+      const charset = charsetMatch ? charsetMatch[1].toLowerCase() : 'utf-8'; // Default to utf-8
 
-      let decodedPartBody = partBody;
+      let decodedPartBody;
+      const decoder = new TextDecoder(charset);
+
       if (contentEncoding === 'base64') {
-        decodedPartBody = decodeBase64(partBody);
+        // The existing decodeBase64 function assumes UTF-8, which is wrong.
+        // We need to decode to binary first, then use the correct charset decoder.
+        try {
+          const binaryString = atob(partBody.replace(/(\r\n|\n|\r)/gm, ""));
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+          }
+          decodedPartBody = decoder.decode(bytes);
+        } catch(e) {
+          console.error("Base64 decoding with charset failed:", e);
+          decodedPartBody = partBody; // Fallback
+        }
       } else if (contentEncoding === 'quoted-printable') {
-        decodedPartBody = decodeQuotedPrintable(partBody);
+        // Quoted-printable needs to be decoded into raw bytes and then decoded with the correct charset.
+        const decodedBytes = new Uint8Array(
+          decodeQuotedPrintable(partBody).split('').map(c => c.charCodeAt(0))
+        );
+        decodedPartBody = decoder.decode(decodedBytes);
+      } else {
+        decodedPartBody = partBody; // Assume plain text if no encoding
       }
 
       if (partContentType.includes('text/html')) {
         htmlPart = decodedPartBody;
-        break; // Prefer HTML part, so we can stop here
+        // Don't break; a later part might be a better match (e.g. multipart/alternative)
       } else if (partContentType.includes('text/plain')) {
         textPart = decodedPartBody;
       }
     }
-    // Return HTML if found, otherwise fallback to plain text, or finally the raw body.
+    // Prefer HTML, fallback to text, then to the raw body
     return htmlPart || textPart || emailBody;
   } else {
     // Not a multipart email, so the whole body is the content.
     const contentEncoding = (headers['content-transfer-encoding'] || '').toLowerCase();
+    const charsetMatch = contentType.match(/charset="?([^"]+)"?/i);
+    const charset = charsetMatch ? charsetMatch[1].toLowerCase() : 'utf-8';
+    const decoder = new TextDecoder(charset);
+
     if (contentEncoding === 'base64') {
-      return decodeBase64(emailBody);
+      try {
+        const binaryString = atob(emailBody.replace(/(\r\n|\n|\r)/gm, ""));
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return decoder.decode(bytes);
+      } catch(e) {
+        return emailBody;
+      }
     } else if (contentEncoding === 'quoted-printable') {
-      return decodeQuotedPrintable(emailBody);
+      const decodedBytes = new Uint8Array(
+        decodeQuotedPrintable(emailBody).split('').map(c => c.charCodeAt(0))
+      );
+      return decoder.decode(decodedBytes);
     }
     return emailBody;
   }
