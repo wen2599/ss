@@ -1,5 +1,34 @@
 <?php
 
+// --- Pre-emptive Writable Check ---
+// This runs before anything else. If the directory isn't writable,
+// we send a direct, hardcoded error message to the admin and die.
+// This prevents silent failures if logging or state management fails.
+if (!is_writable(__DIR__)) {
+    $adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID') ?: 'YOUR_ADMIN_CHAT_ID'; // Failsafe
+    $botToken = getenv('TELEGRAM_BOT_TOKEN') ?: 'YOUR_BOT_TOKEN'; // Failsafe
+
+    if ($adminChatId && $botToken && $adminChatId !== 'YOUR_ADMIN_CHAT_ID') {
+        $errorMessage = "CRITICAL ERROR: The bot's directory on the server is not writable. The bot cannot function. Please correct the file permissions.";
+        $url = "https://api.telegram.org/bot{$botToken}/sendMessage";
+        $payload = json_encode(['chat_id' => $adminChatId, 'text' => $errorMessage]);
+
+        // Use a basic cURL to send the error, avoiding all other dependencies.
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5); // 5-second timeout
+        curl_exec($ch);
+        curl_close($ch);
+    }
+
+    // Stop all further execution.
+    http_response_code(500);
+    exit("FATAL: Directory not writable.");
+}
+
 // --- Environment Variable Loading ---
 function load_env() {
     $envPath = __DIR__ . '/.env';
