@@ -1,5 +1,8 @@
 <?php
 
+// Unconditional first-line test to see if the script executes and can write.
+file_put_contents(__DIR__ . '/execution_start.log', 'Config file was executed at ' . date('Y-m-d H:i:s'));
+
 // --- Pre-emptive Writable Check ---
 // This runs before anything else. If the directory isn't writable,
 // we send a direct, hardcoded error message to the admin and die.

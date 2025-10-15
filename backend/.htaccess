@@ -2,6 +2,10 @@
   RewriteEngine On
   RewriteBase /
 
+  # Pass the Telegram secret token header to PHP
+  RewriteCond %{HTTP:X-Telegram-Bot-Api-Secret-Token} .
+  RewriteRule . - [E=HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN:%{HTTP:X-Telegram-Bot-Api-Secret-Token}]
+
   # Allow the Telegram webhook to be accessed directly
   RewriteRule ^telegramWebhook\.php$ - [L]
 
