@@ -3,6 +3,9 @@
 
 require_once __DIR__ . '/api_header.php';
 
+// --- Debugging ---
+error_log("Session data in get_emails.php: " . print_r($_SESSION, true));
+
 // --- Authentication Check ---
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401); // Unauthorized
