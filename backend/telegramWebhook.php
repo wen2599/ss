@@ -7,55 +7,27 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-// --- Enhanced Failsafe .env Loader ---
-// This more robust loader populates both putenv and $_ENV for wider compatibility.
-function failsafe_load_env() {
-    $envPath = __DIR__ . '/.env';
-    if (!file_exists($envPath)) {
-        // This is a critical failure, we should try to report it if possible.
-        // The sender function might not have credentials, but we try anyway.
-        send_failsafe_message("<b>❌ FATAL FAILURE: .env file not found.</b> Bot cannot be configured.");
-        exit();
-    }
+<?php
 
-    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) continue;
-        if (strpos($line, '=') !== false) {
-            list($name, $value) = explode('=', $line, 2);
-            $name = trim($name);
-            $value = trim($value);
-            // Remove surrounding quotes
-            if (strlen($value) > 1 && (($value[0] === '"' && $value[strlen($value) - 1] === '"') || ($value[0] === "'" && $value[strlen($value) - 1] === "'"))) {
-                $value = substr($value, 1, -1);
-            }
-            $_ENV[$name] = $value;
-            putenv("$name=$value");
-        }
-    }
-}
+// FINAL DIAGNOSTIC SCRIPT
+// This version hardcodes credentials to bypass any .env file reading issues.
+// This is for TESTING ONLY and is NOT secure for production.
 
-// --- Enhanced Failsafe Telegram Sender ---
-// This version can be called even before the env is loaded to report critical errors.
-function send_failsafe_message($text, $force_send_even_if_no_env = false) {
-    // Attempt to get credentials, but handle the case where they might not be loaded yet.
-    $bot_token = $_ENV['TELEGRAM_BOT_TOKEN'] ?? getenv('TELEGRAM_BOT_TOKEN');
-    $admin_id = $_ENV['TELEGRAM_ADMIN_ID'] ?? getenv('TELEGRAM_ADMIN_ID');
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
-    if (!$force_send_even_if_no_env && (!$bot_token || !$admin_id)) {
-        return; // Silently fail if not configured, unless forced.
-    }
+// --- Hardcoded Credentials for Final Test ---
+define('TELEGRAM_BOT_TOKEN', '7222421940:AAEUTuFvonFCP1o-nRtNWbojCzSM9GQ--jU');
+define('TELEGRAM_ADMIN_ID', '1878794912');
+define('TELEGRAM_WEBHOOK_SECRET', 'A7kZp9sR3bV2nC1mE6gH_jL5tP8vF4qW');
 
-    // If forced, we might have to use hardcoded values if env fails, but for now we try.
-    if (!$bot_token || !$admin_id) {
-        // Cannot send message if we don't have the details.
-        return;
-    }
 
-    $url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
+// --- Self-Contained Telegram Sender ---
+function send_final_diagnostic($text) {
+    $url = "https://api.telegram.org/bot" . TELEGRAM_BOT_TOKEN . "/sendMessage";
     $payload = [
-        'chat_id' => $admin_id,
-        'text' => "BOT STATUS: " . $text,
+        'chat_id' => TELEGRAM_ADMIN_ID,
+        'text' => "FINAL DIAGNOSTIC: " . $text,
         'parse_mode' => 'HTML'
     ];
 
