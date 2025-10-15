@@ -5,13 +5,14 @@
 
 echo "Starting Core Logic Test...\n";
 
-// --- Step 1: Load all configurations and functions ---
-// We need config.php for environment variables and db connection.
-// We need telegramWebhook.php for the processCommand function.
-// We suppress errors here because telegramWebhook.php might try to echo headers,
-// which is fine to ignore in a command-line test.
-@require_once __DIR__ . '/config.php';
-@require_once __DIR__ . '/telegramWebhook.php';
+// --- Step 1: Define that we are in a test context ---
+// This constant will be checked in telegramWebhook.php to prevent it
+// from running its main logic (like security checks) when included.
+define('IS_LOGIC_TEST', true);
+
+// --- Step 2: Load all configurations and functions ---
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/telegramWebhook.php';
 
 echo "Configuration and webhook script loaded.\n";
 
