@@ -230,13 +230,27 @@ export default {
       const backendUrl = new URL(url.pathname, backendServer);
       backendUrl.search = url.search;
 
-      // Create a new headers object from the original request to make it mutable
-      const requestHeaders = new Headers(request.headers);
+      // --- Start of Worker Debug Logging ---
+      console.log(`[WORKER] Proxying request for: ${url.pathname}`);
+      const incomingHeaders = {};
+      for (const [key, value] of request.headers.entries()) {
+        incomingHeaders[key] = value;
+      }
+      console.log('[WORKER] Incoming Headers:', JSON.stringify(incomingHeaders, null, 2));
+      // --- End of Worker Debug Logging ---
 
-      // Ensure the host header is set to the backend's hostname
+      const requestHeaders = new Headers(request.headers);
       requestHeaders.set('Host', new URL(backendServer).hostname);
 
-      // Forward the request to the backend, ensuring all headers are passed along.
+      // --- Start of Worker Debug Logging ---
+      const outgoingHeaders = {};
+      for (const [key, value] of requestHeaders.entries()) {
+        outgoingHeaders[key] = value;
+      }
+      console.log(`[WORKER] Forwarding to backend URL: ${backendUrl}`);
+      console.log('[WORKER] Outgoing Headers:', JSON.stringify(outgoingHeaders, null, 2));
+      // --- End of Worker Debug Logging ---
+
       const backendRequest = new Request(backendUrl, {
         method: request.method,
         headers: requestHeaders,
