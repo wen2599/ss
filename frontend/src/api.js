@@ -81,3 +81,15 @@ export const deleteBill = (id) => {
         method: 'DELETE',
     });
 };
+
+/**
+ * Sends an email ID to the backend to be processed by the AI worker.
+ * @param {number} id The ID of the email to process.
+ * @returns {Promise<any>} The structured data extracted by the AI.
+ */
+export const processEmailWithAI = (id) => {
+    return fetchJson(`${API_BASE_URL}/process_email_ai.php`, {
+        method: 'POST',
+        body: JSON.stringify({ email_id: id }),
+    });
+};
