@@ -235,11 +235,20 @@ function handleLotteryResult($chatId, $text) {
             ':colors' => $colorsStr
         ]);
 
-        sendTelegramMessage($chatId, "✅ 成功记录【{$lotteryType}】第 {$issueNumber} 期开奖号码:\n号码: `{$winningNumbersStr}`\n生肖: `{$zodiacSignsStr}`\n波色: `{$colorsStr}`");
+        $report = "✅ *开奖结果记录成功*\n\n";
+        $report .= "类型: `{$lotteryType}`\n";
+        $report .= "期号: `{$issueNumber}`\n";
+        $report .= "号码: `{$winningNumbersStr}`\n";
+        $report .= "生肖: `{$zodiacSignsStr}`\n";
+        $report .= "波色: `{$colorsStr}`\n";
+        sendTelegramMessage($chatId, $report);
 
     } catch (PDOException $e) {
         error_log("Lottery Result DB Error: " . $e->getMessage());
-        sendTelegramMessage($chatId, "❌ 保存【{$lotteryType}】第 {$issueNumber} 期开奖号码时发生数据库错误。");
+        $error_report = "❌ *数据库错误*\n\n";
+        $error_report .= "在保存【{$lotteryType}】第 {$issueNumber} 期开奖结果时发生错误。\n\n";
+        $error_report .= "错误信息: `{$e->getMessage()}`";
+        sendTelegramMessage($chatId, $error_report);
     }
 }
 
