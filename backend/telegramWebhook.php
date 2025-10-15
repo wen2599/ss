@@ -1,205 +1,133 @@
 <?php
 
-// --- Unified Configuration and Helpers ---
-require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/telegram_helpers.php';
+// Failsafe Webhook Script
+// This script sends a status message at every step to diagnose the issue.
 
-// --- Security Validation ---
-$secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
-$receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
+// --- Failsafe Error Reporting ---
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
-if (empty($secretToken) || $receivedToken !== $secretToken) {
-    http_response_code(403);
-    exit('Forbidden: Secret token mismatch.');
+// --- Failsafe .env Loader ---
+// We need to load this first to get the credentials for sending status messages.
+function failsafe_load_env() {
+    $envPath = __DIR__ . '/.env';
+    if (!file_exists($envPath)) return;
+    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) continue;
+        if (strpos($line, '=') !== false) {
+            list($name, $value) = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim($value);
+            if (strlen($value) > 1 && $value[0] === '"' && $value[strlen($value) - 1] === '"') {
+                $value = substr($value, 1, -1);
+            }
+            putenv("$name=$value");
+        }
+    }
+}
+failsafe_load_env();
+
+// --- Failsafe Telegram Sender ---
+// A minimal, self-contained function to send a message. It does not rely on any other files.
+function send_failsafe_message($text) {
+    $bot_token = getenv('TELEGRAM_BOT_TOKEN');
+    $admin_id = getenv('TELEGRAM_ADMIN_CHAT_ID');
+
+    if (!$bot_token || !$admin_id) {
+        // Cannot send status if credentials are not even in .env
+        return;
+    }
+
+    $url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
+    $payload = [
+        'chat_id' => $admin_id,
+        'text' => "BOT STATUS: " . $text,
+        'parse_mode' => 'HTML'
+    ];
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    curl_exec($ch);
+    curl_close($ch);
 }
 
-// --- Main Webhook Logic ---
-$update = json_decode(file_get_contents('php://input'), true);
+// --- Start Execution ---
+send_failsafe_message("<b>1. Webhook triggered.</b> Script starting execution.");
 
-// We only process 'message' updates in this simplified model.
-if (!isset($update['message'])) {
+// --- Step 2: Load Core Files ---
+try {
+    require_once __DIR__ . '/config.php';
+    require_once __DIR__ . '/telegram_helpers.php';
+    send_failsafe_message("<b>2. Core files loaded.</b> <code>config.php</code> and <code>telegram_helpers.php</code> were included successfully.");
+} catch (Throwable $e) {
+    send_failsafe_message("<b>❌ FATAL ERROR at Step 2.</b> Failed to load core files. Error: " . $e->getMessage());
     exit();
 }
 
+// --- Step 3: Security Validation ---
+$secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
+$receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
+if (empty($secretToken) || $receivedToken !== $secretToken) {
+    send_failsafe_message("<b>❌ FAILURE at Step 3.</b> Security token mismatch or not configured. Request will be forbidden.");
+    http_response_code(403);
+    exit('Forbidden: Secret token mismatch.');
+}
+send_failsafe_message("<b>3. Security token validated.</b>");
+
+
+// --- Step 4: Read Input ---
+$raw_input = file_get_contents('php://input');
+if ($raw_input === false || empty($raw_input)) {
+    send_failsafe_message("<b>❌ FAILURE at Step 4.</b> Raw input from Telegram was empty or could not be read.");
+    exit();
+}
+send_failsafe_message("<b>4. Raw input received.</b> Length: " . strlen($raw_input) . " bytes.");
+
+
+// --- Step 5: Decode JSON ---
+$update = json_decode($raw_input, true);
+if ($update === null) {
+    send_failsafe_message("<b>❌ FAILURE at Step 5.</b> Failed to decode JSON from raw input.");
+    exit();
+}
+send_failsafe_message("<b>5. JSON decoded successfully.</b>");
+
+
+// --- Step 6: Extract Data ---
+if (!isset($update['message'])) {
+    send_failsafe_message("<b>EXIT at Step 6.</b> Update was not a 'message' type. Nothing to do.");
+    exit();
+}
 $message = $update['message'];
 $chatId = $message['chat']['id'];
 $userId = $message['from']['id'] ?? $chatId;
 $command = trim($message['text'] ?? '');
+send_failsafe_message("<b>6. Data extracted.</b> ChatID: {$chatId}, Command: '{$command}'");
 
-// --- Admin Verification ---
+// --- Step 7: Admin Verification ---
 $adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
 if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
-    sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
+    send_failsafe_message("<b>❌ FAILURE at Step 7.</b> Received message from an unauthorized Chat ID: {$chatId}.");
+    exit();
+}
+send_failsafe_message("<b>7. Admin verified.</b>");
+
+// --- Step 8: Process Command ---
+try {
+    send_failsafe_message("<b>8. Processing command...</b> Calling <code>processCommand()</code>.");
+    processCommand($chatId, $userId, $command);
+    send_failsafe_message("<b>✅ SUCCESS!</b> Command processing finished without errors.");
+} catch (Throwable $e) {
+    send_failsafe_message("<b>❌ FATAL ERROR at Step 8.</b> An error occurred inside <code>processCommand()</code>: " . $e->getMessage());
     exit();
 }
 
-// --- Process the Command ---
-processCommand($chatId, $userId, $command);
-
-
-/**
- * Processes the user's command.
- *
- * @param int    $chatId  The chat ID to send responses to.
- * @param int    $userId  The user ID for state management.
- * @param string $command The command or text input from the user.
- */
-function processCommand($chatId, $userId, $command) {
-    $userState = getUserState($userId);
-
-    if ($userState) {
-        handleStatefulInteraction($chatId, $userId, $command, $userState);
-    } else {
-        handleCommand($chatId, $userId, $command);
-    }
-}
-
-/**
- * Handles interactions when the user is in a specific state (e.g., awaiting input).
- */
-function handleStatefulInteraction($chatId, $userId, $text, $userState) {
-    $stateCleared = false;
-
-    if (strpos($userState, 'awaiting_api_key_') === 0) {
-        $keyToUpdate = substr($userState, strlen('awaiting_api_key_'));
-        if (update_env_file($keyToUpdate, $text)) {
-            sendTelegramMessage($chatId, "✅ API 密钥 `{$keyToUpdate}` 已成功更新！新配置已生效。", getAdminKeyboard());
-        } else {
-            sendTelegramMessage($chatId, "❌ 更新 API 密钥失败！", getAdminKeyboard());
-        }
-        $stateCleared = true;
-    } elseif ($userState === 'awaiting_gemini_prompt' || $userState === 'awaiting_cloudflare_prompt') {
-        sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
-        $response = ($userState === 'awaiting_gemini_prompt') ? call_gemini_api($text) : call_cloudflare_ai_api($text);
-        sendTelegramMessage($chatId, $response, getAdminKeyboard());
-        $stateCleared = true;
-    } elseif ($userState === 'awaiting_user_deletion') {
-        if (filter_var($text, FILTER_VALIDATE_EMAIL)) {
-            if (deleteUserByEmail($text)) {
-                sendTelegramMessage($chatId, "✅ 用户 `{$text}` 已成功删除。", getUserManagementKeyboard());
-            } else {
-                sendTelegramMessage($chatId, "⚠️ 删除失败。用户 `{$text}` 不存在或数据库出错。", getUserManagementKeyboard());
-            }
-        } else {
-            sendTelegramMessage($chatId, "❌ 您输入的不是一个有效的邮箱地址。", getUserManagementKeyboard());
-        }
-        $stateCleared = true;
-    } else {
-        $stateCleared = true; // Clear invalid state
-        sendTelegramMessage($chatId, "系统状态异常，已重置。", getAdminKeyboard());
-    }
-
-    if ($stateCleared) {
-        if (setUserState($userId, null) === false) {
-            sendTelegramMessage($chatId, "⚠️ **警告:** 无法写入状态文件。");
-        }
-    }
-}
-
-/**
- * Handles stateless command processing (e.g., menu navigation).
- */
-function handleCommand($chatId, $userId, $command) {
-    $messageToSend = null;
-    $keyboard = getAdminKeyboard();
-
-    switch ($command) {
-        case '/start':
-        case '/':
-        case '返回主菜单':
-            $messageToSend = "欢迎回来，管理员！请选择一个操作。";
-            break;
-
-        case '文件管理':
-            $messageToSend = "请选择一个文件管理操作:";
-            $keyboard = getFileManagementKeyboard();
-            break;
-
-        case '列出文件':
-            $files = scandir(__DIR__);
-            if ($files === false) {
-                $messageToSend = "❌ 无法读取当前目录的文件列表。";
-            } else {
-                $blacklist = ['.', '..', '.env', '.env.example', '.git', '.gitignore', '.htaccess', 'config.php', 'vendor', 'composer.json', 'composer.lock', 'telegramWebhook.php', 'test_telegram.php'];
-                $messageToSend = "📁 **当前目录文件列表:**\n\n```\n";
-                $foundFiles = false;
-                foreach ($files as $file) {
-                    if (!in_array($file, $blacklist, true)) {
-                        $messageToSend .= $file . "\n";
-                        $foundFiles = true;
-                    }
-                }
-                if (!$foundFiles) $messageToSend .= "(没有可显示的文件)\n";
-                $messageToSend .= "```";
-            }
-            $keyboard = getFileManagementKeyboard();
-            break;
-
-        case '用户管理':
-            $messageToSend = "请选择一个用户管理操作:";
-            $keyboard = getUserManagementKeyboard();
-            break;
-
-        case '查看用户列表':
-            $users = getAllUsers();
-            if (empty($users)) {
-                $messageToSend = "数据库中没有找到任何用户。";
-            } else {
-                $messageToSend = "注册用户列表:\n\n";
-                foreach ($users as $user) {
-                    $messageToSend .= "📧 **邮箱:** `{$user['email']}`\n📅 **注册于:** {$user['created_at']}\n\n";
-                }
-            }
-            $keyboard = getUserManagementKeyboard();
-            break;
-
-        case '删除用户':
-            if (setUserState($userId, 'awaiting_user_deletion') === false) {
-                $messageToSend = "⚠️ **警告:** 无法写入状态文件。";
-            } else {
-                $messageToSend = "好的，请发送您想要删除的用户的电子邮件地址。";
-                $keyboard = null;
-            }
-            break;
-
-        case '请求 Gemini':
-        case '请求 Cloudflare':
-            $state = ($command === '请求 Gemini') ? 'awaiting_gemini_prompt' : 'awaiting_cloudflare_prompt';
-            if (setUserState($userId, $state) === false) {
-                $messageToSend = "⚠️ **警告:** 无法写入状态文件。";
-            } else {
-                $messageToSend = "好的，请直接输入您想说的话。";
-                $keyboard = null;
-            }
-            break;
-
-        case '更换 API 密钥':
-            $messageToSend = "请选择您想要更新的 API 密钥：";
-            $keyboard = getApiKeySelectionKeyboard();
-            break;
-
-        case 'Gemini API Key':
-            if (setUserState($userId, 'awaiting_api_key_GEMINI_API_KEY') === false) {
-                $messageToSend = "⚠️ **警告:** 无法写入状态文件。";
-            } else {
-                $messageToSend = "好的，请发送您的新 Gemini API 密钥。";
-                $keyboard = null;
-            }
-            break;
-
-        default:
-            if (!empty($command)) {
-                $messageToSend = "无法识别的指令，请使用下方键盘操作。";
-            }
-            break;
-    }
-
-    if ($messageToSend) {
-        sendTelegramMessage($chatId, $messageToSend, $keyboard);
-    }
-}
-
-// Acknowledge receipt to Telegram.
+// Acknowledge receipt to Telegram's server.
 http_response_code(200);
 echo json_encode(['status' => 'ok']);
 
