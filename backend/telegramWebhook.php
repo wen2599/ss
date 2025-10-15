@@ -7,11 +7,17 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-// --- Failsafe .env Loader ---
-// We need to load this first to get the credentials for sending status messages.
+// --- Enhanced Failsafe .env Loader ---
+// This more robust loader populates both putenv and $_ENV for wider compatibility.
 function failsafe_load_env() {
     $envPath = __DIR__ . '/.env';
-    if (!file_exists($envPath)) return;
+    if (!file_exists($envPath)) {
+        // This is a critical failure, we should try to report it if possible.
+        // The sender function might not have credentials, but we try anyway.
+        send_failsafe_message("<b>❌ FATAL FAILURE: .env file not found.</b> Bot cannot be configured.");
+        exit();
+    }
+
     $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
         if (strpos(trim($line), '#') === 0) continue;
@@ -19,25 +25,30 @@ function failsafe_load_env() {
             list($name, $value) = explode('=', $line, 2);
             $name = trim($name);
             $value = trim($value);
-            if (strlen($value) > 1 && $value[0] === '"' && $value[strlen($value) - 1] === '"') {
+            // Remove surrounding quotes
+            if (strlen($value) > 1 && (($value[0] === '"' && $value[strlen($value) - 1] === '"') || ($value[0] === "'" && $value[strlen($value) - 1] === "'"))) {
                 $value = substr($value, 1, -1);
             }
+            $_ENV[$name] = $value;
             putenv("$name=$value");
         }
     }
 }
-failsafe_load_env();
 
-// --- Failsafe Telegram Sender ---
-// A minimal, self-contained function to send a message. It does not rely on any other files.
-function send_failsafe_message($text) {
-    $bot_token = getenv('TELEGRAM_BOT_TOKEN');
-    // CORRECTED: Use the correct admin ID variable.
-    $admin_id = getenv('TELEGRAM_ADMIN_ID');
+// --- Enhanced Failsafe Telegram Sender ---
+// This version can be called even before the env is loaded to report critical errors.
+function send_failsafe_message($text, $force_send_even_if_no_env = false) {
+    // Attempt to get credentials, but handle the case where they might not be loaded yet.
+    $bot_token = $_ENV['TELEGRAM_BOT_TOKEN'] ?? getenv('TELEGRAM_BOT_TOKEN');
+    $admin_id = $_ENV['TELEGRAM_ADMIN_ID'] ?? getenv('TELEGRAM_ADMIN_ID');
 
+    if (!$force_send_even_if_no_env && (!$bot_token || !$admin_id)) {
+        return; // Silently fail if not configured, unless forced.
+    }
+
+    // If forced, we might have to use hardcoded values if env fails, but for now we try.
     if (!$bot_token || !$admin_id) {
-        // Cannot send status if credentials are not even in .env
-        // This was the source of the silent failure.
+        // Cannot send message if we don't have the details.
         return;
     }
 
