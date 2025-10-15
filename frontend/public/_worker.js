@@ -10,12 +10,16 @@ export default {
       const backendUrl = new URL(url.pathname, backendServer);
       backendUrl.search = url.search;
 
+      // Create a new Headers object to ensure all headers, especially the
+      // 'X-Telegram-Bot-Api-Secret-Token', are passed through correctly.
+      const requestHeaders = new Headers(request.headers);
+
       const backendRequest = new Request(backendUrl.toString(), {
         method: request.method,
-        headers: request.headers,
+        headers: requestHeaders,
         body: request.body,
         redirect: 'follow',
-        duplex: 'half', // Required for streaming bodies in POST requests
+        duplex: 'half',
       });
 
       try {
