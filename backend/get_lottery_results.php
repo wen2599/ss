@@ -1,9 +1,18 @@
 <?php
 require_once __DIR__ . '/api_header.php';
 
+$log_file = __DIR__ . '/lottery_api.log';
+function write_log($message) {
+    global $log_file;
+    file_put_contents($log_file, date('[Y-m-d H:i:s]') . ' ' . $message . PHP_EOL, FILE_APPEND);
+}
+
+write_log("--- [API CALL STARTED] ---");
+
 try {
     $pdo = get_db_connection();
     $lotteryType = $_GET['type'] ?? null;
+    write_log("Request received for type: " . ($lotteryType ?? 'None'));
 
     $sql = "SELECT lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date
             FROM lottery_results";
@@ -18,7 +27,13 @@ try {
         $stmt = $pdo->query($sql);
     }
 
+    write_log("Executing SQL: " . $sql);
+    if ($lotteryType) {
+        write_log("With parameter: " . $lotteryType);
+    }
+
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    write_log("Database result: " . ($result ? json_encode($result) : 'No result found.'));
 
     if ($result) {
         // Explode comma-separated strings into arrays for easier frontend consumption
@@ -32,6 +47,7 @@ try {
     }
 
 } catch (PDOException $e) {
+    write_log("DATABASE ERROR: " . $e->getMessage());
     http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => 'Database error while fetching lottery results.']);
 }
