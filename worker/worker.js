@@ -1,350 +1,64 @@
-// worker/worker.js (Complete version combining proxy and new email handler)
-
-// ========== 1. Helper Functions for Email Parsing ==========
-
-// 将 ReadableStream 转为字符串
-async function streamToString(stream) {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let result = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    result += decoder.decode(value, { stream: true });
-  }
-  return result;
-}
-
-// quoted-printable 解码
-function decodeQuotedPrintable(input) {
-  return input
-    .replace(/=(?:\r\n|\n|\r)/g, '') // 软换行
-    .replace(/=([A-Fa-f0-9]{2})/g, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
-}
-
-// 解析邮件头
-function parseHeaders(headers) {
-  const headerMap = {};
-  const headerLines = headers.split('\r\n');
-  let currentHeader = '';
-  headerLines.forEach(line => {
-    if (line.startsWith(' ') || line.startsWith('\t')) {
-      // Continuation of the previous header
-      headerMap[currentHeader] += ' ' + line.trim();
-    } else if (line.includes(':')) {
-      const parts = line.split(':');
-      currentHeader = parts[0].toLowerCase();
-      headerMap[currentHeader] = parts.slice(1).join(':').trim();
-    }
-  });
-  return headerMap;
-}
-
-
-// 解析邮件主题
-function decodeSubject(subject) {
-    if (!subject) return 'No Subject';
-    // Matches RFC 2047 encoded-word format: =?charset?encoding?encoded-text?=
-    return subject.replace(/=\?([^?]+)\?([BQ])\?([^?]+)\?=/gi, (match, charset, encoding, encodedText) => {
-        try {
-            const decoder = new TextDecoder(charset);
-            if (encoding.toUpperCase() === 'B') {
-                const binaryString = atob(encodedText);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
-                }
-                return decoder.decode(bytes);
-            } else if (encoding.toUpperCase() === 'Q') {
-                return decoder.decode(
-                    new Uint8Array(
-                        decodeQuotedPrintable(encodedText.replace(/_/g, ' ')).split('').map(c => c.charCodeAt(0))
-                    )
-                );
-            }
-        } catch (e) {
-            console.error(`Failed to decode subject part: ${match}`, e);
-        }
-        return encodedText; // Return as-is if decoding fails
-    });
-}
-
-
-// ========== 2. New Helper Function for Body Extraction ==========
-
-/**
- * Parses a raw email string to find and decode the HTML body.
- * @param {string} rawEmail - The full raw email content.
- * @returns {string} The decoded HTML body, or a fallback.
- */
-function extractHTMLBody(rawEmail) {
-  const headers = parseHeaders(rawEmail.split(/\r\n\r\n/)[0]);
-  const contentType = headers['content-type'] || '';
-  const bodyStartIndex = rawEmail.indexOf('\r\n\r\n');
-
-  if (bodyStartIndex === -1) {
-    return ''; // No body found
-  }
-  const emailBody = rawEmail.substring(bodyStartIndex + 4);
-
-  if (contentType.includes('multipart/')) {
-    const boundaryMatch = contentType.match(/boundary="?([^"]+)"?/);
-    if (!boundaryMatch) {
-      return emailBody; // Cannot parse without boundary, return raw body
-    }
-
-    // The boundary in the body is prefixed with "--"
-    const boundary = `--${boundaryMatch[1]}`;
-    const parts = emailBody.split(new RegExp(`\\s*${boundary}(--)?\\s*`));
-
-    let htmlPart = '';
-    let textPart = '';
-
-    for (const part of parts) {
-      // Add a check to ensure 'part' is a string before calling .trim()
-      if (typeof part !== 'string' || !part.trim()) continue;
-
-      const partHeadersEndIndex = part.indexOf('\r\n\r\n');
-      if (partHeadersEndIndex === -1) continue;
-
-      const partHeadersRaw = part.substring(0, partHeadersEndIndex);
-      const partBody = part.substring(partHeadersEndIndex + 4);
-      const partHeaders = parseHeaders(partHeadersRaw);
-
-      const partContentType = partHeaders['content-type'] || '';
-      const contentEncoding = (partHeaders['content-transfer-encoding'] || '').toLowerCase();
-      const charsetMatch = partContentType.match(/charset="?([^"]+)"?/i);
-      const charset = charsetMatch ? charsetMatch[1].toLowerCase() : 'utf-8'; // Default to utf-8
-
-      let decodedPartBody;
-      const decoder = new TextDecoder(charset);
-
-      if (contentEncoding === 'base64') {
-        // The existing decodeBase64 function assumes UTF-8, which is wrong.
-        // We need to decode to binary first, then use the correct charset decoder.
-        try {
-          const binaryString = atob(partBody.replace(/(\r\n|\n|\r)/gm, ""));
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-          }
-          decodedPartBody = decoder.decode(bytes);
-        } catch(e) {
-          console.error("Base64 decoding with charset failed:", e);
-          decodedPartBody = partBody; // Fallback
-        }
-      } else if (contentEncoding === 'quoted-printable') {
-        // Quoted-printable needs to be decoded into raw bytes and then decoded with the correct charset.
-        const decodedBytes = new Uint8Array(
-          decodeQuotedPrintable(partBody).split('').map(c => c.charCodeAt(0))
-        );
-        decodedPartBody = decoder.decode(decodedBytes);
-      } else {
-        decodedPartBody = partBody; // Assume plain text if no encoding
-      }
-
-      if (partContentType.includes('text/html')) {
-        htmlPart = decodedPartBody;
-        // Don't break; a later part might be a better match (e.g. multipart/alternative)
-      } else if (partContentType.includes('text/plain')) {
-        textPart = decodedPartBody;
-      }
-    }
-    // Prefer HTML, fallback to text, then to the raw body
-    return htmlPart || textPart || emailBody;
-  } else {
-    // Not a multipart email, so the whole body is the content.
-    const contentEncoding = (headers['content-transfer-encoding'] || '').toLowerCase();
-    const charsetMatch = contentType.match(/charset="?([^"]+)"?/i);
-    const charset = charsetMatch ? charsetMatch[1].toLowerCase() : 'utf-8';
-    const decoder = new TextDecoder(charset);
-
-    if (contentEncoding === 'base64') {
-      try {
-        const binaryString = atob(emailBody.replace(/(\r\n|\n|\r)/gm, ""));
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-        return decoder.decode(bytes);
-      } catch(e) {
-        return emailBody;
-      }
-    } else if (contentEncoding === 'quoted-printable') {
-      const decodedBytes = new Uint8Array(
-        decodeQuotedPrintable(emailBody).split('').map(c => c.charCodeAt(0))
-      );
-      return decoder.decode(decodedBytes);
-    }
-    return emailBody;
-  }
-}
-
-
-// ========== 3. Core Worker Logic ==========
-
 export default {
   /**
-   * Handles HTTP requests, acting as a proxy for the backend API.
+   * This is a special diagnostic worker.
+   * When it receives any request, it will try to send a message to your Telegram
+   * containing all the headers it received. This will definitively show us
+   * if the secret token is arriving at the worker.
    */
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    // Use the environment variable for the backend server, with a fallback.
-    const backendServer = env.PUBLIC_API_ENDPOINT ? new URL(env.PUBLIC_API_ENDPOINT).origin : "https://wenge.cloudns.ch";
+    // Get Telegram credentials from the worker's environment variables.
+    // IMPORTANT: These must be set in your Cloudflare project settings.
+    const botToken = env.TELEGRAM_BOT_TOKEN;
+    const adminChatId = env.TELEGRAM_ADMIN_CHAT_ID;
 
-    // Route for the new AI processing action
-    if (url.pathname === '/process-ai') {
-      if (request.method !== 'POST') {
-        return new Response('Method Not Allowed', { status: 405 });
-      }
-
-      try {
-        const { email_content } = await request.json();
-        if (!email_content) {
-          return new Response('Missing email_content in request body', { status: 400 });
-        }
-
-        const prompt = `You are an expert financial assistant. Your task is to extract structured data from the following email content. The email is a bill or invoice. Please extract the following fields: vendor_name, bill_amount (as a number), currency (e.g., USD, CNY), due_date (in YYYY-MM-DD format), invoice_number, and a category (e.g., "Utilities", "Subscription", "Shopping", "Travel"). If a field is not present, its value should be null. Provide the output in a clean JSON format. Do not include any explanatory text, only the JSON object.\n\nEmail Content:\n"""\n${email_content}\n"""`;
-
-        const response = await env.AI.run('@cf/meta/llama-2-7b-chat-int8', {
-          prompt
-        });
-
-        // The AI model's response is often wrapped in ```json ... ```, so we need to extract it.
-        const jsonMatch = response.response.match(/```json\n([\s\S]*?)\n```/);
-        const jsonResponse = jsonMatch ? jsonMatch[1] : response.response;
-
-        // Return the extracted JSON directly to the caller (our PHP backend)
-        return new Response(jsonResponse, {
-          headers: { 'Content-Type': 'application/json' },
-        });
-
-      } catch (error) {
-        console.error('AI processing error:', error);
-        return new Response(`Error processing AI request: ${error.message}`, { status: 500 });
-      }
+    // Check if the required environment variables are set.
+    if (!botToken || !adminChatId) {
+      const errorMessage = 'CRITICAL WORKER ERROR: TELEGRAM_BOT_TOKEN and/or TELEGRAM_ADMIN_CHAT_ID are not set in the Cloudflare project environment variables.';
+      console.error(errorMessage);
+      // Return an error response so we know the worker itself has a configuration problem.
+      return new Response(errorMessage, { status: 500 });
     }
 
-    // Proxy API calls (e.g., /login, /register, etc.) to the backend
-    if (url.pathname.endsWith('.php') || url.pathname.startsWith('/api/')) {
-      const backendUrl = new URL(url.pathname, backendServer);
-      backendUrl.search = url.search;
+    // --- Create the diagnostic message ---
+    let diagnosticMessage = "<b>Diagnostic Report from Cloudflare Worker</b>\n\n";
+    diagnosticMessage += "A request was received by the worker. Here are the headers:\n\n";
 
-      // --- Start of Worker Debug Logging ---
-      console.log(`[WORKER] Proxying request for: ${url.pathname}`);
-      const incomingHeaders = {};
-      for (const [key, value] of request.headers.entries()) {
-        incomingHeaders[key] = value;
-      }
-      console.log('[WORKER] Incoming Headers:', JSON.stringify(incomingHeaders, null, 2));
-      // --- End of Worker Debug Logging ---
-
-      const requestHeaders = new Headers(request.headers);
-      requestHeaders.set('Host', new URL(backendServer).hostname);
-
-      // --- Start of Worker Debug Logging ---
-      const outgoingHeaders = {};
-      for (const [key, value] of requestHeaders.entries()) {
-        outgoingHeaders[key] = value;
-      }
-      console.log(`[WORKER] Forwarding to backend URL: ${backendUrl}`);
-      console.log('[WORKER] Outgoing Headers:', JSON.stringify(outgoingHeaders, null, 2));
-      // --- End of Worker Debug Logging ---
-
-      const backendRequest = new Request(backendUrl, {
-        method: request.method,
-        headers: requestHeaders,
-        body: request.body,
-        redirect: 'follow'
-      });
-
-      return fetch(backendRequest);
+    // Collect all headers from the incoming request.
+    const headers = {};
+    for (const [key, value] of request.headers.entries()) {
+      headers[key] = value;
     }
 
-    // For any other request, return a simple "Not Found" or handle as needed.
-    return new Response('Not found.', { status: 404 });
-  },
+    // Format the headers into a readable string.
+    diagnosticMessage += `<pre>${JSON.stringify(headers, null, 2)}</pre>`;
 
-  /**
-   * Handles incoming email messages.
-   */
-  async email(message, env, ctx) {
-    const { PUBLIC_API_ENDPOINT, EMAIL_HANDLER_SECRET } = env;
-
-    // Critical check for environment variables
-    if (!PUBLIC_API_ENDPOINT || !EMAIL_HANDLER_SECRET) {
-      console.error("Worker Email Handler: Missing required environment variables (PUBLIC_API_ENDPOINT or EMAIL_HANDLER_SECRET).");
-      // We don't want to retry this, as it's a configuration issue.
-      return;
+    // Look for the secret token specifically.
+    const secretTokenHeader = request.headers.get('x-telegram-bot-api-secret-token');
+    if (secretTokenHeader) {
+      diagnosticMessage += "\n\n<b>✅ SUCCESS:</b> The 'x-telegram-bot-api-secret-token' header was found.";
+    } else {
+      diagnosticMessage += "\n\n<b>❌ FAILURE:</b> The 'x-telegram-bot-api-secret-token' header was NOT found.";
     }
 
-    const senderEmail = message.from;
-    console.log(`Worker Email Handler: Received email from: ${senderEmail}`);
-    console.log(`Worker Email Handler Debug: EMAIL_HANDLER_SECRET from env is: [${EMAIL_HANDLER_SECRET ? 'SET' : 'NOT SET'}]`);
+    // --- Send the diagnostic message to Telegram ---
+    const telegramApiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
 
     try {
-      // Step 1: Verify if the user is registered in the backend.
-      // --- FIX: CONSTRUCT THE URL CORRECTLY WITH 'action' AS A QUERY PARAMETER ---
-      const verificationUrl = `${PUBLIC_API_ENDPOINT}?action=is_user_registered&worker_secret=${EMAIL_HANDLER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
-      console.log(`Worker Email Handler: Calling verification URL: ${verificationUrl}`);
-      
-      const verificationResponse = await fetch(verificationUrl);
-
-      if (!verificationResponse.ok) {
-        console.error(`Worker Email Handler: User verification request failed with status: ${verificationResponse.status}.`);
-        // Stop processing, but don't cause a retry for auth failures (4xx)
-        if (verificationResponse.status >= 400 && verificationResponse.status < 500) {
-           return;
-        }
-        // For server errors (5xx), we might want to let the email be retried.
-        throw new Error(`Verification failed with status ${verificationResponse.status}`);
-      }
-      
-      const verificationData = await verificationResponse.json();
-      console.log("Worker Email Handler: Verification response received:", JSON.stringify(verificationData));
-
-      if (!verificationData.success || !verificationData.is_registered) {
-        console.log(`Worker Email Handler: User ${senderEmail} is not registered or verification failed. Discarding email.`);
-        return; // Stop processing, user is not authorized.
-      }
-
-      console.log(`Worker Email Handler: User ${senderEmail} is verified. Proceeding to forward email.`);
-
-      // Step 2: If user is verified, parse and forward the email content.
-      const rawEmail = await streamToString(message.raw);
-      const headers = parseHeaders(rawEmail.split(/\r\n\r\n/)[0]);
-      const subject = decodeSubject(headers['subject']);
-      const body = extractHTMLBody(rawEmail); // Use the new function to get clean HTML
-
-      const formData = new FormData();
-      formData.append('worker_secret', EMAIL_HANDLER_SECRET);
-      formData.append('from', senderEmail);
-      formData.append('to', message.to);
-      formData.append('subject', subject);
-      formData.append('body', body);
-      
-      // --- FIX: Ensure the POST request URL is correct without extra path segments ---
-      const postUrl = `${PUBLIC_API_ENDPOINT}?action=process_email`;
-      console.log(`Worker Email Handler: Posting email content to: ${postUrl}`);
-
-      const postResponse = await fetch(postUrl, {
+      await fetch(telegramApiUrl, {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: adminChatId,
+          text: diagnosticMessage,
+          parse_mode: 'HTML',
+        }),
       });
-
-      if (!postResponse.ok) {
-        const errorText = await postResponse.text();
-        console.error(`Worker Email Handler: Failed to forward email content. Status: ${postResponse.status}, Body: ${errorText}`);
-        throw new Error(`Failed to post email with status ${postResponse.status}`);
-      }
-
-      const postData = await postResponse.json();
-      console.log('Worker Email Handler: Email forwarded successfully. Backend response:', JSON.stringify(postData));
-
-    } catch (error) {
-      console.error('Worker Email Handler: An unexpected error occurred:', error.message);
-      // Re-throw the error to signal a retry to the Mail Channels service.
-      throw error;
+    } catch (e) {
+      // If sending the message fails, we can't do much, but we'll log it.
+      console.error("Error sending diagnostic message to Telegram:", e.message);
     }
-  }
+
+    // Return a simple OK response to the original caller (Telegram).
+    return new Response('OK', { status: 200 });
+  },
 };
