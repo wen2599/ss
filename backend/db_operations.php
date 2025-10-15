@@ -14,11 +14,11 @@ function get_db_connection() {
 
     if ($pdo === null) {
         // Load credentials from environment variables.
-        $host = getenv('DB_HOST');
-        $port = getenv('DB_PORT');
-        $dbname = getenv('DB_DATABASE');
-        $user = getenv('DB_USER');
-        $pass = getenv('DB_PASSWORD');
+        $host = $_ENV['DB_HOST'] ?? null;
+        $port = $_ENV['DB_PORT'] ?? '3306'; // Default MySQL port
+        $dbname = $_ENV['DB_DATABASE'] ?? null;
+        $user = $_ENV['DB_USER'] ?? null;
+        $pass = $_ENV['DB_PASSWORD'] ?? null;
 
         // All credentials are required.
         if (empty($host) || empty($port) || empty($dbname) || empty($user)) {

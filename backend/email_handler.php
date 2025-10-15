@@ -14,7 +14,7 @@ function write_debug_log($message, $logFile) {
 
 // --- Security Check ---
 // This secret ensures that only our Cloudflare Worker can call this endpoint.
-$secretToken = getenv('EMAIL_HANDLER_SECRET');
+$secretToken = $_ENV['EMAIL_HANDLER_SECRET'] ?? null;
 // Use $_REQUEST to accept the secret from either GET or POST requests.
 $receivedToken = $_REQUEST['worker_secret'] ?? '';
 

@@ -5,7 +5,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/telegram_helpers.php';
 
 // --- Security Validation ---
-$secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
+$secretToken = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? null;
 $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 if (empty($secretToken) || $receivedToken !== $secretToken) {
     http_response_code(403);
@@ -26,7 +26,7 @@ $userId = $message['from']['id'] ?? $chatId;
 $command = trim($message['text'] ?? '');
 
 // --- Admin Verification ---
-$adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
+$adminChatId = $_ENV['TELEGRAM_ADMIN_CHAT_ID'] ?? null;
 if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
     sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
     exit();

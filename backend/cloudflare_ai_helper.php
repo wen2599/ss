@@ -8,8 +8,8 @@
  */
 function call_cloudflare_ai_api($prompt) {
     // 从环境变量获取信息，这是最佳实践
-    $accountId = getenv('CLOUDFLARE_ACCOUNT_ID');
-    $apiToken = getenv('CLOUDFLARE_API_TOKEN');
+    $accountId = $_ENV['CLOUDFLARE_ACCOUNT_ID'] ?? null;
+    $apiToken = $_ENV['CLOUDFLARE_API_TOKEN'] ?? null;
 
     // 检查凭证是否已配置
     if (empty($accountId) || empty($apiToken)) {

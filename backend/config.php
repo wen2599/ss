@@ -1,64 +1,77 @@
 <?php
 
-// --- Pre-emptive Writable Check ---
-// This runs before anything else. If the directory isn't writable,
-// we send a direct, hardcoded error message to the admin and die.
-// This prevents silent failures if logging or state management fails.
-if (!is_writable(__DIR__)) {
-    $adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID') ?: 'YOUR_ADMIN_CHAT_ID'; // Failsafe
-    $botToken = getenv('TELEGRAM_BOT_TOKEN') ?: 'YOUR_BOT_TOKEN'; // Failsafe
-
-    if ($adminChatId && $botToken && $adminChatId !== 'YOUR_ADMIN_CHAT_ID') {
-        $errorMessage = "CRITICAL ERROR: The bot's directory on the server is not writable. The bot cannot function. Please correct the file permissions.";
-        $url = "https://api.telegram.org/bot{$botToken}/sendMessage";
-        $payload = json_encode(['chat_id' => $adminChatId, 'text' => $errorMessage]);
-
-        // Use a basic cURL to send the error, avoiding all other dependencies.
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5); // 5-second timeout
-        curl_exec($ch);
-        curl_close($ch);
-    }
-
-    // Stop all further execution.
-    http_response_code(500);
-    exit("FATAL: Directory not writable.");
-}
-
 // --- Environment Variable Loading ---
+// This function loads variables from .env into the $_ENV and $_SERVER superglobals.
+// This is a safer and more compatible method than using putenv().
 function load_env() {
     $envPath = __DIR__ . '/.env';
-    if (file_exists($envPath)) {
-        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) continue;
-            list($name, $value) = explode('=', $line, 2);
-            // Trim whitespace first, then quotes for robustness
-            $value = trim(trim($value), '"');
-            putenv(trim($name) . '=' . $value);
+    if (!file_exists($envPath) || !is_readable($envPath)) {
+        return;
+    }
+
+    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) {
+            continue;
+        }
+
+        list($name, $value) = explode('=', $line, 2);
+        $name = trim($name);
+        // Trim whitespace first, then quotes for robustness
+        $value = trim(trim($value), '"');
+
+        // Populate the superglobals
+        if (!array_key_exists($name, $_SERVER)) {
+            $_SERVER[$name] = $value;
+        }
+        if (!array_key_exists($name, $_ENV)) {
+            $_ENV[$name] = $value;
         }
     }
 }
 load_env();
 
-// --- PHP Error Reporting Configuration (for debugging) ---
-ini_set('display_errors', '1'); // Temporarily display errors
-ini_set('log_errors', '1');     // Log errors
-ini_set('error_log', __DIR__ . '/debug.log'); // Direct errors to a specific file
-error_reporting(E_ALL); // Report all errors
+
+// --- Pre-emptive Writable Check ---
+// This check remains as a safeguard against permission issues.
+if (!is_writable(__DIR__)) {
+    $adminChatId = $_ENV['TELEGRAM_ADMIN_CHAT_ID'] ?? null;
+    $botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
+
+    if ($adminChatId && $botToken) {
+        $errorMessage = "CRITICAL ERROR: The bot's directory on the server is not writable. The bot cannot function. Please correct the file permissions.";
+        $url = "https://api.telegram.org/bot{$botToken}/sendMessage";
+        $payload = json_encode(['chat_id' => $adminChatId, 'text' => $errorMessage]);
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        curl_exec($ch);
+        curl_close($ch);
+    }
+
+    http_response_code(500);
+    exit("FATAL: Directory not writable.");
+}
 
 
-// --- Helper Scripts Inclusion (Temporarily Disabled for Debugging) ---
-// require_once __DIR__ . '/db_operations.php';
-// require_once __DIR__ . '/telegram_helpers.php';
-// require_once __DIR__ . '/user_state_manager.php';
-// require_once __DIR__ . '/api_curl_helper.php'; // Shared cURL function
-// require_once __DIR__ . '/gemini_ai_helper.php';
-// require_once __DIR__ . '/cloudflare_ai_helper.php';
-// require_once __DIR__ . '/env_manager.php';
-// No JWT configuration needed for session-based auth.
+// --- PHP Error Reporting Configuration ---
+ini_set('display_errors', '1');
+ini_set('log_errors', '1');
+ini_set('error_log', __DIR__ . '/debug.log');
+error_reporting(E_ALL);
+
+
+// --- Helper Scripts Inclusion ---
+require_once __DIR__ . '/db_operations.php';
+require_once __DIR__ . '/telegram_helpers.php';
+require_once __DIR__ . '/user_state_manager.php';
+require_once __DIR__ . '/api_curl_helper.php';
+require_once __DIR__ . '/gemini_ai_helper.php';
+require_once __DIR__ . '/cloudflare_ai_helper.php';
+require_once __DIR__ . '/env_manager.php';
+
 ?>

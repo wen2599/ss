@@ -7,7 +7,7 @@
  * @return string Gemini 的文本响应或错误信息。
  */
 function call_gemini_api($prompt) {
-    $apiKey = getenv('GEMINI_API_KEY');
+    $apiKey = $_ENV['GEMINI_API_KEY'] ?? null;
     if (empty($apiKey) || $apiKey === 'your_gemini_api_key_here') {
         return '❌ **错误**: Gemini API 密钥未配置。请检查环境变量 GEMINI_API_KEY。';
     }
