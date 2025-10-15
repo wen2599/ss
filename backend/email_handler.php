@@ -1,6 +1,7 @@
 <?php
 
 // --- Unified Configuration and Helpers ---
+// The config file is in the same directory.
 require_once __DIR__ . '/config.php';
 
 // --- Security Check ---
@@ -9,11 +10,12 @@ $secretToken = getenv('EMAIL_HANDLER_SECRET');
 // Use $_REQUEST to accept the secret from either GET or POST requests.
 $receivedToken = $_REQUEST['worker_secret'] ?? '';
 
-error_log("Email Handler Debug: secretToken (from env) = [" . ($secretToken ? $secretToken : "EMPTY") . "]");
-error_log("Email Handler Debug: receivedToken (from REQUEST) = [" . ($receivedToken ? $receivedToken : "EMPTY") . "]");
+// Basic logging to help debug authentication issues.
+error_log("Email Handler Debug: secretToken (from env) = [" . ($secretToken ? 'SET' : 'EMPTY') . "]");
+error_log("Email Handler Debug: receivedToken (from REQUEST) = [" . ($receivedToken ? 'RECEIVED' : 'EMPTY') . "]");
 
 if (empty($secretToken) || $receivedToken !== $secretToken) {
-    error_log("Email Handler: Forbidden - Invalid or missing secret token. Received: " . ($receivedToken ? $receivedToken : "[EMPTY]") . ", Expected: " . ($secretToken ? $secretToken : "[EMPTY]"));
+    error_log("Email Handler: Forbidden - Invalid or missing secret token.");
     http_response_code(403);
     echo json_encode(['status' => 'error', 'message' => 'Forbidden: Invalid or missing secret token.']);
     exit;
@@ -73,11 +75,7 @@ if ($action === 'process_email') {
     $user = $stmt->fetch();
     
     if (!$user) {
-        // Important: We stop here but don't return an error to the Worker,
-        // as the Worker has already checked for user registration.
-        // Logging is sufficient.
         error_log("Email Handler: Received email from '$from' but user no longer exists in DB. Ignoring.");
-        // Return a success to prevent the worker from retrying.
         echo json_encode(['status' => 'success', 'message' => 'User not found, but acknowledged.']);
         exit;
     }
@@ -103,5 +101,3 @@ if ($action === 'process_email') {
 // Fallback for unknown actions
 http_response_code(400);
 echo json_encode(['status' => 'error', 'message' => 'Unknown action.']);
-
-?>
