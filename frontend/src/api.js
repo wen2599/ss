@@ -93,3 +93,15 @@ export const processEmailWithAI = (id) => {
         body: JSON.stringify({ email_id: id }),
     });
 };
+
+/**
+ * Fetches the latest lottery results from the backend.
+ * @returns {Promise<any>} The latest lottery result.
+ */
+export const getLotteryResults = (type = null) => {
+    const url = new URL(`${API_BASE_URL}/get_lottery_results.php`, window.location.origin);
+    if (type) {
+        url.searchParams.append('type', type);
+    }
+    return fetchJson(url.toString());
+};
