@@ -85,6 +85,8 @@ function processCommand($chatId, $userId, $command) {
  * @param string $userState The current state of the user.
  */
 function handleStatefulInteraction($chatId, $userId, $text, $userState) {
+    $stateCleared = false; // Flag to track if we need to clear state.
+
     // --- State: Awaiting New API Key ---
     if (strpos($userState, 'awaiting_api_key_') === 0) {
         $keyToUpdate = substr($userState, strlen('awaiting_api_key_'));
@@ -93,21 +95,21 @@ function handleStatefulInteraction($chatId, $userId, $text, $userState) {
         } else {
             sendTelegramMessage($chatId, "❌ 更新 API 密钥失败！请检查 `.env` 文件的权限和路径是否正确。", getAdminKeyboard());
         }
-        setUserState($userId, null);
+        $stateCleared = true;
 
     // --- State: Awaiting Gemini Prompt ---
     } elseif ($userState === 'awaiting_gemini_prompt') {
         sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
         $response = call_gemini_api($text);
         sendTelegramMessage($chatId, $response, getAdminKeyboard());
-        setUserState($userId, null);
+        $stateCleared = true;
     
     // --- State: Awaiting Cloudflare Prompt ---
     } elseif ($userState === 'awaiting_cloudflare_prompt') {
         sendTelegramMessage($chatId, "🧠 正在思考中，请稍候...", getAdminKeyboard());
         $response = call_cloudflare_ai_api($text);
         sendTelegramMessage($chatId, $response, getAdminKeyboard());
-        setUserState($userId, null);
+        $stateCleared = true;
 
     // --- State: Awaiting User Deletion ---
     } elseif ($userState === 'awaiting_user_deletion') {
@@ -120,11 +122,19 @@ function handleStatefulInteraction($chatId, $userId, $text, $userState) {
         } else {
             sendTelegramMessage($chatId, "❌ 您输入的不是一个有效的邮箱地址，请重新输入或返回主菜单。", getUserManagementKeyboard());
         }
-        setUserState($userId, null); // Reset state after one attempt.
+        $stateCleared = true;
 
     } else {
-        setUserState($userId, null); // Clear invalid state
+        $stateCleared = true; // Clear invalid state
         sendTelegramMessage($chatId, "系统状态异常，已重置。请重新选择操作。", getAdminKeyboard());
+    }
+
+    // After handling the state, try to clear it.
+    if ($stateCleared) {
+        if (setUserState($userId, null) === false) {
+            // If clearing the state fails, inform the admin. This is a critical error.
+            sendTelegramMessage($chatId, "⚠️ **警告:** 无法写入状态文件 (`user_states.json`)。机器人功能将受限。请检查服务器上的文件权限。");
+        }
     }
 }
 
@@ -200,30 +210,42 @@ function handleCommand($chatId, $userId, $command) {
             $keyboard = getUserManagementKeyboard(); // Show menu again
             break;
         case '删除用户':
-            setUserState($userId, 'awaiting_user_deletion');
-            $messageToSend = "好的，请发送您想要删除的用户的电子邮件地址。";
-            $keyboard = null; // No keyboard when asking for input
+            if (setUserState($userId, 'awaiting_user_deletion') === false) {
+                $messageToSend = "⚠️ **警告:** 无法写入状态文件。请检查服务器上的文件权限。";
+            } else {
+                $messageToSend = "好的，请发送您想要删除的用户的电子邮件地址。";
+                $keyboard = null; // No keyboard when asking for input
+            }
             break;
 
         // --- AI & API Management ---
         case '请求 Gemini':
-            setUserState($userId, 'awaiting_gemini_prompt');
-            $messageToSend = "好的，请直接输入您想对 Gemini 说的话。";
-            $keyboard = null;
+            if (setUserState($userId, 'awaiting_gemini_prompt') === false) {
+                $messageToSend = "⚠️ **警告:** 无法写入状态文件。请检查服务器上的文件权限。";
+            } else {
+                $messageToSend = "好的，请直接输入您想对 Gemini 说的话。";
+                $keyboard = null;
+            }
             break;
         case '请求 Cloudflare':
-            setUserState($userId, 'awaiting_cloudflare_prompt');
-            $messageToSend = "好的，请直接输入您想对 Cloudflare AI 说的话。";
-            $keyboard = null;
+            if (setUserState($userId, 'awaiting_cloudflare_prompt') === false) {
+                $messageToSend = "⚠️ **警告:** 无法写入状态文件。请检查服务器上的文件权限。";
+            } else {
+                $messageToSend = "好的，请直接输入您想对 Cloudflare AI 说的话。";
+                $keyboard = null;
+            }
             break;
         case '更换 API 密钥':
             $messageToSend = "请选择您想要更新的 API 密钥：";
             $keyboard = getApiKeySelectionKeyboard();
             break;
         case 'Gemini API Key':
-            setUserState($userId, 'awaiting_api_key_GEMINI_API_KEY');
-            $messageToSend = "好的，请发送您的新 Gemini API 密钥。";
-            $keyboard = null;
+            if (setUserState($userId, 'awaiting_api_key_GEMINI_API_KEY') === false) {
+                $messageToSend = "⚠️ **警告:** 无法写入状态文件。请检查服务器上的文件权限。";
+            } else {
+                $messageToSend = "好的，请发送您的新 Gemini API 密钥。";
+                $keyboard = null;
+            }
             break;
         case '返回主菜单':
             $messageToSend = "已返回主菜单。";
