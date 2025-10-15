@@ -13,11 +13,16 @@ if (empty($secretToken) || $receivedToken !== $secretToken) {
 
 // --- Main Webhook Logic ---
 $update = json_decode(file_get_contents('php://input'), true);
-if (!$update || !isset($update['message'])) {
+
+// Handle both regular messages and channel posts
+if (isset($update['message'])) {
+    $message = $update['message'];
+} elseif (isset($update['channel_post'])) {
+    $message = $update['channel_post'];
+} else {
+    // If it's neither a message nor a channel post we care about, exit.
     exit();
 }
-
-$message = $update['message'];
 $chatId = $message['chat']['id'];
 $userId = $message['from']['id'] ?? $chatId;
 $text = trim($message['text'] ?? '');
