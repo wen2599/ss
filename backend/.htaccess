@@ -5,6 +5,8 @@ RewriteEngine On
 RewriteBase /
 
 # --- Front Controller ---
+# Exclude the Telegram webhook script from the general rewrite rule.
+RewriteCond %{REQUEST_URI} !^/telegramWebhook\.php$
 # If the request is not for an existing file...
 RewriteCond %{REQUEST_FILENAME} !-f
 # ...and the request is not for an existing directory...
