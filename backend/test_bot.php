@@ -56,8 +56,10 @@ if (function_exists('get_db_connection')) {
         $conn = get_db_connection();
         if ($conn) {
             echo "✅ Database connection successful.\n";
-            echo "   - MySQL Server Version: " . $conn->server_info . "\n";
-            $conn->close();
+            // Use PDO-specific method to get server version
+            echo "   - MySQL Server Version: " . $conn->getAttribute(PDO::ATTR_SERVER_VERSION) . "\n";
+            // Close PDO connection by setting it to null
+            $conn = null;
         } else {
             // This case might not be reached if get_db_connection throws an exception
             echo "❌ Database connection failed. The function returned null, but no exception was thrown.\n";
