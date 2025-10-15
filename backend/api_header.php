@@ -1,6 +1,10 @@
 <?php
 // api_header.php
 
+// --- Heartbeat Log ---
+// This is the very first action. If this file is not created, no API code is running.
+file_put_contents(__DIR__ . '/api_heartbeat.log', 'API Heartbeat OK at ' . date('Y-m-d H:i:s') . PHP_EOL, FILE_APPEND);
+
 // Debugging array to collect info
 $debug_info = [];
 
