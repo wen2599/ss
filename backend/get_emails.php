@@ -4,9 +4,14 @@
 require_once __DIR__ . '/api_header.php';
 
 // --- Authentication Check ---
+global $debug_info;
+$debug_info['get_emails_session_received'] = $_SESSION;
+$debug_info['get_emails_session_id'] = session_id();
+$debug_info['get_emails_id_requested'] = $_GET['id'] ?? 'None';
+
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401); // Unauthorized
-    echo json_encode(['status' => 'error', 'message' => 'You must be logged in to view emails.']);
+    echo json_encode(['status' => 'error', 'message' => 'You must be logged in to view emails.', 'debug' => $debug_info]);
     exit;
 }
 
@@ -26,10 +31,10 @@ try {
         $email = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($email) {
-            echo json_encode(['status' => 'success', 'emails' => [$email]]);
+            echo json_encode(['status' => 'success', 'emails' => [$email], 'debug' => $debug_info]);
         } else {
             http_response_code(404); // Not Found
-            echo json_encode(['status' => 'error', 'message' => '未找到该账单']);
+            echo json_encode(['status' => 'error', 'message' => '未找到该账单', 'debug' => $debug_info]);
         }
     } else {
         // --- Fetch all emails for the user ---
@@ -42,10 +47,10 @@ try {
         $stmt->execute([$userId]);
         $emails = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        echo json_encode(['status' => 'success', 'emails' => $emails]);
+        echo json_encode(['status' => 'success', 'emails' => $emails, 'debug' => $debug_info]);
     }
 } catch (PDOException $e) {
     error_log("Error fetching emails: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'An error occurred while fetching emails.']);
+    echo json_encode(['status' => 'error', 'message' => 'An error occurred while fetching emails.', 'debug' => $debug_info]);
 }
