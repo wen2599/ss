@@ -76,7 +76,7 @@ if ($action === 'process_email') {
     // Validate required fields
     if (empty($from) || empty($to) || empty($body)) {
         write_debug_log("Email Handler: Missing required fields (from, to, or body) for process_email.", $debugLogFile);
-        http_response_code(400); // Bad Gateway
+        http_response_code(400); // Bad Request
         echo json_encode(['status' => 'error', 'message' => 'Missing required fields: from, to, or body.']);
         exit;
     }
@@ -108,8 +108,9 @@ if ($action === 'process_email') {
         write_debug_log("Email Handler DB Error: " . $e->getMessage(), $debugLogFile);
         http_response_code(500); // Internal Server Error
         echo json_encode(['status' => 'error', 'message' => 'Failed to save email to the database.']);
+        exit; // Exit after handling the database error
     }
-
+    exit; // Exit after successful processing
 }
 
 // Fallback for unknown actions
