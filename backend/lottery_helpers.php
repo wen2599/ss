@@ -36,4 +36,34 @@ function get_color_for_number($number) {
 function get_emoji_for_color($color) {
     return COLOR_EMOJI_MAP[$color] ?? '❓';
 }
+
+const ZODIAC_NUMBERS = [
+    '蛇' => ['01', '13', '25', '37', '49'],
+    '龙' => ['02', '14', '26', '38'],
+    '兔' => ['03', '15', '27', '39'],
+    '虎' => ['04', '16', '28', '40'],
+    '牛' => ['05', '17', '29', '41'],
+    '鼠' => ['06', '18', '30', '42'],
+    '猪' => ['07', '19', '31', '43'],
+    '狗' => ['08', '20', '32', '44'],
+    '鸡' => ['09', '21', '33', '45'],
+    '猴' => ['10', '22', '34', '46'],
+    '羊' => ['11', '23', '35', '47'],
+    '马' => ['12', '24', '36', '48'],
+];
+
+/**
+ * Determines the zodiac sign for a given number.
+ *
+ * @param string $number The two-digit number string.
+ * @return string The zodiac sign or '未知'.
+ */
+function get_zodiac_for_number($number) {
+    foreach (ZODIAC_NUMBERS as $zodiac => $numbers) {
+        if (in_array($number, $numbers)) {
+            return $zodiac;
+        }
+    }
+    return '未知'; // Should not happen for valid numbers
+}
 ?>
