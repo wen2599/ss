@@ -110,9 +110,12 @@ $command = trim($message['text'] ?? '');
 send_failsafe_message("<b>6. Data extracted.</b> ChatID: {$chatId}, Command: '{$command}'");
 
 // --- Step 7: Admin Verification ---
-$adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
-if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
-    send_failsafe_message("<b>❌ FAILURE at Step 7.</b> Received message from an unauthorized Chat ID: {$chatId}.");
+$adminUserId = getenv('TELEGRAM_ADMIN_ID');
+if (empty($adminUserId) || (string)$userId !== (string)$adminUserId) {
+    send_failsafe_message("<b>❌ FAILURE at Step 7.</b> Received message from an unauthorized User ID: {$userId}. Expected: {$adminUserId}.");
+    // Do not exit, but you could send a gentle message to the user if you wanted.
+    // For security, we just stop processing.
+    http_response_code(200); // Respond OK to Telegram to prevent webhook retries
     exit();
 }
 send_failsafe_message("<b>7. Admin verified.</b>");
