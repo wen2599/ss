@@ -32,14 +32,12 @@ $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 trace_log("Secret from .env: " . (empty($secretTokenFromEnv) ? "NOT SET" : "Set"));
 trace_log("Secret from Header: " . (empty($receivedToken) ? "NOT RECEIVED" : "Received"));
 
-/* -- TEMPORARILY DISABLED FOR TESTING --
 if (empty($secretTokenFromEnv) || $receivedToken !== $secretTokenFromEnv) {
     trace_log("--- ❌ FAILURE: Security token mismatch or not configured. Exiting. ---");
     http_response_code(403);
     exit('Forbidden');
 }
-*/
-trace_log("--- STEP 2a: Security check BYPASSED for testing. ---");
+trace_log("--- STEP 2a: Security check passed. ---");
 
 // --- Process Incoming Update ---
 trace_log("--- STEP 3: Reading raw input from php://input. ---");
