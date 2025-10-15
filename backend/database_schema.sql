@@ -23,32 +23,11 @@ CREATE TABLE IF NOT EXISTS `authorized_emails` (
 -- Table for storing received emails
 CREATE TABLE IF NOT EXISTS `emails` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `user_id` INT NOT NULL,
+  `user_id` INT NOT NULL, -- Added user_id column
   `sender` VARCHAR(255) NOT NULL,
   `recipient` VARCHAR(255) NOT NULL,
   `subject` VARCHAR(255),
-  `html_content` LONGTEXT,
+  `html_content` TEXT,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  -- Columns for AI-extracted data
-  `vendor_name` VARCHAR(255) DEFAULT NULL,
-  `bill_amount` DECIMAL(10, 2) DEFAULT NULL,
-  `currency` VARCHAR(10) DEFAULT NULL,
-  `due_date` DATE DEFAULT NULL,
-  `invoice_number` VARCHAR(255) DEFAULT NULL,
-  `category` VARCHAR(100) DEFAULT NULL,
-  `is_processed` BOOLEAN NOT NULL DEFAULT FALSE,
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Table for storing lottery results
-CREATE TABLE IF NOT EXISTS `lottery_results` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `lottery_type` VARCHAR(100) NOT NULL,
-  `issue_number` VARCHAR(255) NOT NULL,
-  `winning_numbers` VARCHAR(255) NOT NULL,
-  `zodiac_signs` VARCHAR(255) NOT NULL,
-  `colors` VARCHAR(255) NOT NULL,
-  `drawing_date` DATE,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY `type_issue` (`lottery_type`, `issue_number`)
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE -- Added foreign key constraint
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

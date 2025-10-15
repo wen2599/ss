@@ -81,27 +81,3 @@ export const deleteBill = (id) => {
         method: 'DELETE',
     });
 };
-
-/**
- * Sends an email ID to the backend to be processed by the AI worker.
- * @param {number} id The ID of the email to process.
- * @returns {Promise<any>} The structured data extracted by the AI.
- */
-export const processEmailWithAI = (id) => {
-    return fetchJson(`${API_BASE_URL}/process_email_ai.php`, {
-        method: 'POST',
-        body: JSON.stringify({ email_id: id }),
-    });
-};
-
-/**
- * Fetches the latest lottery results from the backend.
- * @returns {Promise<any>} The latest lottery result.
- */
-export const getLotteryResults = (type = null) => {
-    const url = new URL(`${API_BASE_URL}/get_lottery_results.php`, window.location.origin);
-    if (type) {
-        url.searchParams.append('type', type);
-    }
-    return fetchJson(url.toString());
-};
