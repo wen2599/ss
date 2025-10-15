@@ -23,9 +23,11 @@ CREATE TABLE IF NOT EXISTS `authorized_emails` (
 -- Table for storing received emails
 CREATE TABLE IF NOT EXISTS `emails` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL, -- Added user_id column
   `sender` VARCHAR(255) NOT NULL,
   `recipient` VARCHAR(255) NOT NULL,
   `subject` VARCHAR(255),
   `html_content` TEXT,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE -- Added foreign key constraint
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
