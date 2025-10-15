@@ -1,9 +1,12 @@
 <?php
 // api_header.php
 
+// Debugging array to collect info
+$debug_info = [];
+
 // Set session cookie parameters before starting the session.
 // This ensures the cookie is sent to the correct domain and path, and is secure.
-$domain = ($_SERVER['HTTP_HOST'] != 'localhost') ? $_SERVER['HTTP_HOST'] : false;
+$domain = ($_SERVER['HTTP_HOST'] ?? '') != 'localhost' ? ($_SERVER['HTTP_HOST'] ?? false) : false;
 session_set_cookie_params([
     'lifetime' => 3600, // Session lifetime in seconds (e.g., 1 hour)
     'path' => '/', // The path on the server in which the cookie will be available on.
@@ -16,10 +19,10 @@ session_set_cookie_params([
 // Start the session.
 session_start();
 
-// --- Debugging for CORS and Session ---
-error_log("API Header - Request Origin: " . ($_SERVER['HTTP_ORIGIN'] ?? 'N/A'));
-error_log("API Header - Session ID: " . session_id());
-error_log("API Header - Session Data: " . print_r($_SESSION, true));
+// Collect debugging info
+$debug_info['api_header_request_origin'] = $_SERVER['HTTP_ORIGIN'] ?? 'N/A';
+$debug_info['api_header_session_id'] = session_id();
+$debug_info['api_header_session_data'] = $_SESSION;
 
 // --- CORS and Security Headers ---
 $allowed_origins = ['http://localhost:3000', 'https://ss.wenxiuxiu.eu.org'];
