@@ -71,3 +71,13 @@ export const getEmailById = (id) => {
     return fetchJson(`${API_BASE_URL}/get_emails.php?id=${id}`);
 };
 
+/**
+ * Deletes a bill by its ID.
+ * @param {number} id - The ID of the bill to delete.
+ * @returns {Promise<any>} - The response from the server.
+ */
+export const deleteBill = (id) => {
+    return fetchJson(`${API_BASE_URL}/delete_bill.php?id=${id}`, {
+        method: 'DELETE',
+    });
+};
