@@ -45,19 +45,65 @@ function sendTelegramMessage($chatId, $text, $replyMarkup = null) {
 }
 
 /**
+ * Answers a callback query (e.g., from a button press).
+ * This stops the loading animation on the user's client.
+ *
+ * @param string $callbackQueryId The ID of the callback query to answer.
+ * @return bool True on success, false on failure.
+ */
+function answerCallbackQuery($callbackQueryId) {
+    $token = getenv('TELEGRAM_BOT_TOKEN');
+    if (empty($token)) {
+        error_log("CRITICAL: answerCallbackQuery failed because TELEGRAM_BOT_TOKEN is not set.");
+        return false;
+    }
+
+    $url = "https://api.telegram.org/bot{$token}/answerCallbackQuery";
+    $payload = ['callback_query_id' => $callbackQueryId];
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($http_code !== 200) {
+        error_log("Telegram API error (answerCallbackQuery): {$http_code} - {$response}");
+        return false;
+    }
+
+    return true;
+}
+
+/**
  * Generates the main admin keyboard with all top-level functions.
  *
  * @return array The keyboard markup.
  */
 function getAdminKeyboard() {
     return [
-        'keyboard' => [
-            [['text' => '用户管理']],
-            [['text' => '请求 Gemini'], ['text' => '请求 Cloudflare']],
-            [['text' => '更换 API 密钥']],
-        ],
-        'resize_keyboard' => true,
-        'one_time_keyboard' => false,
+        'inline_keyboard' => [
+            [['text' => '👤 用户管理', 'callback_data' => '用户管理'], ['text' => '📁 文件管理', 'callback_data' => '文件管理']],
+            [['text' => '🧠 请求 Gemini', 'callback_data' => '请求 Gemini'], ['text' => '☁️ 请求 Cloudflare', 'callback_data' => '请求 Cloudflare']],
+            [['text' => '🔑 更换 API 密钥', 'callback_data' => '更换 API 密钥']],
+        ]
+    ];
+}
+
+/**
+ * Generates a keyboard for the file management menu.
+ *
+ * @return array The keyboard markup.
+ */
+function getFileManagementKeyboard() {
+    return [
+        'inline_keyboard' => [
+            [['text' => '📄 列出文件', 'callback_data' => '列出文件']],
+            [['text' => '⬅️ 返回主菜单', 'callback_data' => '/start']]
+        ]
     ];
 }
 
@@ -68,13 +114,11 @@ function getAdminKeyboard() {
  */
 function getUserManagementKeyboard() {
     return [
-        'keyboard' => [
-            [['text' => '查看用户列表']],
-            [['text' => '删除用户']],
-            [['text' => '返回主菜单']]
-        ],
-        'resize_keyboard' => true,
-        'one_time_keyboard' => true,
+        'inline_keyboard' => [
+            [['text' => '👥 查看用户列表', 'callback_data' => '查看用户列表']],
+            [['text' => '🗑️ 删除用户', 'callback_data' => '删除用户']],
+            [['text' => '⬅️ 返回主菜单', 'callback_data' => '/start']]
+        ]
     ];
 }
 
@@ -85,11 +129,9 @@ function getUserManagementKeyboard() {
  */
 function getApiKeySelectionKeyboard() {
     return [
-        'keyboard' => [
-            [['text' => 'Gemini API Key']],
-            [['text' => '返回主菜单']] // A way to exit the process.
-        ],
-        'resize_keyboard' => true,
-        'one_time_keyboard' => true, // This keyboard should be temporary.
+        'inline_keyboard' => [
+            [['text' => '💎 Gemini API Key', 'callback_data' => 'Gemini API Key']],
+            [['text' => '⬅️ 返回主菜单', 'callback_data' => '/start']]
+        ]
     ];
 }

@@ -2,6 +2,7 @@
 
 // --- Unified Configuration and Helpers ---
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/telegram_helpers.php';
 
 // --- Security Validation ---
 $secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
@@ -13,14 +14,38 @@ if (empty($secretToken) || $receivedToken !== $secretToken) {
 
 // --- Main Webhook Logic ---
 $update = json_decode(file_get_contents('php://input'), true);
-if (!$update || !isset($update['message'])) {
+
+if (!$update) {
+    // Exit if the update is not valid JSON.
     exit();
 }
 
-$message = $update['message'];
-$chatId = $message['chat']['id'];
-$userId = $message['from']['id'] ?? $chatId;
-$text = trim($message['text'] ?? '');
+// --- Determine Update Type and Extract Data ---
+$chatId = null;
+$userId = null;
+$command = null;
+$callbackQueryId = null;
+
+if (isset($update['callback_query'])) {
+    $callbackQuery = $update['callback_query'];
+    $chatId = $callbackQuery['message']['chat']['id'];
+    $userId = $callbackQuery['from']['id'];
+    $command = $callbackQuery['data'];
+    $callbackQueryId = $callbackQuery['id'];
+
+    // Acknowledge the callback query to remove the loading spinner on the user's client.
+    // The function `answerCallbackQuery` will be added in the next step.
+    answerCallbackQuery($callbackQueryId);
+
+} elseif (isset($update['message'])) {
+    $message = $update['message'];
+    $chatId = $message['chat']['id'];
+    $userId = $message['from']['id'] ?? $chatId;
+    $command = trim($message['text'] ?? '');
+} else {
+    // Exit if it's an update type we don't handle (e.g., channel post, poll, etc.)
+    exit();
+}
 
 // --- Admin Verification ---
 $adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
@@ -29,10 +54,37 @@ if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
     exit();
 }
 
-// --- State-Driven Conversation Logic ---
-$userState = getUserState($userId);
+// --- Process the Command ---
+// This function centralizes the logic for handling all commands.
+processCommand($chatId, $userId, $command);
 
-if ($userState) {
+
+/**
+ * Processes the user's command, whether from a text message or a callback query.
+ *
+ * @param int    $chatId  The chat ID to send responses to.
+ * @param int    $userId  The user ID for state management.
+ * @param string $command The command or text input from the user.
+ */
+function processCommand($chatId, $userId, $command) {
+    $userState = getUserState($userId);
+
+    if ($userState) {
+        handleStatefulInteraction($chatId, $userId, $command, $userState);
+    } else {
+        handleCommand($chatId, $userId, $command);
+    }
+}
+
+/**
+ * Handles interactions when the user is in a specific state (e.g., awaiting input).
+ *
+ * @param int    $chatId    The chat ID.
+ * @param int    $userId    The user ID.
+ * @param string $text      The user's input.
+ * @param string $userState The current state of the user.
+ */
+function handleStatefulInteraction($chatId, $userId, $text, $userState) {
     // --- State: Awaiting New API Key ---
     if (strpos($userState, 'awaiting_api_key_') === 0) {
         $keyToUpdate = substr($userState, strlen('awaiting_api_key_'));
@@ -74,16 +126,59 @@ if ($userState) {
         setUserState($userId, null); // Clear invalid state
         sendTelegramMessage($chatId, "系统状态异常，已重置。请重新选择操作。", getAdminKeyboard());
     }
+}
 
-// This block handles initial commands when the user is not in a specific state.
-} else {
+/**
+ * Handles stateless command processing (e.g., menu navigation).
+ *
+ * @param int    $chatId  The chat ID.
+ * @param int    $userId  The user ID.
+ * @param string $command The command from the user.
+ */
+function handleCommand($chatId, $userId, $command) {
     $messageToSend = null;
     $keyboard = getAdminKeyboard();
 
-    switch ($text) {
+    switch ($command) {
         case '/start':
         case '/':
+        case '返回主菜单':
             $messageToSend = "欢迎回来，管理员！请选择一个操作。";
+            break;
+
+        // --- File Management ---
+        case '文件管理':
+            $messageToSend = "请选择一个文件管理操作:";
+            $keyboard = getFileManagementKeyboard();
+            break;
+        case '列出文件':
+            $files = scandir(__DIR__);
+            if ($files === false) {
+                $messageToSend = "❌ 无法读取当前目录的文件列表。";
+            } else {
+                // Security: Blacklist sensitive files and directories.
+                $blacklist = [
+                    '.', '..', '.env', '.env.example', '.git', '.gitignore', '.htaccess',
+                    'config.php', 'vendor', 'composer.json', 'composer.lock',
+                    'telegramWebhook.php', // Don't show the webhook handler itself
+                    'test_telegram.php' // Don't show the test file
+                ];
+
+                $messageToSend = "📁 **当前目录文件列表:**\n\n";
+                $messageToSend .= "```\n"; // Use pre-formatted block for clean output
+                $foundFiles = false;
+                foreach ($files as $file) {
+                    if (!in_array($file, $blacklist, true)) {
+                        $messageToSend .= $file . "\n";
+                        $foundFiles = true;
+                    }
+                }
+                if (!$foundFiles) {
+                    $messageToSend .= "(没有可显示的文件)\n";
+                }
+                $messageToSend .= "```";
+            }
+            $keyboard = getFileManagementKeyboard(); // Show menu again
             break;
 
         // --- User Management ---
@@ -134,7 +229,10 @@ if ($userState) {
             $messageToSend = "已返回主菜单。";
             break;
         default:
-            $messageToSend = "无法识别的指令，请使用下方键盘操作。";
+            // Don't send an error for empty commands, which can happen.
+            if (!empty($command)) {
+                $messageToSend = "无法识别的指令，请使用下方键盘操作。";
+            }
             break;
     }
 
