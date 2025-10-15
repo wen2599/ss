@@ -101,7 +101,8 @@ function extractHTMLBody(rawEmail) {
     let textPart = '';
 
     for (const part of parts) {
-      if (!part.trim()) continue;
+      // Add a check to ensure 'part' is a string before calling .trim()
+      if (typeof part !== 'string' || !part.trim()) continue;
 
       const partHeadersEndIndex = part.indexOf('\r\n\r\n');
       if (partHeadersEndIndex === -1) continue;
