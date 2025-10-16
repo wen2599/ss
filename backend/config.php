@@ -12,17 +12,12 @@ ini_set('log_errors', '1');
 ini_set('error_log', $log_dir_for_errors . '/php_errors.log');
 error_reporting(E_ALL);
 
-// --- Robust, Permission-Safe Logging ---
+// --- Robust, Permission-Safe Logging (Debug Mode) ---
+// Logs to the system's temporary directory to bypass any local permission issues.
 function write_log($message, $filename = 'app.log') {
-    $logDir = __DIR__ . '/logs';
-    $logFile = $logDir . '/' . $filename;
-
-    // The directory is already created above. We can try to create it again if it somehow failed.
-    if (!is_dir($logDir)) {
-        @mkdir($logDir, 0775, true);
-    }
-
-    $formatted_message = date('[Y-m-d H:i:s]') . ' ' . $message . PHP_EOL;
+    $logFile = sys_get_temp_dir() . '/' . $filename;
+    $formatted_message = date('[Y-m-d H:i:s]') . ' [CONFIG] ' . $message . PHP_EOL;
+    // Use @ to suppress errors if file_put_contents fails, which can happen in restrictive environments.
     @file_put_contents($logFile, $formatted_message, FILE_APPEND | LOCK_EX);
 }
 
@@ -32,18 +27,31 @@ write_log("------ Config.php Entry Point ------", 'config.log');
  * Robust .env loader
  */
 function load_env_robust() {
-    // Corrected path: .env should be in the same directory as config.php (the 'backend' directory)
+    write_log("Attempting to load .env file.", 'debug_env.log');
     $envPath = __DIR__ . '/.env';
-    if (!file_exists($envPath) || !is_readable($envPath)) {
-        write_log("load_env_robust: .env not found or not readable at {$envPath}", 'env.log');
+    write_log("Expected .env path: {$envPath}", 'debug_env.log');
+
+    if (!file_exists($envPath)) {
+        write_log("Error: .env file does not exist at path.", 'debug_env.log');
         return false;
     }
+    write_log("OK: .env file exists.", 'debug_env.log');
+
+    if (!is_readable($envPath)) {
+        write_log("Error: .env file is not readable. Check permissions.", 'debug_env.log');
+        // Log current user/group to help debug permission issues
+        $user = function_exists('posix_getpwuid') ? posix_getpwuid(posix_geteuid())['name'] : 'N/A';
+        write_log("Script running as user: {$user}", 'debug_env.log');
+        return false;
+    }
+    write_log("OK: .env file is readable.", 'debug_env.log');
 
     $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     if ($lines === false) {
-        write_log("load_env_robust: Failed to read .env file.", 'env.log');
+        write_log("Error: Failed to read .env file content with file() function.", 'debug_env.log');
         return false;
     }
+    write_log("OK: Read " . count($lines) . " lines from .env file.", 'debug_env.log');
 
     foreach ($lines as $line) {
         $trim = trim($line);
