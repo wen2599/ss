@@ -10,14 +10,54 @@ write_custom_debug_log("------ Config.php Entry Point ------");
 
 // --- Pre-emptive Writable Check ---
 if (!is_writable(__DIR__)) {
-    // ... (error handling for unwritable directory) ...
     http_response_code(500);
     exit("FATAL: Directory not writable.");
 }
 
-// --- Environment Variable Loading ---
+/**
+ * Robust .env loader:
+ * - Reads backend/.env
+ * - Parses KEY=VALUE (ignores comments and blank lines)
+ * - Calls putenv(), sets $_ENV and $_SERVER
+ */
 function load_env_robust() {
-    // ... (env loading logic) ...
+    $envPath = __DIR__ . '/.env';
+    if (!file_exists($envPath) || !is_readable($envPath)) {
+        write_custom_debug_log("load_env_robust: .env not found or not readable at {$envPath}");
+        return false;
+    }
+
+    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines === false) {
+        write_custom_debug_log("load_env_robust: Failed to read .env file.");
+        return false;
+    }
+
+    foreach ($lines as $line) {
+        $trim = trim($line);
+        if ($trim === '' || strpos($trim, '#') === 0) continue;
+
+        // Support KEY="value with = and spaces" or KEY=value
+        if (strpos($trim, '=') === false) continue;
+        list($key, $value) = explode('=', $trim, 2);
+        $key = trim($key);
+        $value = trim($value);
+
+        // Remove optional surrounding quotes for the value
+        if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') ||
+            (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
+            $value = substr($value, 1, -1);
+        }
+
+        // Export to environment and PHP superglobals
+        putenv("{$key}={$value}");
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
+
+        write_custom_debug_log("Loaded env: {$key} = " . (strlen($value) ? '***' : '(empty)'));
+    }
+
+    return true;
 }
 
 // Load environment variables only once per request.
