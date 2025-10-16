@@ -11,7 +11,7 @@ $cookieParams = [
     'path' => '/',
     'secure' => true,   // Only send over HTTPS
     'httponly' => true, // Prevent JS access
-    'samesite' => 'Lax' // CSRF protection
+    'samesite' => 'None' // Allow cross-domain cookie usage
 ];
 
 // Dynamically set the domain. For localhost, it should not be set.
