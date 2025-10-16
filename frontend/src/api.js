@@ -62,6 +62,15 @@ export const logoutUser = () => {
     });
 };
 
+/**
+ * Checks the current session status with the backend.
+ * @returns {Promise<any>} - The session data from the server.
+ */
+export const checkSession = () => {
+    return fetchJson(`${API_BASE_URL}/check_session.php`);
+};
+
+
 export const getEmails = () => {
     return fetchJson(`${API_BASE_URL}/get_emails.php`);
 };

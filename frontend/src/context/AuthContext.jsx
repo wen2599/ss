@@ -1,21 +1,37 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { logoutUser as apiLogout } from '../api'; // Import the new logout API function
+import { checkSession, logoutUser as apiLogout } from '../api';
 
-// 1. Create the context
 const AuthContext = createContext(null);
 
-// 2. Create the AuthProvider component
 export const AuthProvider = ({ children }) => {
-    // Check for user data in localStorage to persist session across page refreshes
-    const [user, setUser] = useState(() => {
-        const storedUser = localStorage.getItem('user');
-        try {
-            return storedUser ? JSON.parse(storedUser) : null;
-        } catch (error) {
-            console.error("Failed to parse user from localStorage", error);
-            return null;
-        }
-    });
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true); // Start with loading true
+
+    useEffect(() => {
+        const verifySession = async () => {
+            try {
+                const response = await checkSession();
+                if (response.isAuthenticated && response.user) {
+                    // Session is valid on the backend, sync the frontend state
+                    setUser(response.user);
+                    localStorage.setItem('user', JSON.stringify(response.user));
+                } else {
+                    // No valid session on the backend, clear client-side state
+                    setUser(null);
+                    localStorage.removeItem('user');
+                }
+            } catch (error) {
+                console.error("Session check failed:", error);
+                // On error, assume not authenticated
+                setUser(null);
+                localStorage.removeItem('user');
+            } finally {
+                setLoading(false); // Stop loading once the check is complete
+            }
+        };
+
+        verifySession();
+    }, []); // Empty dependency array means this runs once on mount
 
     const login = (userData) => {
         setUser(userData);
@@ -34,18 +50,22 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // The value provided to the consumer components
     const value = {
         user,
         isAuthenticated: !!user,
+        loading, // Expose loading state
         login,
         logout,
     };
 
+    // Don't render children until session check is complete
+    if (loading) {
+        return <div>Loading application...</div>; // Or a proper spinner component
+    }
+
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// 3. Create a custom hook for easy consumption of the context
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {
