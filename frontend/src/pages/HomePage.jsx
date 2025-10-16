@@ -70,8 +70,11 @@ const HomePage = () => {
 
                 const newResults = {};
                 responses.forEach((response, index) => {
-                    if (response.status === 'success') {
-                        newResults[types[index]] = response.data;
+                    if (response.status === 'success' && response.lottery_results && response.lottery_results.length > 0) {
+                        // 只取最新一条
+                        newResults[types[index]] = response.lottery_results[0];
+                    } else {
+                        newResults[types[index]] = null;
                     }
                 });
 
