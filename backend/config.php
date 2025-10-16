@@ -1,14 +1,24 @@
 <?php
 
-// --- Custom Debug Logging Function ---
-function write_custom_debug_log($message) {
-    $logFile = __DIR__ . '/env_debug.log';
-    file_put_contents($logFile, date('[Y-m-d H:i:s]') . ' ' . $message . PHP_EOL, FILE_APPEND | LOCK_EX);
+// --- Robust, Permission-Safe Logging ---
+function write_log($message, $filename = 'app.log') {
+    $logDir = __DIR__ . '/logs';
+    $logFile = $logDir . '/' . $filename;
+
+    // Ensure the directory exists. Suppress errors in case of permission issues.
+    if (!is_dir($logDir)) {
+        @mkdir($logDir, 0775, true);
+    }
+
+    // Prepare the message.
+    $formatted_message = date('[Y-m-d H:i:s]') . ' ' . $message . PHP_EOL;
+
+    // Write to the log file. Suppress errors if writing fails.
+    @file_put_contents($logFile, $formatted_message, FILE_APPEND | LOCK_EX);
 }
 
-write_custom_debug_log("------ Config.php Entry Point ------");
+write_log("------ Config.php Entry Point ------", 'config.log');
 
-// NOTE: The pre-emptive writable check has been removed as it causes issues in the IDX environment.
 
 /**
  * Robust .env loader:
@@ -19,13 +29,13 @@ write_custom_debug_log("------ Config.php Entry Point ------");
 function load_env_robust() {
     $envPath = __DIR__ . '/../.env'; // Correctly point to the root directory's .env file
     if (!file_exists($envPath) || !is_readable($envPath)) {
-        write_custom_debug_log("load_env_robust: .env not found or not readable at {$envPath}");
+        write_log("load_env_robust: .env not found or not readable at {$envPath}", 'env.log');
         return false;
     }
 
     $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     if ($lines === false) {
-        write_custom_debug_log("load_env_robust: Failed to read .env file.");
+        write_log("load_env_robust: Failed to read .env file.", 'env.log');
         return false;
     }
 
@@ -33,24 +43,22 @@ function load_env_robust() {
         $trim = trim($line);
         if ($trim === '' || strpos($trim, '#') === 0) continue;
 
-        // Support KEY="value with = and spaces" or KEY=value
         if (strpos($trim, '=') === false) continue;
         list($key, $value) = explode('=', $trim, 2);
         $key = trim($key);
         $value = trim($value);
 
-        // Remove optional surrounding quotes for the value
-        if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') ||
+        if ((substr($value, 0, 1) === '\"' && substr($value, -1) === '\"') ||
             (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
             $value = substr($value, 1, -1);
         }
 
-        // Export to environment and PHP superglobals
         putenv("{$key}={$value}");
         $_ENV[$key] = $value;
         $_SERVER[$key] = $value;
 
-        write_custom_debug_log("Loaded env: {$key} = " . (strlen($value) ? '***' : '(empty)'));
+        // Do not log the value itself for security.
+        write_log("Loaded env var: {$key}", 'env.log');
     }
 
     return true;
@@ -58,21 +66,25 @@ function load_env_robust() {
 
 // Load environment variables only once per request.
 if (!defined('ENV_LOADED_ROBUST')) {
-    write_custom_debug_log("Config.php: ENV_LOADED_ROBUST not defined, loading env variables.");
+    write_log("ENV_LOADED_ROBUST not defined, loading env variables.", 'config.log');
     load_env_robust();
     define('ENV_LOADED_ROBUST', true);
-    write_custom_debug_log("Config.php: ENV_LOADED_ROBUST defined after loading.");
-    write_custom_debug_log("Config.php: DB_HOST after load: " . (getenv('DB_HOST') ?: 'N/A'));
-    write_custom_debug_log("Config.php: DB_USER after load: " . (getenv('DB_USER') ?: 'N/A'));
-    write_custom_debug_log("Config.php: TELEGRAM_ADMIN_ID after load: " . (getenv('TELEGRAM_ADMIN_ID') ?: 'N/A'));
+    write_log("ENV_LOADED_ROBUST defined after loading.", 'config.log');
+    write_log("DB_HOST after load: " . (getenv('DB_HOST') ? 'loaded' : 'N/A'), 'env.log');
 }
 
 // --- PHP Error Reporting Configuration (for debugging) ---
-ini_set('display_errors', '1');
+// Note: This will also log to the /logs directory.
+$log_dir_for_errors = __DIR__ . '/logs';
+if (!is_dir($log_dir_for_errors)) {
+    @mkdir($log_dir_for_errors, 0775, true);
+}
+ini_set('display_errors', '1'); // Should be '0' in production
 ini_set('log_errors', '1');
-ini_set('error_log', __DIR__ . '/debug.log');
+ini_set('error_log', $log_dir_for_errors . '/php_errors.log');
 error_reporting(E_ALL);
-write_custom_debug_log("Config.php: PHP error reporting configured.");
+
+write_log("PHP error reporting configured.", 'config.log');
 
 // --- Helper Scripts Inclusion ---
 require_once __DIR__ . '/db_operations.php';
@@ -83,6 +95,6 @@ require_once __DIR__ . '/gemini_ai_helper.php';
 require_once __DIR__ . '/cloudflare_ai_helper.php';
 require_once __DIR__ . '/env_manager.php';
 
-write_custom_debug_log("------ Config.php Exit Point ------");
+write_log("------ Config.php Exit Point ------", 'config.log');
 
 ?>
