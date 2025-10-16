@@ -1,4 +1,6 @@
 <?php
+// It's crucial to include config.php first to load environment variables and database functions.
+require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/api_header.php';
 
 try {
