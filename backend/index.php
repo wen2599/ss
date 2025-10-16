@@ -1,15 +1,6 @@
 <?php
 
-// --- EXTREME TEMPORARY DEBUGGING BLOCK START (backend/index.php) ---
-// This block is to check if PHP script can execute AT ALL and output to browser.
-
-echo "Hello from backend/index.php - This is a very early test.";
-exit; // Force script to exit immediately after outputting this message.
-
-// --- EXTREME TEMPORARY DEBUGGING BLOCK END ---
-
-// Original backend/index.php content (commented out for this test)
-/*
+// Main entry point for API requests
 
 header('Content-Type: application/json');
 
@@ -21,6 +12,7 @@ if ($endpoint === null) {
     exit();
 }
 
+// All endpoints are assumed to be in the backend directory
 switch ($endpoint) {
     case 'register_user':
         require_once __DIR__ . '/register_user.php';
@@ -49,7 +41,5 @@ switch ($endpoint) {
         echo json_encode(['error' => 'Endpoint not found.']);
         break;
 }
-
-*/
 
 ?>
