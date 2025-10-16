@@ -16,12 +16,12 @@ if (!is_writable(__DIR__)) {
 
 /**
  * Robust .env loader:
- * - Reads backend/.env
+ * - Reads project_root/.env
  * - Parses KEY=VALUE (ignores comments and blank lines)
  * - Calls putenv(), sets $_ENV and $_SERVER
  */
 function load_env_robust() {
-    $envPath = __DIR__ . '/.env';
+    $envPath = __DIR__ . '/../.env'; // Correctly point to the root directory's .env file
     if (!file_exists($envPath) || !is_readable($envPath)) {
         write_custom_debug_log("load_env_robust: .env not found or not readable at {$envPath}");
         return false;
