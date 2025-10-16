@@ -4,12 +4,16 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/telegram_helpers.php';
 
-// --- Debugging Request Headers and Config --- 
-error_log("------ Webhook Request Debug Start ------");
-error_log("All Headers: " . json_encode(getallheaders()));
-error_log("Config TELEGRAM_WEBHOOK_SECRET: '" . ($TELEGRAM_WEBHOOK_SECRET ?? 'NOT SET') . "'");
-error_log("Received TELEGRAM_BOT_TOKEN: '" . ($TELEGRAM_BOT_TOKEN ?? 'NOT SET') . "'");
-error_log("------ Webhook Request Debug End ------");
+// --- Debugging Request Headers and Config ---
+// This debug block helps verify what the server is receiving and what the script is loading.
+error_log("------ Webhook Entry Point ------");
+$receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '[Not Provided]';
+error_log("Received Secret Token Header: " . $receivedToken);
+$loadedSecret = getenv('TELEGRAM_WEBHOOK_SECRET');
+error_log("Loaded TELEGRAM_WEBHOOK_SECRET: " . ($loadedSecret ? '***' : '[Not Loaded]'));
+$loadedAdminId = getenv('TELEGRAM_ADMIN_ID');
+error_log("Loaded TELEGRAM_ADMIN_ID: " . ($loadedAdminId ? '***' : '[Not Loaded]'));
+error_log("-------------------------------");
 
 
 // --- Security Validation ---
