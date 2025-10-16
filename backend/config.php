@@ -8,11 +8,7 @@ function write_custom_debug_log($message) {
 
 write_custom_debug_log("------ Config.php Entry Point ------");
 
-// --- Pre-emptive Writable Check (Temporarily Disabled for IDX Environment) ---
-// if (!is_writable(__DIR__)) {
-//     http_response_code(500);
-//     exit("FATAL: Directory not writable.");
-// }
+// NOTE: The pre-emptive writable check has been removed as it causes issues in the IDX environment.
 
 /**
  * Robust .env loader:
