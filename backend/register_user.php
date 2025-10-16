@@ -34,12 +34,25 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 // --- Database Interaction ---
 error_log("Attempting to get database connection in register_user.php");
 $pdo = get_db_connection();
+// Check if get_db_connection returned an error array
+if (is_array($pdo) && isset($pdo['db_error'])) {
+    error_log("Failed to get database connection in register_user.php: " . $pdo['db_error']);
+    http_response_code(503); // Service Unavailable
+    echo json_encode([
+        'error' => 'Database connection is currently unavailable.',
+        'details' => $pdo['db_error'] // Expose detailed DB error for debugging
+    ]);
+    exit;
+}
+
+// Original check for null $pdo (for older behavior or unexpected nulls)
 if (!$pdo) {
-    error_log("Failed to get database connection in register_user.php");
+    error_log("Failed to get database connection in register_user.php (returned null).");
     http_response_code(503); // Service Unavailable
     echo json_encode(['error' => 'Database connection is currently unavailable.']);
     exit;
 }
+
 error_log("Successfully connected to database in register_user.php");
 
 // Hash the password for secure storage

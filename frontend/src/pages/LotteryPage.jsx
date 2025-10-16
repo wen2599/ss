@@ -9,10 +9,9 @@ const LotteryPage = () => {
   const fetchData = () => {
     setLoading(true);
     setError(null);
-    fetch('/api/getLotteryNumber')
+    fetch('/get_lottery_results.php?limit=1') // Fetch only the latest result
       .then(response => {
         if (!response.ok) {
-          // Try to get a more specific error message from the backend if possible
           return response.json().then(err => {
             throw new Error(err.message || `网络错误 (状态: ${response.status})`);
           }).catch(() => {
@@ -22,11 +21,10 @@ const LotteryPage = () => {
         return response.json();
       })
       .then(data => {
-        if (data && data.winning_numbers) {
-          setLotteryData(data);
+        if (data && data.status === 'success' && data.lottery_results && data.lottery_results.length > 0) {
+          setLotteryData(data.lottery_results[0]); // Get the latest result
         } else {
-           // This case handles a successful API call but empty/invalid data, like the initial state
-          setLotteryData({ winning_numbers: '等待开奖', issue_number: '--', created_at: '--' });
+          setLotteryData(null); // No data found or empty results
         }
       })
       .catch(error => {
@@ -40,7 +38,7 @@ const LotteryPage = () => {
 
   useEffect(() => {
     fetchData();
-    const intervalId = setInterval(fetchData, 15000);
+    const intervalId = setInterval(fetchData, 30000); // Fetch every 30 seconds
     return () => clearInterval(intervalId);
   }, []);
 
@@ -59,11 +57,28 @@ const LotteryPage = () => {
       );
     }
 
+    if (!lotteryData) {
+        return <div className="card no-data-card">暂无开奖数据</div>;
+    }
+
     return (
       <div className="card lottery-display-card">
-        <h2 className="lottery-issue">期号: {lotteryData?.issue_number || '--'}</h2>
-        <p className="lottery-number-display">{lotteryData?.winning_numbers || 'N/A'}</p>
-        <p className="lottery-timestamp">最后更新: {lotteryData?.created_at ? new Date(lotteryData.created_at).toLocaleString() : '--'}</p>
+        <h2 className="lottery-type">【{lotteryData.lottery_type || '未知彩票'}】</h2>
+        <p className="lottery-issue">期号: {lotteryData.issue_number || '--'}</p>
+        <p className="lottery-drawing-date">开奖日期: {lotteryData.drawing_date || '--'}</p>
+        <div className="lottery-detail-section">
+            <h3>开奖号码</h3>
+            <p className="lottery-winning-numbers">{lotteryData.winning_numbers || 'N/A'}</p>
+        </div>
+        <div className="lottery-detail-section">
+            <h3>生肖</h3>
+            <p className="lottery-zodiac-signs">{lotteryData.zodiac_signs || 'N/A'}</p>
+        </div>
+        <div className="lottery-detail-section">
+            <h3>颜色</h3>
+            <p className="lottery-colors">{lotteryData.colors || 'N/A'}</p>
+        </div>
+        <p className="lottery-timestamp">数据更新于: {lotteryData.created_at ? new Date(lotteryData.created_at).toLocaleString() : '--'}</p>
       </div>
     );
   };

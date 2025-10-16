@@ -6,7 +6,7 @@
  * variable to ensure that only one database connection is made per request lifecycle.
  * This is crucial for performance and resource management.
  *
- * @return PDO|null A configured PDO object on success, or null if connection fails.
+ * @return PDO|array|null A configured PDO object on success, an array with 'db_error' key on connection failure, or null (deprecated).
  */
 function get_db_connection() {
     static $pdo = null;
@@ -25,8 +25,9 @@ function get_db_connection() {
 
         // All credentials are required.
         if (empty($host) || empty($port) || empty($dbname) || empty($user)) {
-             error_log("Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env");
-             return null;
+             $error_msg = "Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env";
+             error_log($error_msg);
+             return ['db_error' => $error_msg]; // Return specific error
         }
 
         $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
@@ -41,8 +42,9 @@ function get_db_connection() {
             error_log("DEBUG DB: Database connection attempt successful.");
         } catch (PDOException $e) {
             // Log error securely, don't expose to the user.
-            error_log("Database connection failed: " . $e->getMessage() . " | DSN: {$dsn} | User: {$user}");
-            return null;
+            $error_msg = "Database connection failed: " . $e->getMessage() . " | DSN: {$dsn} | User: {$user}";
+            error_log($error_msg);
+            return ['db_error' => $error_msg]; // Return specific error
         }
     }
 
@@ -56,6 +58,10 @@ function get_db_connection() {
  */
 function getAllUsers() {
     $pdo = get_db_connection();
+    if (is_array($pdo) && isset($pdo['db_error'])) {
+        error_log("getAllUsers: Failed to get database connection - " . $pdo['db_error']);
+        return [];
+    }
     if (!$pdo) return [];
 
     try {
@@ -75,6 +81,10 @@ function getAllUsers() {
  */
 function deleteUserByEmail($email) {
     $pdo = get_db_connection();
+    if (is_array($pdo) && isset($pdo['db_error'])) {
+        error_log("deleteUserByEmail: Failed to get database connection - " . $pdo['db_error']);
+        return false;
+    }
     if (!$pdo) return false;
 
     try {
@@ -85,6 +95,63 @@ function deleteUserByEmail($email) {
         return $stmt->rowCount() > 0;
     } catch (PDOException $e) {
         error_log("Error in deleteUserByEmail for {$email}: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Stores lottery results into the lottery_results table.
+ *
+ * @param string $lotteryType The type of lottery (e.g., "六合彩").
+ * @param string $issueNumber The issue number of the lottery drawing.
+ * @param string $winningNumbers A comma-separated string of winning numbers.
+ * @param string $zodiacSigns A comma-separated string of zodiac signs.
+ * @param string $colors A comma-separated string of colors.
+ * @param string $drawingDate The date of the drawing in YYYY-MM-DD format.
+ * @return bool True on success, false on failure.
+ */
+function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate) {
+    $pdo = get_db_connection();
+    if (is_array($pdo) && isset($pdo['db_error'])) {
+        error_log("storeLotteryResult: Failed to get database connection - " . $pdo['db_error']);
+        return false;
+    }
+    if (!$pdo) {
+        error_log("storeLotteryResult: No database connection (returned null unexpectedly).");
+        return false;
+    }
+
+    try {
+        // Check if a result for this lottery type and issue number already exists
+        $stmt = $pdo->prepare("SELECT id FROM lottery_results WHERE lottery_type = ? AND issue_number = ?");
+        $stmt->execute([$lotteryType, $issueNumber]);
+        if ($stmt->fetch()) {
+            error_log("Lottery result for type '{$lotteryType}' and issue '{$issueNumber}' already exists. Skipping insertion.");
+            return true; // Consider it a success if it already exists
+        }
+
+        $stmt = $pdo->prepare(
+            "INSERT INTO lottery_results (
+                lottery_type, 
+                issue_number, 
+                winning_numbers, 
+                zodiac_signs, 
+                colors, 
+                drawing_date
+            ) VALUES (?, ?, ?, ?, ?, ?)"
+        );
+        $stmt->execute([
+            $lotteryType,
+            $issueNumber,
+            $winningNumbers,
+            $zodiacSigns,
+            $colors,
+            $drawingDate
+        ]);
+        error_log("Successfully stored lottery result for {$lotteryType} - {$issueNumber}.");
+        return true;
+    } catch (PDOException $e) {
+        error_log("Error storing lottery result for {$lotteryType} - {$issueNumber}: " . $e->getMessage());
         return false;
     }
 }

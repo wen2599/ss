@@ -1,40 +1,50 @@
 <?php
-// It's crucial to include config.php first to load environment variables and database functions.
-require_once __DIR__ . '/config.php';
+// backend/get_lottery_results.php
+
 require_once __DIR__ . '/api_header.php';
+require_once __DIR__ . '/db_operations.php';
+
+// --- Authentication Check (Optional, depending on if lottery results are public) ---
+// If you want lottery results to be public, comment out or remove this block.
+// If (!isset($_SESSION['user_id'])) {
+//     http_response_code(401); // Unauthorized
+//     echo json_encode(['status' => 'error', 'message' => 'You must be logged in to view lottery results.']);
+//     exit;
+// }
+
+// --- Fetch Lottery Results ---
+$pdo = get_db_connection();
+if (!$pdo) {
+    http_response_code(503); // Service Unavailable
+    echo json_encode(['status' => 'error', 'message' => 'Database connection is currently unavailable.']);
+    exit;
+}
 
 try {
-    $pdo = get_db_connection();
-    $lotteryType = $_GET['type'] ?? null;
+    // Fetch the latest lottery result, or a specific number of results
+    // For example, fetching the latest 10 results
+    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
+    $lotteryType = isset($_GET['lottery_type']) ? $_GET['lottery_type'] : null;
 
-    $sql = "SELECT lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date
-            FROM lottery_results";
+    $sql = "SELECT id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at FROM lottery_results ";
+    $params = [];
 
     if ($lotteryType) {
-        $sql .= " WHERE lottery_type = :lottery_type ORDER BY id DESC LIMIT 1";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([':lottery_type' => $lotteryType]);
-    } else {
-        // If no type is specified, get the absolute latest result of any type
-        $sql .= " ORDER BY id DESC LIMIT 1";
-        $stmt = $pdo->query($sql);
+        $sql .= " WHERE lottery_type = ?";
+        $params[] = $lotteryType;
     }
 
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    $sql .= " ORDER BY drawing_date DESC, issue_number DESC LIMIT ?";
+    $params[] = $limit;
 
-    if ($result) {
-        // Explode comma-separated strings into arrays for easier frontend consumption
-        $result['winning_numbers'] = explode(',', $result['winning_numbers']);
-        $result['zodiac_signs'] = explode(',', $result['zodiac_signs']);
-        $result['colors'] = explode(',', $result['colors']);
-        echo json_encode(['status' => 'success', 'data' => $result]);
-    } else {
-        // No results found for the given type, or table is empty
-        echo json_encode(['status' => 'success', 'data' => null]);
-    }
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode(['status' => 'success', 'lottery_results' => $results]);
 
 } catch (PDOException $e) {
+    error_log("Error fetching lottery results: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'Database error while fetching lottery results.']);
+    echo json_encode(['status' => 'error', 'message' => 'An error occurred while fetching lottery results.']);
 }
-?>
