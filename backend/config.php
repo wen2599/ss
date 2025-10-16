@@ -35,11 +35,22 @@ function load_env() {
     if (file_exists($envPath)) {
         $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) continue;
-            list($name, $value) = explode('=', $line, 2);
-            // Trim whitespace first, then quotes for robustness
-            $value = trim(trim($value), '"');
-            putenv(trim($name) . '=' . $value);
+            // Skip comments
+            if (strpos(trim($line), '#') === 0) {
+                continue;
+            }
+
+            // Use a more robust regex to handle various formats
+            if (preg_match('/^([\w_]+)\s*=\s*(.*)$/', $line, $matches)) {
+                $name = $matches[1];
+                // Trim whitespace and quotes (single and double) from the value
+                $value = trim(trim($matches[2]), "\"'");
+
+                // Load into all relevant superglobals for maximum compatibility
+                putenv("{$name}={$value}"); // For getenv()
+                $_ENV[$name] = $value;      // For $_ENV superglobal
+                $_SERVER[$name] = $value;   // For $_SERVER superglobal
+            }
         }
     }
 }

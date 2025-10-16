@@ -4,17 +4,25 @@
 // Debugging array to collect info
 $debug_info = [];
 
-// Set session cookie parameters before starting the session.
-// This ensures the cookie is sent to the correct domain and path, and is secure.
-$domain = 'ss.wenxiuxiu.eu.org'; // Explicitly set the domain
-session_set_cookie_params([
-    'lifetime' => 3600, // Session lifetime in seconds (e.g., 1 hour)
-    'path' => '/', // The path on the server in which the cookie will be available on.
-    'domain' => $domain, // The domain that the cookie is available to.
-    'secure' => true, // Only send the cookie over HTTPS
-    'httponly' => true, // Prevent JavaScript access to the cookie
-    'samesite' => 'Lax' // Strict, Lax, None
-]);
+// Set session cookie parameters dynamically and securely before starting the session.
+// This makes the application more portable and secure.
+$cookieParams = [
+    'lifetime' => 3600, // 1 hour
+    'path' => '/',
+    'secure' => true,   // Only send over HTTPS
+    'httponly' => true, // Prevent JS access
+    'samesite' => 'Lax' // CSRF protection
+];
+
+// Dynamically set the domain. For localhost, it should not be set.
+// For production, it should be the bare domain (e.g., 'wenxiuxiu.eu.org').
+$host = $_SERVER['HTTP_HOST'] ?? '';
+if (!empty($host) && $host !== 'localhost' && !filter_var($host, FILTER_VALIDATE_IP)) {
+    // Prepend a dot to make the cookie available to all subdomains.
+    $cookieParams['domain'] = '.' . $host;
+}
+
+session_set_cookie_params($cookieParams);
 
 // Start the session.
 session_start();
