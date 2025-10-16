@@ -31,31 +31,34 @@ if (!is_writable(__DIR__)) {
 
 // --- Environment Variable Loading ---
 // This robust loader ensures variables are available across different server configurations (SAPIs).
-if (!function_exists('load_env_robust')) {
-    function load_env_robust() {
-        $envPath = __DIR__ . '/.env';
-        if (file_exists($envPath)) {
-            $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            foreach ($lines as $line) {
-                if (strpos(trim($line), '#') === 0) {
-                    continue;
-                }
-                list($name, $value) = explode('=', $line, 2);
-                $name = trim($name);
-                $value = trim(trim($value), '"'); // Trim whitespace and quotes
-
-                // Populate all common places environment variables are stored
-                if (!array_key_exists($name, $_ENV)) {
-                    $_ENV[$name] = $value;
-                }
-                if (!array_key_exists($name, $_SERVER)) {
-                    $_SERVER[$name] = $value;
-                }
-                putenv("{$name}={$value}");
+function load_env_robust() {
+    $envPath = __DIR__ . '/.env';
+    if (file_exists($envPath)) {
+        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($lines as $line) {
+            if (strpos(trim($line), '#') === 0) {
+                continue;
             }
+            list($name, $value) = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim(trim($value), '"'); // Trim whitespace and quotes
+
+            // Populate all common places environment variables are stored
+            if (!array_key_exists($name, $_ENV)) {
+                $_ENV[$name] = $value;
+            }
+            if (!array_key_exists($name, $_SERVER)) {
+                $_SERVER[$name] = $value;
+            }
+            putenv("{$name}={$value}");
         }
     }
+}
+
+// Load environment variables only once per request.
+if (!defined('ENV_LOADED_ROBUST')) {
     load_env_robust();
+    define('ENV_LOADED_ROBUST', true);
 }
 
 // --- PHP Error Reporting Configuration (for debugging) ---
