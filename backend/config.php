@@ -1,16 +1,5 @@
 <?php
 
-// --- EXTREME TEMPORARY DEBUGGING BLOCK START (config.php) ---
-// This block is to check if config.php can execute AT ALL and output to browser.
-
-echo "Hello from config.php - This is a very early test.";
-exit; // Force script to exit immediately after outputting this message.
-
-// --- EXTREME TEMPORARY DEBUGGING BLOCK END ---
-
-// Original config.php content (commented out for this test)
-/*
-
 // --- Custom Debug Logging Function ---
 function write_custom_debug_log($message) {
     $logFile = __DIR__ . '/env_debug.log';
@@ -59,7 +48,5 @@ require_once __DIR__ . '/cloudflare_ai_helper.php';
 require_once __DIR__ . '/env_manager.php';
 
 write_custom_debug_log("------ Config.php Exit Point ------");
-
-*/
 
 ?>
