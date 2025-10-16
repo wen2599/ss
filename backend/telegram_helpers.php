@@ -169,8 +169,19 @@ function processCommand($chatId, $userId, $command) {
             sendTelegramMessage($chatId, "请选择一个文件管理操作:", getFileManagementKeyboard());
             break;
         case '列出文件':
-            $output = shell_exec('ls -la');
-            sendTelegramMessage($chatId, "<pre>" . htmlspecialchars($output) . "</pre>", getFileManagementKeyboard());
+            try {
+                $files = scandir(__DIR__);
+                $output = "<b>File List:</b>\n<pre>";
+                foreach ($files as $file) {
+                    if ($file !== '.' && $file !== '..') {
+                        $output .= htmlspecialchars($file) . "\n";
+                    }
+                }
+                $output .= "</pre>";
+                sendTelegramMessage($chatId, $output, getFileManagementKeyboard());
+            } catch (Exception $e) {
+                sendTelegramMessage($chatId, "Error listing files: " . $e->getMessage(), getFileManagementKeyboard());
+            }
             break;
 
         // API Key Management

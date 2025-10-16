@@ -25,21 +25,8 @@ $endpointMap = [
     // Add other path-based routes here
 ];
 
-// --- Route 1: Query Parameter-based Routing (for legacy or specific cases) ---
-if (isset($queryParams['endpoint'])) {
-    $endpoint = $queryParams['endpoint'];
-
-    if ($endpoint === 'telegramWebhook') {
-        // The Telegram webhook has specific requirements and does not use the standard JSON API format.
-        // It also performs its own security check.
-        require_once __DIR__ . '/telegramWebhook.php';
-        exit();
-    }
-    // Add other query-based endpoints here if needed.
-}
-
-// --- Route 2: Path-based API Routing ---
-elseif (isset($endpointMap[$path])) {
+// --- Route 1: Path-based API Routing ---
+if (isset($endpointMap[$path])) {
     $handlerScript = __DIR__ . '/' . $endpointMap[$path];
     if (file_exists($handlerScript)) {
         // Set a standard header for JSON responses.
