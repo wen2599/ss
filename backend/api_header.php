@@ -1,6 +1,8 @@
 <?php
 // api_header.php
 
+require_once __DIR__ . '/config.php'; // Ensure config is loaded first
+
 // Debugging array to collect info
 $debug_info = [];
 
@@ -9,7 +11,7 @@ $debug_info = [];
 session_set_cookie_params([
     'lifetime' => 3600, // Session lifetime in seconds (e.g., 1 hour)
     'path' => '/', // The path on the server in which the cookie will be available on.
-    'domain' => 'ss.wenxiuxiu.eu.org', // Set to the frontend domain for cross-domain cookies
+    'domain' => getenv('FRONTEND_DOMAIN') ?: '', // Use environment variable for domain
     'secure' => true, // Only send the cookie over HTTPS
     'httponly' => true, // Prevent JavaScript access to the cookie
     'samesite' => 'None' // Must be 'None' for cross-site requests
@@ -26,7 +28,7 @@ error_log("API Header Debug: Session ID - " . session_id() . ", User ID - " . ($
 
 
 // --- CORS and Security Headers ---
-$allowed_origins = ['http://localhost:3000', 'https://ss.wenxiuxiu.eu.org'];
+$allowed_origins = ['http://localhost:3000', getenv('FRONTEND_DOMAIN') ?: '' ];
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
 if (in_array($origin, $allowed_origins)) {
