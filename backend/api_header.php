@@ -11,7 +11,7 @@ $debug_info = [];
 session_set_cookie_params([
     'lifetime' => 3600, // Session lifetime in seconds (e.g., 1 hour)
     'path' => '/', // The path on the server in which the cookie will be available on.
-    'domain' => getenv('FRONTEND_DOMAIN') ?: '', // Use environment variable for domain
+    'domain' => '', // 一定要设为空字符串，保证 cookie 属于 worker 域名
     'secure' => true, // Only send the cookie over HTTPS
     'httponly' => true, // Prevent JavaScript access to the cookie
     'samesite' => 'None' // Must be 'None' for cross-site requests
@@ -25,7 +25,6 @@ $debug_info['api_header_request_origin'] = $_SERVER['HTTP_ORIGIN'] ?? 'N/A';
 $debug_info['api_header_session_id'] = session_id();
 $debug_info['api_header_session_data'] = $_SESSION;
 error_log("API Header Debug: Session ID - " . session_id() . ", User ID - " . ($_SESSION['user_id'] ?? 'N/A') . ", Origin - " . ($_SERVER['HTTP_ORIGIN'] ?? 'N/A'));
-
 
 // --- CORS and Security Headers ---
 $allowed_origins = ['http://localhost:3000', getenv('FRONTEND_DOMAIN') ?: '' ];
