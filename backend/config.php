@@ -52,23 +52,6 @@ ini_set('error_log', __DIR__ . '/debug.log'); // Direct errors to a specific fil
 error_reporting(E_ALL); // Report all errors
 
 
-// --- DEBUGGING: Print all environment variables and test DB connection ---
-error_log("DEBUG: All Environment Variables:");
-foreach (getenv() as $key => $value) {
-    error_log("DEBUG: {$key} = {$value}");
-}
-
-// Helper function to get database connection (defined in db_operations.php)
-require_once __DIR__ . '/db_operations.php';
-$pdo = get_db_connection();
-if ($pdo) {
-    error_log("DEBUG: Database connection successful.");
-} else {
-    error_log("DEBUG: Database connection FAILED. Check credentials in .env and database server status.");
-}
-// --- END DEBUGGING ---
-
-
 // --- Helper Scripts Inclusion ---
 require_once __DIR__ . '/db_operations.php';
 require_once __DIR__ . '/telegram_helpers.php';
