@@ -6,11 +6,11 @@ $debug_info = [];
 
 // Set session cookie parameters before starting the session.
 // This ensures the cookie is sent to the correct domain and path, and is secure.
-$domain = 'ss.wenxiuxiu.eu.org'; // Explicitly set the domain
 session_set_cookie_params([
     'lifetime' => 3600, // Session lifetime in seconds (e.g., 1 hour)
     'path' => '/', // The path on the server in which the cookie will be available on.
-    'domain' => $domain, // The domain that the cookie is available to.
+    // The 'domain' parameter is intentionally omitted. The browser will default
+    // to the domain of the server setting the cookie, which is the correct behavior.
     'secure' => true, // Only send the cookie over HTTPS
     'httponly' => true, // Prevent JavaScript access to the cookie
     'samesite' => 'None' // Must be 'None' for cross-site requests
