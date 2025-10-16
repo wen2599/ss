@@ -1,4 +1,3 @@
-
 const API_BASE_URL = ''; // The backend files are in the root directory
 
 /**
@@ -95,13 +94,14 @@ export const processEmailWithAI = (id) => {
 };
 
 /**
- * Fetches the latest lottery results from the backend.
- * @returns {Promise<any>} The latest lottery result.
+ * 获取最新彩票开奖结果（参数要用 lottery_type）
+ * @param {string} type 彩票类型
+ * @returns {Promise<any>} 最新开奖结果
  */
 export const getLotteryResults = (type = null) => {
     const url = new URL(`${API_BASE_URL}/get_lottery_results.php`, window.location.origin);
     if (type) {
-        url.searchParams.append('type', type);
+        url.searchParams.append('lottery_type', type); // 改为 lottery_type
     }
     return fetchJson(url.toString());
 };
