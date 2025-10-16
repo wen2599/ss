@@ -23,6 +23,8 @@ session_start();
 $debug_info['api_header_request_origin'] = $_SERVER['HTTP_ORIGIN'] ?? 'N/A';
 $debug_info['api_header_session_id'] = session_id();
 $debug_info['api_header_session_data'] = $_SESSION;
+error_log("API Header Debug: Session ID - " . session_id() . ", User ID - " . ($_SESSION['user_id'] ?? 'N/A') . ", Origin - " . ($_SERVER['HTTP_ORIGIN'] ?? 'N/A'));
+
 
 // --- CORS and Security Headers ---
 $allowed_origins = ['http://localhost:3000', 'https://ss.wenxiuxiu.eu.org'];
