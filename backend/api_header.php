@@ -45,7 +45,4 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS
     http_response_code(200);
     exit;
 }
-
-// Include the main configuration file which loads environment variables and other helpers.
-require_once __DIR__ . '/config.php';
 ?>
