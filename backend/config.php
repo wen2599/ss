@@ -1,33 +1,38 @@
 <?php
 
+// --- PHP Error Reporting Configuration (Moved to top) ---
+// This MUST be the very first thing to run to ensure any fatal errors are caught.
+$log_dir_for_errors = __DIR__ . '/logs';
+if (!is_dir($log_dir_for_errors)) {
+    // Use @ to suppress errors if the directory can't be created, which itself could be a fatal error.
+    @mkdir($log_dir_for_errors, 0775, true);
+}
+ini_set('display_errors', '0'); // Set to 0 for production to avoid leaking info to the frontend.
+ini_set('log_errors', '1');
+ini_set('error_log', $log_dir_for_errors . '/php_errors.log');
+error_reporting(E_ALL);
+
 // --- Robust, Permission-Safe Logging ---
 function write_log($message, $filename = 'app.log') {
     $logDir = __DIR__ . '/logs';
     $logFile = $logDir . '/' . $filename;
 
-    // Ensure the directory exists. Suppress errors in case of permission issues.
+    // The directory is already created above. We can try to create it again if it somehow failed.
     if (!is_dir($logDir)) {
         @mkdir($logDir, 0775, true);
     }
 
-    // Prepare the message.
     $formatted_message = date('[Y-m-d H:i:s]') . ' ' . $message . PHP_EOL;
-
-    // Write to the log file. Suppress errors if writing fails.
     @file_put_contents($logFile, $formatted_message, FILE_APPEND | LOCK_EX);
 }
 
 write_log("------ Config.php Entry Point ------", 'config.log');
 
-
 /**
- * Robust .env loader:
- * - Reads project_root/.env
- * - Parses KEY=VALUE (ignores comments and blank lines)
- * - Calls putenv(), sets $_ENV and $_SERVER
+ * Robust .env loader
  */
 function load_env_robust() {
-    $envPath = __DIR__ . '/../.env'; // Correctly point to the root directory's .env file
+    $envPath = __DIR__ . '/../.env';
     if (!file_exists($envPath) || !is_readable($envPath)) {
         write_log("load_env_robust: .env not found or not readable at {$envPath}", 'env.log');
         return false;
@@ -57,7 +62,6 @@ function load_env_robust() {
         $_ENV[$key] = $value;
         $_SERVER[$key] = $value;
 
-        // Do not log the value itself for security.
         write_log("Loaded env var: {$key}", 'env.log');
     }
 
@@ -72,17 +76,6 @@ if (!defined('ENV_LOADED_ROBUST')) {
     write_log("ENV_LOADED_ROBUST defined after loading.", 'config.log');
     write_log("DB_HOST after load: " . (getenv('DB_HOST') ? 'loaded' : 'N/A'), 'env.log');
 }
-
-// --- PHP Error Reporting Configuration (for debugging) ---
-// Note: This will also log to the /logs directory.
-$log_dir_for_errors = __DIR__ . '/logs';
-if (!is_dir($log_dir_for_errors)) {
-    @mkdir($log_dir_for_errors, 0775, true);
-}
-ini_set('display_errors', '1'); // Should be '0' in production
-ini_set('log_errors', '1');
-ini_set('error_log', $log_dir_for_errors . '/php_errors.log');
-error_reporting(E_ALL);
 
 write_log("PHP error reporting configured.", 'config.log');
 
