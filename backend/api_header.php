@@ -13,7 +13,7 @@ session_set_cookie_params([
     'domain' => $domain, // The domain that the cookie is available to.
     'secure' => true, // Only send the cookie over HTTPS
     'httponly' => true, // Prevent JavaScript access to the cookie
-    'samesite' => 'Lax' // Strict, Lax, None
+    'samesite' => 'None' // Must be 'None' for cross-site requests
 ]);
 
 // Start the session.
