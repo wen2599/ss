@@ -4,12 +4,23 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/telegram_helpers.php';
 
+// --- Debugging Request Headers and Config --- 
+error_log("------ Webhook Request Debug Start ------");
+error_log("All Headers: " . json_encode(getallheaders()));
+error_log("Config TELEGRAM_WEBHOOK_SECRET: '" . ($TELEGRAM_WEBHOOK_SECRET ?? 'NOT SET') . "'");
+error_log("Received TELEGRAM_BOT_TOKEN: '" . ($TELEGRAM_BOT_TOKEN ?? 'NOT SET') . "'");
+error_log("------ Webhook Request Debug End ------");
+
+
 // --- Security Validation ---
-// Access TELEGRAM_WEBHOOK_SECRET directly from config.php
-// global $TELEGRAM_WEBHOOK_SECRET; // If config.php doesn't define it globally, we might need to do this
-$secretToken = $TELEGRAM_WEBHOOK_SECRET; 
+$secretToken = $TELEGRAM_WEBHOOK_SECRET ?? null; 
 $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
+
+// --- Detailed Debugging ---
+error_log("Webhook Security Check: Received Token - '{$receivedToken}', Expected Token - '" . ($secretToken ?? 'N/A') . "'");
+
 if (empty($secretToken) || $receivedToken !== $secretToken) {
+    error_log("Webhook Forbidden: Token mismatch or secret token is empty. Received: '{$receivedToken}', Expected: '" . ($secretToken ?? 'N/A') . "'");
     http_response_code(403);
     exit('Forbidden: Secret token mismatch.');
 }
@@ -17,7 +28,6 @@ if (empty($secretToken) || $receivedToken !== $secretToken) {
 // --- Main Webhook Logic ---
 $update = json_decode(file_get_contents('php://input'), true);
 
-// We only process 'message' updates in this simplified model.
 if (!isset($update['message'])) {
     exit();
 }
@@ -28,9 +38,7 @@ $userId = $message['from']['id'] ?? $chatId;
 $command = trim($message['text'] ?? '');
 
 // --- Admin Verification ---
-// Access TELEGRAM_ADMIN_ID directly from config.php
-// global $TELEGRAM_ADMIN_ID; // If config.php doesn't define it globally, we might need to do this
-$adminChatId = $TELEGRAM_ADMIN_ID;
+$adminChatId = $TELEGRAM_ADMIN_ID ?? null;
 if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
     sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
     exit();
@@ -39,6 +47,7 @@ if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
 // --- Process the Command ---
 processCommand($chatId, $userId, $command);
 
+// ... (rest of the file remains the same) ...
 
 /**
  * Processes the user's command.
