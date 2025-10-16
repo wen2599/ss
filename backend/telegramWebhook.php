@@ -1,5 +1,18 @@
 <?php
 
+// --- EXTREME EARLY DEBUGGING START (telegramWebhook.php) ---
+$earlyLogFile = __DIR__ . '/telegram_early_debug.log';
+$requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN_METHOD';
+$requestUri = $_SERVER['REQUEST_URI'] ?? 'UNKNOWN_URI';
+$secretTokenHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '[HEADER_NOT_SET]';
+
+file_put_contents(
+    $earlyLogFile,
+    date('[Y-m-d H:i:s]') . " [EARLY_WEBHOOK_DEBUG] Method: {$requestMethod}, URI: {$requestUri}, X-Telegram-Bot-Api-Secret-Token: '{$secretTokenHeader}'\n",
+    FILE_APPEND | LOCK_EX
+);
+// --- EXTREME EARLY DEBUGGING END (telegramWebhook.php) ---
+
 // --- Unified Configuration and Helpers ---
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/telegram_helpers.php';
