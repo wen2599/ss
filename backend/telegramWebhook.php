@@ -5,27 +5,34 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/telegram_helpers.php';
 require_once __DIR__ . '/db_operations.php'; // Ensure database operations are available
 
+// Custom Debug Logging Function for Telegram Webhook
+function write_telegram_debug_log($message) {
+    $logFile = __DIR__ . '/telegram_debug.log';
+    file_put_contents($logFile, date('[Y-m-d H:i:s]') . ' [TELEGRAM_WEBHOOK] ' . $message . PHP_EOL, FILE_APPEND | LOCK_EX);
+}
+
+write_telegram_debug_log("------ Webhook Entry Point ------");
+
 // --- Debugging Request Headers and Config ---
-error_log("------ Webhook Entry Point ------");
 $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '[Not Provided]';
-error_log("Received Secret Token Header: " . $receivedToken);
+write_telegram_debug_log("Received Secret Token Header: " . $receivedToken);
 $loadedSecret = getenv('TELEGRAM_WEBHOOK_SECRET');
-error_log("Loaded TELEGRAM_WEBHOOK_SECRET: " . ($loadedSecret ? '***' : '[Not Loaded]'));
+write_telegram_debug_log("Loaded TELEGRAM_WEBHOOK_SECRET: " . ($loadedSecret ? '***' : '[Not Loaded]'));
 $loadedAdminId = getenv('TELEGRAM_ADMIN_ID');
-error_log("Loaded TELEGRAM_ADMIN_ID: " . ($loadedAdminId ? '***' : '[Not Loaded]'));
+write_telegram_debug_log("Loaded TELEGRAM_ADMIN_ID: " . ($loadedAdminId ? '***' : '[Not Loaded]'));
 $loadedLotteryChannelId = getenv('LOTTERY_CHANNEL_ID'); // Load Lottery Channel ID
-error_log("Loaded LOTTERY_CHANNEL_ID: " . ($loadedLotteryChannelId ? '***' : '[Not Loaded]'));
-error_log("-------------------------------");
+write_telegram_debug_log("Loaded LOTTERY_CHANNEL_ID: " . ($loadedLotteryChannelId ? '***' : '[Not Loaded]'));
+write_telegram_debug_log("-------------------------------");
 
 
 // --- Security Validation ---
 $secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
 $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 
-error_log("Webhook Security Check: Received Token - '{$receivedToken}', Expected Token - '" . ($secretToken ? 'SET' : 'NOT SET') . "'");
+write_telegram_debug_log("Webhook Security Check: Received Token - '{$receivedToken}', Expected Token - '" . ($secretToken ? 'SET' : 'NOT SET') . "'");
 
 if (!$secretToken || $receivedToken !== $secretToken) {
-    error_log("Webhook Forbidden: Token mismatch. Received: '{$receivedToken}', Expected: '" . ($secretToken ? 'SET' : 'NOT SET') . "'");
+    write_telegram_debug_log("Webhook Forbidden: Token mismatch. Received: '{$receivedToken}', Expected: '" . ($secretToken ? 'SET' : 'NOT SET') . "'");
     http_response_code(403);
     exit('Forbidden: Secret token mismatch.');
 }
@@ -43,6 +50,7 @@ if (isset($update['callback_query'])) {
     $chatId = $callbackQuery['message']['chat']['id'];
     $userId = $callbackQuery['from']['id'];
     $command = $callbackQuery['data']; // The 'data' field from the inline button
+    write_telegram_debug_log("Received callback query from chat ID: {$chatId}, User ID: {$userId}, Command: {$command}");
 
     // Acknowledge the button press to remove the loading animation
     answerTelegramCallbackQuery($callbackQuery['id']);
@@ -52,11 +60,12 @@ if (isset($update['callback_query'])) {
     $chatId = $message['chat']['id'];
     $userId = $message['from']['id'] ?? $chatId;
     $command = trim($message['text'] ?? '');
+    write_telegram_debug_log("Received message from chat ID: {$chatId}, User ID: {$userId}, Text: {$command}");
 
     // --- NEW: Handle Lottery Channel Messages ---
     $lotteryChannelId = getenv('LOTTERY_CHANNEL_ID');
     if ($lotteryChannelId && (string)$chatId === (string)$lotteryChannelId) {
-        error_log("Received message from lottery channel: " . $chatId . " with text: " . $command);
+        write_telegram_debug_log("Message is from configured lottery channel ({$lotteryChannelId}). Attempting to handle lottery message.");
         handleLotteryMessage($chatId, $command);
         http_response_code(200); // Acknowledge and exit, as it's handled
         echo json_encode(['status' => 'ok', 'message' => 'Lottery message processed.']);
@@ -65,14 +74,14 @@ if (isset($update['callback_query'])) {
 
 } else {
     // If it's not a message or a callback query we recognize, ignore it.
-    error_log("Ignoring unsupported update type: " . json_encode($update));
+    write_telegram_debug_log("Ignoring unsupported update type: " . json_encode($update));
     http_response_code(200); // Acknowledge and ignore
     exit();
 }
 
 // If chat ID or user ID are still null, it's an unhandled update type for admin logic
 if ($chatId === null || $userId === null) {
-    error_log("Webhook: Chat ID or User ID is null, possibly unhandled update type after lottery check.");
+    write_telegram_debug_log("Webhook: Chat ID or User ID is null, possibly unhandled update type after lottery check.");
     http_response_code(200); // Still acknowledge, just log
     exit();
 }
@@ -81,6 +90,7 @@ if ($chatId === null || $userId === null) {
 // The admin ID is now fetched using getenv() for consistency
 $adminChatId = getenv('TELEGRAM_ADMIN_ID');
 if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
+    write_telegram_debug_log("Unauthorized access attempt from chat ID: {$chatId}. Expected Admin ID: {$adminChatId}");
     sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
     http_response_code(200); // Acknowledge and exit
     exit();
@@ -255,7 +265,7 @@ function handleCommand($chatId, $userId, $command) {
  * @param string $messageText The text content of the message.
  */
 function handleLotteryMessage($chatId, $messageText) {
-    error_log("Attempting to parse lottery message: " . $messageText);
+    write_telegram_debug_log("Attempting to parse lottery message: " . $messageText);
 
     $lottery_type = '未知彩票';
     $issue_number = '';
@@ -268,6 +278,9 @@ function handleLotteryMessage($chatId, $messageText) {
     if (preg_match('/【(.*?)】第(\d+)期开奖结果/', $messageText, $matches)) {
         $lottery_type = trim($matches[1]);
         $issue_number = trim($matches[2]);
+        write_telegram_debug_log("Parsed Lottery Type: '{$lottery_type}', Issue Number: '{$issue_number}'");
+    } else {
+        write_telegram_debug_log("Failed to parse Lottery Type and Issue Number from message.");
     }
 
     // Regex to extract winning numbers
@@ -277,24 +290,37 @@ function handleLotteryMessage($chatId, $messageText) {
             $numbers .= ' ' . trim($matches[2]);
         }
         $winning_numbers = preg_replace('/\s+/', ' ', $numbers); // Normalize spaces
+        write_telegram_debug_log("Parsed Winning Numbers: '{$winning_numbers}'");
+    } else {
+        write_telegram_debug_log("Failed to parse Winning Numbers from message.");
     }
 
     // Regex to extract zodiac signs
     if (preg_match('/生肖[：:]\s*(.*)/', $messageText, $matches)) {
         $zodiac_signs = trim($matches[1]);
+        write_telegram_debug_log("Parsed Zodiac Signs: '{$zodiac_signs}'");
+    } else {
+        write_telegram_debug_log("Failed to parse Zodiac Signs from message.");
     }
 
     // Regex to extract colors
     if (preg_match('/颜色[：:]\s*(.*)/', $messageText, $matches)) {
         $colors = trim($matches[1]);
+        write_telegram_debug_log("Parsed Colors: '{$colors}'");
+    } else {
+        write_telegram_debug_log("Failed to parse Colors from message.");
     }
 
     // Regex to extract drawing date
     if (preg_match('/开奖日期[：:]\s*(\d{4}-\d{2}-\d{2})/', $messageText, $matches)) {
         $drawing_date = trim($matches[1]);
+        write_telegram_debug_log("Parsed Drawing Date: '{$drawing_date}'");
+    } else {
+        write_telegram_debug_log("Failed to parse Drawing Date from message. Using default: {$drawing_date}");
     }
 
     // Store the results in the database
+    write_telegram_debug_log("Calling storeLotteryResult with: Type='{$lottery_type}', Issue='{$issue_number}', Numbers='{$winning_numbers}', Zodiac='{$zodiac_signs}', Colors='{$colors}', Date='{$drawing_date}'");
     $result = storeLotteryResult(
         $lottery_type,
         $issue_number,
@@ -305,13 +331,9 @@ function handleLotteryMessage($chatId, $messageText) {
     );
 
     if ($result) {
-        error_log("Lottery result for {$lottery_type} {$issue_number} stored successfully.");
-        // Optionally, send a confirmation to the admin if needed, but not to the channel itself
-        // sendTelegramMessage(getenv('TELEGRAM_ADMIN_ID'), "✅ 已成功存储 {$lottery_type} 第{$issue_number}期开奖结果。");
+        write_telegram_debug_log("Lottery result for {$lottery_type} {$issue_number} stored successfully.");
     } else {
-        error_log("Failed to store lottery result for {$lottery_type} {$issue_number}.");
-        // Optionally, send an error notification to the admin
-        // sendTelegramMessage(getenv('TELEGRAM_ADMIN_ID'), "❌ 存储 {$lottery_type} 第{$issue_number}期开奖结果失败！请检查日志。");
+        write_telegram_debug_log("Failed to store lottery result for {$lottery_type} {$issue_number} in DB.");
     }
 }
 
