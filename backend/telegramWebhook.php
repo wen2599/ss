@@ -5,7 +5,9 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/telegram_helpers.php';
 
 // --- Security Validation ---
-$secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
+// Access TELEGRAM_WEBHOOK_SECRET directly from config.php
+// global $TELEGRAM_WEBHOOK_SECRET; // If config.php doesn't define it globally, we might need to do this
+$secretToken = $TELEGRAM_WEBHOOK_SECRET; 
 $receivedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 if (empty($secretToken) || $receivedToken !== $secretToken) {
     http_response_code(403);
@@ -26,7 +28,9 @@ $userId = $message['from']['id'] ?? $chatId;
 $command = trim($message['text'] ?? '');
 
 // --- Admin Verification ---
-$adminChatId = getenv('TELEGRAM_ADMIN_CHAT_ID');
+// Access TELEGRAM_ADMIN_ID directly from config.php
+// global $TELEGRAM_ADMIN_ID; // If config.php doesn't define it globally, we might need to do this
+$adminChatId = $TELEGRAM_ADMIN_ID;
 if (empty($adminChatId) || (string)$chatId !== (string)$adminChatId) {
     sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
     exit();
@@ -118,8 +122,9 @@ function handleCommand($chatId, $userId, $command) {
             $files = scandir(__DIR__);
             if ($files === false) {
                 $messageToSend = "❌ 无法读取当前目录的文件列表。";
-            } else {
-                $blacklist = ['.', '..', '.env', '.env.example', '.git', '.gitignore', '.htaccess', 'config.php', 'vendor', 'composer.json', 'composer.lock', 'telegramWebhook.php', 'test_telegram.php'];
+            }
+ else {
+                $blacklist = ['.', '..', '.env', '.env.example', '.git', '.gitignore', '.htaccess', 'vendor', 'composer.lock', 'test_telegram.php'];
                 $messageToSend = "📁 **当前目录文件列表:**\n\n```\n";
                 $foundFiles = false;
                 foreach ($files as $file) {
@@ -143,7 +148,8 @@ function handleCommand($chatId, $userId, $command) {
             $users = getAllUsers();
             if (empty($users)) {
                 $messageToSend = "数据库中没有找到任何用户。";
-            } else {
+            }
+ else {
                 $messageToSend = "注册用户列表:\n\n";
                 foreach ($users as $user) {
                     $messageToSend .= "📧 **邮箱:** `{$user['email']}`\n📅 **注册于:** {$user['created_at']}\n\n";
@@ -155,7 +161,8 @@ function handleCommand($chatId, $userId, $command) {
         case '删除用户':
             if (setUserState($userId, 'awaiting_user_deletion') === false) {
                 $messageToSend = "⚠️ **警告:** 无法写入状态文件。";
-            } else {
+            }
+ else {
                 $messageToSend = "好的，请发送您想要删除的用户的电子邮件地址。";
                 $keyboard = null;
             }
@@ -166,7 +173,8 @@ function handleCommand($chatId, $userId, $command) {
             $state = ($command === '请求 Gemini') ? 'awaiting_gemini_prompt' : 'awaiting_cloudflare_prompt';
             if (setUserState($userId, $state) === false) {
                 $messageToSend = "⚠️ **警告:** 无法写入状态文件。";
-            } else {
+            }
+ else {
                 $messageToSend = "好的，请直接输入您想说的话。";
                 $keyboard = null;
             }
@@ -180,7 +188,8 @@ function handleCommand($chatId, $userId, $command) {
         case 'Gemini API Key':
             if (setUserState($userId, 'awaiting_api_key_GEMINI_API_KEY') === false) {
                 $messageToSend = "⚠️ **警告:** 无法写入状态文件。";
-            } else {
+            }
+ else {
                 $messageToSend = "好的，请发送您的新 Gemini API 密钥。";
                 $keyboard = null;
             }
