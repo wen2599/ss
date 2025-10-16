@@ -32,7 +32,8 @@ write_log("------ Config.php Entry Point ------", 'config.log');
  * Robust .env loader
  */
 function load_env_robust() {
-    $envPath = __DIR__ . '/../.env';
+    // Corrected path: .env should be in the same directory as config.php (the 'backend' directory)
+    $envPath = __DIR__ . '/.env';
     if (!file_exists($envPath) || !is_readable($envPath)) {
         write_log("load_env_robust: .env not found or not readable at {$envPath}", 'env.log');
         return false;
