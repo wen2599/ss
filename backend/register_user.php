@@ -2,6 +2,7 @@
 error_log("Register_user.php script started.");
 
 require_once __DIR__ . '/api_header.php';
+require_once __DIR__ . '/db_operations.php'; // Add this line to include database operations
 
 // --- Input Reception and Validation ---
 $data = json_decode(file_get_contents('php://input'), true);
