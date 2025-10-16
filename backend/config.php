@@ -30,26 +30,28 @@ if (!is_writable(__DIR__)) {
 }
 
 // --- Environment Variable Loading ---
-function load_env() {
-    $envPath = __DIR__ . '/.env';
-    if (file_exists($envPath)) {
-        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            // Skip comments
-            if (strpos(trim($line), '#') === 0) {
-                continue;
-            }
+if (!function_exists('load_env')) {
+    function load_env() {
+        $envPath = __DIR__ . '/.env';
+        if (file_exists($envPath)) {
+            $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            foreach ($lines as $line) {
+                // Skip comments
+                if (strpos(trim($line), '#') === 0) {
+                    continue;
+                }
 
-            // Use a more robust regex to handle various formats
-            if (preg_match('/^([\w_]+)\s*=\s*(.*)$/', $line, $matches)) {
-                $name = $matches[1];
-                // Trim whitespace and quotes (single and double) from the value
-                $value = trim(trim($matches[2]), "\"'");
+                // Use a more robust regex to handle various formats
+                if (preg_match('/^([\w_]+)\s*=\s*(.*)$/', $line, $matches)) {
+                    $name = $matches[1];
+                    // Trim whitespace and quotes (single and double) from the value
+                    $value = trim(trim($matches[2]), "\"'");
 
-                // Load into all relevant superglobals for maximum compatibility
-                putenv("{$name}={$value}"); // For getenv()
-                $_ENV[$name] = $value;      // For $_ENV superglobal
-                $_SERVER[$name] = $value;   // For $_SERVER superglobal
+                    // Load into all relevant superglobals for maximum compatibility
+                    putenv("{$name}={$value}"); // For getenv()
+                    $_ENV[$name] = $value;      // For $_ENV superglobal
+                    $_SERVER[$name] = $value;   // For $_SERVER superglobal
+                }
             }
         }
     }

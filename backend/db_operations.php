@@ -1,1 +1,91 @@
-<?php\n\n/**\n * Establishes and returns a singleton PDO database connection.\n *\n * This function reads database credentials from environment variables and uses a static\n * variable to ensure that only one database connection is made per request lifecycle.\n * This is crucial for performance and resource management.\n *\n * @return PDO|null A configured PDO object on success, or null if connection fails.\n */\nfunction get_db_connection() {\n    static $pdo = null;\n\n    if ($pdo === null) {\n        // Load credentials from environment variables.\n        $host = getenv(\'DB_HOST\');\n        $port = getenv(\'DB_PORT\');\n        $dbname = getenv(\'DB_DATABASE\');\n        $user = getenv(\'DB_USER\');\n        $pass = getenv(\'DB_PASSWORD\');\n\n        // --- DEBUGGING: Log DB credentials before connection attempt ---\n        error_log(\"DEBUG DB: Host: {\$host}, Port: {\$port}, DBName: {\$dbname}, User: {\$user}\");\n        // --- END DEBUGGING ---\n\n        // All credentials are required.\n        if (empty($host) || empty($port) || empty($dbname) || empty($user)) {\n             error_log(\"Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env\");\n             return null;\n        }\n\n        $dsn = \"mysql:host={\$host};port={\$port};dbname={\$dbname};charset=utf8mb4\";\n        $options = [\n            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, // Throw exceptions on error.\n            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,   // Fetch as associative arrays.\n            PDO::ATTR_EMULATE_PREPARES   => false,              // Use native prepared statements.\n        ];\n\n        try {\n            $pdo = new PDO($dsn, $user, $pass, $options);\n            error_log(\"DEBUG DB: Database connection attempt successful.\");\n        } catch (PDOException $e) {\n            // Log error securely, don\'t expose to the user.\n            error_log(\"Database connection failed: \" . $e->getMessage() . \" | DSN: {\$dsn} | User: {\$user}\");\n            return null;\n        }\n    }\n    \n    return $pdo;\n}\n\n/**\n * Retrieves all users from the database.\n *\n * @return array An array of user objects (or an empty array if none found).\n */\nfunction getAllUsers() {\n    $pdo = get_db_connection();\n    if (!$pdo) return [];\n\n    try {\n        $stmt = $pdo->query(\"SELECT id, email, created_at FROM users ORDER BY created_at DESC\");\n        return $stmt->fetchAll();\n    } catch (PDOException $e) {\n        error_log(\"Error in getAllUsers: \" . $e->getMessage());\n        return [];\n    }\n}\n\n/**\n * Deletes a user from the database by their email address.\n *\n * @param string $email The email of the user to delete.\n * @return bool True on successful deletion, false otherwise.\n */\nfunction deleteUserByEmail($email) {\n    $pdo = get_db_connection();\n    if (!$pdo) return false;\n\n    try {\n        $stmt = $pdo->prepare(\"DELETE FROM users WHERE email = ?\");\n        $stmt->execute([$email]);\n        // rowCount() returns the number of affected rows.\n        // If it\'s greater than 0, the deletion was successful.\n        return $stmt->rowCount() > 0;\n    } catch (PDOException $e) {\n        error_log(\"Error in deleteUserByEmail for {\$email}: \" . $e->getMessage());\n        return false;\n    }\n}
+<?php
+
+/**
+ * Establishes and returns a singleton PDO database connection.
+ *
+ * This function reads database credentials from environment variables and uses a static
+ * variable to ensure that only one database connection is made per request lifecycle.
+ * This is crucial for performance and resource management.
+ *
+ * @return PDO|null A configured PDO object on success, or null if connection fails.
+ */
+function get_db_connection() {
+    static $pdo = null;
+
+    if ($pdo === null) {
+        // Load credentials from environment variables.
+        $host = getenv('DB_HOST');
+        $port = getenv('DB_PORT');
+        $dbname = getenv('DB_DATABASE');
+        $user = getenv('DB_USER');
+        $pass = getenv('DB_PASSWORD');
+
+        // --- DEBUGGING: Log DB credentials before connection attempt ---
+        error_log("DEBUG DB: Host: {$host}, Port: {$port}, DBName: {$dbname}, User: {$user}");
+        // --- END DEBUGGING ---
+
+        // All credentials are required.
+        if (empty($host) || empty($port) || empty($dbname) || empty($user)) {
+             error_log("Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env");
+             return null;
+        }
+
+        $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, // Throw exceptions on error.
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,   // Fetch as associative arrays.
+            PDO::ATTR_EMULATE_PREPARES   => false,              // Use native prepared statements.
+        ];
+
+        try {
+            $pdo = new PDO($dsn, $user, $pass, $options);
+            error_log("DEBUG DB: Database connection attempt successful.");
+        } catch (PDOException $e) {
+            // Log error securely, don't expose to the user.
+            error_log("Database connection failed: " . $e->getMessage() . " | DSN: {$dsn} | User: {$user}");
+            return null;
+        }
+    }
+
+    return $pdo;
+}
+
+/**
+ * Retrieves all users from the database.
+ *
+ * @return array An array of user objects (or an empty array if none found).
+ */
+function getAllUsers() {
+    $pdo = get_db_connection();
+    if (!$pdo) return [];
+
+    try {
+        $stmt = $pdo->query("SELECT id, email, created_at FROM users ORDER BY created_at DESC");
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Error in getAllUsers: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Deletes a user from the database by their email address.
+ *
+ * @param string $email The email of the user to delete.
+ * @return bool True on successful deletion, false otherwise.
+ */
+function deleteUserByEmail($email) {
+    $pdo = get_db_connection();
+    if (!$pdo) return false;
+
+    try {
+        $stmt = $pdo->prepare("DELETE FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        // rowCount() returns the number of affected rows.
+        // If it's greater than 0, the deletion was successful.
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log("Error in deleteUserByEmail for {$email}: " . $e->getMessage());
+        return false;
+    }
+}
