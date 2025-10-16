@@ -8,11 +8,11 @@ function write_custom_debug_log($message) {
 
 write_custom_debug_log("------ Config.php Entry Point ------");
 
-// --- Pre-emptive Writable Check ---
-if (!is_writable(__DIR__)) {
-    http_response_code(500);
-    exit("FATAL: Directory not writable.");
-}
+// --- Pre-emptive Writable Check (Temporarily Disabled for IDX Environment) ---
+// if (!is_writable(__DIR__)) {
+//     http_response_code(500);
+//     exit("FATAL: Directory not writable.");
+// }
 
 /**
  * Robust .env loader:
