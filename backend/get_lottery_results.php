@@ -15,7 +15,9 @@ function write_lottery_debug_log($message) {
 write_lottery_debug_log("------ get_lottery_results.php Entry Point ------");
 
 // Load environment variables for Telegram bot token and channel ID
-load_env_file_simple(__DIR__ . '/.env'); // Use the simple loader from telegramWebhook.php
+// Note: config.php (via api_header.php) should have already loaded these robustly.
+// This is a redundant call if config.php is thorough, but acts as a safeguard.
+load_env_file_simple(__DIR__ . '/.env');
 
 // --- Authentication Check (Optional, depending on if lottery results are public) ---
 // If you want lottery results to be public, comment out or remove this block.
@@ -26,7 +28,9 @@ load_env_file_simple(__DIR__ . '/.env'); // Use the simple loader from telegramW
 // }
 
 // --- Fetch Lottery Results ---
+write_lottery_debug_log("Attempting to get database connection.");
 $pdo = get_db_connection();
+
 if (is_array($pdo) && isset($pdo['db_error'])) {
     $errorMsg = "Database connection is currently unavailable: " . $pdo['db_error'];
     write_lottery_debug_log($errorMsg);
@@ -41,6 +45,7 @@ if (!$pdo) {
     echo json_encode(['status' => 'error', 'message' => $errorMsg]);
     exit;
 }
+write_lottery_debug_log("Database connection successful.");
 
 try {
     // Fetch the latest lottery result, or a specific number of results
@@ -48,7 +53,7 @@ try {
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
     $lotteryType = isset($_GET['lottery_type']) ? $_GET['lottery_type'] : null;
 
-    write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='{$lotteryType}'");
+    write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='" . ($lotteryType ?? 'null') . "'");
 
     $sql = "SELECT id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at FROM lottery_results ";
     $params = [];
@@ -61,15 +66,40 @@ try {
     $sql .= " ORDER BY drawing_date DESC, issue_number DESC LIMIT ?";
     $params[] = $limit;
 
-    write_lottery_debug_log("Executing SQL: '{$sql}' with params: " . json_encode($params));
+    write_lottery_debug_log("Preparing SQL: '{$sql}' with params: " . json_encode($params));
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    if ($stmt === false) {
+        $errorInfo = $pdo->errorInfo();
+        $errorMsg = "SQL prepare failed: " . ($errorInfo[2] ?? "Unknown error");
+        error_log($errorMsg);
+        write_lottery_debug_log($errorMsg);
+        http_response_code(500);
+        echo json_encode(['status' => 'error', 'message' => 'Failed to prepare SQL query.', 'details' => $errorMsg]);
+        exit;
+    }
+    write_lottery_debug_log("SQL prepared successfully.");
+
+    $execSuccess = $stmt->execute($params);
+    if ($execSuccess === false) {
+        $errorInfo = $stmt->errorInfo();
+        $errorMsg = "SQL execute failed: " . ($errorInfo[2] ?? "Unknown error");
+        error_log($errorMsg);
+        write_lottery_debug_log($errorMsg);
+        http_response_code(500);
+        echo json_encode(['status' => 'error', 'message' => 'Failed to execute SQL query.', 'details' => $errorMsg]);
+        exit;
+    }
+    write_lottery_debug_log("SQL executed successfully.");
+
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     write_lottery_debug_log("Fetched " . count($results) . " results.");
 
     // Send the latest lottery result to Telegram channel if available
+    // This part should only run if the request is not from the frontend display.
+    // For this specific error, we assume the frontend is making the request.
+    /*
     if (!empty($results)) {
         $latestResult = $results[0]; // Get the very latest result
         $lotteryChannelId = getenv('LOTTERY_CHANNEL_ID');
@@ -84,21 +114,22 @@ try {
             write_lottery_debug_log("LOTTERY_CHANNEL_ID not set or sendLotteryResultToChannel not found. Skipping Telegram notification.");
         }
     }
+    */
 
     echo json_encode(['status' => 'success', 'lottery_results' => $results]);
 
 } catch (PDOException $e) {
-    $errorMsg = "Error fetching lottery results: " . $e->getMessage();
+    $errorMsg = "PDOException in get_lottery_results.php: " . $e->getMessage() . "\nStack: " . $e->getTraceAsString();
     error_log($errorMsg);
     write_lottery_debug_log($errorMsg);
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'An error occurred while fetching lottery results.']);
+    echo json_encode(['status' => 'error', 'message' => 'An internal database error occurred.', 'details' => $e->getMessage()]);
 } catch (Throwable $e) {
-    $errorMsg = "General error in get_lottery_results.php: " . $e->getMessage() . "\n" . $e->getTraceAsString();
+    $errorMsg = "General error in get_lottery_results.php: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile() . "\nStack: " . $e->getTraceAsString();
     error_log($errorMsg);
     write_lottery_debug_log($errorMsg);
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'An unexpected error occurred.']);
+    echo json_encode(['status' => 'error', 'message' => 'An unexpected error occurred.', 'details' => $e->getMessage()]);
 }
 
 write_lottery_debug_log("------ get_lottery_results.php Exit Point ------");
