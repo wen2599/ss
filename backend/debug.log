@@ -1,0 +1,41 @@
+[17-Oct-2025 14:32:24 UTC] Error: Missing TELEGRAM_BOT_TOKEN, BACKEND_PUBLIC_URL or TELEGRAM_WEBHOOK_SECRET in environment.
+[17-Oct-2025 14:32:50 UTC] Error: Missing TELEGRAM_BOT_TOKEN, BACKEND_PUBLIC_URL or TELEGRAM_WEBHOOK_SECRET in environment.
+[17-Oct-2025 14:33:13 UTC] set_webhook.php: Script started.
+[17-Oct-2025 14:33:13 UTC] set_webhook.php: Current DIR: /home/user/ss/backend
+[17-Oct-2025 14:33:13 UTC] set_webhook.php: ENV_LOADED_ROBUST already defined.
+[17-Oct-2025 14:33:13 UTC] set_webhook.php: TELEGRAM_BOT_TOKEN = [SET]
+[17-Oct-2025 14:33:13 UTC] set_webhook.php: BACKEND_PUBLIC_URL = [EMPTY]
+[17-Oct-2025 14:33:13 UTC] set_webhook.php: TELEGRAM_WEBHOOK_SECRET = [EMPTY]
+[17-Oct-2025 14:33:13 UTC] Error: Missing TELEGRAM_BOT_TOKEN, BACKEND_PUBLIC_URL or TELEGRAM_WEBHOOK_SECRET in environment.
+[17-Oct-2025 14:33:45 UTC] set_webhook.php: Script started.
+[17-Oct-2025 14:33:45 UTC] set_webhook.php: Current DIR: /home/user/ss/backend
+[17-Oct-2025 14:33:45 UTC] set_webhook.php: ENV_LOADED_ROBUST already defined.
+[17-Oct-2025 14:33:45 UTC] set_webhook.php: TELEGRAM_BOT_TOKEN = [SET]
+[17-Oct-2025 14:33:45 UTC] set_webhook.php: BACKEND_PUBLIC_URL = [EMPTY]
+[17-Oct-2025 14:33:45 UTC] set_webhook.php: TELEGRAM_WEBHOOK_SECRET = [EMPTY]
+[17-Oct-2025 14:33:45 UTC] Error: Missing TELEGRAM_BOT_TOKEN, BACKEND_PUBLIC_URL or TELEGRAM_WEBHOOK_SECRET in environment.
+[17-Oct-2025 14:34:21 UTC] set_webhook.php: Script started.
+[17-Oct-2025 14:34:21 UTC] set_webhook.php: Current DIR: /home/user/ss/backend
+[17-Oct-2025 14:34:21 UTC] set_webhook.php: ENV_LOADED_ROBUST already defined.
+[17-Oct-2025 14:34:21 UTC] set_webhook.php: TELEGRAM_BOT_TOKEN = [SET]
+[17-Oct-2025 14:34:21 UTC] set_webhook.php: BACKEND_PUBLIC_URL = [EMPTY]
+[17-Oct-2025 14:34:21 UTC] set_webhook.php: TELEGRAM_WEBHOOK_SECRET = [EMPTY]
+[17-Oct-2025 14:34:21 UTC] Error: Missing TELEGRAM_BOT_TOKEN, BACKEND_PUBLIC_URL or TELEGRAM_WEBHOOK_SECRET in environment.
+[17-Oct-2025 14:35:29 UTC] set_webhook.php: Script started.
+[17-Oct-2025 14:35:29 UTC] set_webhook.php: Current DIR: /home/user/ss/backend
+[17-Oct-2025 14:35:29 UTC] set_webhook.php: ENV_LOADED_ROBUST already defined.
+[17-Oct-2025 14:35:29 UTC] set_webhook.php: TELEGRAM_BOT_TOKEN = [SET]
+[17-Oct-2025 14:35:29 UTC] set_webhook.php: BACKEND_PUBLIC_URL = [SET]
+[17-Oct-2025 14:35:29 UTC] set_webhook.php: TELEGRAM_WEBHOOK_SECRET = [SET]
+[17-Oct-2025 14:35:29 UTC] PHP Fatal error:  Uncaught TypeError: json_decode(): Argument #1 ($json) must be of type string, array given in /home/user/ss/backend/set_webhook.php:44
+Stack trace:
+#0 /home/user/ss/backend/set_webhook.php(44): json_decode(Array, true)
+#1 {main}
+  thrown in /home/user/ss/backend/set_webhook.php on line 44
+[17-Oct-2025 14:36:31 UTC] set_webhook.php: Script started.
+[17-Oct-2025 14:36:31 UTC] set_webhook.php: Current DIR: /home/user/ss/backend
+[17-Oct-2025 14:36:31 UTC] set_webhook.php: ENV_LOADED_ROBUST already defined.
+[17-Oct-2025 14:36:31 UTC] set_webhook.php: TELEGRAM_BOT_TOKEN = [SET]
+[17-Oct-2025 14:36:31 UTC] set_webhook.php: BACKEND_PUBLIC_URL = [SET]
+[17-Oct-2025 14:36:31 UTC] set_webhook.php: TELEGRAM_WEBHOOK_SECRET = [SET]
+[17-Oct-2025 14:36:31 UTC] set_webhook.php: Telegram Webhook set successfully! URL: https://wenge.cloudns.ch/backend/index.php?endpoint=telegramWebhook

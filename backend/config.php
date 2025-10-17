@@ -67,9 +67,25 @@ function load_env_robust() {
         $_SERVER[$key] = $value;
 
         // Log confirmation, but hide sensitive values.
-        $sensitive_keys = ['DB_PASSWORD', 'TELEGRAM_BOT_TOKEN', 'GEMINI_API_KEY', 'CLOUDFLARE_API_TOKEN'];
+        $sensitive_keys = [
+            'DB_PASSWORD', 
+            'TELEGRAM_BOT_TOKEN', 
+            'GEMINI_API_KEY', 
+            'CLOUDFLARE_API_TOKEN', 
+            'DEEPSEEK_API_KEY', 
+            'TELEGRAM_WEBHOOK_SECRET', 
+            'EMAIL_HANDLER_SECRET', 
+            'WORKER_SECRET',
+            'BACKEND_PUBLIC_URL' // Added to sensitive keys for logging control
+        ];
         $display_value = in_array($key, $sensitive_keys, true) ? '***' : $value;
         write_custom_debug_log("Loaded env: {$key} = {$display_value}");
+
+        // Additional logging for critical variables
+        if ($key === 'BACKEND_PUBLIC_URL' || $key === 'TELEGRAM_WEBHOOK_SECRET') {
+            write_custom_debug_log("DEBUG: Inside load_env_robust() - Key: {$key}, Value: {$display_value}");
+        }
+
     }
 
     return true;
@@ -86,6 +102,9 @@ if (!defined('ENV_LOADED_ROBUST')) {
     define('ENV_LOADED_ROBUST', true);
     write_custom_debug_log("DB_HOST after load: " . (getenv('DB_HOST') ?: 'N/A'));
     write_custom_debug_log("DB_USER after load: " . (getenv('DB_USER') ?: 'N/A'));
+    write_custom_debug_log("BACKEND_PUBLIC_URL after load: " . (getenv('BACKEND_PUBLIC_URL') ?: 'N/A'));
+    write_custom_debug_log("TELEGRAM_WEBHOOK_SECRET after load: " . (getenv('TELEGRAM_WEBHOOK_SECRET') ?: 'N/A'));
+
 }
 
 // --- PHP Error Reporting Configuration ---

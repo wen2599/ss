@@ -1,0 +1,137 @@
+[2025-10-17 14:32:24] ------ Config.php Entry Point ------
+[2025-10-17 14:32:24] Script running as user: user
+[2025-10-17 14:32:24] OK: Directory /home/user/ss/backend is writable.
+[2025-10-17 14:32:24] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-17 14:32:24] Attempting to load .env from: /home/user/ss/backend/.env
+[2025-10-17 14:32:24] Successfully read 2 lines from .env.
+[2025-10-17 14:32:24] Loaded env: TELEGRAM_BOT_TOKEN = ***
+[2025-10-17 14:32:24] Loaded env: PUBLIC_URL = YOUR_PUBLIC_URL_FOR_WEBHOOK
+[2025-10-17 14:32:24] load_env_robust() completed successfully.
+[2025-10-17 14:32:24] DB_HOST after load: N/A
+[2025-10-17 14:32:24] DB_USER after load: N/A
+[2025-10-17 14:32:24] PHP error reporting configured to log to /home/user/ss/backend/debug.log
+[2025-10-17 14:32:24] ------ Config.php Exit Point ------
+[2025-10-17 14:32:24] Attempting to load .env from: /home/user/ss/backend/.env
+[2025-10-17 14:32:24] Successfully read 2 lines from .env.
+[2025-10-17 14:32:24] Loaded env: TELEGRAM_BOT_TOKEN = ***
+[2025-10-17 14:32:24] Loaded env: PUBLIC_URL = YOUR_PUBLIC_URL_FOR_WEBHOOK
+[2025-10-17 14:32:50] ------ Config.php Entry Point ------
+[2025-10-17 14:32:50] Script running as user: user
+[2025-10-17 14:32:50] OK: Directory /home/user/ss/backend is writable.
+[2025-10-17 14:32:50] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-17 14:32:50] Attempting to load .env from: /home/user/ss/backend/.env
+[2025-10-17 14:32:50] Successfully read 2 lines from .env.
+[2025-10-17 14:32:50] Loaded env: TELEGRAM_BOT_TOKEN = ***
+[2025-10-17 14:32:50] Loaded env: PUBLIC_URL = YOUR_PUBLIC_URL_FOR_WEBHOOK
+[2025-10-17 14:32:50] load_env_robust() completed successfully.
+[2025-10-17 14:32:50] DB_HOST after load: N/A
+[2025-10-17 14:32:50] DB_USER after load: N/A
+[2025-10-17 14:32:50] PHP error reporting configured to log to /home/user/ss/backend/debug.log
+[2025-10-17 14:32:50] ------ Config.php Exit Point ------
+[2025-10-17 14:33:13] ------ Config.php Entry Point ------
+[2025-10-17 14:33:13] Script running as user: user
+[2025-10-17 14:33:13] OK: Directory /home/user/ss/backend is writable.
+[2025-10-17 14:33:13] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-17 14:33:13] Attempting to load .env from: /home/user/ss/backend/.env
+[2025-10-17 14:33:13] Successfully read 2 lines from .env.
+[2025-10-17 14:33:13] Loaded env: TELEGRAM_BOT_TOKEN = ***
+[2025-10-17 14:33:13] Loaded env: PUBLIC_URL = YOUR_PUBLIC_URL_FOR_WEBHOOK
+[2025-10-17 14:33:13] load_env_robust() completed successfully.
+[2025-10-17 14:33:13] DB_HOST after load: N/A
+[2025-10-17 14:33:13] DB_USER after load: N/A
+[2025-10-17 14:33:13] PHP error reporting configured to log to /home/user/ss/backend/debug.log
+[2025-10-17 14:33:13] ------ Config.php Exit Point ------
+[2025-10-17 14:33:45] ------ Config.php Entry Point ------
+[2025-10-17 14:33:45] Script running as user: user
+[2025-10-17 14:33:45] OK: Directory /home/user/ss/backend is writable.
+[2025-10-17 14:33:45] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-17 14:33:45] Attempting to load .env from: /home/user/ss/backend/.env
+[2025-10-17 14:33:45] Successfully read 2 lines from .env.
+[2025-10-17 14:33:45] Loaded env: TELEGRAM_BOT_TOKEN = ***
+[2025-10-17 14:33:45] Loaded env: PUBLIC_URL = YOUR_PUBLIC_URL_FOR_WEBHOOK
+[2025-10-17 14:33:45] load_env_robust() completed successfully.
+[2025-10-17 14:33:45] DB_HOST after load: N/A
+[2025-10-17 14:33:45] DB_USER after load: N/A
+[2025-10-17 14:33:45] PHP error reporting configured to log to /home/user/ss/backend/debug.log
+[2025-10-17 14:33:45] ------ Config.php Exit Point ------
+[2025-10-17 14:34:21] ------ Config.php Entry Point ------
+[2025-10-17 14:34:21] Script running as user: user
+[2025-10-17 14:34:21] OK: Directory /home/user/ss/backend is writable.
+[2025-10-17 14:34:21] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-17 14:34:21] Attempting to load .env from: /home/user/ss/backend/.env
+[2025-10-17 14:34:21] Successfully read 2 lines from .env.
+[2025-10-17 14:34:21] Loaded env: TELEGRAM_BOT_TOKEN = ***
+[2025-10-17 14:34:21] Loaded env: PUBLIC_URL = YOUR_PUBLIC_URL_FOR_WEBHOOK
+[2025-10-17 14:34:21] load_env_robust() completed successfully.
+[2025-10-17 14:34:21] DB_HOST after load: N/A
+[2025-10-17 14:34:21] DB_USER after load: N/A
+[2025-10-17 14:34:21] BACKEND_PUBLIC_URL after load: N/A
+[2025-10-17 14:34:21] TELEGRAM_WEBHOOK_SECRET after load: N/A
+[2025-10-17 14:34:21] PHP error reporting configured to log to /home/user/ss/backend/debug.log
+[2025-10-17 14:34:21] ------ Config.php Exit Point ------
+[2025-10-17 14:35:29] ------ Config.php Entry Point ------
+[2025-10-17 14:35:29] Script running as user: user
+[2025-10-17 14:35:29] OK: Directory /home/user/ss/backend is writable.
+[2025-10-17 14:35:29] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-17 14:35:29] Attempting to load .env from: /home/user/ss/backend/.env
+[2025-10-17 14:35:29] Successfully read 24 lines from .env.
+[2025-10-17 14:35:29] Loaded env: DB_HOST = mysql12.serv00.com
+[2025-10-17 14:35:29] Loaded env: DB_PORT = 3306
+[2025-10-17 14:35:29] Loaded env: DB_DATABASE = m10300_sj
+[2025-10-17 14:35:29] Loaded env: DB_USER = m10300_yh
+[2025-10-17 14:35:29] Loaded env: DB_PASSWORD = ***
+[2025-10-17 14:35:29] Loaded env: EMAIL_HANDLER_SECRET = ***
+[2025-10-17 14:35:29] Loaded env: TELEGRAM_WEBHOOK_SECRET = ***
+[2025-10-17 14:35:29] DEBUG: Inside load_env_robust() - Key: TELEGRAM_WEBHOOK_SECRET, Value: ***
+[2025-10-17 14:35:29] Loaded env: TELEGRAM_BOT_TOKEN = ***
+[2025-10-17 14:35:29] Loaded env: TELEGRAM_ADMIN_ID = 1878794912
+[2025-10-17 14:35:29] Loaded env: GEMINI_API_KEY = ***
+[2025-10-17 14:35:29] Loaded env: DEEPSEEK_API_KEY = ***
+[2025-10-17 14:35:29] Loaded env: BACKEND_PUBLIC_URL = ***
+[2025-10-17 14:35:29] DEBUG: Inside load_env_robust() - Key: BACKEND_PUBLIC_URL, Value: ***
+[2025-10-17 14:35:29] Loaded env: CLOUDFLARE_ACCOUNT_ID = d67543ae14aee902dafcc4d251a713cd
+[2025-10-17 14:35:29] Loaded env: CLOUDFLARE_API_TOKEN = ***
+[2025-10-17 14:35:29] Loaded env: WORKER_SECRET = ***
+[2025-10-17 14:35:29] Loaded env: LOTTERY_CHANNEL_ID = -1002652392716
+[2025-10-17 14:35:29] Loaded env: BACKEND_URL = https://wenge.cloudns.ch
+[2025-10-17 14:35:29] Loaded env: gemini_api_key = main_menu
+[2025-10-17 14:35:29] load_env_robust() completed successfully.
+[2025-10-17 14:35:29] DB_HOST after load: mysql12.serv00.com
+[2025-10-17 14:35:29] DB_USER after load: m10300_yh
+[2025-10-17 14:35:29] BACKEND_PUBLIC_URL after load: https://wenge.cloudns.ch
+[2025-10-17 14:35:29] TELEGRAM_WEBHOOK_SECRET after load: A7kZp9sR3bV2nC1mE6gH_jL5tP8vF4qW
+[2025-10-17 14:35:29] PHP error reporting configured to log to /home/user/ss/backend/debug.log
+[2025-10-17 14:35:29] ------ Config.php Exit Point ------
+[2025-10-17 14:36:31] ------ Config.php Entry Point ------
+[2025-10-17 14:36:31] Script running as user: user
+[2025-10-17 14:36:31] OK: Directory /home/user/ss/backend is writable.
+[2025-10-17 14:36:31] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-17 14:36:31] Attempting to load .env from: /home/user/ss/backend/.env
+[2025-10-17 14:36:31] Successfully read 24 lines from .env.
+[2025-10-17 14:36:31] Loaded env: DB_HOST = mysql12.serv00.com
+[2025-10-17 14:36:31] Loaded env: DB_PORT = 3306
+[2025-10-17 14:36:31] Loaded env: DB_DATABASE = m10300_sj
+[2025-10-17 14:36:31] Loaded env: DB_USER = m10300_yh
+[2025-10-17 14:36:31] Loaded env: DB_PASSWORD = ***
+[2025-10-17 14:36:31] Loaded env: EMAIL_HANDLER_SECRET = ***
+[2025-10-17 14:36:31] Loaded env: TELEGRAM_WEBHOOK_SECRET = ***
+[2025-10-17 14:36:31] DEBUG: Inside load_env_robust() - Key: TELEGRAM_WEBHOOK_SECRET, Value: ***
+[2025-10-17 14:36:31] Loaded env: TELEGRAM_BOT_TOKEN = ***
+[2025-10-17 14:36:31] Loaded env: TELEGRAM_ADMIN_ID = 1878794912
+[2025-10-17 14:36:31] Loaded env: GEMINI_API_KEY = ***
+[2025-10-17 14:36:31] Loaded env: DEEPSEEK_API_KEY = ***
+[2025-10-17 14:36:31] Loaded env: BACKEND_PUBLIC_URL = ***
+[2025-10-17 14:36:31] DEBUG: Inside load_env_robust() - Key: BACKEND_PUBLIC_URL, Value: ***
+[2025-10-17 14:36:31] Loaded env: CLOUDFLARE_ACCOUNT_ID = d67543ae14aee902dafcc4d251a713cd
+[2025-10-17 14:36:31] Loaded env: CLOUDFLARE_API_TOKEN = ***
+[2025-10-17 14:36:31] Loaded env: WORKER_SECRET = ***
+[2025-10-17 14:36:31] Loaded env: LOTTERY_CHANNEL_ID = -1002652392716
+[2025-10-17 14:36:31] Loaded env: BACKEND_URL = https://wenge.cloudns.ch
+[2025-10-17 14:36:31] Loaded env: gemini_api_key = main_menu
+[2025-10-17 14:36:31] load_env_robust() completed successfully.
+[2025-10-17 14:36:31] DB_HOST after load: mysql12.serv00.com
+[2025-10-17 14:36:31] DB_USER after load: m10300_yh
+[2025-10-17 14:36:31] BACKEND_PUBLIC_URL after load: https://wenge.cloudns.ch
+[2025-10-17 14:36:31] TELEGRAM_WEBHOOK_SECRET after load: A7kZp9sR3bV2nC1mE6gH_jL5tP8vF4qW
+[2025-10-17 14:36:31] PHP error reporting configured to log to /home/user/ss/backend/debug.log
+[2025-10-17 14:36:31] ------ Config.php Exit Point ------

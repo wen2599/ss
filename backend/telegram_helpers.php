@@ -35,23 +35,15 @@ function sendTelegramRequest($method, $data) {
         return false;
     }
 
+    // If HTTP code is not 200, log error but still return the response string
+    // as set_webhook.php will handle the json_decode and error check.
     if ($http_code !== 200) {
         error_log("Telegram API HTTP error for method {$method}: HTTP {$http_code} - Response: {$response}");
-        return false;
+        // Do not return false here, return the response string for further analysis in set_webhook.php
     }
 
-    $decoded = json_decode($response, true);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        error_log("Telegram API: invalid JSON response for method {$method}: " . json_last_error_msg());
-        return false;
-    }
-
-    if (isset($decoded['ok']) && $decoded['ok'] === true) {
-        return $decoded;
-    } else {
-        error_log("Telegram API returned ok=false for method {$method}. Full response: " . $response);
-        return false;
-    }
+    // Return the raw response string, let the caller handle json_decode and error checking
+    return $response;
 }
 
 /**
@@ -79,9 +71,16 @@ function sendTelegramMessage($chatId, $text, $replyMarkup = null) {
         $payload['reply_markup'] = $replyMarkup;
     }
 
-    $result = sendTelegramRequest('sendMessage', $payload);
-    if ($result === false) {
-        error_log("sendTelegramMessage failed for chatId {$chatId}. Text preview: " . substr($text, 0, 200));
+    // sendTelegramRequest now returns the raw JSON string or false on critical failure.
+    $rawResponse = sendTelegramRequest('sendMessage', $payload);
+    if ($rawResponse === false) {
+        error_log("sendTelegramMessage failed for chatId {$chatId} due to critical send error. Text preview: " . substr($text, 0, 200));
+        return false;
+    }
+
+    $decodedResponse = json_decode($rawResponse, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !isset($decodedResponse['ok']) || $decodedResponse['ok'] !== true) {
+        error_log("sendTelegramMessage received invalid or error response for chatId {$chatId}. Raw response: " . $rawResponse);
         return false;
     }
     return true;
@@ -100,7 +99,13 @@ function answerTelegramCallbackQuery($callbackQueryId, $text = null) {
         'callback_query_id' => $callbackQueryId,
     ];
     if ($text !== null) $payload['text'] = $text;
-    return sendTelegramRequest('answerCallbackQuery', $payload) !== false;
+    
+    $rawResponse = sendTelegramRequest('answerCallbackQuery', $payload);
+    if ($rawResponse === false) {
+        return false;
+    }
+    $decodedResponse = json_decode($rawResponse, true);
+    return (json_last_error() === JSON_ERROR_NONE && isset($decodedResponse['ok']) && $decodedResponse['ok'] === true);
 }
 
 /**
@@ -139,7 +144,7 @@ function sendLotteryResultToChannel($lotteryInfo) {
  */
 function handleLotteryMessage($chatId, $messageText) {
     global $conn;
-    write_telegram_debug_log("Attempting to handle lottery message: {$messageText}");
+    // write_telegram_debug_log("Attempting to handle lottery message: {$messageText}");
 
     $issue = null; // 期号
     $numbers = null; // 号码
@@ -160,7 +165,7 @@ function handleLotteryMessage($chatId, $messageText) {
         // 需要确保 db_operations.php 已经被 require_once
         if (function_exists('storeLotteryResult')) {
             storeLotteryResult('lottery', $issue, $numbers, '', '', $drawDate);
-            write_telegram_debug_log("Stored lottery result for issue {$issue} with numbers {$numbers}");
+            // write_telegram_debug_log("Stored lottery result for issue {$issue} with numbers {$numbers}");
             
             // 存储后，立即发送到频道
             sendLotteryResultToChannel([
@@ -170,10 +175,10 @@ function handleLotteryMessage($chatId, $messageText) {
             ]);
 
         } else {
-            write_telegram_debug_log("storeLotteryResult function not found. Cannot store lottery data.");
+            // write_telegram_debug_log("storeLotteryResult function not found. Cannot store lottery data.");
         }
     } else {
-        write_telegram_debug_log("Could not parse lottery issue or numbers from message: {$messageText}");
+        // write_telegram_debug_log("Could not parse lottery issue or numbers from message: {$messageText}");
     }
 }
 
@@ -229,7 +234,7 @@ function getApiKeySelectionKeyboard() {
 // Placeholder for stateful interactions to avoid fatal error
 // This function will handle user interactions that require multiple steps
 function handleStatefulInteraction($conn, $userId, $chatId, $commandOrText, $userState) {
-    write_telegram_debug_log("Handling state for user {$userId}: {$userState}");
+    // write_telegram_debug_log("Handling state for user {$userId}: {$userState}");
     // Example: awaiting API key input
     if (strpos($userState, 'awaiting_api_key_') === 0) {
         $keyName = substr($userState, strlen('awaiting_api_key_'));
@@ -271,7 +276,7 @@ function handleStatefulInteraction($conn, $userId, $chatId, $commandOrText, $use
 // Placeholder for command processing to avoid fatal error
 // This function will handle direct commands (not stateful)
 function processCommand($conn, $userId, $chatId, $commandOrText, $isCallback) {
-    write_telegram_debug_log("Processing command for user {$userId}: {$commandOrText}");
+    // write_telegram_debug_log("Processing command for user {$userId}: {$commandOrText}");
     $reply = null;
     $replyKeyboard = null;
     
