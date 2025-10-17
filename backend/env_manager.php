@@ -58,3 +58,29 @@ function update_env_file($keyToUpdate, $newValue) {
 
     return true;
 }
+
+/**
+ * Helper: load .env into environment (lightweight, safe)
+ * This function is designed to be self-contained and not rely on config.php
+ * for early environment variable loading.
+ *
+ * @param string $path The full path to the .env file.
+ * @return bool True on success, false on failure.
+ */
+function load_env_file_simple($path) {
+    if (!file_exists($path) || !is_readable($path)) return false;
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines === false) return false;
+    foreach ($lines as $line) {
+        $trim = trim($line);
+        if ($trim === '' || strpos($trim, '#') === 0) continue;
+        if (strpos($trim, '=') === false) continue;
+        list($key, $value) = explode('=', $trim, 2);
+        $key = trim($key);
+        $value = trim(trim($value, "'\"")); // Trim quotes
+        putenv("{$key}={$value}");
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
+    }
+    return true;
+}

@@ -9,24 +9,8 @@ $uri = $_SERVER['REQUEST_URI'] ?? 'UNKNOWN';
 $headerPreview = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '[HEADER_NOT_SET]';
 file_put_contents($earlyLogFile, "{$now} [EARLY] Method={$method}, URI={$uri}, HeaderPreview={$headerPreview}\n", FILE_APPEND | LOCK_EX);
 
-// --- Lightweight .env loader ---
-function load_env_file_simple($path) {
-    if (!file_exists($path) || !is_readable($path)) return false;
-    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    if ($lines === false) return false;
-    foreach ($lines as $line) {
-        $trim = trim($line);
-        if ($trim === '' || strpos($trim, '#') === 0) continue;
-        if (strpos($trim, '=') === false) continue;
-        list($key, $value) = explode('=', $trim, 2);
-        $key = trim($key);
-        $value = trim(trim($value, "'\"")); // Trim quotes
-        putenv("{$key}={$value}");
-        $_ENV[$key] = $value;
-        $_SERVER[$key] = $value;
-    }
-    return true;
-}
+// --- Include env_manager for load_env_file_simple ---
+require_once __DIR__ . '/env_manager.php';
 
 // Load .env for early access to secrets
 $envPath = __DIR__ . '/.env';
@@ -113,8 +97,7 @@ try {
     // --- Handle Lottery Channel Message ---
     if ($lotteryChannelId && (string)$chatId === (string)$lotteryChannelId) {
         write_telegram_debug_log("Processing message from lottery channel {$lotteryChannelId}.");
-        // This assumes handleLotteryMessage is defined elsewhere or inline.
-        // For now, we just log and exit. You can add lottery result parsing here.
+        handleLotteryMessage($chatId, $commandOrText); // Call the helper function
         exit_with_ok();
     }
 
