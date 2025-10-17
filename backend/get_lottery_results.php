@@ -3,6 +3,8 @@
 
 require_once __DIR__ . '/api_header.php';
 require_once __DIR__ . '/db_operations.php';
+require_once __DIR__ . '/telegram_helpers.php'; // Include telegram helpers
+require_once __DIR__ . '/env_manager.php'; // Include env manager to load .env for TELEGRAM_BOT_TOKEN
 
 // Custom Debug Logging Function for lottery results
 function write_lottery_debug_log($message) {
@@ -11,6 +13,9 @@ function write_lottery_debug_log($message) {
 }
 
 write_lottery_debug_log("------ get_lottery_results.php Entry Point ------");
+
+// Load environment variables for Telegram bot token and channel ID
+load_env_file_simple(__DIR__ . '/.env'); // Use the simple loader from telegramWebhook.php
 
 // --- Authentication Check (Optional, depending on if lottery results are public) ---
 // If you want lottery results to be public, comment out or remove this block.
@@ -64,6 +69,22 @@ try {
 
     write_lottery_debug_log("Fetched " . count($results) . " results.");
 
+    // Send the latest lottery result to Telegram channel if available
+    if (!empty($results)) {
+        $latestResult = $results[0]; // Get the very latest result
+        $lotteryChannelId = getenv('LOTTERY_CHANNEL_ID');
+        if (!empty($lotteryChannelId) && function_exists('sendLotteryResultToChannel')) {
+            write_lottery_debug_log("Attempting to send latest lottery result to Telegram channel.");
+            sendLotteryResultToChannel([
+                'issue' => $latestResult['issue_number'],
+                'numbers' => $latestResult['winning_numbers'],
+                'draw_date' => $latestResult['drawing_date']
+            ]);
+        } else {
+            write_lottery_debug_log("LOTTERY_CHANNEL_ID not set or sendLotteryResultToChannel not found. Skipping Telegram notification.");
+        }
+    }
+
     echo json_encode(['status' => 'success', 'lottery_results' => $results]);
 
 } catch (PDOException $e) {
@@ -72,6 +93,12 @@ try {
     write_lottery_debug_log($errorMsg);
     http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => 'An error occurred while fetching lottery results.']);
+} catch (Throwable $e) {
+    $errorMsg = "General error in get_lottery_results.php: " . $e->getMessage() . "\n" . $e->getTraceAsString();
+    error_log($errorMsg);
+    write_lottery_debug_log($errorMsg);
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'An unexpected error occurred.']);
 }
 
 write_lottery_debug_log("------ get_lottery_results.php Exit Point ------");

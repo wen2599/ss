@@ -13,7 +13,6 @@ function sendTelegramRequest($method, $data) {
 
     $url = "https://api.telegram.org/bot{$token}/{$method}";
 
-    // 使用 JSON 发请求，Telegram 支持 application/json
     $payloadJson = json_encode($data, JSON_UNESCAPED_UNICODE);
 
     $ch = curl_init($url);
@@ -50,7 +49,6 @@ function sendTelegramRequest($method, $data) {
     if (isset($decoded['ok']) && $decoded['ok'] === true) {
         return $decoded;
     } else {
-        // Telegram 返回了 ok=false，记录详细内容
         error_log("Telegram API returned ok=false for method {$method}. Full response: " . $response);
         return false;
     }
@@ -78,7 +76,6 @@ function sendTelegramMessage($chatId, $text, $replyMarkup = null) {
     ];
 
     if ($replyMarkup) {
-        // 如果传入的是 array，确保在发送之前是 JSON 编码的字符串（sendTelegramRequest 会做 JSON）
         $payload['reply_markup'] = $replyMarkup;
     }
 
@@ -104,6 +101,80 @@ function answerTelegramCallbackQuery($callbackQueryId, $text = null) {
     ];
     if ($text !== null) $payload['text'] = $text;
     return sendTelegramRequest('answerCallbackQuery', $payload) !== false;
+}
+
+/**
+ * 发送彩票结果到指定的频道
+ *
+ * @param array $lotteryInfo 包含期号、号码、日期等信息的数组
+ * @return bool
+ */
+function sendLotteryResultToChannel($lotteryInfo) {
+    $lotteryChannelId = getenv('LOTTERY_CHANNEL_ID');
+    if (empty($lotteryChannelId)) {
+        error_log("LOTTERY_CHANNEL_ID is not configured. Cannot send lottery result.");
+        return false;
+    }
+
+    $issue = htmlspecialchars($lotteryInfo['issue'] ?? 'N/A');
+    $numbers = htmlspecialchars($lotteryInfo['numbers'] ?? 'N/A');
+    $drawDate = htmlspecialchars($lotteryInfo['draw_date'] ?? 'N/A');
+
+    $message = "🎉 **最新开奖结果** 🎉\n\n";
+    $message .= "**期号:** #{$issue}\n";
+    $message .= "**开奖号码:** `{$numbers}`\n";
+    $message .= "**开奖日期:** {$drawDate}\n\n";
+    $message .= "祝您好运！🍀";
+
+    return sendTelegramMessage($lotteryChannelId, $message);
+}
+
+/**
+ * 处理彩票频道接收到的消息
+ * 尝试从消息中解析彩票结果并存储
+ *
+ * @param int|string $chatId
+ * @param string $messageText
+ * @return void
+ */
+function handleLotteryMessage($chatId, $messageText) {
+    global $conn;
+    write_telegram_debug_log("Attempting to handle lottery message: {$messageText}");
+
+    $issue = null; // 期号
+    $numbers = null; // 号码
+    $drawDate = date('Y-m-d'); // 默认开奖日期为今天
+
+    // 尝试从消息中解析期号，例如 "第12345期"
+    if (preg_match('/第(\d+)期/', $messageText, $matches)) {
+        $issue = $matches[1];
+    }
+
+    // 尝试从消息中解析开奖号码，例如 "号码：01,02,03,04,05,06+07"
+    if (preg_match('/号码[：:]\s*([\d,\s+]+)/u', $messageText, $matches)) {
+        $numbers = trim($matches[1]);
+    }
+
+    if ($issue && $numbers) {
+        // 假设有一个 storeLotteryResult 函数可以存储结果
+        // 需要确保 db_operations.php 已经被 require_once
+        if (function_exists('storeLotteryResult')) {
+            storeLotteryResult('lottery', $issue, $numbers, '', '', $drawDate);
+            write_telegram_debug_log("Stored lottery result for issue {$issue} with numbers {$numbers}");
+            
+            // 存储后，立即发送到频道
+            sendLotteryResultToChannel([
+                'issue' => $issue,
+                'numbers' => $numbers,
+                'draw_date' => $drawDate
+            ]);
+
+        } else {
+            write_telegram_debug_log("storeLotteryResult function not found. Cannot store lottery data.");
+        }
+    } else {
+        write_telegram_debug_log("Could not parse lottery issue or numbers from message: {$messageText}");
+    }
 }
 
 /**
@@ -153,5 +224,127 @@ function getApiKeySelectionKeyboard() {
             [['text' => '🔙 返回主菜单', 'callback_data' => 'main_menu']]
         ]
     ];
+}
+
+// Placeholder for stateful interactions to avoid fatal error
+// This function will handle user interactions that require multiple steps
+function handleStatefulInteraction($conn, $userId, $chatId, $commandOrText, $userState) {
+    write_telegram_debug_log("Handling state for user {$userId}: {$userState}");
+    // Example: awaiting API key input
+    if (strpos($userState, 'awaiting_api_key_') === 0) {
+        $keyName = substr($userState, strlen('awaiting_api_key_'));
+        if (update_env_file($keyName, $commandOrText)) {
+            sendTelegramMessage($chatId, "✅ API 密钥 {$keyName} 已成功更新！", getAdminKeyboard());
+        } else {
+            sendTelegramMessage($chatId, "❌ 更新 API 密钥失败！请确保服务器上的 .env 文件可写。", getAdminKeyboard());
+        }
+        setUserState($userId, null);
+        return;
+    } 
+    // Example: awaiting AI prompt
+    if ($userState === 'awaiting_gemini_prompt' || $userState === 'awaiting_cloudflare_prompt') {
+        sendTelegramMessage($chatId, "🧠 正在处理，请稍候...");
+        $response = ($userState === 'awaiting_gemini_prompt') ? call_gemini_api($commandOrText) : call_cloudflare_ai_api($commandOrText);
+        sendTelegramMessage($chatId, $response, getAdminKeyboard());
+        setUserState($userId, null);
+        return;
+    }
+    // Example: awaiting user deletion email
+    if ($userState === 'awaiting_user_deletion') {
+        if (filter_var($commandOrText, FILTER_VALIDATE_EMAIL)) {
+            if (deleteUserByEmail($commandOrText)) {
+                sendTelegramMessage($chatId, "✅ 用户 {$commandOrText} 已成功删除。", getUserManagementKeyboard());
+            } else {
+                sendTelegramMessage($chatId, "⚠️ 删除失败。请检查该用户是否存在或查看服务器日志。", getUserManagementKeyboard());
+            }
+        } else {
+            sendTelegramMessage($chatId, "❌ 无效的电子邮件地址，请重新输入。", getUserManagementKeyboard());
+        }
+        setUserState($userId, null);
+        return;
+    }
+    // Fallback for unknown states
+    sendTelegramMessage($chatId, "系统状态异常，已重置。", getAdminKeyboard());
+    setUserState($userId, null);
+}
+
+// Placeholder for command processing to avoid fatal error
+// This function will handle direct commands (not stateful)
+function processCommand($conn, $userId, $chatId, $commandOrText, $isCallback) {
+    write_telegram_debug_log("Processing command for user {$userId}: {$commandOrText}");
+    $reply = null;
+    $replyKeyboard = null;
+    
+    // Handle callback_data for API key selection
+    if ($isCallback && strpos($commandOrText, 'set_api_key_') === 0) {
+        $keyToSet = substr($commandOrText, strlen('set_api_key_'));
+        setUserState($userId, 'awaiting_api_key_' . $keyToSet);
+        sendTelegramMessage($chatId, "请输入 {$keyToSet} 的新 API 密钥：");
+        return;
+    }
+
+    switch (strtolower($commandOrText)) {
+        case '/start':
+        case 'main_menu':
+            $reply = "欢迎回来，管理员！请选择一个操作。";
+            $replyKeyboard = getAdminKeyboard();
+            break;
+        case 'menu_user_management':
+            $reply = "请选择一个用户管理操作:";
+            $replyKeyboard = getUserManagementKeyboard();
+            break;
+        case 'menu_file_management':
+            $reply = "请选择一个文件管理操作:";
+            $replyKeyboard = getFileManagementKeyboard();
+            break;
+        case 'menu_api_keys':
+            $reply = "请选择您想要更新的 API 密钥：";
+            $replyKeyboard = getApiKeySelectionKeyboard();
+            break;
+        case 'list_files':
+            $files = scandir(__DIR__);
+            $blacklist = ['.', '..', '.env', '.env.example', '.git', '.gitignore', '.htaccess', 'vendor', 'composer.lock', 'debug.log'];
+            $text = "📁 当前目录文件列表:\n\n";
+            foreach ($files as $f) {
+                if (!in_array($f, $blacklist, true)) $text .= htmlspecialchars($f) . "\n";
+            }
+            $reply = $text;
+            $replyKeyboard = getFileManagementKeyboard();
+            break;
+        case 'list_users':
+            $users = getAllUsers(); // This assumes $conn is available globally or passed
+            if (empty($users)) {
+                $reply = "数据库中未找到用户。";
+            } else {
+                $text = "👥 注册用户列表:\n\n";
+                foreach ($users as $u) {
+                    $text .= "📧 " . htmlspecialchars($u['email']) . " (注册于: " . htmlspecialchars($u['created_at']) . ")\n";
+                }
+                $reply = $text;
+            }
+            $replyKeyboard = getUserManagementKeyboard();
+            break;
+        case 'delete_user_prompt':
+            setUserState($userId, 'awaiting_user_deletion');
+            $reply = "请输入要删除的用户邮箱地址：";
+            break;
+        case 'ask_gemini':
+        case 'ask_cloudflare':
+            $stateTo = (strtolower($commandOrText) === 'ask_gemini') ? 'awaiting_gemini_prompt' : 'awaiting_cloudflare_prompt';
+            setUserState($userId, $stateTo);
+            $reply = "好的，请输入您的请求内容：";
+            break;
+        default:
+            // If it's not an empty message and not a recognized command
+            if (!empty($commandOrText) && !$isCallback) {
+                $reply = "无法识别的命令 '" . htmlspecialchars($commandOrText) . "'。请使用下方菜单。";
+                $replyKeyboard = getAdminKeyboard();
+            }
+            break;
+    }
+
+    if ($reply) {
+        sendTelegramMessage($chatId, $reply, $replyKeyboard);
+    }
 }
 ?>
