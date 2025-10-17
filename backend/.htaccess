@@ -1,8 +1,9 @@
 # Enable the rewrite engine
 RewriteEngine On
 
-# Allow direct access to telegramWebhook.php
+# Allow direct access to telegramWebhook.php and the diagnostic script
 RewriteCond %{REQUEST_URI} !^/telegramWebhook.php
+RewriteCond %{REQUEST_URI} !^/check_webhook_init.php
 
 # Set the rewrite base to the current directory
 RewriteBase /
