@@ -4,26 +4,29 @@
  * 增强版 Telegram 请求与帮助函数
  */
 
+// Function to write to a dedicated telegram debug log
+function write_telegram_debug_log($message) {
+    $logFile = __DIR__ . '/telegram_debug.log';
+    file_put_contents($logFile, date('[Y-m-d H:i:s]') . ' [TELEGRAM] ' . $message . PHP_EOL, FILE_APPEND | LOCK_EX);
+}
+
 function sendTelegramRequest($method, $data) {
     $token = getenv('TELEGRAM_BOT_TOKEN');
     if (empty($token) || $token === 'your_telegram_bot_token_here') {
         error_log("CRITICAL: Telegram request failed because TELEGRAM_BOT_TOKEN is not configured.");
+        write_telegram_debug_log("CRITICAL: TELEGRAM_BOT_TOKEN is not configured.");
         return false;
     }
 
     $url = "https://api.telegram.org/bot{$token}/{$method}";
-
     $payloadJson = json_encode($data, JSON_UNESCAPED_UNICODE);
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $payloadJson);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'Accept: application/json'
-    ]);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 15); // 加长一点超时时间
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
 
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -31,32 +34,26 @@ function sendTelegramRequest($method, $data) {
     curl_close($ch);
 
     if ($error) {
-        error_log("Telegram cURL error for method {$method}: {$error}");
+        $log_msg = "Telegram cURL error for method {$method}: {$error}";
+        error_log($log_msg);
+        write_telegram_debug_log($log_msg);
         return false;
     }
 
-    // If HTTP code is not 200, log error but still return the response string
-    // as set_webhook.php will handle the json_decode and error check.
     if ($http_code !== 200) {
-        error_log("Telegram API HTTP error for method {$method}: HTTP {$http_code} - Response: {$response}");
-        // Do not return false here, return the response string for further analysis in set_webhook.php
+        $log_msg = "Telegram API HTTP error for method {$method}: HTTP {$http_code} - Response: {$response}";
+        error_log($log_msg);
+        write_telegram_debug_log($log_msg);
     }
 
-    // Return the raw response string, let the caller handle json_decode and error checking
     return $response;
 }
 
-/**
- * 发送文本消息到 chatId
- *
- * @param int|string $chatId
- * @param string $text
- * @param array|null $replyMarkup
- * @return bool
- */
 function sendTelegramMessage($chatId, $text, $replyMarkup = null) {
     if (empty($chatId)) {
-        error_log("sendTelegramMessage called with empty chatId. Text: " . substr($text, 0, 200));
+        $log_msg = "sendTelegramMessage called with empty chatId. Text: " . substr($text, 0, 200);
+        error_log($log_msg);
+        write_telegram_debug_log($log_msg);
         return false;
     }
 
@@ -71,171 +68,114 @@ function sendTelegramMessage($chatId, $text, $replyMarkup = null) {
         $payload['reply_markup'] = $replyMarkup;
     }
 
-    // sendTelegramRequest now returns the raw JSON string or false on critical failure.
     $rawResponse = sendTelegramRequest('sendMessage', $payload);
     if ($rawResponse === false) {
-        error_log("sendTelegramMessage failed for chatId {$chatId} due to critical send error. Text preview: " . substr($text, 0, 200));
+        write_telegram_debug_log("sendTelegramMessage failed for chatId {$chatId} due to critical send error.");
         return false;
     }
 
     $decodedResponse = json_decode($rawResponse, true);
     if (json_last_error() !== JSON_ERROR_NONE || !isset($decodedResponse['ok']) || $decodedResponse['ok'] !== true) {
-        error_log("sendTelegramMessage received invalid or error response for chatId {$chatId}. Raw response: " . $rawResponse);
+        write_telegram_debug_log("sendTelegramMessage received invalid or error response for chatId {$chatId}. Raw response: " . $rawResponse);
         return false;
     }
     return true;
 }
 
-/**
- * 回应 callback_query，停止按钮等待状态
- *
- * @param string $callbackQueryId
- * @param string|null $text
- * @return bool
- */
 function answerTelegramCallbackQuery($callbackQueryId, $text = null) {
     if (empty($callbackQueryId)) return false;
-    $payload = [
-        'callback_query_id' => $callbackQueryId,
-    ];
+    $payload = ['callback_query_id' => $callbackQueryId];
     if ($text !== null) $payload['text'] = $text;
     
     $rawResponse = sendTelegramRequest('answerCallbackQuery', $payload);
-    if ($rawResponse === false) {
-        return false;
-    }
+    if ($rawResponse === false) return false;
+
     $decodedResponse = json_decode($rawResponse, true);
     return (json_last_error() === JSON_ERROR_NONE && isset($decodedResponse['ok']) && $decodedResponse['ok'] === true);
 }
 
-/**
- * 发送彩票结果到指定的频道
- *
- * @param array $lotteryInfo 包含期号、号码、日期等信息的数组
- * @return bool
- */
-function sendLotteryResultToChannel($lotteryInfo) {
-    $lotteryChannelId = getenv('LOTTERY_CHANNEL_ID');
-    if (empty($lotteryChannelId)) {
-        error_log("LOTTERY_CHANNEL_ID is not configured. Cannot send lottery result.");
-        return false;
-    }
-
-    $issue = htmlspecialchars($lotteryInfo['issue'] ?? 'N/A');
-    $numbers = htmlspecialchars($lotteryInfo['numbers'] ?? 'N/A');
-    $drawDate = htmlspecialchars($lotteryInfo['draw_date'] ?? 'N/A');
-
-    $message = "🎉 **最新开奖结果** 🎉\n\n";
-    $message .= "**期号:** #{$issue}\n";
-    $message .= "**开奖号码:** `{$numbers}`\n";
-    $message .= "**开奖日期:** {$drawDate}\n\n";
-    $message .= "祝您好运！🍀";
-
-    return sendTelegramMessage($lotteryChannelId, $message);
-}
 
 /**
- * 处理彩票频道接收到的消息
- * 尝试从消息中解析彩票结果并存储
+ * [REBUILT] Handles messages from the lottery channel, parses them, and stores the results.
+ * This is the core logic for data entry.
  *
- * @param int|string $chatId
- * @param string $messageText
+ * @param string $messageText The full text of the message from the channel.
  * @return void
  */
-function handleLotteryMessage($chatId, $messageText) {
-    global $conn;
-    // write_telegram_debug_log("Attempting to handle lottery message: {$messageText}");
+function handleLotteryMessage($messageText) {
+    write_telegram_debug_log("Received channel message. Attempting to parse and store lottery result.");
+    write_telegram_debug_log("Original Message Text: " . $messageText);
 
-    $issue = null; // 期号
-    $numbers = null; // 号码
-    $drawDate = date('Y-m-d'); // 默认开奖日期为今天
+    // 1. Parse Lottery Type (彩票种类)
+    $lotteryType = null;
+    if (strpos($messageText, '新澳门六合彩') !== false) {
+        $lotteryType = '新澳门六合彩';
+    } elseif (strpos($messageText, '香港六合彩') !== false) {
+        $lotteryType = '香港六合彩';
+    } elseif (strpos($messageText, '老澳门六合彩') !== false) {
+        $lotteryType = '老澳门六合彩';
+    }
 
-    // 尝试从消息中解析期号，例如 "第12345期"
-    if (preg_match('/第(\d+)期/', $messageText, $matches)) {
+    // 2. Parse Issue Number (期号)
+    $issue = null;
+    if (preg_match('/第\s*(\d+)\s*期/', $messageText, $matches)) {
         $issue = $matches[1];
     }
 
-    // 尝试从消息中解析开奖号码，例如 "号码：01,02,03,04,05,06+07"
-    if (preg_match('/号码[：:]\s*([\d,\s+]+)/u', $messageText, $matches)) {
-        $numbers = trim($matches[1]);
+    // 3. Parse Winning Numbers (开奖号码)
+    $numbers = null;
+    if (preg_match('/(?:号码|开奖号码|特码)\s*[：:]\s*([\d,\s+]+)/u', $messageText, $matches)) {
+        $numbers = preg_replace('/\s+/', '', $matches[1]); // Remove all whitespace
+    }
+    
+    // 4. Parse Drawing Date (开奖日期)
+    $drawDate = date('Y-m-d'); // Default to today
+    if (preg_match('/(\d{4}-\d{2}-\d{2})/', $messageText, $dateMatches)) {
+        $drawDate = $dateMatches[1];
     }
 
-    if ($issue && $numbers) {
-        // 假设有一个 storeLotteryResult 函数可以存储结果
-        // 需要确保 db_operations.php 已经被 require_once
+    // 5. Validate and Store
+    if ($lotteryType && $issue && $numbers) {
+        write_telegram_debug_log("Parsing successful: Type='{$lotteryType}', Issue='{$issue}', Numbers='{$numbers}', Date='{$drawDate}'.");
+        
+        // Ensure db_operations.php is available. It should be included via config.php.
         if (function_exists('storeLotteryResult')) {
-            storeLotteryResult('lottery', $issue, $numbers, '', '', $drawDate);
-            // write_telegram_debug_log("Stored lottery result for issue {$issue} with numbers {$numbers}");
+            // This is the crucial call to store the correctly parsed data.
+            $success = storeLotteryResult($lotteryType, $issue, $numbers, '' /* zodiac */, '' /* colors */, $drawDate);
             
-            // 存储后，立即发送到频道
-            sendLotteryResultToChannel([
-                'issue' => $issue,
-                'numbers' => $numbers,
-                'draw_date' => $drawDate
-            ]);
-
+            if ($success) {
+                write_telegram_debug_log("Database storage call successful for issue {$issue}.");
+            } else {
+                write_telegram_debug_log("Database storage call failed for issue {$issue}. See main error log for details.");
+            }
         } else {
-            // write_telegram_debug_log("storeLotteryResult function not found. Cannot store lottery data.");
+            write_telegram_debug_log("CRITICAL: storeLotteryResult() function not found! Cannot store data.");
         }
     } else {
-        // write_telegram_debug_log("Could not parse lottery issue or numbers from message: {$messageText}");
+        write_telegram_debug_log("Parsing failed. Could not extract all required fields from message.");
     }
 }
 
-/**
- * 管理员键盘：返回数组结构，sendTelegramRequest 会序列化为 JSON
- */
+
 function getAdminKeyboard() {
-    return [
-        'inline_keyboard' => [
-            [
-                ['text' => '👤 用户管理', 'callback_data' => 'menu_user_management'],
-                ['text' => '📁 文件管理', 'callback_data' => 'menu_file_management']
-            ],
-            [
-                ['text' => '🧠 请求 Gemini', 'callback_data' => 'ask_gemini'],
-                ['text' => '☁️ 请求 Cloudflare', 'callback_data' => 'ask_cloudflare']
-            ],
-            [
-                ['text' => '🔑 更换 API 密钥', 'callback_data' => 'menu_api_keys']
-            ]
-        ]
-    ];
+    return ['inline_keyboard' => [[['text' => '👤 用户管理', 'callback_data' => 'menu_user_management'], ['text' => '📁 文件管理', 'callback_data' => 'menu_file_management']], [['text' => '🧠 请求 Gemini', 'callback_data' => 'ask_gemini'], ['text' => '☁️ 请求 Cloudflare', 'callback_data' => 'ask_cloudflare']], [['text' => '🔑 更换 API 密钥', 'callback_data' => 'menu_api_keys']]]];
 }
 
 function getFileManagementKeyboard() {
-    return [
-        'inline_keyboard' => [
-            [['text' => '👁️ 列出文件', 'callback_data' => 'list_files']],
-            [['text' => '🔙 返回主菜单', 'callback_data' => 'main_menu']]
-        ]
-    ];
+    return ['inline_keyboard' => [[['text' => '👁️ 列出文件', 'callback_data' => 'list_files']], [['text' => '🔙 返回主菜单', 'callback_data' => 'main_menu']]]];
 }
 
 function getUserManagementKeyboard() {
-    return [
-        'inline_keyboard' => [
-            [['text' => '📋 查看用户列表', 'callback_data' => 'list_users']],
-            [['text' => '🗑️ 删除用户', 'callback_data' => 'delete_user_prompt']],
-            [['text' => '🔙 返回主菜单', 'callback_data' => 'main_menu']]
-        ]
-    ];
+    return ['inline_keyboard' => [[['text' => '📋 查看用户列表', 'callback_data' => 'list_users']], [['text' => '🗑️ 删除用户', 'callback_data' => 'delete_user_prompt']], [['text' => '🔙 返回主菜单', 'callback_data' => 'main_menu']]]];
 }
 
 function getApiKeySelectionKeyboard() {
-    return [
-        'inline_keyboard' => [
-            [['text' => '💎 Gemini API Key', 'callback_data' => 'set_api_key_GEMINI_API_KEY']],
-            [['text' => '🔙 返回主菜单', 'callback_data' => 'main_menu']]
-        ]
-    ];
+    return ['inline_keyboard' => [[['text' => '💎 Gemini API Key', 'callback_data' => 'set_api_key_GEMINI_API_KEY']], [['text' => '🔙 返回主菜单', 'callback_data' => 'main_menu']]]];
 }
 
-// Placeholder for stateful interactions to avoid fatal error
-// This function will handle user interactions that require multiple steps
 function handleStatefulInteraction($conn, $userId, $chatId, $commandOrText, $userState) {
-    // write_telegram_debug_log("Handling state for user {$userId}: {$userState}");
-    // Example: awaiting API key input
+    write_telegram_debug_log("Handling state '{$userState}' for user {$userId}.");
+    
     if (strpos($userState, 'awaiting_api_key_') === 0) {
         $keyName = substr($userState, strlen('awaiting_api_key_'));
         if (update_env_file($keyName, $commandOrText)) {
@@ -246,7 +186,7 @@ function handleStatefulInteraction($conn, $userId, $chatId, $commandOrText, $use
         setUserState($userId, null);
         return;
     } 
-    // Example: awaiting AI prompt
+    
     if ($userState === 'awaiting_gemini_prompt' || $userState === 'awaiting_cloudflare_prompt') {
         sendTelegramMessage($chatId, "🧠 正在处理，请稍候...");
         $response = ($userState === 'awaiting_gemini_prompt') ? call_gemini_api($commandOrText) : call_cloudflare_ai_api($commandOrText);
@@ -254,7 +194,7 @@ function handleStatefulInteraction($conn, $userId, $chatId, $commandOrText, $use
         setUserState($userId, null);
         return;
     }
-    // Example: awaiting user deletion email
+
     if ($userState === 'awaiting_user_deletion') {
         if (filter_var($commandOrText, FILTER_VALIDATE_EMAIL)) {
             if (deleteUserByEmail($commandOrText)) {
@@ -268,19 +208,16 @@ function handleStatefulInteraction($conn, $userId, $chatId, $commandOrText, $use
         setUserState($userId, null);
         return;
     }
-    // Fallback for unknown states
+    
     sendTelegramMessage($chatId, "系统状态异常，已重置。", getAdminKeyboard());
     setUserState($userId, null);
 }
 
-// Placeholder for command processing to avoid fatal error
-// This function will handle direct commands (not stateful)
 function processCommand($conn, $userId, $chatId, $commandOrText, $isCallback) {
-    // write_telegram_debug_log("Processing command for user {$userId}: {$commandOrText}");
+    write_telegram_debug_log("Processing admin command '{$commandOrText}' for user {$userId}.");
     $reply = null;
     $replyKeyboard = null;
     
-    // Handle callback_data for API key selection
     if ($isCallback && strpos($commandOrText, 'set_api_key_') === 0) {
         $keyToSet = substr($commandOrText, strlen('set_api_key_'));
         setUserState($userId, 'awaiting_api_key_' . $keyToSet);
@@ -308,22 +245,22 @@ function processCommand($conn, $userId, $chatId, $commandOrText, $isCallback) {
             break;
         case 'list_files':
             $files = scandir(__DIR__);
-            $blacklist = ['.', '..', '.env', '.env.example', '.git', '.gitignore', '.htaccess', 'vendor', 'composer.lock', 'debug.log'];
+            $blacklist = ['.', '..', '.env', '.env.example', '.git', '.gitignore', '.htaccess', 'vendor', 'composer.lock', 'debug.log', 'telegram_debug.log', 'lottery_debug.log'];
             $text = "📁 当前目录文件列表:\n\n";
             foreach ($files as $f) {
-                if (!in_array($f, $blacklist, true)) $text .= htmlspecialchars($f) . "\n";
+                if (!in_array($f, $blacklist, true)) $text .= "<code>" . htmlspecialchars($f) . "</code>\n";
             }
             $reply = $text;
             $replyKeyboard = getFileManagementKeyboard();
             break;
         case 'list_users':
-            $users = getAllUsers(); // This assumes $conn is available globally or passed
+            $users = getAllUsers();
             if (empty($users)) {
                 $reply = "数据库中未找到用户。";
             } else {
                 $text = "👥 注册用户列表:\n\n";
                 foreach ($users as $u) {
-                    $text .= "📧 " . htmlspecialchars($u['email']) . " (注册于: " . htmlspecialchars($u['created_at']) . ")\n";
+                    $text .= "📧 <code>" . htmlspecialchars($u['email']) . "</code> (注册于: " . htmlspecialchars($u['created_at']) . ")\n";
                 }
                 $reply = $text;
             }
@@ -340,7 +277,6 @@ function processCommand($conn, $userId, $chatId, $commandOrText, $isCallback) {
             $reply = "好的，请输入您的请求内容：";
             break;
         default:
-            // If it's not an empty message and not a recognized command
             if (!empty($commandOrText) && !$isCallback) {
                 $reply = "无法识别的命令 '" . htmlspecialchars($commandOrText) . "'。请使用下方菜单。";
                 $replyKeyboard = getAdminKeyboard();

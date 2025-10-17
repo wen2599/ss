@@ -41,10 +41,20 @@ try {
     // Fetch the latest lottery result(s)
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
     
-    // CRITICAL FIX: The server environment incorrectly interprets UTF-8 URL parameters as a different encoding.
-    // We must manually convert the encoding back to UTF-8 to correctly handle multi-byte characters (like Chinese).
-    // Trying Windows-1252 as a common misinterpretation source if ISO-8859-1 failed.
-    $lotteryType = isset($_GET['lottery_type']) ? mb_convert_encoding($_GET['lottery_type'], 'UTF-8', 'Windows-1252') : null;
+    $rawLotteryType = $_GET['lottery_type'] ?? null;
+    
+    // Diagnostic: Log raw bytes of the incoming lotteryType
+    if ($rawLotteryType !== null) {
+        $hexDump = '';
+        for ($i = 0; $i < strlen($rawLotteryType); $i++) {
+            $hexDump .= sprintf("%02X ", ord($rawLotteryType[$i]));
+        }
+        write_lottery_debug_log("Diagnostic: Raw bytes of incoming lotteryType ('{$rawLotteryType}'): {$hexDump}");
+    }
+
+    // Attempt encoding conversion. We'll refine this based on the raw byte dump.
+    // Keep the last attempt for now, but will likely change.
+    $lotteryType = ($rawLotteryType !== null) ? mb_convert_encoding($rawLotteryType, 'UTF-8', 'Windows-1252') : null;
 
     write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='" . ($lotteryType ?? 'null') . "' (After encoding conversion from Windows-1252)");
 
