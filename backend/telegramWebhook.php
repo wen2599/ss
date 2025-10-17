@@ -1,59 +1,55 @@
 <?php
 // telegramWebhook.php
 
-// --- Early, minimal logging ---
-$earlyLogFile = __DIR__ . '/telegram_early_debug.log';
-$now = date('[Y-m-d H:i:s]');
-$method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
-$uri = $_SERVER['REQUEST_URI'] ?? 'UNKNOWN';
-$headerPreview = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '[HEADER_NOT_SET]';
-file_put_contents($earlyLogFile, "{$now} [EARLY] Method={$method}, URI={$uri}, HeaderPreview={$headerPreview}\n", FILE_APPEND | LOCK_EX);
+// --- Load Config and Essential Helpers ---
+// config.php handles robust environment loading, error logging, and includes all other necessary helpers.
+require_once __DIR__ . '/config.php';
 
-// --- Include env_manager for load_env_file_simple ---
-require_once __DIR__ . '/env_manager.php';
+// Early log for webhook hit, now using the centralized logger.
+write_telegram_debug_log(
+    sprintf(
+        "[WEBHOOK_HIT] Method=%s, URI=%s, SecretHeader=%s",
+        $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN',
+        $_SERVER['REQUEST_URI'] ?? 'UNKNOWN',
+        isset($_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN']) ? 'Present' : 'Not-Set'
+    )
+);
 
-// Load .env for early access to secrets
-$envPath = __DIR__ . '/.env';
-load_env_file_simple($envPath);
-
-// --- Runtime logger ---
+// --- Runtime logger (uses the main debug log configured in config.php) ---
 function write_telegram_debug_log($msg) {
-    $logFile = __DIR__ . '/telegram_debug.log';
-    file_put_contents($logFile, date('[Y-m-d H:i:s]') . " " . $msg . PHP_EOL, FILE_APPEND | LOCK_EX);
+    // This function now acts as a wrapper for the standard error_log.
+    // It helps keep logging calls consistent in this file.
+    error_log("TELEGRAM_WEBHOOK: " . $msg);
 }
 
 // --- Secret validation ---
 $expectedSecret = getenv('TELEGRAM_WEBHOOK_SECRET') ?: null;
 $receivedHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
 
+// Fallback for servers that don't populate $_SERVER correctly
 if (!$receivedHeader && function_exists('getallheaders')) {
     $all = getallheaders();
     $receivedHeader = $all['X-Telegram-Bot-Api-Secret-Token'] ?? $all['x-telegram-bot-api-secret-token'] ?? null;
 }
 
+// Allow secret to be passed as a query parameter as a fallback
 $receivedParam = $_GET['secret'] ?? $_POST['secret'] ?? null;
-$received = $receivedHeader ?? $receivedParam;
+
+// Prioritize the header for security
+$receivedSecret = $receivedHeader ?? $receivedParam;
 
 if ($expectedSecret) {
-    if (!$received || !hash_equals($expectedSecret, $received)) {
-        write_telegram_debug_log("Webhook rejected: secret mismatch. Received: " . substr($received ?? '', 0, 8));
-        http_response_code(403);
-        echo 'Forbidden';
+    if (!$receivedSecret || !hash_equals($expectedSecret, $receivedSecret)) {
+        write_telegram_debug_log("Webhook rejected: Secret mismatch. Received: " . substr($receivedSecret ?? '', 0, 8) . "...");
+        http_response_code(403); // Forbidden
+        echo 'Forbidden: Invalid secret token.';
         exit();
     }
 } else {
-    write_telegram_debug_log("WARNING: TELEGRAM_WEBHOOK_SECRET is not set. Accepting webhook without validation.");
+    // It's good practice to log when running in an insecure mode.
+    write_telegram_debug_log("WARNING: TELEGRAM_WEBHOOK_SECRET is not set. Accepting webhook without secret validation.");
 }
 
-// --- Include necessary files AFTER validation ---
-// config.php establishes the database connection ($conn)
-require_once __DIR__ . '/config.php'; 
-require_once __DIR__ . '/telegram_helpers.php';
-require_once __DIR__ . '/user_state_manager.php';
-require_once __DIR__ . '/db_operations.php';
-require_once __DIR__ . '/api_curl_helper.php';
-require_once __DIR__ . '/gemini_ai_helper.php';
-require_once __DIR__ . '/cloudflare_ai_helper.php';
 
 // --- Main logic ---
 $bodyRaw = file_get_contents('php://input');
@@ -111,12 +107,14 @@ try {
     // --- State Management ---
     $userState = getUserState($userId);
     if ($userState) {
-        handleStatefulInteraction($conn, $userId, $chatId, $commandOrText, $userState);
+        // Pass the database connection getter, not a variable
+        handleStatefulInteraction('get_db_connection', $userId, $chatId, $commandOrText, $userState);
         exit_with_ok();
     }
     
     // --- Command Processing ---
-    processCommand($conn, $userId, $chatId, $commandOrText, $isCallback);
+    // Pass the database connection getter to the command processor
+    processCommand('get_db_connection', $userId, $chatId, $commandOrText, $isCallback);
 
 } catch (Throwable $e) {
     // Log detailed error and notify admin if possible

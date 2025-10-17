@@ -137,9 +137,16 @@ function sendLotteryResultToChannel($lotteryInfo) {
  * @param string $messageText
  * @return void
  */
-function handleLotteryMessage($chatId, $messageText) {
-    global $conn;
+function handleLotteryMessage($db_getter, $chatId, $messageText) {
     write_telegram_debug_log("Attempting to handle lottery message: {$messageText}");
+
+    $pdo = $db_getter();
+    if (is_array($pdo) && isset($pdo['db_error'])) {
+        write_telegram_debug_log("DB connection error in handleLotteryMessage: " . $pdo['db_error']);
+        // Optionally notify admin
+        sendTelegramMessage($chatId, "处理彩票信息时数据库连接失败。");
+        return;
+    }
 
     $issue = null; // 期号
     $numbers = null; // 号码
@@ -226,22 +233,37 @@ function getApiKeySelectionKeyboard() {
     ];
 }
 
-// Placeholder for stateful interactions to avoid fatal error
 // This function will handle user interactions that require multiple steps
-function handleStatefulInteraction($conn, $userId, $chatId, $commandOrText, $userState) {
+function handleStatefulInteraction($db_getter, $userId, $chatId, $commandOrText, $userState) {
     write_telegram_debug_log("Handling state for user {$userId}: {$userState}");
-    // Example: awaiting API key input
+
+    // States that need DB connection
+    $db_dependent_states = ['awaiting_user_deletion'];
+
+    $pdo = null;
+    if (in_array($userState, $db_dependent_states)) {
+        $pdo = call_user_func($db_getter);
+        if (is_array($pdo) && isset($pdo['db_error'])) {
+            write_telegram_debug_log("DB connection error in handleStatefulInteraction: " . $pdo['db_error']);
+            sendTelegramMessage($chatId, "数据库操作失败，请检查日志。", getAdminKeyboard());
+            setUserState($userId, null); // Reset state
+            return;
+        }
+    }
+
+    // Example: awaiting API key input (no DB needed)
     if (strpos($userState, 'awaiting_api_key_') === 0) {
         $keyName = substr($userState, strlen('awaiting_api_key_'));
         if (update_env_file($keyName, $commandOrText)) {
             sendTelegramMessage($chatId, "✅ API 密钥 {$keyName} 已成功更新！", getAdminKeyboard());
         } else {
-            sendTelegramMessage($chatId, "❌ 更新 API 密钥失败！请确保服务器上的 .env 文件可写。", getAdminKeyboard());
+            sendTelegramMessage($chatId, "❌ 更新 API 密钥失败！请确保 .env 文件可写。", getAdminKeyboard());
         }
         setUserState($userId, null);
         return;
-    } 
-    // Example: awaiting AI prompt
+    }
+
+    // Example: awaiting AI prompt (no DB needed)
     if ($userState === 'awaiting_gemini_prompt' || $userState === 'awaiting_cloudflare_prompt') {
         sendTelegramMessage($chatId, "🧠 正在处理，请稍候...");
         $response = ($userState === 'awaiting_gemini_prompt') ? call_gemini_api($commandOrText) : call_cloudflare_ai_api($commandOrText);
@@ -249,13 +271,14 @@ function handleStatefulInteraction($conn, $userId, $chatId, $commandOrText, $use
         setUserState($userId, null);
         return;
     }
-    // Example: awaiting user deletion email
+
+    // Example: awaiting user deletion email (needs DB)
     if ($userState === 'awaiting_user_deletion') {
         if (filter_var($commandOrText, FILTER_VALIDATE_EMAIL)) {
-            if (deleteUserByEmail($commandOrText)) {
+            if (deleteUserByEmail($pdo, $commandOrText)) { // Pass PDO object
                 sendTelegramMessage($chatId, "✅ 用户 {$commandOrText} 已成功删除。", getUserManagementKeyboard());
             } else {
-                sendTelegramMessage($chatId, "⚠️ 删除失败。请检查该用户是否存在或查看服务器日志。", getUserManagementKeyboard());
+                sendTelegramMessage($chatId, "⚠️ 删除失败。用户不存在或数据库错误。", getUserManagementKeyboard());
             }
         } else {
             sendTelegramMessage($chatId, "❌ 无效的电子邮件地址，请重新输入。", getUserManagementKeyboard());
@@ -263,18 +286,19 @@ function handleStatefulInteraction($conn, $userId, $chatId, $commandOrText, $use
         setUserState($userId, null);
         return;
     }
+
     // Fallback for unknown states
     sendTelegramMessage($chatId, "系统状态异常，已重置。", getAdminKeyboard());
     setUserState($userId, null);
 }
 
-// Placeholder for command processing to avoid fatal error
+
 // This function will handle direct commands (not stateful)
-function processCommand($conn, $userId, $chatId, $commandOrText, $isCallback) {
+function processCommand($db_getter, $userId, $chatId, $commandOrText, $isCallback) {
     write_telegram_debug_log("Processing command for user {$userId}: {$commandOrText}");
     $reply = null;
     $replyKeyboard = null;
-    
+
     // Handle callback_data for API key selection
     if ($isCallback && strpos($commandOrText, 'set_api_key_') === 0) {
         $keyToSet = substr($commandOrText, strlen('set_api_key_'));
@@ -312,15 +336,21 @@ function processCommand($conn, $userId, $chatId, $commandOrText, $isCallback) {
             $replyKeyboard = getFileManagementKeyboard();
             break;
         case 'list_users':
-            $users = getAllUsers(); // This assumes $conn is available globally or passed
-            if (empty($users)) {
-                $reply = "数据库中未找到用户。";
+            $pdo = call_user_func($db_getter);
+            if (is_array($pdo) && isset($pdo['db_error'])) {
+                $reply = "数据库连接失败，无法获取用户列表。";
+                write_telegram_debug_log("DB Error on list_users: " . $pdo['db_error']);
             } else {
-                $text = "👥 注册用户列表:\n\n";
-                foreach ($users as $u) {
-                    $text .= "📧 " . htmlspecialchars($u['email']) . " (注册于: " . htmlspecialchars($u['created_at']) . ")\n";
+                $users = getAllUsers($pdo); // Pass PDO object
+                if (empty($users)) {
+                    $reply = "数据库中未找到用户。";
+                } else {
+                    $text = "👥 注册用户列表:\n\n";
+                    foreach ($users as $u) {
+                        $text .= "📧 " . htmlspecialchars($u['email']) . " (注册于: " . htmlspecialchars($u['created_at']) . ")\n";
+                    }
+                    $reply = $text;
                 }
-                $reply = $text;
             }
             $replyKeyboard = getUserManagementKeyboard();
             break;
@@ -335,7 +365,6 @@ function processCommand($conn, $userId, $chatId, $commandOrText, $isCallback) {
             $reply = "好的，请输入您的请求内容：";
             break;
         default:
-            // If it's not an empty message and not a recognized command
             if (!empty($commandOrText) && !$isCallback) {
                 $reply = "无法识别的命令 '" . htmlspecialchars($commandOrText) . "'。请使用下方菜单。";
                 $replyKeyboard = getAdminKeyboard();

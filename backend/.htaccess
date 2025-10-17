@@ -4,11 +4,18 @@ RewriteEngine On
 # Set the rewrite base to the current directory
 RewriteBase /
 
-# --- Front Controller ---
-# If the request is not for an existing file...
-RewriteCond %{REQUEST_FILENAME} !-f
-# ...and the request is not for an existing directory...
-RewriteCond %{REQUEST_FILENAME} !-d
-# ...then rewrite the request to index.php.
-# The [L] flag means this is the last rule.
-RewriteRule . index.php [L]
+# --- API Front Controller ---
+# This rule specifically targets requests for the API.
+# It rewrites any request starting with 'api/' to index.php,
+# passing the rest of the path in the 'endpoint' query parameter.
+# The [L] flag means this is the last rule to be processed.
+# The [QSA] flag appends any existing query string from the original request.
+RewriteRule ^api/(.*)$ index.php?endpoint=$1 [L,QSA]
+
+# --- General Front Controller (Optional Fallback) ---
+# If you have other non-API routes that should also be handled by PHP,
+# you can keep a more general rule. For a pure API backend, it might
+# not be necessary. For now, we will only handle the /api/ route.
+# RewriteCond %{REQUEST_FILENAME} !-f
+# RewriteCond %{REQUEST_FILENAME} !-d
+# RewriteRule . index.php [L]

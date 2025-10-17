@@ -1,45 +1,43 @@
 <?php
+/**
+ * Front Controller for the entire API.
+ *
+ * This script routes all incoming API requests to the appropriate handler file.
+ * It ensures a consistent entry point, handles basic security checks, and
+ * provides a centralized location for bootstrapping the application.
+ */
 
-// Main entry point for API requests
+// Bootstrap the application by loading configuration and helpers.
+// This ensures the environment, database connection, and helper functions are available globally.
+require_once __DIR__ . '/config.php';
 
+// Set a default content type for all API responses.
 header('Content-Type: application/json');
 
-$endpoint = $_GET['endpoint'] ?? null;
+// --- Endpoint Routing ---
 
-if ($endpoint === null) {
-    http_response_code(400); // Bad Request
-    echo json_encode(['error' => 'Missing endpoint parameter.']);
-    exit();
-}
+// 1. Get the requested endpoint from the query string (set by .htaccess).
+$endpoint = $_GET['endpoint'] ?? '';
 
-// All endpoints are assumed to be in the backend directory
-switch ($endpoint) {
-    case 'register_user':
-        require_once __DIR__ . '/register_user.php';
-        break;
-    case 'login_user':
-        require_once __DIR__ . '/login_user.php';
-        break;
-    case 'get_emails':
-        require_once __DIR__ . '/get_emails.php';
-        break;
-    case 'delete_bill':
-        require_once __DIR__ . '/delete_bill.php';
-        break;
-    case 'get_lottery_results':
-        require_once __DIR__ . '/get_lottery_results.php';
-        break;
-    case 'telegramWebhook':
-        require_once __DIR__ . '/telegramWebhook.php';
-        break;
-    case 'process_email_ai':
-        require_once __DIR__ . '/process_email_ai.php';
-        break;
-    // Add other endpoints as needed
-    default:
-        http_response_code(404); // Not Found
-        echo json_encode(['error' => 'Endpoint not found.']);
-        break;
+// 2. Sanitize the endpoint to prevent directory traversal attacks.
+// This removes any characters that are not alphanumeric, underscore, or hyphen.
+$endpoint = preg_replace('/[^a-zA-Z0-9_-]/', '', $endpoint);
+
+// 3. Construct the full path to the potential handler file.
+$file_path = __DIR__ . '/' . $endpoint . '.php';
+
+// 4. Check if the handler file exists and is readable.
+if (!empty($endpoint) && file_exists($file_path) && is_readable($file_path)) {
+    // If the file exists, include it. The included file is expected to handle
+    // the rest of the request processing and output a JSON response.
+    require_once $file_path;
+} else {
+    // 5. If the endpoint is missing or the file doesn't exist, return a 404 Not Found error.
+    http_response_code(404);
+    echo json_encode([
+        'error' => 'Endpoint not found.',
+        'requested' => $endpoint // Helps in debugging
+    ]);
 }
 
 ?>

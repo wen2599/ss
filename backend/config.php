@@ -5,21 +5,25 @@ if (!defined('DIR')) {
     define('DIR', __DIR__);
 }
 
-// --- Custom Debug Logging Function ---
+// --- Custom Debug Logging Function (now a wrapper for error_log) ---
 function write_custom_debug_log($message) {
-    // Log file is placed in the same directory as this script.
-    $logFile = DIR . '/env_debug.log';
-    // Use @ to suppress errors if the directory is not writable.
-    @file_put_contents($logFile, date('[Y-m-d H:i:s]') . ' ' . $message . PHP_EOL, FILE_APPEND | LOCK_EX);
+    // Prepends a tag to distinguish config-related logs.
+    error_log('[CONFIG] ' . $message);
 }
 
+// --- PHP Error Reporting Configuration ---
+ini_set('display_errors', '0'); // Do not display errors to the user in production.
+ini_set('log_errors', '1');
+ini_set('error_log', DIR . '/debug.log');
+error_reporting(E_ALL);
+
 write_custom_debug_log("------ Config.php Entry Point ------");
+write_custom_debug_log("PHP error reporting configured to log to " . DIR . '/debug.log');
 write_custom_debug_log("Script running as user: " . (function_exists('posix_getpwuid') ? posix_getpwuid(posix_geteuid())['name'] : 'N/A'));
 
 // --- Pre-emptive Writable Check ---
 if (!is_writable(DIR)) {
     write_custom_debug_log("FATAL: Directory " . DIR . " is not writable.");
-    // We don't exit here, to allow the rest of the script to try, but we log the critical failure.
 } else {
     write_custom_debug_log("OK: Directory " . DIR . " is writable.");
 }

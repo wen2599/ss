@@ -1,4 +1,4 @@
-const API_BASE_URL = ''; // The backend files are in the root directory
+const API_BASE_URL = '/api'; // All API requests are routed through the worker at /api
 
 /**
  * A helper function to handle fetch requests and responses.
@@ -32,7 +32,7 @@ const fetchJson = async (url, options = {}) => {
  * @returns {Promise<any>} - The response from the server.
  */
 export const registerUser = (userData) => {
-    return fetchJson(`${API_BASE_URL}/register_user.php`, {
+    return fetchJson(`${API_BASE_URL}/register_user`, {
         method: 'POST',
         body: JSON.stringify(userData),
     });
@@ -46,7 +46,7 @@ export const registerUser = (userData) => {
  * @returns {Promise<any>} - The response from the server, including user data.
  */
 export const loginUser = (credentials) => {
-    return fetchJson(`${API_BASE_URL}/login_user.php`, {
+    return fetchJson(`${API_BASE_URL}/login_user`, {
         method: 'POST',
         body: JSON.stringify(credentials),
     });
@@ -57,7 +57,7 @@ export const loginUser = (credentials) => {
  * @returns {Promise<any>} - The response from the server.
  */
 export const logoutUser = () => {
-    return fetchJson(`${API_BASE_URL}/logout_user.php`, {
+    return fetchJson(`${API_BASE_URL}/logout_user`, {
         method: 'POST',
     });
 };
@@ -67,16 +67,16 @@ export const logoutUser = () => {
  * @returns {Promise<any>} - The session data from the server.
  */
 export const checkSession = () => {
-    return fetchJson(`${API_BASE_URL}/check_session.php`);
+    return fetchJson(`${API_BASE_URL}/check_session`);
 };
 
 
 export const getEmails = () => {
-    return fetchJson(`${API_BASE_URL}/get_emails.php`);
+    return fetchJson(`${API_BASE_URL}/get_emails`);
 };
 
 export const getEmailById = (id) => {
-    return fetchJson(`${API_BASE_URL}/get_emails.php?id=${id}`);
+    return fetchJson(`${API_BASE_URL}/get_emails?id=${id}`);
 };
 
 /**
@@ -85,7 +85,7 @@ export const getEmailById = (id) => {
  * @returns {Promise<any>} - The response from the server.
  */
 export const deleteBill = (id) => {
-    return fetchJson(`${API_BASE_URL}/delete_bill.php?id=${id}`, {
+    return fetchJson(`${API_BASE_URL}/delete_bill?id=${id}`, {
         method: 'DELETE',
     });
 };
@@ -96,7 +96,7 @@ export const deleteBill = (id) => {
  * @returns {Promise<any>} The structured data extracted by the AI.
  */
 export const processEmailWithAI = (id) => {
-    return fetchJson(`${API_BASE_URL}/process_email_ai.php`, {
+    return fetchJson(`${API_BASE_URL}/process_email_ai`, {
         method: 'POST',
         body: JSON.stringify({ email_id: id }),
     });
@@ -108,9 +108,9 @@ export const processEmailWithAI = (id) => {
  * @returns {Promise<any>} 最新开奖结果
  */
 export const getLotteryResults = (type = null) => {
-    const url = new URL(`${API_BASE_URL}/get_lottery_results.php`, window.location.origin);
+    const url = new URL(`${API_BASE_URL}/get_lottery_results`, window.location.origin);
     if (type) {
-        url.searchParams.append('lottery_type', type); // 改为 lottery_type
+        url.searchParams.append('lottery_type', type);
     }
     return fetchJson(url.toString());
 };

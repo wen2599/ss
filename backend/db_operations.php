@@ -53,45 +53,29 @@ function get_db_connection() {
 
 /**
  * Retrieves all users from the database.
- *
+ * @param PDO $pdo The active database connection.
  * @return array An array of user objects (or an empty array if none found).
  */
-function getAllUsers() {
-    $pdo = get_db_connection();
-    if (is_array($pdo) && isset($pdo['db_error'])) {
-        error_log("getAllUsers: Failed to get database connection - " . $pdo['db_error']);
-        return [];
-    }
-    if (!$pdo) return [];
-
+function getAllUsers(PDO $pdo) {
     try {
         $stmt = $pdo->query("SELECT id, email, created_at FROM users ORDER BY created_at DESC");
         return $stmt->fetchAll();
     } catch (PDOException $e) {
         error_log("Error in getAllUsers: " . $e->getMessage());
-        return [];
+        return []; // Return empty array on failure
     }
 }
 
 /**
  * Deletes a user from the database by their email address.
- *
+ * @param PDO $pdo The active database connection.
  * @param string $email The email of the user to delete.
  * @return bool True on successful deletion, false otherwise.
  */
-function deleteUserByEmail($email) {
-    $pdo = get_db_connection();
-    if (is_array($pdo) && isset($pdo['db_error'])) {
-        error_log("deleteUserByEmail: Failed to get database connection - " . $pdo['db_error']);
-        return false;
-    }
-    if (!$pdo) return false;
-
+function deleteUserByEmail(PDO $pdo, $email) {
     try {
         $stmt = $pdo->prepare("DELETE FROM users WHERE email = ?");
         $stmt->execute([$email]);
-        // rowCount() returns the number of affected rows.
-        // If it's greater than 0, the deletion was successful.
         return $stmt->rowCount() > 0;
     } catch (PDOException $e) {
         error_log("Error in deleteUserByEmail for {$email}: " . $e->getMessage());
@@ -101,7 +85,7 @@ function deleteUserByEmail($email) {
 
 /**
  * Stores lottery results into the lottery_results table.
- *
+ * @param PDO $pdo The active database connection.
  * @param string $lotteryType The type of lottery (e.g., "六合彩").
  * @param string $issueNumber The issue number of the lottery drawing.
  * @param string $winningNumbers A comma-separated string of winning numbers.
@@ -110,26 +94,17 @@ function deleteUserByEmail($email) {
  * @param string $drawingDate The date of the drawing in YYYY-MM-DD format.
  * @return bool True on success, false on failure.
  */
-function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate) {
-    $pdo = get_db_connection();
-    if (is_array($pdo) && isset($pdo['db_error'])) {
-        error_log("storeLotteryResult: Failed to get database connection - " . $pdo['db_error']);
-        return false;
-    }
-    if (!$pdo) {
-        error_log("storeLotteryResult: No database connection (returned null unexpectedly).");
-        return false;
-    }
-
+function storeLotteryResult(PDO $pdo, $lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate) {
     try {
-        // Check if a result for this lottery type and issue number already exists
+        // Check for existing result first
         $stmt = $pdo->prepare("SELECT id FROM lottery_results WHERE lottery_type = ? AND issue_number = ?");
         $stmt->execute([$lotteryType, $issueNumber]);
         if ($stmt->fetch()) {
             error_log("Lottery result for type '{$lotteryType}' and issue '{$issueNumber}' already exists. Skipping insertion.");
-            return true; // Consider it a success if it already exists
+            return true; // Already exists, count as success.
         }
 
+        // Insert new result
         $stmt = $pdo->prepare(
             "INSERT INTO lottery_results (
                 lottery_type, 
