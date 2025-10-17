@@ -110,7 +110,7 @@ function deleteUserByEmail($email) {
  * @param string $drawingDate The date of the drawing in YYYY-MM-DD format.
  * @return bool True on success, false on failure.
  */
-function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate, $numberColorsJson = null) {
+function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate) {
     $pdo = get_db_connection();
     if (is_array($pdo) && isset($pdo['db_error'])) {
         error_log("storeLotteryResult: Failed to get database connection - " . $pdo['db_error']);
@@ -137,9 +137,8 @@ function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiac
                 winning_numbers, 
                 zodiac_signs, 
                 colors, 
-                drawing_date,
-                number_colors_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)"
+                drawing_date
+            ) VALUES (?, ?, ?, ?, ?, ?)"
         );
         $stmt->execute([
             $lotteryType,
@@ -147,8 +146,7 @@ function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiac
             $winningNumbers,
             $zodiacSigns,
             $colors,
-            $drawingDate,
-            $numberColorsJson
+            $drawingDate
         ]);
         error_log("Successfully stored lottery result for {$lotteryType} - {$issueNumber}.");
         return true;
