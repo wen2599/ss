@@ -41,11 +41,12 @@ try {
     // Fetch the latest lottery result(s)
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
     
-    // CRITICAL FIX: The server environment incorrectly interprets UTF-8 URL parameters as ISO-8859-1.
+    // CRITICAL FIX: The server environment incorrectly interprets UTF-8 URL parameters as a different encoding.
     // We must manually convert the encoding back to UTF-8 to correctly handle multi-byte characters (like Chinese).
-    $lotteryType = isset($_GET['lottery_type']) ? mb_convert_encoding($_GET['lottery_type'], 'UTF-8', 'ISO-8859-1') : null;
+    // Trying Windows-1252 as a common misinterpretation source if ISO-8859-1 failed.
+    $lotteryType = isset($_GET['lottery_type']) ? mb_convert_encoding($_GET['lottery_type'], 'UTF-8', 'Windows-1252') : null;
 
-    write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='" . ($lotteryType ?? 'null') . "' (After encoding conversion)");
+    write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='" . ($lotteryType ?? 'null') . "' (After encoding conversion from Windows-1252)");
 
     $sql = "SELECT id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at FROM lottery_results ";
     $params = [];
