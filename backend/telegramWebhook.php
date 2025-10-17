@@ -105,6 +105,15 @@ elseif ($adminId && $userId && (string)$userId === (string)$adminId) {
             $keyToUpdate = substr($userState, strlen('awaiting_api_key_'));
             if (update_env_file($keyToUpdate, $commandOrText)) { sendTelegramMessage($chatId, "✅ API 密钥 {$keyToUpdate} 已成功更新！", getAdminKeyboard()); }
             else { sendTelegramMessage($chatId, "❌ 更新 API 密钥失败！", getAdminKeyboard()); }
+        } elseif ($userState === 'awaiting_gemini_prompt' || $userState === 'awaiting_cloudflare_prompt') {
+            sendTelegramMessage($chatId, "🧠 正在处理，请稍候...");
+            $response = ($userState === 'awaiting_gemini_prompt') ? call_gemini_api($commandOrText) : call_cloudflare_ai_api($commandOrText);
+            sendTelegramMessage($chatId, $response, getAdminKeyboard());
+        } elseif ($userState === 'awaiting_user_deletion') {
+            if (filter_var($commandOrText, FILTER_VALIDATE_EMAIL)) {
+                if (deleteUserByEmail($commandOrText)) { sendTelegramMessage($chatId, "✅ 用户 {$commandOrText} 已成功删除。", getUserManagementKeyboard()); }
+                else { sendTelegramMessage($chatId, "⚠️ 删除失败。请检查该用户是否存在或查看服务器日志。", getUserManagementKeyboard()); }
+            } else { sendTelegramMessage($chatId, "❌ 无效的电子邮件地址，请重新输入。", getUserManagementKeyboard()); }
         }
         setUserState($userId, null);
     } else {
@@ -112,17 +121,35 @@ elseif ($adminId && $userId && (string)$userId === (string)$adminId) {
         $reply = null; $replyKeyboard = null;
         switch ($cmd) {
             case '/start': case 'main_menu':
-                $reply = "欢迎回来，管理员！"; $replyKeyboard = getAdminKeyboard(); break;
+                $reply = "欢迎回来，管理员！请选择一个操作。"; $replyKeyboard = getAdminKeyboard(); break;
+            case 'menu_user_management':
+                $reply = "请选择一个用户管理操作:"; $replyKeyboard = getUserManagementKeyboard(); break;
+            case 'menu_file_management':
+                $reply = "请选择一个文件管理操作:"; $replyKeyboard = getFileManagementKeyboard(); break;
             case 'menu_api_keys':
-                $reply = "请选择要更新的 API 密钥："; $replyKeyboard = getApiKeySelectionKeyboard(); break;
+                $reply = "请选择您想要更新的 API 密钥："; $replyKeyboard = getApiKeySelectionKeyboard(); break;
+            case 'list_files':
+                $files = scandir(BASE_DIR);
+                $blacklist = ['.', '..', '.env', '.env.example', '.git', '.gitignore', '.htaccess', 'vendor', 'composer.lock', 'debug.log'];
+                $text = "📁 当前目录文件列表:\n\n";
+                foreach ($files as $f) { if (!in_array($f, $blacklist, true)) $text .= $f . "\n"; }
+                $reply = $text; $replyKeyboard = getFileManagementKeyboard(); break;
+            case 'list_users':
+                $users = getAllUsers();
+                if (empty($users)) { $reply = "数据库中未找到用户。"; }
+                else { $text = "👥 注册用户列表:\n\n"; foreach ($users as $u) { $text .= "📧 {$u['email']} (注册于: {$u['created_at']})\n"; } $reply = $text; }
+                $replyKeyboard = getUserManagementKeyboard(); break;
+            case 'delete_user_prompt':
+                setUserState($userId, 'awaiting_user_deletion'); $reply = "请输入要删除的用户邮箱地址："; break;
+            case 'ask_gemini': case 'ask_cloudflare':
+                $stateTo = ($cmd === 'ask_gemini') ? 'awaiting_gemini_prompt' : 'awaiting_cloudflare_prompt';
+                setUserState($userId, $stateTo); $reply = "好的，请输入您的请求内容："; break;
             default:
                 if (strpos($cmd, 'set_api_key_') === 0) {
                     $keyToSet = substr($cmd, strlen('set_api_key_'));
                     setUserState($userId, 'awaiting_api_key_' . $keyToSet);
                     $reply = "好的，请输入新的 <b>{$keyToSet}</b> 密钥：";
-                } else {
-                    $reply = "无法识别的命令。"; $replyKeyboard = getAdminKeyboard();
-                }
+                } else { $reply = "无法识别的命令。"; $replyKeyboard = getAdminKeyboard(); }
                 break;
         }
         if ($reply) { sendTelegramMessage($chatId, $reply, $replyKeyboard); }
