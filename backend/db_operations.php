@@ -9,6 +9,15 @@
  * @return PDO|array|null A configured PDO object on success, an array with 'db_error' key on connection failure, or null (deprecated).
  */
 function get_db_connection() {
+    // --- Pre-emptive Check for PDO Extension ---
+    if (!class_exists('PDO')) {
+        $error_msg = "Critical Error: The PDO extension is not installed or enabled in this PHP environment.";
+        error_log($error_msg);
+        // This is a catastrophic failure; return an error structure that consuming code expects.
+        return ['db_error' => $error_msg];
+    }
+    // --- End Pre-emptive Check ---
+
     static $pdo = null;
 
     if ($pdo === null) {
