@@ -48,7 +48,7 @@ try {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['email'] = $user['email'];
 
-        // Set a flag to trigger session ID regeneration in the next request
+        // Set a flag to trigger session ID regeneration on the next request
         // to enhance security against session fixation.
         $_SESSION['regenerate_id'] = true;
 
