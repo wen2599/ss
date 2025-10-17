@@ -43,27 +43,14 @@ try {
 
     if ($user && password_verify($password, $user['password_hash'])) {
         // --- Session Creation ---
+        // The session cookie is now configured globally in api_header.php.
+        // We just need to set the session variables.
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['email'] = $user['email'];
 
-        // 主动 setcookie，确保 session cookie 被浏览器收下
-        $params = session_get_cookie_params();
-        setcookie(
-            session_name(),
-            session_id(),
-            [
-                'expires' => time() + $params['lifetime'],
-                'path' => $params['path'],
-                'domain' => $params['domain'],
-                'secure' => $params['secure'],
-                'httponly' => $params['httponly'],
-                'samesite' => $params['samesite'] ?? 'None'
-            ]
-        );
-
-        // Add session data to debug info AFTER setting it
-        $debug_info['login_session_data_after_set'] = $_SESSION;
-        $debug_info['login_session_id_after_set'] = session_id();
+        // Set a flag to trigger session ID regeneration in the next request
+        // to enhance security against session fixation.
+        $_SESSION['regenerate_id'] = true;
 
         http_response_code(200);
         echo json_encode([
