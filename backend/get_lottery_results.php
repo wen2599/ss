@@ -51,7 +51,8 @@ try {
     // Fetch the latest lottery result, or a specific number of results
     // For example, fetching the latest 10 results
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
-    $lotteryType = isset($_GET['lottery_type']) ? $_GET['lottery_type'] : null;
+    // Manually URL decode the lottery_type parameter to fix encoding issues.
+    $lotteryType = isset($_GET['lottery_type']) ? urldecode($_GET['lottery_type']) : null;
 
     write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='" . ($lotteryType ?? 'null') . "'");
 
@@ -96,9 +97,6 @@ try {
 
     write_lottery_debug_log("Fetched " . count($results) . " results.");
 
-    // Send the latest lottery result to Telegram channel if available
-    // This part should only run if the request is not from the frontend display.
-    // For this specific error, we assume the frontend is making the request.
     /*
     if (!empty($results)) {
         $latestResult = $results[0]; // Get the very latest result
