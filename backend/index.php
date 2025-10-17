@@ -37,6 +37,10 @@ switch ($endpoint) {
         $expectedSecret = getenv('TELEGRAM_WEBHOOK_SECRET');
         $receivedSecret = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
 
+        // Debugging logs
+        error_log("Telegram Webhook Debug: Expected Secret (from env): [" . ($expectedSecret ? $expectedSecret : 'NOT SET') . "]");
+        error_log("Telegram Webhook Debug: Received Secret (from header): [" . ($receivedSecret ? $receivedSecret : 'NOT SET') . "]");
+
         if (empty($expectedSecret)) {
             error_log("CRITICAL: TELEGRAM_WEBHOOK_SECRET is not set in environment.");
             http_response_code(500); // Internal Server Error
