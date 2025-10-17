@@ -1,17 +1,40 @@
-# Enable the rewrite engine
-RewriteEngine On
 
-# Allow direct access to telegramWebhook.php
-RewriteCond %{REQUEST_URI} !^/telegramWebhook.php
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Set the default index file if the directory is accessed directly
+    DirectoryIndex index.php
 
-# Set the rewrite base to the current directory
-RewriteBase /
+    # Allow Authorization header to pass through to PHP
+    # This might be needed for some authentication mechanisms, though not directly for Telegram Secret Token
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-# --- Front Controller ---
-# If the request is not for an existing file...
-RewriteCond %{REQUEST_FILENAME} !-f
-# ...and the request is not for an existing directory...
-RewriteCond %{REQUEST_FILENAME} !-d
-# ...then rewrite the request to index.php.
-# The [L] flag means this is the last rule.
-RewriteRule . index.php [L]
+    # Allow X-Telegram-Bot-Api-Secret-Token to pass through to PHP
+    # This is CRITICAL for Telegram Webhook secret verification
+    RewriteCond %{HTTP:X-Telegram-Bot-Api-Secret-Token} .
+    RewriteRule .* - [E=HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN:%{HTTP:X-Telegram-Bot-Api-Secret-Token}]
+
+    # Rewrite all requests to index.php unless they are for actual files or directories
+    # This routes all API requests through index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# Optional: Disable directory listing for security
+Options -Indexes
+
+# Set default character set
+AddDefaultCharset UTF-8
+
+# PHP settings (optional, can also be in php.ini)
+<IfModule mod_php7.c>
+    # Adjust memory limit if needed
+    php_value memory_limit 128M
+    # Adjust max execution time
+    php_value max_execution_time 30
+    # Enable error logging
+    php_flag log_errors On
+    php_value error_log debug.log
+</IfModule>
