@@ -35,6 +35,7 @@ function get_db_connection() {
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, // Throw exceptions on error.
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,   // Fetch as associative arrays.
             PDO::ATTR_EMULATE_PREPARES   => false,              // Use native prepared statements.
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES 'utf8mb4'" // Force UTF8 on connection
         ];
 
         try {
@@ -102,7 +103,7 @@ function deleteUserByEmail($email) {
 /**
  * Stores lottery results into the lottery_results table.
  *
- * @param string $lotteryType The type of lottery (e.g., "六合彩").
+ * @param string $lotteryType The type of lottery (e.g., \"六合彩\").
  * @param string $issueNumber The issue number of the lottery drawing.
  * @param string $winningNumbers A comma-separated string of winning numbers.
  * @param string $zodiacSigns A comma-separated string of zodiac signs.
@@ -131,15 +132,7 @@ function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiac
         }
 
         $stmt = $pdo->prepare(
-            "INSERT INTO lottery_results (
-                lottery_type, 
-                issue_number, 
-                winning_numbers, 
-                zodiac_signs, 
-                colors, 
-                drawing_date
-            ) VALUES (?, ?, ?, ?, ?, ?)"
-        );
+            "INSERT INTO lottery_results (\n                lottery_type, \n                issue_number, \n                winning_numbers, \n                zodiac_signs, \n                colors, \n                drawing_date\n            ) VALUES (?, ?, ?, ?, ?, ?)"        );
         $stmt->execute([
             $lotteryType,
             $issueNumber,
