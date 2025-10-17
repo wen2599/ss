@@ -389,7 +389,12 @@ try {
             $reply = "好的，请输入您的请求内容：";
             break;
         default:
-            if (!empty($cmd)) {
+            // Handle dynamic callbacks, like setting an API key
+            if (strpos($cmd, 'set_api_key_') === 0) {
+                $keyToSet = substr($cmd, strlen('set_api_key_'));
+                setUserState($userId, 'awaiting_api_key_' . $keyToSet);
+                $reply = "好的，请输入新的 <b>{$keyToSet}</b> 密钥：";
+            } elseif (!empty($cmd)) {
                 $reply = "无法识别的命令 '{$commandOrText}'。请使用下方菜单。";
                 $replyKeyboard = getAdminKeyboard();
             }
