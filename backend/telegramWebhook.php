@@ -215,9 +215,28 @@ if (isset($update['callback_query'])) {
                     $data['drawing_date'] = date('Y-m-d');
                 }
 
+                // 3. Create Number-Color JSON Mapping
+                $number_colors_json = null;
+                if (!empty($data['winning_numbers']) && !empty($data['colors'])) {
+                    $numbers_arr = explode(',', $data['winning_numbers']);
+                    preg_match_all('/(🔵|🟢|🔴)/u', $data['colors'], $color_matches);
+                    $colors_arr = $color_matches[0] ?? [];
+
+                    if (count($numbers_arr) === count($colors_arr)) {
+                        $color_map = [];
+                        $color_name_map = ['🔵' => 'blue', '🟢' => 'green', '🔴' => 'red'];
+                        foreach ($numbers_arr as $index => $number) {
+                            $color_map[trim($number)] = $color_name_map[$colors_arr[$index]] ?? 'unknown';
+                        }
+                        $number_colors_json = json_encode($color_map);
+                    }
+                }
+                $data['number_colors_json'] = $number_colors_json;
+
+
                 write_telegram_debug_log("Parsed data: " . json_encode($data, JSON_UNESCAPED_UNICODE));
 
-                // 3. Store in Database
+                // 4. Store in Database
                 if ($data['issue_number'] && $normalizedType) {
                     return storeLotteryResult(
                         $normalizedType,
@@ -225,7 +244,8 @@ if (isset($update['callback_query'])) {
                         $data['winning_numbers'] ?? '',
                         $data['zodiac_signs'] ?? '',
                         $data['colors'] ?? '',
-                        $data['drawing_date']
+                        $data['drawing_date'],
+                        $data['number_colors_json'] // Pass new data to storage function
                     );
                 } else {
                     write_telegram_debug_log("Storing failed: Missing issue number or normalized type.");

@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS `lottery_results` (
   `winning_numbers` VARCHAR(255) NOT NULL,
   `zodiac_signs` VARCHAR(255) NOT NULL,
   `colors` VARCHAR(255) NOT NULL,
+  `number_colors_json` TEXT,
   `drawing_date` DATE,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY `type_issue` (`lottery_type`, `issue_number`)
