@@ -140,12 +140,18 @@ if (isset($update['callback_query'])) {
         answerTelegramCallbackQuery($cb['id']);
     }
     write_telegram_debug_log("Received callback_query chat={$chatId} user={$userId} data=" . substr($commandOrText ?? '',0,200));
-} elseif (isset($update['message'])) {
-    $msg = $update['message'];
+} elseif (isset($update['message']) || isset($update['channel_post'])) {
+    // Handle both regular messages and channel posts
+    $msg = $update['message'] ?? $update['channel_post'];
+
     $chatId = $msg['chat']['id'] ?? null;
+    // For channel posts, 'from' doesn't exist, so we use the chat ID.
     $userId = $msg['from']['id'] ?? $chatId;
     $commandOrText = trim($msg['text'] ?? '');
-    write_telegram_debug_log("Received message chat={$chatId} user={$userId} text=" . substr($commandOrText ?? '',0,200));
+
+    $updateType = isset($update['channel_post']) ? 'channel_post' : 'message';
+    write_telegram_debug_log("Received {$updateType} chat={$chatId} user={$userId} text=" . substr($commandOrText ?? '',0,200));
+
     // If message originated from configured lottery channel, handle specially
     if (!empty($lotteryChannelId) && (string)$chatId === (string)$lotteryChannelId) {
         write_telegram_debug_log("Handling lottery channel message for channel {$lotteryChannelId}");
