@@ -51,7 +51,7 @@ load_env_file_simple($envPath);
 
 // Small runtime logger
 function write_telegram_debug_log($msg) {
-    $logFile = __DIR__ . '/telegram_debug.log';
+    $logFile = sys_get_temp_dir() . '/telegram_debug.log';
     file_put_contents($logFile, date('[Y-m-d H:i:s]') . " " . $msg . PHP_EOL, FILE_APPEND | LOCK_EX);
 }
 
