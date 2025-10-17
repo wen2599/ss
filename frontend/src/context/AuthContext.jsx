@@ -5,6 +5,7 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true); // Start with loading true
 
     useEffect(() => {
@@ -14,16 +15,19 @@ export const AuthProvider = ({ children }) => {
                 if (response.isAuthenticated && response.user) {
                     // Session is valid on the backend, sync the frontend state
                     setUser(response.user);
+                    setIsAuthenticated(true);
                     localStorage.setItem('user', JSON.stringify(response.user));
                 } else {
                     // No valid session on the backend, clear client-side state
                     setUser(null);
+                    setIsAuthenticated(false);
                     localStorage.removeItem('user');
                 }
             } catch (error) {
                 console.error("Session check failed:", error);
                 // On error, assume not authenticated
                 setUser(null);
+                setIsAuthenticated(false);
                 localStorage.removeItem('user');
             } finally {
                 setLoading(false); // Stop loading once the check is complete
@@ -35,6 +39,7 @@ export const AuthProvider = ({ children }) => {
 
     const login = (userData) => {
         setUser(userData);
+        setIsAuthenticated(true);
         localStorage.setItem('user', JSON.stringify(userData));
     };
 
@@ -46,13 +51,14 @@ export const AuthProvider = ({ children }) => {
         } finally {
             // Always clear client-side state
             setUser(null);
+            setIsAuthenticated(false);
             localStorage.removeItem('user');
         }
     };
 
     const value = {
         user,
-        isAuthenticated: !!user,
+        isAuthenticated,
         loading, // Expose loading state
         login,
         logout,

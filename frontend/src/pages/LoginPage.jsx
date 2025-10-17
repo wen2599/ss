@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './LoginPage.css';
 import { loginUser } from '../api';
@@ -10,7 +10,13 @@ function LoginPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/bills', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -21,7 +27,6 @@ function LoginPage() {
       const response = await loginUser({ email, password });
       if (response.user) {
         login(response.user);
-        navigate('/bills');
       } else {
         setError(response.error || '登录失败，请检查您的凭据。');
       }
@@ -38,8 +43,9 @@ function LoginPage() {
         <h1>用户登录</h1>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>电子邮件</label>
+            <label htmlFor="email">电子邮件</label>
             <input
+              id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -48,8 +54,9 @@ function LoginPage() {
             />
           </div>
           <div className="form-group">
-            <label>密码</label>
+            <label htmlFor="password">密码</label>
             <input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
