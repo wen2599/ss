@@ -149,23 +149,84 @@ if (isset($update['callback_query'])) {
     // If message originated from configured lottery channel, handle specially
     if (!empty($lotteryChannelId) && (string)$chatId === (string)$lotteryChannelId) {
         write_telegram_debug_log("Handling lottery channel message for channel {$lotteryChannelId}");
-        // Keep a safe wrapper: handleLotteryMessage may use DB; guard with try/catch
+        // --- Robust Lottery Message Parsing and Storing ---
         try {
-            if (function_exists('handleLotteryMessage')) {
-                handleLotteryMessage($chatId, $commandOrText);
-            } else {
-                // Inline minimal handling: attempt storeLotteryResult if available
-                if (function_exists('storeLotteryResult')) {
-                    // attempt to parse lightly (best-effort)
-                    $issue = null; $numbers = null;
-                    if (preg_match('/第(\d+)期/', $commandOrText, $m)) $issue = $m[1];
-                    if (preg_match('/号码[：:]\s*([0-9,\s]+)/u', $commandOrText, $m2)) $numbers = trim($m2[1]);
-                    storeLotteryResult('lottery', $issue ?? '', $numbers ?? '', '', '', date('Y-m-d'));
+            // Function to parse the lottery result from the message text
+            function parseAndStoreLotteryResult($text) {
+                write_telegram_debug_log("Attempting to parse text: " . $text);
+
+                // 1. Determine Lottery Type
+                $lotteryType = null;
+                if (strpos($text, '新澳门六合彩') !== false) {
+                    $lotteryType = '新澳门六合彩';
+                } elseif (strpos($text, '香港六合彩') !== false) {
+                    $lotteryType = '香港六合彩';
+                } elseif (strpos($text, '老澳门六合彩') !== false) {
+                    $lotteryType = '老澳门六合彩';
+                }
+
+                if (!$lotteryType) {
+                    write_telegram_debug_log("Failed to determine lottery type from text.");
+                    return false;
+                }
+                write_telegram_debug_log("Determined lottery type: " . $lotteryType);
+
+                // 2. Extract Data using robust regex
+                $patterns = [
+                    'issue_number'    => '/第\s*(\d+)\s*期/u',
+                    'drawing_date'    => '/开奖日期\s*[:：]\s*(\d{4}年\d{1,2}月\d{1,2}日)/u',
+                    'winning_numbers' => '/正码\s*[:：]([\s\d,]+)特码/u',
+                    'zodiac_signs'    => '/特码生肖\s*[:：]\s*([^\n]+)/u',
+                    'colors'          => '/特码颜色\s*[:：]\s*([^\n]+)/u'
+                ];
+
+                $data = [];
+                foreach ($patterns as $key => $pattern) {
+                    if (preg_match($pattern, $text, $matches)) {
+                        $data[$key] = trim($matches[1]);
+                    } else {
+                        $data[$key] = null;
+                        write_telegram_debug_log("Regex failed for key: " . $key);
+                    }
+                }
+
+                // 3. Clean and Format Data
+                if ($data['drawing_date']) {
+                    $data['drawing_date'] = str_replace(['年', '月', '日'], ['-', '-', ''], $data['drawing_date']);
+                }
+                if ($data['winning_numbers']) {
+                    $data['winning_numbers'] = preg_replace('/\s+/', '', $data['winning_numbers']);
+                }
+
+                write_telegram_debug_log("Parsed data: " . json_encode($data, JSON_UNESCAPED_UNICODE));
+
+                // 4. Store in Database
+                if ($data['issue_number']) {
+                    return storeLotteryResult(
+                        $lotteryType,
+                        $data['issue_number'],
+                        $data['winning_numbers'] ?? '',
+                        $data['zodiac_signs'] ?? '',
+                        $data['colors'] ?? '',
+                        $data['drawing_date'] ?? date('Y-m-d')
+                    );
+                } else {
+                    write_telegram_debug_log("Storing failed: Missing issue number.");
+                    return false;
                 }
             }
+
+            // Execute the parsing and storing
+            if (parseAndStoreLotteryResult($commandOrText)) {
+                write_telegram_debug_log("Successfully parsed and stored lottery result.");
+            } else {
+                write_telegram_debug_log("Failed to parse and store lottery result.");
+            }
+
         } catch (Throwable $e) {
-            write_telegram_debug_log("Error while handling lottery message: " . $e->getMessage());
+            write_telegram_debug_log("Exception while handling lottery message: " . $e->getMessage());
         }
+        // --- End of Robust Parsing Logic ---
         http_response_code(200);
         echo json_encode(['status' => 'ok', 'message' => 'processed lottery message']);
         exit();
