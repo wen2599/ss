@@ -3,8 +3,8 @@
 
 require_once __DIR__ . '/api_header.php';
 require_once __DIR__ . '/db_operations.php';
-require_once __DIR__ . '/telegram_helpers.php'; // Include telegram helpers
-require_once __DIR__ . '/env_manager.php'; // Include env manager to load .env for TELEGRAM_BOT_TOKEN
+require_once __DIR__ . '/telegram_helpers.php';
+require_once __DIR__ . '/env_manager.php';
 
 // Custom Debug Logging Function for lottery results
 function write_lottery_debug_log($message) {
@@ -17,46 +17,26 @@ write_lottery_debug_log("------ get_lottery_results.php Entry Point ------");
 // Load environment variables
 load_env_file_simple(__DIR__ . '/.env');
 
-// --- Fetch Lottery Results ---
 write_lottery_debug_log("Attempting to get database connection.");
 $pdo = get_db_connection();
 
 if (is_array($pdo) && isset($pdo['db_error'])) {
-    $errorMsg = "Database connection is currently unavailable: " . $pdo['db_error'];
+    $errorMsg = "Database connection error: " . $pdo['db_error'];
     write_lottery_debug_log($errorMsg);
     http_response_code(503);
-    echo json_encode(['status' => 'error', 'message' => $errorMsg]);
-    exit;
-}
-if (!$pdo) {
-    $errorMsg = "Database connection is currently unavailable (returned null).";
-    write_lottery_debug_log($errorMsg);
-    http_response_code(503); // Service Unavailable
     echo json_encode(['status' => 'error', 'message' => $errorMsg]);
     exit;
 }
 write_lottery_debug_log("Database connection successful.");
 
 try {
-    // Fetch the latest lottery result(s)
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
     
-    $rawLotteryType = $_GET['lottery_type'] ?? null;
-    
-    // Diagnostic: Log raw bytes of the incoming lotteryType
-    if ($rawLotteryType !== null) {
-        $hexDump = '';
-        for ($i = 0; $i < strlen($rawLotteryType); $i++) {
-            $hexDump .= sprintf("%02X ", ord($rawLotteryType[$i]));
-        }
-        write_lottery_debug_log("Diagnostic: Raw bytes of incoming lotteryType ('{$rawLotteryType}'): {$hexDump}");
-    }
+    // FINAL FIX: The incoming GET parameter is already correct UTF-8. No conversion is needed.
+    // All previous attempts to convert encoding were incorrect and are now removed.
+    $lotteryType = $_GET['lottery_type'] ?? null;
 
-    // Attempt encoding conversion. We'll refine this based on the raw byte dump.
-    // Keep the last attempt for now, but will likely change.
-    $lotteryType = ($rawLotteryType !== null) ? mb_convert_encoding($rawLotteryType, 'UTF-8', 'Windows-1252') : null;
-
-    write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='" . ($lotteryType ?? 'null') . "' (After encoding conversion from Windows-1252)");
+    write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='" . ($lotteryType ?? 'null') . "' (Using raw GET parameter).");
 
     $sql = "SELECT id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at FROM lottery_results ";
     $params = [];
@@ -69,13 +49,12 @@ try {
     $sql .= " ORDER BY drawing_date DESC, issue_number DESC LIMIT ?";
     $params[] = $limit;
 
-    write_lottery_debug_log("Preparing SQL: '{$sql}' with params: " . json_encode($params));
+    write_lottery_debug_log("Preparing SQL: '{$sql}' with params: " . json_encode($params, JSON_UNESCAPED_UNICODE));
 
     $stmt = $pdo->prepare($sql);
     if ($stmt === false) {
         $errorInfo = $pdo->errorInfo();
         $errorMsg = "SQL prepare failed: " . ($errorInfo[2] ?? "Unknown error");
-        error_log($errorMsg);
         write_lottery_debug_log($errorMsg);
         http_response_code(500);
         echo json_encode(['status' => 'error', 'message' => 'Failed to prepare SQL query.', 'details' => $errorMsg]);
@@ -87,7 +66,6 @@ try {
     if ($execSuccess === false) {
         $errorInfo = $stmt->errorInfo();
         $errorMsg = "SQL execute failed: " . ($errorInfo[2] ?? "Unknown error");
-        error_log($errorMsg);
         write_lottery_debug_log($errorMsg);
         http_response_code(500);
         echo json_encode(['status' => 'error', 'message' => 'Failed to execute SQL query.', 'details' => $errorMsg]);
@@ -102,17 +80,15 @@ try {
     echo json_encode(['status' => 'success', 'lottery_results' => $results]);
 
 } catch (PDOException $e) {
-    $errorMsg = "PDOException in get_lottery_results.php: " . $e->getMessage() . "\nStack: " . $e->getTraceAsString();
-    error_log($errorMsg);
+    $errorMsg = "PDOException in get_lottery_results.php: " . $e->getMessage();
     write_lottery_debug_log($errorMsg);
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'An internal database error occurred.', 'details' => $e->getMessage()]);
+    echo json_encode(['status' => 'error', 'message' => 'An internal database error occurred.']);
 } catch (Throwable $e) {
-    $errorMsg = "General error in get_lottery_results.php: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile() . "\nStack: " . $e->getTraceAsString();
-    error_log($errorMsg);
+    $errorMsg = "General error in get_lottery_results.php: " . $e->getMessage();
     write_lottery_debug_log($errorMsg);
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'An unexpected error occurred.', 'details' => $e->getMessage()]);
+    echo json_encode(['status' => 'error', 'message' => 'An unexpected error occurred.']);
 }
 
 write_lottery_debug_log("------ get_lottery_results.php Exit Point ------");
