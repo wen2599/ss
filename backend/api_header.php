@@ -3,21 +3,15 @@
 
 // --- CORS and Session Configuration for Cross-Domain Communication ---
 
-// Allow requests from the specific frontend origin.
-// Note: Using '*' is insecure. Always specify the exact domain.
+// The Cloudflare Worker does not handle CORS, so the PHP backend must.
+// We allow requests from the specific frontend origin.
 $frontend_url = getenv('FRONTEND_URL') ?: 'https://ss.wenxiuxiu.eu.org';
 header("Access-Control-Allow-Origin: " . $frontend_url);
-
-// Allow credentials (like cookies) to be sent with requests.
 header("Access-Control-Allow-Credentials: true");
-
-// Specify allowed HTTP methods.
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-
-// Specify allowed headers.
 header("Access-Control-Allow-Headers: Content-Type, X-Requested-With, Authorization");
 
-// Handle pre-flight OPTIONS requests from the browser.
+// Handle pre-flight OPTIONS requests sent by browsers.
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204); // No Content
     exit;
@@ -27,32 +21,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 header('Content-Type: application/json');
 
 // --- Session Cookie Configuration ---
-// This MUST be done *before* session_start() is called.
+// This configuration MUST be set before session_start() is called.
 session_set_cookie_params([
     'lifetime' => 86400, // 24 hours
     'path' => '/',
-    // Set the parent domain to allow the cookie to be shared across subdomains if needed.
-    // IMPORTANT: This requires the frontend and backend to be on subdomains of the same parent domain,
-    // or you must rely on the browser's default behavior if they are completely different.
-    // For ss.wenxiuxiu.eu.org and wenge.cloudns.ch, they are different, so we comment this out
-    // and rely on `SameSite=None` and `Secure`.
-    // 'domain' => '.your-parent-domain.com',
-    'secure' => true,    // The cookie must be sent over HTTPS.
-    'httponly' => true,  // The cookie cannot be accessed by client-side scripts.
-    'samesite' => 'None' // Required for cross-domain cookies.
+    // 'domain' is intentionally left out to let the browser handle it,
+    // as the domains are different and not subdomains of a parent.
+    'secure' => true,    // Cookie must be sent over HTTPS.
+    'httponly' => true,  // Cookie cannot be accessed by client-side scripts.
+    'samesite' => 'None' // Required for any cross-domain cookie usage.
 ]);
 
-// Start or resume the session to access user authentication data.
+// Start or resume the session.
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Regenerate session ID on login to prevent session fixation attacks.
-// We can check for a flag set during login to trigger this.
+// After a successful login, a 'regenerate_id' flag is set.
+// On the *next* request, we see the flag and regenerate the session ID
+// to protect against session fixation attacks.
 if (isset($_SESSION['regenerate_id']) && $_SESSION['regenerate_id'] === true) {
     session_regenerate_id(true);
     unset($_SESSION['regenerate_id']);
 }
 
-// Ensure errors are handled, and config is loaded.
+// Ensure the main application configuration is loaded.
 require_once __DIR__ . '/config.php';
