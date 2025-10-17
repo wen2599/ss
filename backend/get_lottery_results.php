@@ -14,18 +14,8 @@ function write_lottery_debug_log($message) {
 
 write_lottery_debug_log("------ get_lottery_results.php Entry Point ------");
 
-// Load environment variables for Telegram bot token and channel ID
-// Note: config.php (via api_header.php) should have already loaded these robustly.
-// This is a redundant call if config.php is thorough, but acts as a safeguard.
+// Load environment variables
 load_env_file_simple(__DIR__ . '/.env');
-
-// --- Authentication Check (Optional, depending on if lottery results are public) ---
-// If you want lottery results to be public, comment out or remove this block.
-// If (!isset($_SESSION['user_id'])) {
-//     http_response_code(401); // Unauthorized
-//     echo json_encode(['status' => 'error', 'message' => 'You must be logged in to view lottery results.']);
-//     exit;
-// }
 
 // --- Fetch Lottery Results ---
 write_lottery_debug_log("Attempting to get database connection.");
@@ -34,7 +24,7 @@ $pdo = get_db_connection();
 if (is_array($pdo) && isset($pdo['db_error'])) {
     $errorMsg = "Database connection is currently unavailable: " . $pdo['db_error'];
     write_lottery_debug_log($errorMsg);
-    http_response_code(503); // Service Unavailable
+    http_response_code(503);
     echo json_encode(['status' => 'error', 'message' => $errorMsg]);
     exit;
 }
@@ -48,13 +38,14 @@ if (!$pdo) {
 write_lottery_debug_log("Database connection successful.");
 
 try {
-    // Fetch the latest lottery result, or a specific number of results
-    // For example, fetching the latest 10 results
+    // Fetch the latest lottery result(s)
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
-    // Manually URL decode the lottery_type parameter to fix encoding issues.
-    $lotteryType = isset($_GET['lottery_type']) ? urldecode($_GET['lottery_type']) : null;
+    
+    // CRITICAL FIX: The server environment incorrectly interprets UTF-8 URL parameters as ISO-8859-1.
+    // We must manually convert the encoding back to UTF-8 to correctly handle multi-byte characters (like Chinese).
+    $lotteryType = isset($_GET['lottery_type']) ? mb_convert_encoding($_GET['lottery_type'], 'UTF-8', 'ISO-8859-1') : null;
 
-    write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='" . ($lotteryType ?? 'null') . "'");
+    write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='" . ($lotteryType ?? 'null') . "' (After encoding conversion)");
 
     $sql = "SELECT id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at FROM lottery_results ";
     $params = [];
@@ -96,23 +87,6 @@ try {
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     write_lottery_debug_log("Fetched " . count($results) . " results.");
-
-    /*
-    if (!empty($results)) {
-        $latestResult = $results[0]; // Get the very latest result
-        $lotteryChannelId = getenv('LOTTERY_CHANNEL_ID');
-        if (!empty($lotteryChannelId) && function_exists('sendLotteryResultToChannel')) {
-            write_lottery_debug_log("Attempting to send latest lottery result to Telegram channel.");
-            sendLotteryResultToChannel([
-                'issue' => $latestResult['issue_number'],
-                'numbers' => $latestResult['winning_numbers'],
-                'draw_date' => $latestResult['drawing_date']
-            ]);
-        } else {
-            write_lottery_debug_log("LOTTERY_CHANNEL_ID not set or sendLotteryResultToChannel not found. Skipping Telegram notification.");
-        }
-    }
-    */
 
     echo json_encode(['status' => 'success', 'lottery_results' => $results]);
 
