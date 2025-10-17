@@ -1,0 +1,63 @@
+[17-Oct-2025 13:43:47 UTC] [CONFIG] ------ Config.php Entry Point ------
+[17-Oct-2025 13:43:47 UTC] [CONFIG] PHP error reporting configured to log to /app/backend/debug.log
+[17-Oct-2025 13:43:47 UTC] [CONFIG] Script running as user: jules
+[17-Oct-2025 13:43:47 UTC] [CONFIG] OK: Directory /app/backend is writable.
+[17-Oct-2025 13:43:47 UTC] [CONFIG] ENV_LOADED_ROBUST not defined, loading env variables.
+[17-Oct-2025 13:43:47 UTC] [CONFIG] Attempting to load .env from: /app/backend/.env
+[17-Oct-2025 13:43:47 UTC] [CONFIG] .env not found or not readable at /app/backend/.env
+[17-Oct-2025 13:43:47 UTC] [CONFIG] load_env_robust() failed.
+[17-Oct-2025 13:43:47 UTC] [CONFIG] DB_HOST after load: N/A
+[17-Oct-2025 13:43:47 UTC] [CONFIG] DB_USER after load: N/A
+[17-Oct-2025 13:43:47 UTC] [CONFIG] PHP error reporting configured to log to /app/backend/debug.log
+[17-Oct-2025 13:43:47 UTC] [CONFIG] ------ Config.php Exit Point ------
+[17-Oct-2025 13:57:26 UTC] [CONFIG] ------ Config.php Entry Point ------
+[17-Oct-2025 13:57:26 UTC] [CONFIG] PHP error reporting configured to log to /app/backend/debug.log
+[17-Oct-2025 13:57:26 UTC] [CONFIG] Script running as user: jules
+[17-Oct-2025 13:57:26 UTC] [CONFIG] OK: Directory /app/backend is writable.
+[17-Oct-2025 13:57:26 UTC] [CONFIG] ENV_LOADED_ROBUST not defined, loading env variables.
+[17-Oct-2025 13:57:26 UTC] [CONFIG] Attempting to load .env from: /app/backend/.env
+[17-Oct-2025 13:57:26 UTC] [CONFIG] .env not found or not readable at /app/backend/.env
+[17-Oct-2025 13:57:26 UTC] [CONFIG] load_env_robust() failed.
+[17-Oct-2025 13:57:26 UTC] [CONFIG] DB_HOST after load: N/A
+[17-Oct-2025 13:57:26 UTC] [CONFIG] DB_USER after load: N/A
+[17-Oct-2025 13:57:26 UTC] [CONFIG] PHP error reporting configured to log to /app/backend/debug.log
+[17-Oct-2025 13:57:26 UTC] [CONFIG] ------ Config.php Exit Point ------
+[17-Oct-2025 13:57:51 UTC] [CONFIG] ------ Config.php Entry Point ------
+[17-Oct-2025 13:57:51 UTC] [CONFIG] PHP error reporting configured to log to /app/backend/debug.log
+[17-Oct-2025 13:57:51 UTC] [CONFIG] Script running as user: jules
+[17-Oct-2025 13:57:51 UTC] [CONFIG] OK: Directory /app/backend is writable.
+[17-Oct-2025 13:57:51 UTC] [CONFIG] ENV_LOADED_ROBUST not defined, loading env variables.
+[17-Oct-2025 13:57:51 UTC] [CONFIG] Attempting to load .env from: /app/backend/.env
+[17-Oct-2025 13:57:51 UTC] [CONFIG] Successfully read 5 lines from .env.
+[17-Oct-2025 13:57:51 UTC] [CONFIG] Loaded env: DB_HOST = your_database_host
+[17-Oct-2025 13:57:51 UTC] [CONFIG] Loaded env: DB_PORT = your_database_port
+[17-Oct-2025 13:57:51 UTC] [CONFIG] Loaded env: DB_DATABASE = your_database_name
+[17-Oct-2025 13:57:51 UTC] [CONFIG] Loaded env: DB_USER = your_database_user
+[17-Oct-2025 13:57:51 UTC] [CONFIG] Loaded env: DB_PASSWORD = ***
+[17-Oct-2025 13:57:51 UTC] [CONFIG] load_env_robust() completed successfully.
+[17-Oct-2025 13:57:51 UTC] [CONFIG] DB_HOST after load: your_database_host
+[17-Oct-2025 13:57:51 UTC] [CONFIG] DB_USER after load: your_database_user
+[17-Oct-2025 13:57:51 UTC] [CONFIG] PHP error reporting configured to log to /app/backend/debug.log
+[17-Oct-2025 13:57:51 UTC] [CONFIG] ------ Config.php Exit Point ------
+[17-Oct-2025 13:58:48 UTC] [CONFIG] ------ Config.php Entry Point ------
+[17-Oct-2025 13:58:48 UTC] [CONFIG] PHP error reporting configured to log to /app/backend/debug.log
+[17-Oct-2025 13:58:48 UTC] [CONFIG] ENV_LOADED_ROBUST not defined, proceeding to load.
+[17-Oct-2025 13:58:48 UTC] [CONFIG] Successfully read 5 lines from .env.
+[17-Oct-2025 13:58:48 UTC] [CONFIG] Loaded env: DB_HOST = your_database_host
+[17-Oct-2025 13:58:48 UTC] [CONFIG] Loaded env: DB_PORT = your_database_port
+[17-Oct-2025 13:58:48 UTC] [CONFIG] Loaded env: DB_DATABASE = your_database_name
+[17-Oct-2025 13:58:48 UTC] [CONFIG] Loaded env: DB_USER = your_database_user
+[17-Oct-2025 13:58:48 UTC] [CONFIG] Loaded env: DB_PASSWORD = ***
+[17-Oct-2025 13:58:48 UTC] [CONFIG] load_env_robust() completed successfully.
+[17-Oct-2025 13:58:48 UTC] [CONFIG] ------ Config.php Exit Point ------
+[17-Oct-2025 13:59:08 UTC] [CONFIG] ------ Config.php Entry Point ------
+[17-Oct-2025 13:59:08 UTC] [CONFIG] PHP error reporting configured to log to /app/backend/debug.log
+[17-Oct-2025 13:59:08 UTC] [CONFIG] ENV_LOADED_ROBUST not defined, proceeding to load.
+[17-Oct-2025 13:59:08 UTC] [CONFIG] Successfully read 5 lines from .env.
+[17-Oct-2025 13:59:08 UTC] [CONFIG] Loaded env: DB_HOST = your_database_host
+[17-Oct-2025 13:59:08 UTC] [CONFIG] Loaded env: DB_PORT = your_database_port
+[17-Oct-2025 13:59:08 UTC] [CONFIG] Loaded env: DB_DATABASE = your_database_name
+[17-Oct-2025 13:59:08 UTC] [CONFIG] Loaded env: DB_USER = your_database_user
+[17-Oct-2025 13:59:08 UTC] [CONFIG] Loaded env: DB_PASSWORD = ***
+[17-Oct-2025 13:59:08 UTC] [CONFIG] load_env_robust() completed successfully.
+[17-Oct-2025 13:59:08 UTC] [CONFIG] ------ Config.php Exit Point ------
