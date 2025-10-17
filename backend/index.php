@@ -2,6 +2,9 @@
 
 // Main entry point for API requests
 
+// Ensure config.php (and thus .env) is loaded for environment variables and helper functions
+require_once __DIR__ . '/api_header.php'; 
+
 header('Content-Type: application/json');
 
 $endpoint = $_GET['endpoint'] ?? null;
@@ -30,6 +33,24 @@ switch ($endpoint) {
         require_once __DIR__ . '/get_lottery_results.php';
         break;
     case 'telegramWebhook':
+        // --- Telegram Webhook Secret Token Verification ---
+        $expectedSecret = getenv('TELEGRAM_WEBHOOK_SECRET');
+        $receivedSecret = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
+
+        if (empty($expectedSecret)) {
+            error_log("CRITICAL: TELEGRAM_WEBHOOK_SECRET is not set in environment.");
+            http_response_code(500); // Internal Server Error
+            echo json_encode(['error' => 'Server misconfiguration: Telegram secret not set.']);
+            exit();
+        }
+
+        if ($receivedSecret !== $expectedSecret) {
+            error_log("Telegram Webhook: ERROR - Invalid secret token provided. Received: " . ($receivedSecret ?? 'NOT SET') . ", Expected: " . $expectedSecret);
+            http_response_code(403); // Forbidden
+            echo json_encode(['error' => 'Forbidden: Invalid secret token.']);
+            exit();
+        }
+        // If verification passes, include the webhook handler
         require_once __DIR__ . '/telegramWebhook.php';
         break;
     case 'process_email_ai':
