@@ -1,4 +1,4 @@
-const API_BASE_URL = ''; // The backend files are in the root directory
+const API_BASE_URL = ''; // The backend files are in the root directory accessible from the web
 
 /**
  * A helper function to handle fetch requests and responses.
@@ -108,7 +108,9 @@ export const processEmailWithAI = (id) => {
  * @returns {Promise<any>} 最新开奖结果
  */
 export const getLotteryResults = (type = null) => {
-    const url = new URL(`${API_BASE_URL}/get_lottery_results.php`, window.location.origin);
+    // Construct the URL path directly
+    const urlPath = `${API_BASE_URL}/get_lottery_results.php`;
+    const url = new URL(urlPath, window.location.origin);
     if (type) {
         url.searchParams.append('lottery_type', type); // 改为 lottery_type
     }
