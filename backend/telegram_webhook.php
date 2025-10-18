@@ -18,29 +18,8 @@ $uri = $_SERVER['REQUEST_URI'] ?? 'UNKNOWN';
 $headerPreview = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '[HEADER_NOT_SET]';
 file_put_contents($earlyLogFile, "{$now} [EARLY] Method={$method}, URI={$uri}, HeaderPreview={$headerPreview}\n", FILE_APPEND | LOCK_EX);
 
-// --- Lightweight .env loader ---
-function load_env_file_simple($path) {
-    if (!file_exists($path) || !is_readable($path)) return false;
-    if (getenv('DB_HOST')) return true; // Already loaded
-    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    if ($lines === false) return false;
-    foreach ($lines as $line) {
-        $trim = trim($line);
-        if ($trim === '' || strpos($trim, '#') === 0) continue;
-        if (strpos($trim, '=') !== false) {
-            list($key, $value) = explode('=', $trim, 2);
-            $key = trim($key);
-            $value = trim($value, "\"'");
-            putenv("{$key}={$value}");
-            $_ENV[$key] = $value;
-            $_SERVER[$key] = $value;
-        }
-    }
-    return true;
-}
-
-// Load env early for secret validation
-load_env_file_simple(__DIR__ . '/.env');
+// Environment variables are expected to be loaded by the server environment.
+// No .env file loading is performed here.
 
 // --- Runtime logger ---
 function write_telegram_debug_log($msg) {
