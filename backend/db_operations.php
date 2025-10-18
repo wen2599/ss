@@ -58,16 +58,10 @@ function get_db_connection() {
         $pass = getenv('DB_PASSWORD');
 
         // This check is now more likely to pass.
-        $missing_vars = [];
-        if (empty($host)) $missing_vars[] = 'DB_HOST';
-        if (empty($port)) $missing_vars[] = 'DB_PORT';
-        if (empty($dbname)) $missing_vars[] = 'DB_DATABASE';
-        if (empty($user)) $missing_vars[] = 'DB_USER';
-
-        if (!empty($missing_vars)) {
-            $error_msg = "Database connection error: The following required environment variables are not set: " . implode(', ', $missing_vars);
-            error_log($error_msg);
-            return ['db_error' => $error_msg];
+        if (empty($host) || empty($port) || empty($dbname) || empty($user)) {
+             $error_msg = "Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env";
+             error_log($error_msg);
+             return ['db_error' => $error_msg];
         }
 
         $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
@@ -143,14 +137,12 @@ function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiac
         return false;
     }
     try {
-        error_log("storeLotteryResult: Checking for existing record with lottery_type='{$lotteryType}' and issue_number='{$issueNumber}'.");
         $stmt = $pdo->prepare("SELECT id FROM lottery_results WHERE lottery_type = ? AND issue_number = ?");
         $stmt->execute([$lotteryType, $issueNumber]);
         if ($stmt->fetch()) {
             error_log("Lottery result for type '{$lotteryType}' and issue '{$issueNumber}' already exists. Skipping insertion.");
             return true;
         }
-        error_log("storeLotteryResult: No existing record found. Inserting new record.");
         $stmt = $pdo->prepare(
             "INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date) VALUES (?, ?, ?, ?, ?, ?)"
         );
