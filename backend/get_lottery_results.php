@@ -41,7 +41,8 @@ try {
     // Fetch the latest lottery result, or a specific number of results
     // For example, fetching the latest 10 results
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
-    $lotteryType = isset($_GET['lottery_type']) ? $_GET['lottery_type'] : null;
+    // Explicitly decode the lottery_type to handle potential URL encoding issues with non-ASCII characters
+    $lotteryType = isset($_GET['lottery_type']) ? urldecode($_GET['lottery_type']) : null;
 
     write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='{$lotteryType}'");
 
