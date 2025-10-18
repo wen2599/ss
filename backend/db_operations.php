@@ -143,12 +143,14 @@ function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiac
         return false;
     }
     try {
+        error_log("storeLotteryResult: Checking for existing record with lottery_type='{$lotteryType}' and issue_number='{$issueNumber}'.");
         $stmt = $pdo->prepare("SELECT id FROM lottery_results WHERE lottery_type = ? AND issue_number = ?");
         $stmt->execute([$lotteryType, $issueNumber]);
         if ($stmt->fetch()) {
             error_log("Lottery result for type '{$lotteryType}' and issue '{$issueNumber}' already exists. Skipping insertion.");
             return true;
         }
+        error_log("storeLotteryResult: No existing record found. Inserting new record.");
         $stmt = $pdo->prepare(
             "INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date) VALUES (?, ?, ?, ?, ?, ?)"
         );
