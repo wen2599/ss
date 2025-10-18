@@ -85,12 +85,16 @@ function parse_lottery_data($text) {
 }
 
 function handleLotteryMessage($chatId, $text) {
+    if (strpos($text, '期') === false) {
+        return; // Not a lottery message
+    }
     write_telegram_debug_log("Attempting to parse lottery message: " . substr($text, 0, 100) . "...");
     $parsedData = parse_lottery_data($text);
     if ($parsedData === null) {
         write_telegram_debug_log("Failed to parse lottery message. No data will be stored.");
         return;
     }
+    write_telegram_debug_log("Parsed data: " . json_encode($parsedData));
     if (!function_exists('storeLotteryResult')) {
         write_telegram_debug_log("CRITICAL ERROR: function storeLotteryResult() does not exist!");
         return;
