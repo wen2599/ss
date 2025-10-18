@@ -1,7 +1,7 @@
 <?php
 // backend/cleanup_lottery_data.php
 
-require_once __DIR__ . '/db_operations.php';
+require_once __DIR__ . '/backend/db_operations.php';
 
 echo "Starting lottery data cleanup...\n";
 

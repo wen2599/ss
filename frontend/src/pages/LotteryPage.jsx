@@ -9,7 +9,7 @@ const LotteryPage = () => {
   const fetchData = () => {
     setLoading(true);
     setError(null);
-    fetch('/backend/get_lottery_results.php')
+    fetch('/backend/get_lottery_results.php?limit=0')
       .then(response => {
         if (!response.ok) {
           return response.json().then(err => {
@@ -68,25 +68,29 @@ const LotteryPage = () => {
       return <div className="card no-data-card">暂无开奖数据</div>;
     }
 
-    return lotteryData.map((result) => (
-      <div key={result.id} className="card lottery-display-card">
-        <div className="lottery-banner">
-          <div className="lottery-short-name">{getShortName(result.lottery_type)}</div>
-          <div className="lottery-details">
-            <p className="lottery-issue">
-              {result.lottery_type} 第: {result.issue_number || '--'}期
-            </p>
-            <div className="lottery-numbers">
-              {(result.winning_numbers || []).join(' ')}
-            </div>
-            <div className="lottery-extra-info">
-              <span>{(result.zodiac_signs || []).join(' ')}</span>
-              <span>{(result.colors || []).join(' ')}</span>
+    return (
+      <>
+        {lotteryData.map((result) => (
+          <div key={result.id} className="card lottery-display-card">
+            <div className="lottery-banner">
+              <div className="lottery-short-name">{getShortName(result.lottery_type)}</div>
+              <div className="lottery-details">
+                <p className="lottery-issue">
+                  {result.lottery_type} 第: {result.issue_number || '--'}期
+                </p>
+                <div className="lottery-numbers">
+                  {(result.winning_numbers || []).join(' ')}
+                </div>
+                <div className="lottery-extra-info">
+                  <span>{(result.zodiac_signs || []).join(' ')}</span>
+                  <span>{(result.colors || []).join(' ')}</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-    ));
+        ))}
+      </>
+    );
   };
 
   return (
