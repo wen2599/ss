@@ -28,7 +28,7 @@ if (!is_writable(DIR)) {
  * Robust .env loader
  */
 function load_env_robust() {
-    $envPath = DIR . '/.env';
+    $envPath = dirname(__DIR__) . '/.env';
     write_custom_debug_log("Attempting to load .env from: {$envPath}");
 
     if (!file_exists($envPath) || !is_readable($envPath)) {
