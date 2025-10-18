@@ -33,10 +33,20 @@ function parse_lottery_data($text) {
         'lottery_type' => null, 'issue_number' => null, 'winning_numbers' => [],
         'zodiac_signs' => [], 'colors' => [], 'drawing_date' => date('Y-m-d')
     ];
-    if (preg_match('/(新澳门六合彩|老澳门六合彩|香港六合彩)第:(\d+)期/', $text, $h)) {
-        $data['lottery_type'] = trim($h[1]);
+    if (preg_match('/(.*?)第:(\d+)期/', $text, $h)) {
+        $name = trim($h[1]);
+        if (strpos($name, '新澳门') !== false) {
+            $data['lottery_type'] = '新澳门六合彩';
+        } elseif (strpos($name, '老澳') !== false) {
+            $data['lottery_type'] = '老澳门六合彩';
+        } elseif (strpos($name, '香港') !== false) {
+            $data['lottery_type'] = '香港六合彩';
+        } else {
+            write_telegram_debug_log("[Parser] Failed: Could not determine lottery type from name '{$name}'");
+            return null;
+        }
         $data['issue_number'] = $h[2];
-    } else { write_telegram_debug_log("[Parser] Failed: Header match on specific names."); return null; }
+    } else { write_telegram_debug_log("[Parser] Failed: Header match on general pattern."); return null; }
     $lines = array_values(array_filter(array_map('trim', explode("\n", trim($text))), fn($l) => !empty($l)));
     if (count($lines) < 4) { write_telegram_debug_log("[Parser] Failed: Not enough lines."); return null; }
     $data['winning_numbers'] = preg_split('/\s+/', $lines[1]);
