@@ -25,6 +25,7 @@ const Navbar = () => {
                     ) : (
                         <>
                             <li><NavLink to="/login" className={({ isActive }) => isActive ? 'active' : ''}>登录</NavLink></li>
+                            <li><NavLink to="/lottery" className={({ isActive }) => isActive ? 'active' : ''}>开奖</NavLink></li>
                             <li><NavLink to="/register" className={({ isActive }) => isActive ? 'active' : ''}>注册</NavLink></li>
                         </>
                     )}

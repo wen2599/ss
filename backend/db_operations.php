@@ -6,43 +6,8 @@
  * database environment variables loaded automatically.
  */
 
-// --- START: Self-contained .env loader ---
-if (!function_exists('load_env_if_not_loaded')) {
-    function load_env_if_not_loaded() {
-        // Check if a key known to be in the .env file is already loaded.
-        // If it is, we assume the environment is already set up and do nothing.
-        if (getenv('DB_HOST')) {
-            return;
-        }
-
-        $envPath = __DIR__ . '/.env';
-        if (!file_exists($envPath) || !is_readable($envPath)) return;
-
-        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if ($lines === false) return;
-
-        foreach ($lines as $line) {
-            $trim = trim($line);
-            if ($trim === '' || strpos($trim, '#') === 0) continue;
-            if (strpos($trim, '=') !== false) {
-                list($key, $value) = explode('=', $trim, 2);
-                $key = trim($key);
-                $value = trim($value);
-                // Remove surrounding quotes
-                if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') ||
-                    (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
-                    $value = substr($value, 1, -1);
-                }
-                putenv("{$key}={$value}");
-                $_ENV[$key] = $value;
-                $_SERVER[$key] = $value;
-            }
-        }
-    }
-    // Immediately call the loader function when this file is included.
-    load_env_if_not_loaded();
-}
-// --- END: Self-contained .env loader ---
+// Environment variables are expected to be loaded by the server environment.
+// No .env file loading is performed here.
 
 
 /**
@@ -58,10 +23,16 @@ function get_db_connection() {
         $pass = getenv('DB_PASSWORD');
 
         // This check is now more likely to pass.
-        if (empty($host) || empty($port) || empty($dbname) || empty($user)) {
-             $error_msg = "Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env";
-             error_log($error_msg);
-             return ['db_error' => $error_msg];
+        $missing_vars = [];
+        if (empty($host)) $missing_vars[] = 'DB_HOST';
+        if (empty($port)) $missing_vars[] = 'DB_PORT';
+        if (empty($dbname)) $missing_vars[] = 'DB_DATABASE';
+        if (empty($user)) $missing_vars[] = 'DB_USER';
+
+        if (!empty($missing_vars)) {
+            $error_msg = "Database connection error: The following required environment variables are not set: " . implode(', ', $missing_vars);
+            error_log($error_msg);
+            return ['db_error' => $error_msg];
         }
 
         $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";

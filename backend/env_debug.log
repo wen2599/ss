@@ -1,0 +1,42 @@
+[2025-10-18 13:17:13] ------ Config.php Entry Point ------
+[2025-10-18 13:17:13] Script running as user: jules
+[2025-10-18 13:17:13] OK: Directory /app/backend is writable.
+[2025-10-18 13:17:13] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-18 13:17:13] Attempting to load .env from: /app/.env
+[2025-10-18 13:17:13] .env not found or not readable at /app/.env
+[2025-10-18 13:17:13] Attempting to load .env from: /app/backend/.env
+[2025-10-18 13:17:13] .env not found or not readable at /app/backend/.env
+[2025-10-18 13:17:13] FATAL: Could not find a readable .env file in any of the checked locations.
+[2025-10-18 13:17:13] load_env_robust() failed.
+[2025-10-18 13:17:13] DB_HOST after load: N/A
+[2025-10-18 13:17:13] DB_USER after load: N/A
+[2025-10-18 13:17:13] PHP error reporting configured to log to /app/backend/debug.log
+[2025-10-18 13:17:13] ------ Config.php Exit Point ------
+[2025-10-18 13:24:25] ------ Config.php Entry Point ------
+[2025-10-18 13:24:25] Script running as user: jules
+[2025-10-18 13:24:25] OK: Directory /app/backend is writable.
+[2025-10-18 13:24:25] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-18 13:24:25] Attempting to load .env from: /app/.env
+[2025-10-18 13:24:25] .env not found or not readable at /app/.env
+[2025-10-18 13:24:25] Attempting to load .env from: /app/backend/.env
+[2025-10-18 13:24:25] .env not found or not readable at /app/backend/.env
+[2025-10-18 13:24:25] FATAL: Could not find a readable .env file in any of the checked locations.
+[2025-10-18 13:24:25] load_env_robust() failed.
+[2025-10-18 13:24:25] DB_HOST after load: N/A
+[2025-10-18 13:24:25] DB_USER after load: N/A
+[2025-10-18 13:24:25] PHP error reporting configured to log to /app/backend/debug.log
+[2025-10-18 13:24:25] ------ Config.php Exit Point ------
+[2025-10-18 13:26:39] ------ Config.php Entry Point ------
+[2025-10-18 13:26:39] Script running as user: jules
+[2025-10-18 13:26:39] OK: Directory /app/backend is writable.
+[2025-10-18 13:26:39] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-18 13:26:39] Attempting to load .env from: /app/.env
+[2025-10-18 13:26:39] .env not found or not readable at /app/.env
+[2025-10-18 13:26:39] Attempting to load .env from: /app/backend/.env
+[2025-10-18 13:26:39] .env not found or not readable at /app/backend/.env
+[2025-10-18 13:26:39] FATAL: Could not find a readable .env file in any of the checked locations.
+[2025-10-18 13:26:39] load_env_robust() failed.
+[2025-10-18 13:26:39] DB_HOST after load: N/A
+[2025-10-18 13:26:39] DB_USER after load: N/A
+[2025-10-18 13:26:39] PHP error reporting configured to log to /app/backend/debug.log
+[2025-10-18 13:26:39] ------ Config.php Exit Point ------
