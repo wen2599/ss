@@ -28,21 +28,37 @@ if (!is_writable(DIR)) {
  * Robust .env loader
  */
 function load_env_robust() {
-    $envPath = dirname(__DIR__) . '/.env';
-    write_custom_debug_log("Attempting to load .env from: {$envPath}");
+    // Create an array of potential .env paths to check.
+    $envPaths = [
+        dirname(__DIR__) . '/.env', // Check parent directory first
+        __DIR__ . '/.env'           // Then check the current directory (backend/)
+    ];
 
-    if (!file_exists($envPath) || !is_readable($envPath)) {
-        write_custom_debug_log(".env not found or not readable at {$envPath}");
+    $envPathFound = null;
+
+    foreach ($envPaths as $path) {
+        write_custom_debug_log("Attempting to load .env from: {$path}");
+        if (file_exists($path) && is_readable($path)) {
+            $envPathFound = $path;
+            write_custom_debug_log("Found readable .env file at: {$envPathFound}");
+            break; // Stop searching once a valid file is found.
+        } else {
+            write_custom_debug_log(".env not found or not readable at {$path}");
+        }
+    }
+
+    if ($envPathFound === null) {
+        write_custom_debug_log("FATAL: Could not find a readable .env file in any of the checked locations.");
         return false;
     }
 
-    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $lines = file($envPathFound, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     if ($lines === false) {
-        write_custom_debug_log("Failed to read .env file with file() function.");
+        write_custom_debug_log("Failed to read .env file with file() function from: {$envPathFound}");
         return false;
     }
 
-    write_custom_debug_log("Successfully read " . count($lines) . " lines from .env.");
+    write_custom_debug_log("Successfully read " . count($lines) . " lines from .env at {$envPathFound}.");
 
     foreach ($lines as $line) {
         $trim = trim($line);
