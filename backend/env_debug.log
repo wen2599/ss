@@ -135,3 +135,81 @@
 [2025-10-17 14:36:31] TELEGRAM_WEBHOOK_SECRET after load: A7kZp9sR3bV2nC1mE6gH_jL5tP8vF4qW
 [2025-10-17 14:36:31] PHP error reporting configured to log to /home/user/ss/backend/debug.log
 [2025-10-17 14:36:31] ------ Config.php Exit Point ------
+[2025-10-17 20:12:11] ------ Config.php Entry Point ------
+[2025-10-17 20:12:11] Script running as user: jules
+[2025-10-17 20:12:11] OK: Directory /app/backend is writable.
+[2025-10-17 20:12:11] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-17 20:12:11] Attempting to load .env from: /app/backend/.env
+[2025-10-17 20:12:11] .env not found or not readable at /app/backend/.env
+[2025-10-17 20:12:11] load_env_robust() failed.
+[2025-10-17 20:12:11] DB_HOST after load: N/A
+[2025-10-17 20:12:11] DB_USER after load: N/A
+[2025-10-17 20:12:11] BACKEND_PUBLIC_URL after load: N/A
+[2025-10-17 20:12:11] TELEGRAM_WEBHOOK_SECRET after load: N/A
+[2025-10-17 20:12:11] PHP error reporting configured to log to /app/backend/debug.log
+[2025-10-17 20:12:11] ------ Config.php Exit Point ------
+[2025-10-17 20:12:45] ------ Config.php Entry Point ------
+[2025-10-17 20:12:45] Script running as user: jules
+[2025-10-17 20:12:45] OK: Directory /app/backend is writable.
+[2025-10-17 20:12:45] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-17 20:12:45] Attempting to load .env from: /app/backend/.env
+[2025-10-17 20:12:45] .env not found or not readable at /app/backend/.env
+[2025-10-17 20:12:45] load_env_robust() failed.
+[2025-10-17 20:12:45] DB_HOST after load: N/A
+[2025-10-17 20:12:45] DB_USER after load: N/A
+[2025-10-17 20:12:45] BACKEND_PUBLIC_URL after load: N/A
+[2025-10-17 20:12:45] TELEGRAM_WEBHOOK_SECRET after load: N/A
+[2025-10-17 20:12:45] PHP error reporting configured to log to /app/backend/debug.log
+[2025-10-17 20:12:45] ------ Config.php Exit Point ------
+[2025-10-17 20:13:04] ------ Config.php Entry Point ------
+[2025-10-17 20:13:04] Script running as user: jules
+[2025-10-17 20:13:04] OK: Directory /app/backend is writable.
+[2025-10-17 20:13:04] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-17 20:13:04] Attempting to load .env from: /app/backend/.env
+[2025-10-17 20:13:04] .env not found or not readable at /app/backend/.env
+[2025-10-17 20:13:04] load_env_robust() failed.
+[2025-10-17 20:13:04] DB_HOST after load: N/A
+[2025-10-17 20:13:04] DB_USER after load: N/A
+[2025-10-17 20:13:04] BACKEND_PUBLIC_URL after load: N/A
+[2025-10-17 20:13:04] TELEGRAM_WEBHOOK_SECRET after load: N/A
+[2025-10-17 20:13:04] PHP error reporting configured to log to /app/backend/debug.log
+[2025-10-17 20:13:04] ------ Config.php Exit Point ------
+[2025-10-17 20:13:26] ------ Config.php Entry Point ------
+[2025-10-17 20:13:26] Script running as user: jules
+[2025-10-17 20:13:26] OK: Directory /app/backend is writable.
+[2025-10-17 20:13:26] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-17 20:13:26] Attempting to load .env from: /app/backend/.env
+[2025-10-17 20:13:26] .env not found or not readable at /app/backend/.env
+[2025-10-17 20:13:26] load_env_robust() failed.
+[2025-10-17 20:13:26] DB_HOST after load: N/A
+[2025-10-17 20:13:26] DB_USER after load: N/A
+[2025-10-17 20:13:26] BACKEND_PUBLIC_URL after load: N/A
+[2025-10-17 20:13:26] TELEGRAM_WEBHOOK_SECRET after load: N/A
+[2025-10-17 20:13:26] PHP error reporting configured to log to /app/backend/debug.log
+[2025-10-17 20:13:26] ------ Config.php Exit Point ------
+[2025-10-17 20:13:48] ------ Config.php Entry Point ------
+[2025-10-17 20:13:48] Script running as user: jules
+[2025-10-17 20:13:48] OK: Directory /app/backend is writable.
+[2025-10-17 20:13:48] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-17 20:13:48] Attempting to load .env from: /app/backend/.env
+[2025-10-17 20:13:48] .env not found or not readable at /app/backend/.env
+[2025-10-17 20:13:48] load_env_robust() failed.
+[2025-10-17 20:13:48] DB_HOST after load: N/A
+[2025-10-17 20:13:48] DB_USER after load: N/A
+[2025-10-17 20:13:48] BACKEND_PUBLIC_URL after load: N/A
+[2025-10-17 20:13:48] TELEGRAM_WEBHOOK_SECRET after load: N/A
+[2025-10-17 20:13:48] PHP error reporting configured to log to /app/backend/debug.log
+[2025-10-17 20:13:48] ------ Config.php Exit Point ------
+[2025-10-17 20:14:10] ------ Config.php Entry Point ------
+[2025-10-17 20:14:10] Script running as user: jules
+[2025-10-17 20:14:10] OK: Directory /app/backend is writable.
+[2025-10-17 20:14:10] ENV_LOADED_ROBUST not defined, loading env variables.
+[2025-10-17 20:14:10] Attempting to load .env from: /app/backend/.env
+[2025-10-17 20:14:10] .env not found or not readable at /app/backend/.env
+[2025-10-17 20:14:10] load_env_robust() failed.
+[2025-10-17 20:14:10] DB_HOST after load: N/A
+[2025-10-17 20:14:10] DB_USER after load: N/A
+[2025-10-17 20:14:10] BACKEND_PUBLIC_URL after load: N/A
+[2025-10-17 20:14:10] TELEGRAM_WEBHOOK_SECRET after load: N/A
+[2025-10-17 20:14:10] PHP error reporting configured to log to /app/backend/debug.log
+[2025-10-17 20:14:10] ------ Config.php Exit Point ------

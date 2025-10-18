@@ -39,3 +39,39 @@ Stack trace:
 [17-Oct-2025 14:36:31 UTC] set_webhook.php: BACKEND_PUBLIC_URL = [SET]
 [17-Oct-2025 14:36:31 UTC] set_webhook.php: TELEGRAM_WEBHOOK_SECRET = [SET]
 [17-Oct-2025 14:36:31 UTC] set_webhook.php: Telegram Webhook set successfully! URL: https://wenge.cloudns.ch/backend/index.php?endpoint=telegramWebhook
+[17-Oct-2025 20:12:11 UTC] DEBUG DB: Host: , Port: , DBName: , User:
+[17-Oct-2025 20:12:11 UTC] Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env
+[17-Oct-2025 20:12:11 UTC] PHP Fatal error:  Uncaught Error: Call to a member function prepare() on array in /app/backend/add_test_email.php:7
+Stack trace:
+#0 {main}
+  thrown in /app/backend/add_test_email.php on line 7
+[17-Oct-2025 20:12:45 UTC] DEBUG DB: Host: , Port: , DBName: , User:
+[17-Oct-2025 20:12:45 UTC] Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env
+[17-Oct-2025 20:12:45 UTC] PHP Fatal error:  Uncaught Error: Call to a member function prepare() on array in /app/backend/add_test_email.php:7
+Stack trace:
+#0 {main}
+  thrown in /app/backend/add_test_email.php on line 7
+[17-Oct-2025 20:13:04 UTC] DEBUG DB: Host: , Port: , DBName: , User:
+[17-Oct-2025 20:13:04 UTC] Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env
+[17-Oct-2025 20:13:04 UTC] PHP Fatal error:  Uncaught Error: Call to a member function prepare() on array in /app/backend/add_test_email.php:11
+Stack trace:
+#0 {main}
+  thrown in /app/backend/add_test_email.php on line 11
+[17-Oct-2025 20:13:26 UTC] DEBUG DB: Host: , Port: , DBName: , User:
+[17-Oct-2025 20:13:26 UTC] Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env
+[17-Oct-2025 20:13:26 UTC] PHP Fatal error:  Uncaught Error: Call to a member function prepare() on array in /app/backend/add_test_email.php:22
+Stack trace:
+#0 {main}
+  thrown in /app/backend/add_test_email.php on line 22
+[17-Oct-2025 20:13:48 UTC] DEBUG DB: Host: , Port: , DBName: , User:
+[17-Oct-2025 20:13:48 UTC] Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env
+[17-Oct-2025 20:13:48 UTC] PHP Fatal error:  Uncaught Error: Call to a member function prepare() on array in /app/backend/add_test_email.php:22
+Stack trace:
+#0 {main}
+  thrown in /app/backend/add_test_email.php on line 22
+[17-Oct-2025 20:14:10 UTC] DEBUG DB: Host: , Port: , DBName: , User:
+[17-Oct-2025 20:14:10 UTC] Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env
+[17-Oct-2025 20:14:10 UTC] PHP Fatal error:  Uncaught Error: Call to a member function prepare() on array in /app/backend/add_test_email.php:22
+Stack trace:
+#0 {main}
+  thrown in /app/backend/add_test_email.php on line 22
