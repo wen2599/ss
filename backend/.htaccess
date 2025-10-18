@@ -1,39 +1,22 @@
-# =============================================================
-# START: Disable ModSecurity for Telegram Webhook
-# This is to prevent the firewall from blocking Telegram's POST requests.
-# =============================================================
-<IfModule mod_security2.c>
-    <Files "telegramWebhook.php">
-        SecRuleEngine Off
-    </Files>
-</IfModule>
-# =============================================================
-# END: ModSecurity fix
-# =============================================================
-
-
-# --- Correct SPA Redirect Rules for React App ---
+# --- Final .htaccess for React SPA + API Backend ---
 
 # Enable the rewrite engine
 RewriteEngine On
 
-# Set the rewrite base to the current directory
-RewriteBase /
+# --- Security: Disable ModSecurity for the API entrypoint ---
+# This is still needed to prevent WAF from blocking Telegram requests
+<IfModule mod_security2.c>
+    <Files "index.php">
+        SecRuleEngine Off
+    </Files>
+</IfModule>
 
-# Rule 1: Handle API calls
-# If the request URI is for a .php file, let it pass through.
-# This ensures API calls like /login_user.php are not redirected to index.html.
-RewriteRule \.php$ - [L]
-
-# Rule 2: Handle existing files and directories
-# If the request is for an existing file (like images, css, js)...
-RewriteCond %{REQUEST_FILENAME} -f
-# ...or an existing directory...
-RewriteCond %{REQUEST_FILENAME} -d
-# ...then do nothing.
-RewriteRule ^ - [L]
-
-# Rule 3: Handle SPA routing (React Router)
-# For all other requests, rewrite to the main index.html file.
-# This lets React Router handle the client-side routing.
+# --- Routing ---
+# If the request is NOT for an existing file...
+RewriteCond %{REQUEST_FILENAME} !-f
+# ...and the request is NOT for an existing directory...
+RewriteCond %{REQUEST_FILENAME} !-d
+# ...and the request is NOT for our API entrypoint...
+RewriteCond %{REQUEST_URI} !^/index\.php
+# ...then rewrite it to index.html for the React app to handle.
 RewriteRule . /index.html [L]
