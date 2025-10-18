@@ -55,6 +55,132 @@ function write_telegram_debug_log($msg) {
     file_put_contents($logFile, date('[Y-m-d H:i:s]') . " " . $msg . PHP_EOL, FILE_APPEND | LOCK_EX);
 }
 
+
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// +++ START OF NEW CODE: The Lottery Parsing Function               +++
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+/**
+ * Parses the raw text from the lottery channel message.
+ *
+ * @param string $text The raw message text.
+ * @return array|null An associative array with parsed data, or null on failure.
+ */
+function parse_lottery_data($text) {
+    $data = [
+        'lottery_type'    => null,
+        'issue_number'    => null,
+        'winning_numbers' => [],
+        'zodiac_signs'    => [],
+        'colors'          => [],
+        'drawing_date'    => date('Y-m-d') // Default to today's date
+    ];
+
+    // 1. Extract lottery type and issue number from the first line
+    if (preg_match('/(新澳门六合彩|香港六合彩|老澳.*?)第:(\d+)期/', $text, $headerMatches)) {
+        $lottery_type_raw = trim($headerMatches[1]);
+        // Normalize the name for "老澳门六合彩"
+        if (strpos($lottery_type_raw, '老澳') !== false) {
+            $data['lottery_type'] = '老澳门六合彩';
+        } else {
+            $data['lottery_type'] = $lottery_type_raw;
+        }
+        $data['issue_number'] = $headerMatches[2];
+    } else {
+        write_telegram_debug_log("[Parser] Failed: Could not match header line.");
+        return null; // Essential info missing
+    }
+
+    // 2. Split the text into lines and clean them up
+    $lines = array_map('trim', explode("\n", trim($text)));
+    $filteredLines = array_filter($lines, function($line) {
+        return !empty($line);
+    });
+    // Re-index the array after filtering
+    $filteredLines = array_values($filteredLines);
+    
+    // We expect at least 4 lines: header, numbers, zodiacs, colors
+    if (count($filteredLines) < 4) {
+        write_telegram_debug_log("[Parser] Failed: Not enough lines in message. Found: " . count($filteredLines));
+        return null;
+    }
+
+    // 3. Extract data from specific lines (now much safer)
+    // The second line (index 1) contains the numbers
+    $data['winning_numbers'] = preg_split('/\s+/', $filteredLines[1]);
+    
+    // The third line (index 2) contains the zodiac signs
+    $data['zodiac_signs'] = preg_split('/\s+/', $filteredLines[2]);
+
+    // The fourth line (index 3) contains the colors
+    $data['colors'] = preg_split('/\s+/', $filteredLines[3]);
+    
+    // 4. Validate that we have the same count for all arrays
+    $num_count = count($data['winning_numbers']);
+    if ($num_count === 0 || $num_count !== count($data['zodiac_signs']) || $num_count !== count($data['colors'])) {
+        write_telegram_debug_log("[Parser] Failed: Mismatch in counts. Numbers: {$num_count}, Zodiacs: " . count($data['zodiac_signs']) . ", Colors: " . count($data['colors']));
+        return null;
+    }
+
+    write_telegram_debug_log("[Parser] Success: Parsed issue {$data['issue_number']} for {$data['lottery_type']}");
+    return $data;
+}
+
+/**
+ * Main handler for messages from the lottery channel.
+ * Parses the message and stores the structured data in the database.
+ *
+ * @param string $chatId The ID of the channel.
+ * @param string $text The message text to process.
+ */
+function handleLotteryMessage($chatId, $text) {
+    write_telegram_debug_log("Attempting to parse lottery message: " . substr($text, 0, 100) . "...");
+
+    $parsedData = parse_lottery_data($text);
+
+    if ($parsedData === null) {
+        write_telegram_debug_log("Failed to parse lottery message. No data will be stored.");
+        return;
+    }
+
+    // Check if storeLotteryResult function from db_operations.php is available
+    if (!function_exists('storeLotteryResult')) {
+        write_telegram_debug_log("CRITICAL ERROR: function storeLotteryResult() does not exist! Cannot save data.");
+        return;
+    }
+
+    try {
+        // Convert arrays to JSON strings for database storage
+        $numbersJson = json_encode($parsedData['winning_numbers']);
+        $zodiacsJson = json_encode($parsedData['zodiac_signs']);
+        $colorsJson = json_encode($parsedData['colors']);
+
+        // Call the function to store data in the database
+        $success = storeLotteryResult(
+            $parsedData['lottery_type'],
+            $parsedData['issue_number'],
+            $numbersJson,
+            $zodiacsJson,
+            $colorsJson,
+            $parsedData['drawing_date']
+        );
+
+        if ($success) {
+            write_telegram_debug_log("Successfully stored lottery result for issue {$parsedData['issue_number']}.");
+        } else {
+            write_telegram_debug_log("Failed to store lottery result for issue {$parsedData['issue_number']}. Check db_operations.php and database logs.");
+        }
+
+    } catch (Throwable $e) {
+        write_telegram_debug_log("Exception during database storage: " . $e->getMessage());
+    }
+}
+
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// +++ END OF NEW CODE                                               +++
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
 // --- Read configured secret from environment (from .env or server env) ---
 $expectedSecret = getenv('TELEGRAM_WEBHOOK_SECRET') ?: null;
 $adminId = getenv('TELEGRAM_ADMIN_ID') ?: null;
@@ -63,11 +189,7 @@ $lotteryChannelId = getenv('LOTTERY_CHANNEL_ID') ?: null;
 write_telegram_debug_log("ENV load: TELEGRAM_WEBHOOK_SECRET " . ($expectedSecret ? '[SET]' : '[NOT SET]') . ", TELEGRAM_ADMIN_ID=" . ($adminId ?: '[NOT SET]') . ", LOTTERY_CHANNEL_ID=" . ($lotteryChannelId ?: '[NOT SET]'));
 
 // --- Extract incoming secret token (header preferred, fallback to GET/POST param) ---
-// Some gateways/proxies strip unknown headers; check multiple sources.
 $receivedHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
-
-// Try getallheaders() (some PHP-FPM setups)
-// getallheaders exists on Apache/nginx+php-fpm; guard for existence
 if (empty($receivedHeader) && function_exists('getallheaders')) {
     $all = getallheaders();
     foreach ($all as $k => $v) {
@@ -77,8 +199,6 @@ if (empty($receivedHeader) && function_exists('getallheaders')) {
         }
     }
 }
-
-// Fallback to query param ?secret= or POST field 'secret'
 $receivedParam = $_GET['secret'] ?? ($_POST['secret'] ?? null);
 $received = $receivedHeader ?? $receivedParam ?? '';
 
@@ -97,12 +217,10 @@ if ($expectedSecret) {
         exit();
     }
 } else {
-    // If expected secret not configured, be conservative: allow but log warning.
     write_telegram_debug_log("WARNING: TELEGRAM_WEBHOOK_SECRET is not configured. Accepting webhook without secret validation (not recommended).");
 }
 
 // At this point the webhook is authenticated/allowed. Continue to include helpers.
-// We prefer to include only the files we need, in a safe order. We already loaded env vars.
 require_once __DIR__ . '/telegram_helpers.php';
 require_once __DIR__ . '/env_manager.php';
 require_once __DIR__ . '/user_state_manager.php';
@@ -135,7 +253,6 @@ if (isset($update['callback_query'])) {
     $chatId = $cb['message']['chat']['id'] ?? null;
     $userId = $cb['from']['id'] ?? null;
     $commandOrText = $cb['data'] ?? null;
-    // Answer callback query quickly (non-blocking)
     if (!empty($cb['id'])) {
         answerTelegramCallbackQuery($cb['id']);
     }
@@ -146,30 +263,19 @@ if (isset($update['callback_query'])) {
     $userId = $msg['from']['id'] ?? $chatId;
     $commandOrText = trim($msg['text'] ?? '');
     write_telegram_debug_log("Received message chat={$chatId} user={$userId} text=" . substr($commandOrText ?? '',0,200));
+
+    // +++ REPLACEMENT LOTTERY LOGIC +++
     // If message originated from configured lottery channel, handle specially
     if (!empty($lotteryChannelId) && (string)$chatId === (string)$lotteryChannelId) {
-        write_telegram_debug_log("Handling lottery channel message for channel {$lotteryChannelId}");
-        // Keep a safe wrapper: handleLotteryMessage may use DB; guard with try/catch
-        try {
-            if (function_exists('handleLotteryMessage')) {
-                handleLotteryMessage($chatId, $commandOrText);
-            } else {
-                // Inline minimal handling: attempt storeLotteryResult if available
-                if (function_exists('storeLotteryResult')) {
-                    // attempt to parse lightly (best-effort)
-                    $issue = null; $numbers = null;
-                    if (preg_match('/第(\d+)期/', $commandOrText, $m)) $issue = $m[1];
-                    if (preg_match('/号码[：:]\s*([0-9,\s]+)/u', $commandOrText, $m2)) $numbers = trim($m2[1]);
-                    storeLotteryResult('lottery', $issue ?? '', $numbers ?? '', '', '', date('Y-m-d'));
-                }
-            }
-        } catch (Throwable $e) {
-            write_telegram_debug_log("Error while handling lottery message: " . $e->getMessage());
-        }
+        // We now have a robust, dedicated function to handle this.
+        handleLotteryMessage($chatId, $commandOrText);
+        
+        // Respond to Telegram and exit script.
         http_response_code(200);
         echo json_encode(['status' => 'ok', 'message' => 'processed lottery message']);
         exit();
     }
+
 } else {
     write_telegram_debug_log("Unsupported update type; ignoring.");
     http_response_code(200);
@@ -186,7 +292,6 @@ if (empty($chatId) || empty($userId)) {
 // Admin-only interactive commands: restrict to TELEGRAM_ADMIN_ID if set
 if (!empty($adminId) && ((string)$chatId !== (string)$adminId)) {
     write_telegram_debug_log("Unauthorized access from chat {$chatId}; admin required ({$adminId}). Notifying sender.");
-    // Friendly notify user if possible (don't fail on send failure)
     @sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
     http_response_code(200);
     exit();
@@ -194,15 +299,10 @@ if (!empty($adminId) && ((string)$chatId !== (string)$adminId)) {
 
 // Process commands/state
 try {
-    // Use the same processCommand / state handlers as earlier implementation.
-    // The file includes user_state_manager.php and env_manager.php above.
-
     // Process stateful interaction first
     $userState = getUserState($userId);
     if ($userState) {
-        // handleStatefulInteraction expects functions from this file; implement inline simplified version
         write_telegram_debug_log("Processing stateful interaction for user {$userId} state={$userState}");
-        // Reuse the same logic as the original code paths where possible
         if (strpos($userState, 'awaiting_api_key_') === 0) {
             $keyToUpdate = substr($userState, strlen('awaiting_api_key_'));
             if (update_env_file($keyToUpdate, $commandOrText)) {
@@ -305,11 +405,9 @@ try {
 
 } catch (Throwable $e) {
     write_telegram_debug_log("Exception in webhook processing: " . $e->getMessage());
-    // Notify admin if adminId is available
     if (!empty($adminId)) {
         @sendTelegramMessage($adminId, "Webhook internal error: " . substr($e->getMessage(), 0, 200));
     }
-    // Respond 200 to Telegram to avoid retries if desired (or 500 to retry)
     http_response_code(200);
     exit();
 }
