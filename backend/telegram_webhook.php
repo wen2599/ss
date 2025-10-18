@@ -18,8 +18,29 @@ $uri = $_SERVER['REQUEST_URI'] ?? 'UNKNOWN';
 $headerPreview = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '[HEADER_NOT_SET]';
 file_put_contents($earlyLogFile, "{$now} [EARLY] Method={$method}, URI={$uri}, HeaderPreview={$headerPreview}\n", FILE_APPEND | LOCK_EX);
 
-// Environment variables are expected to be loaded by the server environment.
-// No .env file loading is performed here.
+// --- Lightweight .env loader ---
+function load_env_file_simple($path) {
+    if (!file_exists($path) || !is_readable($path)) return false;
+    if (getenv('DB_HOST')) return true; // Already loaded
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines === false) return false;
+    foreach ($lines as $line) {
+        $trim = trim($line);
+        if ($trim === '' || strpos($trim, '#') === 0) continue;
+        if (strpos($trim, '=') !== false) {
+            list($key, $value) = explode('=', $trim, 2);
+            $key = trim($key);
+            $value = trim($value, "\"'");
+            putenv("{$key}={$value}");
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+        }
+    }
+    return true;
+}
+
+// Load env early for secret validation
+load_env_file_simple(__DIR__ . '/../.env');
 
 // --- Runtime logger ---
 function write_telegram_debug_log($msg) {
@@ -33,7 +54,7 @@ function parse_lottery_data($text) {
         'lottery_type' => null, 'issue_number' => null, 'winning_numbers' => [],
         'zodiac_signs' => [], 'colors' => [], 'drawing_date' => date('Y-m-d')
     ];
-    if (preg_match('/(.*?)第:(\d+)期/', $text, $h)) {
+    if (preg_match('/(新澳门六合彩|老澳门六合彩|香港六合彩|老澳\d{1,2}\.\d{1,2})第:(\d+)期/', $text, $h)) {
         $name = trim($h[1]);
         if (strpos($name, '新澳门') !== false) {
             $data['lottery_type'] = '新澳门六合彩';
@@ -42,11 +63,13 @@ function parse_lottery_data($text) {
         } elseif (strpos($name, '香港') !== false) {
             $data['lottery_type'] = '香港六合彩';
         } else {
-            write_telegram_debug_log("[Parser] Failed: Could not determine lottery type from name '{$name}'");
+            // This case should not be reached due to the more specific regex
             return null;
         }
         $data['issue_number'] = $h[2];
-    } else { write_telegram_debug_log("[Parser] Failed: Header match on general pattern."); return null; }
+    } else {
+        return null; // Not a lottery message, return null immediately
+    }
     $lines = array_values(array_filter(array_map('trim', explode("\n", trim($text))), fn($l) => !empty($l)));
     if (count($lines) < 4) { write_telegram_debug_log("[Parser] Failed: Not enough lines."); return null; }
     $data['winning_numbers'] = preg_split('/\s+/', $lines[1]);
@@ -60,6 +83,10 @@ function parse_lottery_data($text) {
 }
 
 function handleLotteryMessage($chatId, $text) {
+    // Basic check to avoid parsing every single message
+    if (strpos($text, '期') === false) {
+        return;
+    }
     write_telegram_debug_log("Attempting to parse lottery message: " . substr($text, 0, 100) . "...");
     $parsedData = parse_lottery_data($text);
     if ($parsedData === null) {

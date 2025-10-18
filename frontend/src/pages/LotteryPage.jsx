@@ -9,7 +9,7 @@ const LotteryPage = () => {
   const fetchData = () => {
     setLoading(true);
     setError(null);
-    fetch('/api/get_lottery_results')
+    fetch('/backend/get_lottery_results.php')
       .then(response => {
         if (!response.ok) {
           return response.json().then(err => {
