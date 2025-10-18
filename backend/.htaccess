@@ -12,7 +12,7 @@
 # =============================================================
 
 
-# --- Original SPA Redirect Rules ---
+# --- Correct SPA Redirect Rules for React App ---
 
 # Enable the rewrite engine
 RewriteEngine On
@@ -20,15 +20,20 @@ RewriteEngine On
 # Set the rewrite base to the current directory
 RewriteBase /
 
-# --- Front Controller ---
-# If the request is for an existing file...
+# Rule 1: Handle API calls
+# If the request URI is for a .php file, let it pass through.
+# This ensures API calls like /login_user.php are not redirected to index.html.
+RewriteRule \.php$ - [L]
+
+# Rule 2: Handle existing files and directories
+# If the request is for an existing file (like images, css, js)...
 RewriteCond %{REQUEST_FILENAME} -f
-# ...or the request is for an existing directory...
+# ...or an existing directory...
 RewriteCond %{REQUEST_FILENAME} -d
-# ...then do nothing and let the server handle it.
-# The [L] flag means this is the last rule.
+# ...then do nothing.
 RewriteRule ^ - [L]
 
-# Otherwise (if the file or directory does not exist)...
-# ...rewrite the request to index.php.
-RewriteRule . index.php [L]
+# Rule 3: Handle SPA routing (React Router)
+# For all other requests, rewrite to the main index.html file.
+# This lets React Router handle the client-side routing.
+RewriteRule . /index.html [L]
