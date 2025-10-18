@@ -60,7 +60,11 @@ try {
     write_lottery_debug_log("Preparing SQL: ". $sql . " with params: " . json_encode($params)); // ADDED LOG
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    if (!empty($params)) {
+        $stmt->execute($params);
+    } else {
+        $stmt->execute();
+    }
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     write_lottery_debug_log("Fetched " . count($results) . " raw results from DB."); // MODIFIED LOG
