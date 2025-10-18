@@ -1,5 +1,5 @@
 <?php
-// backend/get_lottery_results.php (FIXED)
+// backend/get_lottery_results.php (FIXED AND ENHANCED LOGGING)
 
 require_once __DIR__ . '/api_header.php';
 require_once __DIR__ . '/db_operations.php'; // This now loads .env automatically
@@ -26,6 +26,7 @@ if (!$pdo) {
     echo json_encode(['status' => 'error', 'message' => $errorMsg]);
     exit;
 }
+write_lottery_debug_log("Database connection successful."); // ADDED LOG
 
 try {
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
@@ -44,11 +45,13 @@ try {
     $sql .= " ORDER BY drawing_date DESC, issue_number DESC LIMIT ?";
     $params[] = $limit;
 
+    write_lottery_debug_log("Preparing SQL: ". $sql . " with params: " . json_encode($params)); // ADDED LOG
+
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    write_lottery_debug_log("Fetched " . count($results) . " results from DB.");
+    write_lottery_debug_log("Fetched " . count($results) . " raw results from DB."); // MODIFIED LOG
 
     // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     // +++ START OF THE FIX: Decode JSON strings into PHP arrays     +++
