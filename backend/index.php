@@ -29,8 +29,9 @@ switch ($endpoint) {
     case 'get_lottery_results':
         require_once __DIR__ . '/get_lottery_results.php';
         break;
-    case 'telegramWebhook':
-        require_once __DIR__ . '/telegramWebhook.php';
+    case 'telegramWebhook': // 兼容旧写法
+    case 'telegram_webhook': // 新写法，全小写
+        require_once __DIR__ . '/telegram_webhook.php'; // 文件名全部小写
         break;
     case 'process_email_ai':
         require_once __DIR__ . '/process_email_ai.php';
