@@ -1,6 +1,0 @@
-[2025-10-18 13:17:13] [LOTTERY_API] ------ get_lottery_results.php Entry Point ------
-[2025-10-18 13:17:13] [LOTTERY_API] Database connection error: Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env
-[2025-10-18 13:24:25] [LOTTERY_API] ------ get_lottery_results.php Entry Point ------
-[2025-10-18 13:24:25] [LOTTERY_API] Database connection error: Database connection error: The following required environment variables are not set: DB_HOST, DB_PORT, DB_DATABASE, DB_USER
-[2025-10-18 13:26:39] [LOTTERY_API] ------ get_lottery_results.php Entry Point ------
-[2025-10-18 13:26:39] [LOTTERY_API] Database connection error: Database connection error: The following required environment variables are not set: DB_HOST, DB_PORT, DB_DATABASE, DB_USER
