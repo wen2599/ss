@@ -34,16 +34,31 @@ try {
 
     write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='{$lotteryType}'");
 
-    $sql = "SELECT id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at FROM lottery_results ";
+    $sql = "
+        WITH RankedResults AS (
+            SELECT
+                id,
+                lottery_type,
+                issue_number,
+                winning_numbers,
+                zodiac_signs,
+                colors,
+                drawing_date,
+                created_at,
+                ROW_NUMBER() OVER(PARTITION BY lottery_type ORDER BY drawing_date DESC, issue_number DESC) as rn
+            FROM
+                lottery_results
+        )
+        SELECT
+            id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at
+        FROM
+            RankedResults
+        WHERE
+            rn = 1
+        ORDER BY
+            lottery_type;
+    ";
     $params = [];
-
-    if ($lotteryType) {
-        $sql .= " WHERE lottery_type = ?";
-        $params[] = $lotteryType;
-    }
-
-    $sql .= " ORDER BY drawing_date DESC, issue_number DESC LIMIT ?";
-    $params[] = $limit;
 
     write_lottery_debug_log("Preparing SQL: ". $sql . " with params: " . json_encode($params)); // ADDED LOG
 
