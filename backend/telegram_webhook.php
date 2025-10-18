@@ -180,12 +180,14 @@ $userId = $update['message']['from']['id']
 if (isset($update['channel_post'])) {
     $post = $update['channel_post'];
     $text = trim($post['text'] ?? '');
-    write_telegram_debug_log("Received channel_post from chat={$chatId} with text: " . substr($text, 0, 200));
 
     if (!empty($lotteryChannelId) && (string)$chatId === (string)$lotteryChannelId) {
+        write_telegram_debug_log("LOTTERY_CHANNEL_POST_RECEIVED. Full raw text: " . $text);
         handleLotteryMessage($chatId, $text);
         http_response_code(200);
         exit(json_encode(['status' => 'ok', 'message' => 'processed lottery channel post']));
+    } else {
+        write_telegram_debug_log("Received channel_post from other channel: chat={$chatId}");
     }
 } 
 // Check for callback query
