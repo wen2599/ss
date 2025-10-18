@@ -1,22 +1,8 @@
-# --- Final .htaccess for React SPA + API Backend ---
-
-# Enable the rewrite engine
-RewriteEngine On
-
-# --- Security: Disable ModSecurity for the API entrypoint ---
-# This is still needed to prevent WAF from blocking Telegram requests
 <IfModule mod_security2.c>
     <Files "index.php">
         SecRuleEngine Off
     </Files>
+    <Files "webhook_test.php">
+        SecRuleEngine Off
+    </Files>
 </IfModule>
-
-# --- Routing ---
-# If the request is NOT for an existing file...
-RewriteCond %{REQUEST_FILENAME} !-f
-# ...and the request is NOT for an existing directory...
-RewriteCond %{REQUEST_FILENAME} !-d
-# ...and the request is NOT for our API entrypoint...
-RewriteCond %{REQUEST_URI} !^/index\.php
-# ...then rewrite it to index.html for the React app to handle.
-RewriteRule . /index.html [L]
