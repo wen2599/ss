@@ -42,6 +42,13 @@ const LotteryPage = () => {
     return () => clearInterval(intervalId);
   }, []);
 
+  const getShortName = (fullName) => {
+    if (fullName.includes('新澳门')) return '新澳';
+    if (fullName.includes('老澳门')) return '老澳';
+    if (fullName.includes('香港')) return '香港';
+    return '未知';
+  };
+
   const renderContent = () => {
     if (loading && lotteryData.length === 0) {
       return <div className="card loading-card">加载中...</div>;
@@ -63,22 +70,21 @@ const LotteryPage = () => {
 
     return lotteryData.map((result) => (
       <div key={result.id} className="card lottery-display-card">
-        <h2 className="lottery-type">【{result.lottery_type || '未知彩票'}】</h2>
-        <p className="lottery-issue">期号: {result.issue_number || '--'}</p>
-        <p className="lottery-drawing-date">开奖日期: {result.drawing_date || '--'}</p>
-        <div className="lottery-detail-section">
-          <h3>开奖号码</h3>
-          <p className="lottery-winning-numbers">{(result.winning_numbers || []).join(' ')}</p>
+        <div className="lottery-banner">
+          <div className="lottery-short-name">{getShortName(result.lottery_type)}</div>
+          <div className="lottery-details">
+            <p className="lottery-issue">
+              {result.lottery_type} 第: {result.issue_number || '--'}期
+            </p>
+            <div className="lottery-numbers">
+              {(result.winning_numbers || []).join(' ')}
+            </div>
+            <div className="lottery-extra-info">
+              <span>{(result.zodiac_signs || []).join(' ')}</span>
+              <span>{(result.colors || []).join(' ')}</span>
+            </div>
+          </div>
         </div>
-        <div className="lottery-detail-section">
-          <h3>生肖</h3>
-          <p className="lottery-zodiac-signs">{(result.zodiac_signs || []).join(' ')}</p>
-        </div>
-        <div className="lottery-detail-section">
-          <h3>颜色</h3>
-          <p className="lottery-colors">{(result.colors || []).join(' ')}</p>
-        </div>
-        <p className="lottery-timestamp">数据更新于: {result.created_at ? new Date(result.created_at).toLocaleString() : '--'}</p>
       </div>
     ));
   };
