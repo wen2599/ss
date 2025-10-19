@@ -34,37 +34,21 @@ try {
 
     write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='{$lotteryType}'");
 
+    $sql = "SELECT id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at FROM lottery_results ";
     $params = [];
+
     if ($lotteryType) {
-        $sql = "SELECT id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at FROM lottery_results WHERE lottery_type = ? ORDER BY drawing_date DESC, issue_number DESC LIMIT ?";
+        $sql .= " WHERE lottery_type = ?";
         $params[] = $lotteryType;
-        $params[] = $limit;
-    } elseif ($limit === 0) { // Special case: limit=0 fetches latest of each type
-        $sql = "
-            WITH RankedResults AS (
-                SELECT
-                    id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at,
-                    ROW_NUMBER() OVER(PARTITION BY lottery_type ORDER BY drawing_date DESC, issue_number DESC) as rn
-                FROM lottery_results
-            )
-            SELECT id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at
-            FROM RankedResults
-            WHERE rn = 1
-            ORDER BY lottery_type;
-        ";
-    } else {
-        $sql = "SELECT id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at FROM lottery_results ORDER BY drawing_date DESC, issue_number DESC LIMIT ?";
-        $params[] = $limit;
     }
+
+    $sql .= " ORDER BY drawing_date DESC, issue_number DESC LIMIT ?";
+    $params[] = $limit;
 
     write_lottery_debug_log("Preparing SQL: ". $sql . " with params: " . json_encode($params)); // ADDED LOG
 
     $stmt = $pdo->prepare($sql);
-    if (!empty($params)) {
-        $stmt->execute($params);
-    } else {
-        $stmt->execute();
-    }
+    $stmt->execute($params);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     write_lottery_debug_log("Fetched " . count($results) . " raw results from DB."); // MODIFIED LOG

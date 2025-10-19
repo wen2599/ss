@@ -40,7 +40,7 @@ function load_env_file_simple($path) {
 }
 
 // Load env early for secret validation
-load_env_file_simple(__DIR__ . '/../.env');
+load_env_file_simple(__DIR__ . '/.env');
 
 // --- Runtime logger ---
 function write_telegram_debug_log($msg) {
@@ -54,23 +54,10 @@ function parse_lottery_data($text) {
         'lottery_type' => null, 'issue_number' => null, 'winning_numbers' => [],
         'zodiac_signs' => [], 'colors' => [], 'drawing_date' => date('Y-m-d')
     ];
-    // This regex is now more specific and looks for known lottery names.
-    if (preg_match('/(新澳门六合彩|老澳门六合彩|香港六合彩|老澳\d{1,2}\.\d{1,2})第:(\d+)\s*期/', $text, $h)) {
-        $name = trim($h[1]);
-        if (strpos($name, '新澳门') !== false) {
-            $data['lottery_type'] = '新澳门六合彩';
-        } elseif (strpos($name, '老澳') !== false) {
-            $data['lottery_type'] = '老澳门六合彩';
-        } elseif (strpos($name, '香港') !== false) {
-            $data['lottery_type'] = '香港六合彩';
-        } else {
-            // This case should not be reached due to the more specific regex, but as a fallback:
-            return null;
-        }
+    if (preg_match('/(新澳门六合彩|香港六合彩|老澳.*?)第:(\d+)期/', $text, $h)) {
+        $data['lottery_type'] = (strpos($h[1], '老澳') !== false) ? '老澳门六合彩' : trim($h[1]);
         $data['issue_number'] = $h[2];
-    } else {
-        return null; // Not a lottery message, return null immediately
-    }
+    } else { write_telegram_debug_log("[Parser] Failed: Header match."); return null; }
     $lines = array_values(array_filter(array_map('trim', explode("\n", trim($text))), fn($l) => !empty($l)));
     if (count($lines) < 4) { write_telegram_debug_log("[Parser] Failed: Not enough lines."); return null; }
     $data['winning_numbers'] = preg_split('/\s+/', $lines[1]);

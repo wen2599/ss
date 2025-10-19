@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import './LotteryPage.css';
 
 const LotteryPage = () => {
-  const [lotteryData, setLotteryData] = useState([]);
+  const [lotteryData, setLotteryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const fetchData = () => {
     setLoading(true);
     setError(null);
-    fetch('/backend/get_lottery_results.php?limit=0')
+    fetch('/get_lottery_results.php?limit=1') // Fetch only the latest result
       .then(response => {
         if (!response.ok) {
           return response.json().then(err => {
@@ -21,10 +21,10 @@ const LotteryPage = () => {
         return response.json();
       })
       .then(data => {
-        if (data && data.status === 'success' && Array.isArray(data.lottery_results)) {
-          setLotteryData(data.lottery_results);
+        if (data && data.status === 'success' && data.lottery_results && data.lottery_results.length > 0) {
+          setLotteryData(data.lottery_results[0]); // Get the latest result
         } else {
-          setLotteryData([]); // No data found or empty results
+          setLotteryData(null); // No data found or empty results
         }
       })
       .catch(error => {
@@ -42,16 +42,9 @@ const LotteryPage = () => {
     return () => clearInterval(intervalId);
   }, []);
 
-  const getShortName = (fullName) => {
-    if (fullName.includes('新澳门')) return '新澳';
-    if (fullName.includes('老澳门')) return '老澳';
-    if (fullName.includes('香港')) return '香港';
-    return '未知';
-  };
-
   const renderContent = () => {
-    if (loading && lotteryData.length === 0) {
-      return <div className="card loading-card">加载中...</div>;
+    if (loading && !lotteryData) {
+        return <div className="card loading-card">加载中...</div>;
     }
 
     if (error) {
@@ -64,41 +57,36 @@ const LotteryPage = () => {
       );
     }
 
-    if (lotteryData.length === 0) {
-      return <div className="card no-data-card">暂无开奖数据</div>;
+    if (!lotteryData) {
+        return <div className="card no-data-card">暂无开奖数据</div>;
     }
 
     return (
-      <>
-        {lotteryData.map((result) => (
-          <div key={result.id} className="card lottery-display-card">
-            <div className="lottery-banner">
-              <div className="lottery-short-name">{getShortName(result.lottery_type)}</div>
-              <div className="lottery-details">
-                <p className="lottery-issue">
-                  {result.lottery_type} 第: {result.issue_number || '--'}期
-                </p>
-                <div className="lottery-numbers">
-                  {(result.winning_numbers || []).join(' ')}
-                </div>
-                <div className="lottery-extra-info">
-                  <span>{(result.zodiac_signs || []).join(' ')}</span>
-                  <span>{(result.colors || []).join(' ')}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </>
+      <div className="card lottery-display-card">
+        <h2 className="lottery-type">【{lotteryData.lottery_type || '未知彩票'}】</h2>
+        <p className="lottery-issue">期号: {lotteryData.issue_number || '--'}</p>
+        <p className="lottery-drawing-date">开奖日期: {lotteryData.drawing_date || '--'}</p>
+        <div className="lottery-detail-section">
+            <h3>开奖号码</h3>
+            <p className="lottery-winning-numbers">{lotteryData.winning_numbers || 'N/A'}</p>
+        </div>
+        <div className="lottery-detail-section">
+            <h3>生肖</h3>
+            <p className="lottery-zodiac-signs">{lotteryData.zodiac_signs || 'N/A'}</p>
+        </div>
+        <div className="lottery-detail-section">
+            <h3>颜色</h3>
+            <p className="lottery-colors">{lotteryData.colors || 'N/A'}</p>
+        </div>
+        <p className="lottery-timestamp">数据更新于: {lotteryData.created_at ? new Date(lotteryData.created_at).toLocaleString() : '--'}</p>
+      </div>
     );
   };
 
   return (
     <div className="page-container">
       <h1 className="page-title">最新开奖号码</h1>
-      <div className="lottery-results-container">
-        {renderContent()}
-      </div>
+      {renderContent()}
        <footer className="page-footer">
         <p>请以官方开奖结果为准</p>
       </footer>

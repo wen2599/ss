@@ -15,7 +15,7 @@ if (!function_exists('load_env_if_not_loaded')) {
             return;
         }
 
-        $envPath = __DIR__ . '/../.env';
+        $envPath = __DIR__ . '/.env';
         if (!file_exists($envPath) || !is_readable($envPath)) return;
 
         $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
