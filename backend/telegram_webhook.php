@@ -1,276 +1,158 @@
 <?php
-/**
- * telegram_webhook.php (Final, Production-Ready Version)
- *
- * This script handles all incoming updates from the Telegram Bot API webhook.
- * Key Features:
- * - Robust Secret Token validation from both Header and URL parameter.
- * - Detailed logging for debugging.
- * - Handles specific commands for the admin user.
- * - Includes a dedicated, robust parser for lottery channel messages.
- */
+// --- Bootstrap and Configuration ---
+// This is the only include needed. config.php handles all other helpers.
+require_once __DIR__ . '/config.php';
 
-// --- Early, minimal logging ---
-$earlyLogFile = __DIR__ . '/telegram_early_debug.log';
-$now = date('[Y-m-d H:i:s]');
-$method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
-$uri = $_SERVER['REQUEST_URI'] ?? 'UNKNOWN';
-$headerPreview = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '[HEADER_NOT_SET]';
-file_put_contents($earlyLogFile, "{$now} [EARLY] Method={$method}, URI={$uri}, HeaderPreview={$headerPreview}\n", FILE_APPEND | LOCK_EX);
+// --- Security and Validation ---
+$expectedSecret = getenv('TELEGRAM_WEBHOOK_SECRET');
+$adminId = getenv('TELEGRAM_ADMIN_ID');
+$lotteryChannelId = getenv('LOTTERY_CHANNEL_ID');
 
-// --- Lightweight .env loader ---
-function load_env_file_simple($path) {
-    if (!file_exists($path) || !is_readable($path)) return false;
-    if (getenv('DB_HOST')) return true; // Already loaded
-    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    if ($lines === false) return false;
-    foreach ($lines as $line) {
-        $trim = trim($line);
-        if ($trim === '' || strpos($trim, '#') === 0) continue;
-        if (strpos($trim, '=') !== false) {
-            list($key, $value) = explode('=', $trim, 2);
-            $key = trim($key);
-            $value = trim($value, "\"'");
-            putenv("{$key}={$value}");
-            $_ENV[$key] = $value;
-            $_SERVER[$key] = $value;
-        }
-    }
-    return true;
-}
-
-// Load env early for secret validation
-load_env_file_simple(__DIR__ . '/.env');
-
-// --- Runtime logger ---
-function write_telegram_debug_log($msg) {
-    $logFile = __DIR__ . '/telegram_debug.log';
-    file_put_contents($logFile, date('[Y-m-d H:i:s]') . " " . $msg . PHP_EOL, FILE_APPEND | LOCK_EX);
-}
-
-// --- Lottery Message Parser & Handler ---
-function parse_lottery_data($text) {
-    $data = [
-        'lottery_type' => null, 'issue_number' => null, 'winning_numbers' => [],
-        'zodiac_signs' => [], 'colors' => [], 'drawing_date' => date('Y-m-d')
-    ];
-    if (preg_match('/(新澳门六合彩|香港六合彩|老澳.*?)第:(\d+)期/', $text, $h)) {
-        $data['lottery_type'] = (strpos($h[1], '老澳') !== false) ? '老澳门六合彩' : trim($h[1]);
-        $data['issue_number'] = $h[2];
-    } else { write_telegram_debug_log("[Parser] Failed: Header match."); return null; }
-    $lines = array_values(array_filter(array_map('trim', explode("\n", trim($text))), fn($l) => !empty($l)));
-    if (count($lines) < 4) { write_telegram_debug_log("[Parser] Failed: Not enough lines."); return null; }
-    $data['winning_numbers'] = preg_split('/\s+/', $lines[1]);
-    $data['zodiac_signs']    = preg_split('/\s+/', $lines[2]);
-    $data['colors']          = preg_split('/\s+/', $lines[3]);
-    if (count($data['winning_numbers']) === 0 || count($data['winning_numbers']) !== count($data['zodiac_signs']) || count($data['winning_numbers']) !== count($data['colors'])) {
-        write_telegram_debug_log("[Parser] Failed: Mismatch in data counts."); return null;
-    }
-    write_telegram_debug_log("[Parser] Success: Parsed issue {$data['issue_number']} for {$data['lottery_type']}");
-    return $data;
-}
-
-function handleLotteryMessage($chatId, $text) {
-    write_telegram_debug_log("Attempting to parse lottery message: " . substr($text, 0, 100) . "...");
-    $parsedData = parse_lottery_data($text);
-    if ($parsedData === null) {
-        write_telegram_debug_log("Failed to parse lottery message. No data will be stored.");
-        return;
-    }
-    if (!function_exists('storeLotteryResult')) {
-        write_telegram_debug_log("CRITICAL ERROR: function storeLotteryResult() does not exist!");
-        return;
-    }
-    try {
-        $numbersJson = json_encode($parsedData['winning_numbers']);
-        $zodiacsJson = json_encode($parsedData['zodiac_signs']);
-        $colorsJson = json_encode($parsedData['colors']);
-        $success = storeLotteryResult(
-            $parsedData['lottery_type'], $parsedData['issue_number'],
-            $numbersJson, $zodiacsJson, $colorsJson, $parsedData['drawing_date']
-        );
-        if ($success) {
-            write_telegram_debug_log("Successfully stored lottery result for issue {$parsedData['issue_number']}.");
-        } else {
-            write_telegram_debug_log("Failed to store lottery result. Check db_operations.php and database error logs.");
-        }
-    } catch (Throwable $e) {
-        write_telegram_debug_log("Exception during database storage: " . $e->getMessage());
-    }
-}
-
-// --- Main Script Execution ---
-
-// Read configured secrets
-$expectedSecret = getenv('TELEGRAM_WEBHOOK_SECRET') ?: null;
-$adminId = getenv('TELEGRAM_ADMIN_ID') ?: null;
-$lotteryChannelId = getenv('LOTTERY_CHANNEL_ID') ?: null;
-
-write_telegram_debug_log("ENV Check: AdminID=" . ($adminId ? 'OK' : 'FAIL') . ", ChannelID=" . ($lotteryChannelId ? 'OK' : 'FAIL') . ", WebhookSecret=" . ($expectedSecret ? 'OK' : 'FAIL'));
-
-// --- DUAL SECRET TOKEN VALIDATION ---
 $receivedHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
 $receivedParam = $_GET['secret'] ?? null;
 $receivedSecret = $receivedHeader ?? $receivedParam;
-write_telegram_debug_log("Secret Check: Header was " . ($receivedHeader ? 'present' : 'missing') . ". Param was " . ($receivedParam ? 'present' : 'missing') . ".");
 
-if ($expectedSecret) {
-    if (empty($receivedSecret)) {
-        write_telegram_debug_log("Webhook rejected: Missing secret token in both header and URL parameter.");
-        http_response_code(403);
-        exit('Forbidden: Missing secret token.');
-    }
-    if (!hash_equals($expectedSecret, $receivedSecret)) {
-        write_telegram_debug_log("Webhook rejected: Secret token mismatch.");
-        http_response_code(403);
-        exit('Forbidden: Secret token mismatch.');
-    }
-} else {
-    write_telegram_debug_log("WARNING: TELEGRAM_WEBHOOK_SECRET is not configured.");
+if (!$expectedSecret || !hash_equals($expectedSecret, $receivedSecret)) {
+    http_response_code(403);
+    error_log("Webhook rejected: Secret token mismatch or not configured.");
+    exit('Forbidden: Secret token mismatch.');
 }
 
-// --- Webhook Authenticated, Load All Helpers ---
-require_once __DIR__ . '/db_operations.php';
-require_once __DIR__ . '/telegram_helpers.php';
-require_once __DIR__ . '/env_manager.php';
-require_once __DIR__ . '/user_state_manager.php';
-require_once __DIR__ . '/api_curl_helper.php';
-require_once __DIR__ . '/gemini_ai_helper.php';
-require_once __DIR__ . '/cloudflare_ai_helper.php';
-
-// --- Process Incoming Update ---
-$bodyRaw = file_get_contents('php://input');
-$update = json_decode($bodyRaw, true);
-
-if (!is_array($update)) {
-    write_telegram_debug_log("Invalid JSON payload; ignoring.");
-    http_response_code(200);
+// --- Input Processing ---
+$update = json_decode(file_get_contents('php://input'), true);
+if (!$update) {
+    http_response_code(200); // Acknowledge empty/invalid updates to prevent Telegram retries
     exit();
 }
 
-// Main update parsing
-$chatId = $update['message']['chat']['id'] 
-    ?? $update['channel_post']['chat']['id'] 
-    ?? $update['callback_query']['message']['chat']['id'] 
-    ?? null;
+// --- Update Routing ---
+$log_entry = "New update received.";
 
-$userId = $update['message']['from']['id'] 
-    ?? $update['callback_query']['from']['id'] 
-    ?? $chatId;
-
-// Check for channel post first
+// 1. Channel Post for Lottery Results
 if (isset($update['channel_post'])) {
     $post = $update['channel_post'];
+    $chatId = $post['chat']['id'];
     $text = trim($post['text'] ?? '');
-    write_telegram_debug_log("Received channel_post from chat={$chatId} with text: " . substr($text, 0, 200));
+    $log_entry .= " Type: channel_post, ChatID: {$chatId}.";
 
     if (!empty($lotteryChannelId) && (string)$chatId === (string)$lotteryChannelId) {
-        handleLotteryMessage($chatId, $text);
-        http_response_code(200);
-        exit(json_encode(['status' => 'ok', 'message' => 'processed lottery channel post']));
+        handleLotteryMessage($text); // Logic is now in lottery_parser.php, included via config.php
+        $log_entry .= " Action: Processed as lottery message.";
+    } else {
+        $log_entry .= " Action: Ignored (not the configured lottery channel).";
     }
-} 
-// Check for callback query
-elseif (isset($update['callback_query'])) {
-    $cb = $update['callback_query'];
-    $commandOrText = $cb['data'] ?? null;
-    if (!empty($cb['id'])) answerTelegramCallbackQuery($cb['id']);
-    write_telegram_debug_log("Received callback_query from user={$userId} with data: " . $commandOrText);
-} 
-// Check for personal message
-elseif (isset($update['message'])) {
-    $msg = $update['message'];
-    $commandOrText = trim($msg['text'] ?? '');
-    write_telegram_debug_log("Received message from user={$userId} with text: " . $commandOrText);
-} else {
-    write_telegram_debug_log("Unsupported update type; ignoring.");
+    error_log($log_entry);
     http_response_code(200);
     exit();
 }
 
-// --- Process Admin Commands (if not a channel post) ---
-if (empty($chatId) || empty($userId)) {
-    write_telegram_debug_log("Missing chatId or userId after parsing update.");
+// 2. User Interaction (Message or Callback)
+$chatId = $update['message']['chat']['id'] ?? $update['callback_query']['message']['chat']['id'] ?? null;
+$userId = $update['message']['from']['id'] ?? $update['callback_query']['from']['id'] ?? null;
+$command = $update['message']['text'] ?? $update['callback_query']['data'] ?? null;
+$callbackQueryId = $update['callback_query']['id'] ?? null;
+
+if ($callbackQueryId) {
+    answerTelegramCallbackQuery($callbackQueryId);
+}
+
+// --- Authorization and Command Handling ---
+if (!$chatId || !$userId || $command === null) {
+    error_log("Ignoring update: missing critical fields (chatId, userId, or command).");
     http_response_code(200);
     exit();
 }
 
-if (!empty($adminId) && ((string)$userId !== (string)$adminId)) {
-    write_telegram_debug_log("Unauthorized command access from user {$userId}.");
-    @sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
+$log_entry .= " Type: " . ($callbackQueryId ? 'callback_query' : 'message') . ", UserID: {$userId}, Command: '{$command}'.";
+
+// Authorize Admin
+if ((string)$userId !== (string)$adminId) {
+    sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
+    error_log($log_entry . " Action: Denied access (not admin).");
     http_response_code(200);
     exit();
 }
 
+// --- Main Logic ---
 try {
-    // State handling...
     $userState = getUserState($userId);
-    if ($userState) {
-        if ($userState === 'awaiting_email_to_delete') {
-            $email_to_delete = trim($commandOrText);
-            if (filter_var($email_to_delete, FILTER_VALIDATE_EMAIL)) {
-                if (deleteUserByEmail($email_to_delete)) {
-                    $reply = "用户 " . htmlspecialchars($email_to_delete) . " 已被删除。";
-                } else {
-                    $reply = "无法删除用户 " . htmlspecialchars($email_to_delete) . "。请检查邮件地址是否正确。";
-                }
-            } else {
-                $reply = "无效的电子邮件地址。请重试。";
-            }
-            clearUserState($userId);
-            sendTelegramMessage($chatId, $reply, getAdminKeyboard());
+    $cmd = strtolower(trim($command));
+
+    $resetCommands = ['/start', 'main_menu'];
+
+    if (in_array($cmd, $resetCommands)) {
+        if ($userState) {
+            setUserState($userId, null);
+            $log_entry .= " State cleared due to reset command.";
         }
-        http_response_code(200); exit();
+        $userState = null;
     }
 
-    // Command handling...
-    $cmd = strtolower(trim($commandOrText ?? ''));
-    $reply = null;
-    $replyKeyboard = null;
+    if ($userState) {
+        // This is where stateful logic will go (e.g., waiting for an API key).
+        // TODO: Implement stateful handlers for each state.
+        $reply = "您当前处于 '{$userState}' 状态。请输入所需信息，或点击下方按钮返回主菜单。";
+        $replyKeyboard = getSimpleMainMenuKeyboard();
+        sendTelegramMessage($chatId, $reply, $replyKeyboard);
+        $log_entry .= " Action: Handled as state '{$userState}'.";
 
-    switch ($cmd) {
-        case '/start':
-        case 'main_menu':
-            $reply = "欢迎回来，管理员！";
-            $replyKeyboard = getAdminKeyboard();
-            break;
-        case 'user_management':
-            $reply = "请选择一个操作：";
-            $replyKeyboard = getUserManagementKeyboard();
-            break;
-        case 'view_users':
-            $users = getAllUsers();
-            $reply = "用户列表：\n";
-            foreach ($users as $user) {
-                $reply .= "- " . htmlspecialchars($user['email']) . "\n";
-            }
-            $replyKeyboard = getAdminKeyboard();
-            break;
-        case 'delete_user':
-            setUserState($userId, 'awaiting_email_to_delete');
-            $reply = "请输入要删除的用户的电子邮件地址：";
-            break;
-        default:
-            if (!empty($cmd)) {
+    } else {
+        $reply = null;
+        $replyKeyboard = null;
+
+        switch ($cmd) {
+            case '/start':
+            case 'main_menu':
+                $reply = "欢迎回来，管理员！";
+                $replyKeyboard = getAdminKeyboard();
+                break;
+
+            case 'menu_user_management':
+                $reply = "请选择用户管理操作：";
+                $replyKeyboard = getUserManagementKeyboard();
+                break;
+
+            case 'menu_file_management':
+                $reply = "请选择文件管理操作：";
+                $replyKeyboard = getFileManagementKeyboard();
+                break;
+
+            case 'menu_api_keys':
+                $reply = "请选择要管理的 API 密钥：";
+                $replyKeyboard = getApiKeySelectionKeyboard();
+                break;
+
+            case 'ask_gemini':
+                setUserState($userId, 'awaiting_gemini_prompt');
+                $reply = "请输入您想问 Gemini 的问题：";
+                $replyKeyboard = getSimpleMainMenuKeyboard();
+                break;
+
+            case 'ask_cloudflare':
+                 setUserState($userId, 'awaiting_cloudflare_prompt');
+                 $reply = "请输入您想问 Cloudflare AI 的问题：";
+                 $replyKeyboard = getSimpleMainMenuKeyboard();
+                 break;
+
+            default:
                 $reply = "无法识别的命令。";
                 $replyKeyboard = getAdminKeyboard();
-            }
-            break;
-    }
+                break;
+        }
 
-    if ($reply) {
-        sendTelegramMessage($chatId, $reply, $replyKeyboard);
+        if ($reply) {
+            sendTelegramMessage($chatId, $reply, $replyKeyboard);
+            $log_entry .= " Action: Processed command '{$cmd}'.";
+        } else {
+             $log_entry .= " Action: Command '{$cmd}' resulted in no reply.";
+        }
     }
 } catch (Throwable $e) {
-    write_telegram_debug_log("Exception in admin command processing: " . $e->getMessage());
-    if (!empty($adminId)) {
-        @sendTelegramMessage($adminId, "Webhook internal error: " . substr($e->getMessage(), 0, 200));
-    }
+    error_log("FATAL ERROR in webhook: " . $e->getMessage() . " on line " . $e->getLine() . " in " . $e->getFile());
+    sendTelegramMessage($adminId, "机器人内部发生严重错误，请检查日志。");
 }
 
-// Final OK response to Telegram
+error_log($log_entry);
 http_response_code(200);
-echo json_encode(['status' => 'ok']);
 exit();
-
 ?>

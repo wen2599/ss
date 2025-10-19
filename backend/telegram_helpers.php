@@ -154,4 +154,16 @@ function getApiKeySelectionKeyboard() {
         ]
     ];
 }
+
+/**
+ * A simplified keyboard that only shows a "Main Menu" button.
+ * Useful for when the user is in a specific state and needs a way to exit.
+ */
+function getSimpleMainMenuKeyboard() {
+    return [
+        'inline_keyboard' => [
+            [['text' => '🔙 返回主菜单', 'callback_data' => 'main_menu']]
+        ]
+    ];
+}
 ?>
