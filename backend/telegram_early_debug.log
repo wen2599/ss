@@ -1,4 +1,0 @@
-[2025-10-19 04:09:44] [EARLY] Method=GET, URI=/test_parser.php, HeaderPreview=[HEADER_NOT_SET]
-[2025-10-19 04:12:01] [EARLY] Method=GET, URI=/test_parser.php, HeaderPreview=[HEADER_NOT_SET]
-[2025-10-19 04:14:55] [EARLY] Method=GET, URI=/test_parser.php, HeaderPreview=[HEADER_NOT_SET]
-[2025-10-19 04:15:36] [EARLY] Method=UNKNOWN, URI=UNKNOWN, HeaderPreview=[HEADER_NOT_SET]

@@ -192,38 +192,6 @@ export default {
     // Use the environment variable for the backend server, with a fallback.
     const backendServer = env.PUBLIC_API_ENDPOINT ? new URL(env.PUBLIC_API_ENDPOINT).origin : "https://wenge.cloudns.ch";
 
-    // Route for the new AI processing action
-    if (url.pathname === '/process-ai') {
-      if (request.method !== 'POST') {
-        return new Response('Method Not Allowed', { status: 405 });
-      }
-
-      try {
-        const { email_content } = await request.json();
-        if (!email_content) {
-          return new Response('Missing email_content in request body', { status: 400 });
-        }
-
-        const prompt = `You are an expert financial assistant. Your task is to extract structured data from the following email content. The email is a bill or invoice. Please extract the following fields: vendor_name, bill_amount (as a number), currency (e.g., USD, CNY), due_date (in YYYY-MM-DD format), invoice_number, and a category (e.g., "Utilities", "Subscription", "Shopping", "Travel"). If a field is not present, its value should be null. Provide the output in a clean JSON format. Do not include any explanatory text, only the JSON object.\n\nEmail Content:\n"""\n${email_content}\n"""`;
-
-        const response = await env.AI.run('@cf/meta/llama-2-7b-chat-int8', {
-          prompt
-        });
-
-        // The AI model's response is often wrapped in ```json ... ```, so we need to extract it.
-        const jsonMatch = response.response.match(/```json\n([\s\S]*?)\n```/);
-        const jsonResponse = jsonMatch ? jsonMatch[1] : response.response;
-
-        // Return the extracted JSON directly to the caller (our PHP backend)
-        return new Response(jsonResponse, {
-          headers: { 'Content-Type': 'application/json' },
-        });
-
-      } catch (error) {
-        console.error('AI processing error:', error);
-        return new Response(`Error processing AI request: ${error.message}`, { status: 500 });
-      }
-    }
 
     // Proxy API calls (e.g., /login, /register, etc.) to the backend
     if (url.pathname.endsWith('.php') || url.pathname.startsWith('/api/')) {
