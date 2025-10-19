@@ -68,15 +68,27 @@ const LotteryPage = () => {
         <p className="lottery-drawing-date">开奖日期: {lotteryData.drawing_date || '--'}</p>
         <div className="lottery-detail-section">
             <h3>开奖号码</h3>
-            <p className="lottery-winning-numbers">{lotteryData.winning_numbers || 'N/A'}</p>
+            <div className="numbers-container">
+                {(lotteryData.winning_numbers || '').split(',').map((num, index) => (
+                    <span key={index} className="number-circle">{num.trim()}</span>
+                ))}
+            </div>
         </div>
         <div className="lottery-detail-section">
             <h3>生肖</h3>
-            <p className="lottery-zodiac-signs">{lotteryData.zodiac_signs || 'N/A'}</p>
+            <div className="details-container">
+                {(lotteryData.zodiac_signs || '').split(',').map((sign, index) => (
+                    <span key={index} className="detail-item">{sign.trim()}</span>
+                ))}
+            </div>
         </div>
         <div className="lottery-detail-section">
             <h3>颜色</h3>
-            <p className="lottery-colors">{lotteryData.colors || 'N/A'}</p>
+            <div className="details-container">
+                {(lotteryData.colors || '').split(',').map((color, index) => (
+                    <span key={index} className="detail-item">{color.trim()}</span>
+                ))}
+            </div>
         </div>
         <p className="lottery-timestamp">数据更新于: {lotteryData.created_at ? new Date(lotteryData.created_at).toLocaleString() : '--'}</p>
       </div>
