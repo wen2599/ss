@@ -15,8 +15,12 @@ if (!function_exists('load_env_if_not_loaded')) {
             return;
         }
 
-        $envPath = __DIR__ . '/../.env';
-        if (!file_exists($envPath) || !is_readable($envPath)) return;
+        $envPath = __DIR__ . '/.env';
+        error_log("Attempting to load .env file from: " . $envPath);
+        if (!file_exists($envPath) || !is_readable($envPath)) {
+            error_log(".env file not found or not readable at " . $envPath);
+            return;
+        }
 
         $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         if ($lines === false) return;

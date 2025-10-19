@@ -20,7 +20,11 @@ file_put_contents($earlyLogFile, "{$now} [EARLY] Method={$method}, URI={$uri}, H
 
 // --- Lightweight .env loader ---
 function load_env_file_simple($path) {
-    if (!file_exists($path) || !is_readable($path)) return false;
+    error_log("Attempting to load .env file from: " . $path);
+    if (!file_exists($path) || !is_readable($path)) {
+        error_log(".env file not found or not readable at " . $path);
+        return false;
+    }
     if (getenv('DB_HOST')) return true; // Already loaded
     $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     if ($lines === false) return false;
@@ -40,7 +44,7 @@ function load_env_file_simple($path) {
 }
 
 // Load env early for secret validation
-load_env_file_simple(__DIR__ . '/../.env');
+load_env_file_simple(__DIR__ . '/.env');
 
 // --- Runtime logger ---
 function write_telegram_debug_log($msg) {
@@ -55,7 +59,7 @@ function parse_lottery_data($text) {
         'zodiac_signs' => [], 'colors' => [], 'drawing_date' => date('Y-m-d')
     ];
     // This regex is now more specific and looks for known lottery names.
-    if (preg_match('/(新澳门六合彩|老澳门六合彩|香港六合彩|老澳\d{1,2}\.\d{1,2})第:(\d+)期/', $text, $h)) {
+    if (preg_match('/(新澳门六合彩|老澳门六合彩|香港六合彩|老澳\d{1,2}\.\d{1,2})第:(\d+)\s*期/', $text, $h)) {
         $name = trim($h[1]);
         if (strpos($name, '新澳门') !== false) {
             $data['lottery_type'] = '新澳门六合彩';
@@ -65,7 +69,6 @@ function parse_lottery_data($text) {
             $data['lottery_type'] = '香港六合彩';
         } else {
             // This case should not be reached due to the more specific regex, but as a fallback:
-            write_telegram_debug_log("[Parser] Failed: Could not normalize lottery type from name '{$name}'");
             return null;
         }
         $data['issue_number'] = $h[2];
@@ -73,14 +76,13 @@ function parse_lottery_data($text) {
         return null; // Not a lottery message, return null immediately
     }
     $lines = array_values(array_filter(array_map('trim', explode("\n", trim($text))), fn($l) => !empty($l)));
-    if (count($lines) < 4) { write_telegram_debug_log("[Parser] Failed: Not enough lines."); return null; }
+    if (count($lines) < 4) { return null; }
     $data['winning_numbers'] = preg_split('/\s+/', $lines[1]);
     $data['zodiac_signs']    = preg_split('/\s+/', $lines[2]);
     $data['colors']          = preg_split('/\s+/', $lines[3]);
     if (count($data['winning_numbers']) === 0 || count($data['winning_numbers']) !== count($data['zodiac_signs']) || count($data['winning_numbers']) !== count($data['colors'])) {
-        write_telegram_debug_log("[Parser] Failed: Mismatch in data counts."); return null;
+        return null;
     }
-    write_telegram_debug_log("[Parser] Success: Parsed issue {$data['issue_number']} for {$data['lottery_type']}");
     return $data;
 }
 
