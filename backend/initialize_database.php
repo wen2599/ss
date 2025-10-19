@@ -9,6 +9,10 @@ echo "--- Database Initialization Script ---\n\n";
 // 1. Get Database Connection
 echo "Step 1: Connecting to the database...\n";
 $pdo = get_db_connection();
+if (is_array($pdo) && isset($pdo['db_error'])) {
+    echo "[FAILURE] " . $pdo['db_error'] . "\n";
+    exit(1);
+}
 if (!$pdo) {
     echo "[FAILURE] Could not connect to the database. Please check your .env credentials.\n";
     exit(1);

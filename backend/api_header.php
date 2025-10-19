@@ -2,11 +2,21 @@
 // backend/api_header.php
 
 // Define the allowed origin. Use a specific domain for production for better security.
-$allowed_origin = getenv('FRONTEND_URL') ?: '*'; // Fallback to wildcard for development if not set
+$allowed_origins = [
+    'https://ss.wenxiuxiu.eu.org', // Production frontend
+    'http://localhost:5173',      // Local development
+    'http://127.0.0.1:5173'       // Local development
+];
+
+if (isset($_SERVER['HTTP_ORIGIN']) && in_array($_SERVER['HTTP_ORIGIN'], $allowed_origins)) {
+    header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
+} else {
+    // Optionally, you can fall back to a default or deny the request.
+    // For this example, we deny by not sending the header.
+}
 
 // Set CORS headers to allow requests from the frontend domain.
 // The 'Access-Control-Allow-Origin' header specifies which origins are allowed to access the resource.
-header("Access-Control-Allow-Origin: {$allowed_origin}");
 
 // The 'Access-Control-Allow-Credentials' header is crucial for sending cookies (and session data) across domains.
 // It tells the browser that the server allows the request to include user credentials.
