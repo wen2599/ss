@@ -38,7 +38,14 @@ try {
     $stmt->execute($params);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    echo json_encode(['status' => 'success', 'lottery_results' => $results]);
+    $processedResults = array_map(function($row) {
+        $row['winning_numbers'] = json_decode($row['winning_numbers'], true) ?: [];
+        $row['zodiac_signs'] = json_decode($row['zodiac_signs'], true) ?: [];
+        $row['colors'] = json_decode($row['colors'], true) ?: [];
+        return $row;
+    }, $results);
+
+    echo json_encode(['status' => 'success', 'lottery_results' => $processedResults]);
 
 } catch (PDOException $e) {
     $errorMsg = "Error fetching lottery results: " . $e->getMessage();

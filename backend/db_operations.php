@@ -1,5 +1,51 @@
 <?php
 /**
+ * db_operations.php (MODIFIED TO BE SELF-SUFFICIENT)
+ * This file now includes its own lightweight .env loader at the top.
+ * This ensures that any script including this file will have the necessary
+ * database environment variables loaded automatically.
+ */
+
+// --- START: Self-contained .env loader ---
+if (!function_exists('load_env_if_not_loaded')) {
+    function load_env_if_not_loaded() {
+        // Check if a key known to be in the .env file is already loaded.
+        // If it is, we assume the environment is already set up and do nothing.
+        if (getenv('DB_HOST')) {
+            return;
+        }
+
+        $envPath = __DIR__ . '/.env';
+        if (!file_exists($envPath) || !is_readable($envPath)) return;
+
+        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false) return;
+
+        foreach ($lines as $line) {
+            $trim = trim($line);
+            if ($trim === '' || strpos($trim, '#') === 0) continue;
+            if (strpos($trim, '=') !== false) {
+                list($key, $value) = explode('=', $trim, 2);
+                $key = trim($key);
+                $value = trim($value);
+                // Remove surrounding quotes
+                if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') ||
+                    (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
+                    $value = substr($value, 1, -1);
+                }
+                putenv("{$key}={$value}");
+                $_ENV[$key] = $value;
+                $_SERVER[$key] = $value;
+            }
+        }
+    }
+    // Immediately call the loader function when this file is included.
+    load_env_if_not_loaded();
+}
+// --- END: Self-contained .env loader ---
+
+
+/**
  * Establishes and returns a singleton PDO database connection.
  */
 function get_db_connection() {
@@ -11,9 +57,10 @@ function get_db_connection() {
         $user = getenv('DB_USER');
         $pass = getenv('DB_PASSWORD');
 
+        // This check is now more likely to pass.
         if (empty($host) || empty($port) || empty($dbname) || empty($user)) {
              $error_msg = "Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env";
-             write_log($error_msg);
+             error_log($error_msg);
              return ['db_error' => $error_msg];
         }
 
@@ -27,12 +74,15 @@ function get_db_connection() {
             $pdo = new PDO($dsn, $user, $pass, $options);
         } catch (PDOException $e) {
             $error_msg = "Database connection failed: " . $e->getMessage();
-            write_log($error_msg);
+            error_log($error_msg);
             return ['db_error' => $error_msg];
         }
     }
     return $pdo;
 }
+
+// ... the rest of the functions (getAllUsers, deleteUserByEmail, storeLotteryResult) remain exactly the same ...
+// (You can copy them from your original file or just leave them as they are if you only add the top part)
 
 /**
  * Retrieves all users from the database.
@@ -40,7 +90,7 @@ function get_db_connection() {
 function getAllUsers() {
     $pdo = get_db_connection();
     if (is_array($pdo) && isset($pdo['db_error'])) {
-        write_log("getAllUsers: Failed to get database connection - " . $pdo['db_error']);
+        error_log("getAllUsers: Failed to get database connection - " . $pdo['db_error']);
         return [];
     }
     if (!$pdo) return [];
@@ -48,7 +98,7 @@ function getAllUsers() {
         $stmt = $pdo->query("SELECT id, email, created_at FROM users ORDER BY created_at DESC");
         return $stmt->fetchAll();
     } catch (PDOException $e) {
-        write_log("Error in getAllUsers: " . $e->getMessage());
+        error_log("Error in getAllUsers: " . $e->getMessage());
         return [];
     }
 }
@@ -59,7 +109,7 @@ function getAllUsers() {
 function deleteUserByEmail($email) {
     $pdo = get_db_connection();
     if (is_array($pdo) && isset($pdo['db_error'])) {
-        write_log("deleteUserByEmail: Failed to get database connection - " . $pdo['db_error']);
+        error_log("deleteUserByEmail: Failed to get database connection - " . $pdo['db_error']);
         return false;
     }
     if (!$pdo) return false;
@@ -68,7 +118,7 @@ function deleteUserByEmail($email) {
         $stmt->execute([$email]);
         return $stmt->rowCount() > 0;
     } catch (PDOException $e) {
-        write_log("Error in deleteUserByEmail for {$email}: " . $e->getMessage());
+        error_log("Error in deleteUserByEmail for {$email}: " . $e->getMessage());
         return false;
     }
 }
@@ -79,28 +129,28 @@ function deleteUserByEmail($email) {
 function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate) {
     $pdo = get_db_connection();
     if (is_array($pdo) && isset($pdo['db_error'])) {
-        write_log("storeLotteryResult: Failed to get database connection - " . $pdo['db_error']);
+        error_log("storeLotteryResult: Failed to get database connection - " . $pdo['db_error']);
         return false;
     }
     if (!$pdo) {
-        write_log("storeLotteryResult: No database connection (returned null unexpectedly).");
+        error_log("storeLotteryResult: No database connection (returned null unexpectedly).");
         return false;
     }
     try {
         $stmt = $pdo->prepare("SELECT id FROM lottery_results WHERE lottery_type = ? AND issue_number = ?");
         $stmt->execute([$lotteryType, $issueNumber]);
         if ($stmt->fetch()) {
-            write_log("Lottery result for type '{$lotteryType}' and issue '{$issueNumber}' already exists. Skipping insertion.");
+            error_log("Lottery result for type '{$lotteryType}' and issue '{$issueNumber}' already exists. Skipping insertion.");
             return true;
         }
         $stmt = $pdo->prepare(
             "INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date) VALUES (?, ?, ?, ?, ?, ?)"
         );
         $stmt->execute([$lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate]);
-        write_log("Successfully stored lottery result for {$lotteryType} - {$issueNumber}.");
+        error_log("Successfully stored lottery result for {$lotteryType} - {$issueNumber}.");
         return true;
     } catch (PDOException $e) {
-        write_log("Error storing lottery result for {$lotteryType} - {$issueNumber}: " . $e->getMessage());
+        error_log("Error storing lottery result for {$lotteryType} - {$issueNumber}: " . $e->getMessage());
         return false;
     }
 }

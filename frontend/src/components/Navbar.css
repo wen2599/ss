@@ -2,10 +2,10 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-image: linear-gradient(to right, #2d3748, #4a5568);
-    padding: 0 3rem;
-    height: 80px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    background-color: var(--header-bg);
+    padding: 0 2rem;
+    height: 70px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     position: fixed;
     top: 0;
     left: 0;
@@ -16,13 +16,8 @@
 .navbar-logo {
     color: var(--header-text);
     text-decoration: none;
-    font-size: 1.8rem;
+    font-size: 1.5rem;
     font-weight: bold;
-    transition: transform 0.3s ease;
-}
-
-.navbar-logo:hover {
-    transform: scale(1.05);
 }
 
 .navbar-links {
@@ -33,13 +28,13 @@
 }
 
 .navbar-links li {
-    margin-left: 2.5rem;
+    margin-left: 2rem;
 }
 
 .navbar-links a, .navbar-links button {
     color: var(--header-text);
     text-decoration: none;
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 500;
     background: none;
     border: none;
@@ -54,12 +49,12 @@
     position: absolute;
     width: 100%;
     transform: scaleX(0);
-    height: 3px;
-    bottom: -8px;
+    height: 2px;
+    bottom: -5px;
     left: 0;
     background-color: var(--header-text);
     transform-origin: bottom right;
-    transition: transform 0.3s ease-out;
+    transition: transform 0.25s ease-out;
 }
 
 .navbar-links a:hover::after,
@@ -68,15 +63,6 @@
     transform-origin: bottom left;
 }
 
-.navbar-links button {
-    padding: 0.6rem 1.2rem;
-    border-radius: var(--border-radius);
-    background-color: transparent;
-    border: 2px solid var(--header-text);
-    transition: all 0.3s ease;
-}
-
 .navbar-links button:hover {
-    background-color: var(--header-text);
-    color: var(--header-bg);
+    color: var(--secondary-text);
 }

@@ -1,116 +1,21 @@
-.page-container {
-  padding: 20px;
-  background-color: #f0f2f5;
-  min-height: 100vh;
+.lottery-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: calc(100vh - 80px);
+    text-align: center;
+    background-color: #f0f2f5;
 }
 
-.page-title {
-  text-align: center;
-  color: #333;
-  margin-bottom: 20px;
+.lottery-title {
+    font-size: 2.5rem;
+    color: #333;
+    margin-bottom: 20px;
 }
 
-.card {
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  padding: 20px;
-  margin: 0 auto;
-  max-width: 500px;
-}
-
-.loading-card, .no-data-card, .error-message {
-  text-align: center;
-  color: #666;
-}
-
-.error-message h2 {
+.lottery-number {
+    font-size: 4rem;
     color: #d9534f;
-}
-
-.retry-button {
-  background-color: #5cb85c;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 1rem;
-  margin-top: 15px;
-}
-
-.retry-button:hover {
-  background-color: #4cae4c;
-}
-
-.lottery-display-card .lottery-type {
-  text-align: center;
-  font-size: 1.5rem;
-  color: #333;
-  margin-bottom: 15px;
-}
-
-.lottery-display-card p {
-  color: #555;
-  margin: 5px 0;
-  text-align: center;
-}
-
-.lottery-detail-section {
-  margin-top: 20px;
-  border-top: 1px solid #eee;
-  padding-top: 15px;
-}
-
-.lottery-detail-section h3 {
-  color: #444;
-  margin-bottom: 10px;
-  text-align: center;
-}
-
-.numbers-container {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.number-circle {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: #d9534f;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  font-weight: bold;
-}
-
-.details-container {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.detail-item {
-  background-color: #f0f0f0;
-  padding: 5px 10px;
-  border-radius: 5px;
-  font-size: 1rem;
-}
-
-.lottery-timestamp {
-  margin-top: 20px;
-  font-size: 0.8rem;
-  color: #999;
-  text-align: center;
-}
-
-.page-footer {
-  text-align: center;
-  margin-top: 30px;
-  color: #888;
+    font-weight: bold;
 }
