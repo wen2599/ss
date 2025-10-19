@@ -20,7 +20,6 @@ const Navbar = () => {
                     {isAuthenticated ? (
                         <>
                             <li><NavLink to="/bills" className={({ isActive }) => isActive ? 'active' : ''}>我的账单</NavLink></li>
-                            <li><NavLink to="/lottery" className={({ isActive }) => isActive ? 'active' : ''}>开奖</NavLink></li>
                             <li><button onClick={handleLogout}>退出登录</button></li>
                         </>
                     ) : (
