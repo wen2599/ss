@@ -1,12 +1,12 @@
-// frontend/public/_worker.js
+// frontend/public/_worker.js (MODIFIED FOR FRONT CONTROLLER)
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const backendServer = "https://wenge.cloudns.ch"; // Your backend server
 
-    // If the request is for a .php file, proxy it to the backend.
-    if (url.pathname.endsWith('.php')) {
+    // If the request is for index.php (our API gateway), proxy it.
+    if (url.pathname === '/index.php') {
       const backendUrl = new URL(url.pathname, backendServer);
       backendUrl.search = url.search;
 
@@ -15,7 +15,7 @@ export default {
         headers: request.headers,
         body: request.body,
         redirect: 'follow',
-        duplex: 'half', // Required for streaming bodies in POST requests
+        duplex: 'half',
       });
 
       try {
@@ -27,6 +27,7 @@ export default {
     }
 
     // Otherwise, serve the static assets from the Pages deployment.
+    // This handles index.html, css, js, images, etc.
     return env.ASSETS.fetch(request);
   },
 };
