@@ -124,6 +124,26 @@ function deleteUserByEmail($email) {
 }
 
 /**
+ * Deletes a user from the database by their ID.
+ */
+function deleteUserById($userId) {
+    $pdo = get_db_connection();
+    if (is_array($pdo) && isset($pdo['db_error'])) {
+        error_log("deleteUserById: Failed to get database connection - " . $pdo['db_error']);
+        return false;
+    }
+    if (!$pdo) return false;
+    try {
+        $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        return $stmt->rowCount() > 0; // Returns true if a row was deleted, false otherwise
+    } catch (PDOException $e) {
+        error_log("Error in deleteUserById for ID {$userId}: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
  * Stores lottery results into the lottery_results table.
  */
 function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate) {

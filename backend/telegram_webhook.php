@@ -89,12 +89,37 @@ try {
     }
 
     if ($userState) {
-        // This is where stateful logic will go (e.g., waiting for an API key).
-        // TODO: Implement stateful handlers for each state.
-        $reply = "您当前处于 '{$userState}' 状态。请输入所需信息，或点击下方按钮返回主菜单。";
-        $replyKeyboard = getSimpleMainMenuKeyboard();
-        sendTelegramMessage($chatId, $reply, $replyKeyboard);
-        $log_entry .= " Action: Handled as state '{$userState}'.";
+        // Handle stateful operations
+        $log_entry .= " Handling state '{$userState}'.";
+
+        switch ($userState) {
+            case 'awaiting_user_to_delete':
+                $userIdToDelete = trim($cmd);
+                if (!is_numeric($userIdToDelete)) {
+                    $reply = "无效的 ID。请输入一个数字 ID。";
+                    $replyKeyboard = getSimpleMainMenuKeyboard();
+                } else {
+                    if (deleteUserById($userIdToDelete)) {
+                        $reply = "成功删除用户 ID: {$userIdToDelete}。";
+                    } else {
+                        $reply = "无法删除用户 ID: {$userIdToDelete}。可能该 ID 不存在。";
+                    }
+                    setUserState($userId, null); // Clear state after action
+                    $replyKeyboard = getUserManagementKeyboard(); // Go back to user menu
+                }
+                sendTelegramMessage($chatId, $reply, $replyKeyboard);
+                break;
+
+            // TODO: Add cases for other states like 'awaiting_gemini_prompt'
+
+            default:
+                // Generic state handler if no specific one is found
+                $reply = "您当前处于 '{$userState}' 状态。操作无法识别。点击下方按钮返回主菜单。";
+                $replyKeyboard = getSimpleMainMenuKeyboard();
+                sendTelegramMessage($chatId, $reply, $replyKeyboard);
+                setUserState($userId, null); // Clear unhandled state
+                break;
+        }
 
     } else {
         $reply = null;
@@ -133,6 +158,27 @@ try {
                  $reply = "请输入您想问 Cloudflare AI 的问题：";
                  $replyKeyboard = getSimpleMainMenuKeyboard();
                  break;
+
+            case 'list_users':
+                // This will be implemented in the next step.
+                // For now, we just acknowledge the command.
+                $allUsers = getAllUsers();
+                if (empty($allUsers)) {
+                    $reply = "数据库中没有找到任何用户。";
+                } else {
+                    $reply = "<b>注册用户列表:</b>\n\n";
+                    foreach ($allUsers as $user) {
+                        $reply .= "<b>ID:</b> <code>{$user['id']}</code>\n<b>邮箱:</b> <code>{$user['email']}</code>\n<b>注册于:</b> <code>{$user['created_at']}</code>\n\n";
+                    }
+                }
+                $replyKeyboard = getUserManagementKeyboard(); // Show the menu again
+                break;
+
+            case 'delete_user_prompt':
+                setUserState($userId, 'awaiting_user_to_delete');
+                $reply = "请输入您想删除的用户的 ID。";
+                $replyKeyboard = getSimpleMainMenuKeyboard(); // Provide an exit
+                break;
 
             default:
                 $reply = "无法识别的命令。";
