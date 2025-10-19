@@ -40,7 +40,7 @@ function load_env_file_simple($path) {
 }
 
 // Load env early for secret validation
-load_env_file_simple(__DIR__ . '/.env');
+load_env_file_simple(__DIR__ . '/../.env');
 
 // --- Runtime logger ---
 function write_telegram_debug_log($msg) {
@@ -54,10 +54,23 @@ function parse_lottery_data($text) {
         'lottery_type' => null, 'issue_number' => null, 'winning_numbers' => [],
         'zodiac_signs' => [], 'colors' => [], 'drawing_date' => date('Y-m-d')
     ];
-    if (preg_match('/(新澳门六合彩|香港六合彩|老澳.*?)第:(\d+)期/', $text, $h)) {
-        $data['lottery_type'] = (strpos($h[1], '老澳') !== false) ? '老澳门六合彩' : trim($h[1]);
+    // This regex is now more specific and looks for known lottery names.
+    if (preg_match('/(新澳门六合彩|老澳门六合彩|香港六合彩|老澳\d{1,2}\.\d{1,2})第:(\d+)\s*期/', $text, $h)) {
+        $name = trim($h[1]);
+        if (strpos($name, '新澳门') !== false) {
+            $data['lottery_type'] = '新澳门六合彩';
+        } elseif (strpos($name, '老澳') !== false) {
+            $data['lottery_type'] = '老澳门六合彩';
+        } elseif (strpos($name, '香港') !== false) {
+            $data['lottery_type'] = '香港六合彩';
+        } else {
+            // This case should not be reached due to the more specific regex, but as a fallback:
+            return null;
+        }
         $data['issue_number'] = $h[2];
-    } else { write_telegram_debug_log("[Parser] Failed: Header match."); return null; }
+    } else {
+        return null; // Not a lottery message, return null immediately
+    }
     $lines = array_values(array_filter(array_map('trim', explode("\n", trim($text))), fn($l) => !empty($l)));
     if (count($lines) < 4) { write_telegram_debug_log("[Parser] Failed: Not enough lines."); return null; }
     $data['winning_numbers'] = preg_split('/\s+/', $lines[1]);
@@ -162,14 +175,12 @@ $userId = $update['message']['from']['id']
 if (isset($update['channel_post'])) {
     $post = $update['channel_post'];
     $text = trim($post['text'] ?? '');
+    write_telegram_debug_log("Received channel_post from chat={$chatId} with text: " . substr($text, 0, 200));
 
     if (!empty($lotteryChannelId) && (string)$chatId === (string)$lotteryChannelId) {
-        write_telegram_debug_log("LOTTERY_CHANNEL_POST_RECEIVED. Full raw text: " . $text);
         handleLotteryMessage($chatId, $text);
         http_response_code(200);
         exit(json_encode(['status' => 'ok', 'message' => 'processed lottery channel post']));
-    } else {
-        write_telegram_debug_log("Received channel_post from other channel: chat={$chatId}");
     }
 } 
 // Check for callback query
@@ -208,7 +219,20 @@ try {
     // State handling...
     $userState = getUserState($userId);
     if ($userState) {
-        // ... (stateful logic for admin commands - keeping as is)
+        if ($userState === 'awaiting_email_to_delete') {
+            $email_to_delete = trim($commandOrText);
+            if (filter_var($email_to_delete, FILTER_VALIDATE_EMAIL)) {
+                if (deleteUserByEmail($email_to_delete)) {
+                    $reply = "用户 " . htmlspecialchars($email_to_delete) . " 已被删除。";
+                } else {
+                    $reply = "无法删除用户 " . htmlspecialchars($email_to_delete) . "。请检查邮件地址是否正确。";
+                }
+            } else {
+                $reply = "无效的电子邮件地址。请重试。";
+            }
+            clearUserState($userId);
+            sendTelegramMessage($chatId, $reply, getAdminKeyboard());
+        }
         http_response_code(200); exit();
     }
 
@@ -223,7 +247,22 @@ try {
             $reply = "欢迎回来，管理员！";
             $replyKeyboard = getAdminKeyboard();
             break;
-        // ... (all other admin command cases - keeping as is)
+        case 'user_management':
+            $reply = "请选择一个操作：";
+            $replyKeyboard = getUserManagementKeyboard();
+            break;
+        case 'view_users':
+            $users = getAllUsers();
+            $reply = "用户列表：\n";
+            foreach ($users as $user) {
+                $reply .= "- " . htmlspecialchars($user['email']) . "\n";
+            }
+            $replyKeyboard = getAdminKeyboard();
+            break;
+        case 'delete_user':
+            setUserState($userId, 'awaiting_email_to_delete');
+            $reply = "请输入要删除的用户的电子邮件地址：";
+            break;
         default:
             if (!empty($cmd)) {
                 $reply = "无法识别的命令。";
