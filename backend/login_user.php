@@ -28,6 +28,11 @@ if (empty($email) || empty($password)) {
 
 // --- Database and Authentication ---
 $pdo = get_db_connection();
+if (is_array($pdo) && isset($pdo['db_error'])) {
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => $pdo['db_error']]);
+    exit;
+}
 if (!$pdo) {
     http_response_code(503);
     echo json_encode([

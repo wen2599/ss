@@ -21,6 +21,12 @@ if (!$emailId) {
 $userId = $_SESSION['user_id'];
 $pdo = get_db_connection();
 
+if (is_array($pdo) && isset($pdo['db_error'])) {
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => $pdo['db_error']]);
+    exit;
+}
+
 try {
     // 1. Fetch the email content from the database
     $stmt = $pdo->prepare("SELECT html_content FROM emails WHERE id = ? AND user_id = ?");

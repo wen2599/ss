@@ -11,6 +11,11 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $pdo = get_db_connection();
+if (is_array($pdo) && isset($pdo['db_error'])) {
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => $pdo['db_error']]);
+    exit;
+}
 $userId = $_SESSION['user_id'];
 $emailId = $_GET['id'] ?? null;
 

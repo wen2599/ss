@@ -46,6 +46,11 @@ if ($action === 'is_user_registered') {
 
     try {
         $pdo = get_db_connection();
+        if (is_array($pdo) && isset($pdo['db_error'])) {
+            http_response_code(500);
+            echo json_encode(['status' => 'error', 'message' => $pdo['db_error']]);
+            exit;
+        }
         $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
         $stmt->execute([$email]);
         $userExists = $stmt->fetchColumn();
@@ -83,6 +88,11 @@ if ($action === 'process_email') {
     
     // Find the user by their email address
     $pdo = get_db_connection();
+    if (is_array($pdo) && isset($pdo['db_error'])) {
+        http_response_code(500);
+        echo json_encode(['status' => 'error', 'message' => $pdo['db_error']]);
+        exit;
+    }
     $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
     $stmt->execute([$from]);
     $user = $stmt->fetch();

@@ -1,6 +1,6 @@
 // 文件: frontend/src/api.js (MODIFIED FOR FRONT CONTROLLER)
 
-const API_BASE_URL = ''; // The backend files are in the root directory accessible from the web
+const API_BASE_URL = import.meta.env.DEV ? '/api' : '';
 
 /**
  * A helper function to build the correct API endpoint URL.
