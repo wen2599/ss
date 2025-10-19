@@ -36,7 +36,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
         'lifetime' => 86400, // 24 hours
         'path' => '/',
-        'domain' => '', // Set your domain in production, e.g., '.yourdomain.com'
+        'domain' => getenv('SESSION_COOKIE_DOMAIN') ?: '',
         'secure' => true,   // Important for HTTPS
         'httponly' => true,
         'samesite' => 'None' // Crucial for cross-origin requests
