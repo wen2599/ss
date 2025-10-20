@@ -1,93 +1,40 @@
 <?php
-header('Content-Type: text/plain; charset=utf-8');
+require_once __DIR__ . '/bootstrap.php';
 
-echo "--- Backend Environment Diagnostic Script ---\n\n";
+header('Content-Type: text/plain');
 
-$allChecksPassed = true;
-$logFilePath = __DIR__ . '/../backend.log';
-$envFilePath = __DIR__ . '/.env';
+echo "Checking environment variables...\n";
 
-// --- Check 1: PHP Version ---
-echo "1. Checking PHP Version...";
-if (version_compare(PHP_VERSION, '7.4.0', '>=')) {
-    echo "OK (v" . PHP_VERSION . ")\n";
+$telegramWebhookSecret = getenv('TELEGRAM_WEBHOOK_SECRET');
+
+if ($telegramWebhookSecret) {
+    echo "TELEGRAM_WEBHOOK_SECRET is set: [VALUE_LOADED]\n";
 } else {
-    echo "FAIL (v" . PHP_VERSION . " - Recommended: 7.4.0 or higher)\n";
-    $allChecksPassed = false;
+    echo "TELEGRAM_WEBHOOK_SECRET is NOT set or empty.\n";
 }
 
-// --- Check 2: .env File ---
-echo "2. Checking .env File...";
-if (file_exists($envFilePath)) {
-    if (is_readable($envFilePath)) {
-        echo "OK (Exists and is readable)\n";
-    } else {
-        echo "FAIL (.env file exists but is NOT READABLE)\n";
-        $allChecksPassed = false;
-    }
+$adminId = getenv('TELEGRAM_ADMIN_ID');
+if ($adminId) {
+    echo "TELEGRAM_ADMIN_ID is set: {$adminId}\n";
 } else {
-    echo "FAIL (.env file does NOT EXIST at {$envFilePath})\n";
-    $allChecksPassed = false;
+    echo "TELEGRAM_ADMIN_ID is NOT set or empty.\n";
 }
 
-// --- Check 3: Log File Permissions ---
-echo "3. Checking Log File Permissions...";
-if (file_exists($logFilePath)) {
-    if (is_writable($logFilePath)) {
-        echo "OK (Log file is writable)\n";
-    } else {
-        echo "FAIL (Log file exists but is NOT WRITABLE)\n";
-        $allChecksPassed = false;
-    }
+$backendUrl = getenv('BACKEND_URL');
+if ($backendUrl) {
+    echo "BACKEND_URL is set: {$backendUrl}\n";
 } else {
-    if (is_writable(dirname($logFilePath))) {
-        echo "OK (Log directory is writable, file will be created)\n";
-    } else {
-        echo "FAIL (Log file does not exist and its directory is NOT WRITABLE)\n";
-        $allChecksPassed = false;
+    echo "BACKEND_URL is NOT set or empty.\n";
+}
+
+echo "\nRaw $_ENV contents:\n";
+print_r($_ENV);
+
+echo "\nRaw $_SERVER contents (relevant parts):\n";
+foreach ($_SERVER as $key => $value) {
+    if (strpos($key, 'TELEGRAM') !== false || strpos($key, 'BACKEND') !== false || strpos($key, 'SECRET') !== false || strpos($key, 'ENV') !== false) {
+        echo "{$key} = {$value}\n";
     }
 }
-
-// --- Check 4: Required PHP Extensions ---
-echo "4. Checking for 'pdo_mysql' extension...";
-if (extension_loaded('pdo_mysql')) {
-    echo "OK (Installed)\n";
-} else {
-    echo "FAIL (NOT INSTALLED - This is critical for database connectivity)\n";
-    $allChecksPassed = false;
-}
-
-echo "5. Checking for 'curl' extension...";
-if (extension_loaded('curl')) {
-    echo "OK (Installed)\n";
-} else {
-    echo "FAIL (NOT INSTALLED - This is needed for making external API calls)\n";
-    $allChecksPassed = false;
-}
-
-// --- Check 6: Database Connection ---
-echo "6. Attempting Database Connection...\n";
-if ($allChecksPassed) {
-    // Only attempt connection if basic checks are fine
-    require_once __DIR__ . '/bootstrap.php';
-    try {
-        $pdo = get_db_connection();
-        echo "   ... OK (Successfully connected to the database)\n";
-    } catch (PDOException $e) {
-        echo "   ... FAIL (Connection failed: " . $e->getMessage() . ")\n";
-        $allChecksPassed = false;
-    }
-} else {
-    echo "   ... SKIPPED (Due to previous failures)\n";
-}
-
-// --- Final Summary ---
-echo "\n--- DIAGNOSTIC COMPLETE ---\n";
-if ($allChecksPassed) {
-    echo "RESULT: All critical environment checks passed successfully.\n";
-} else {
-    echo "RESULT: One or more critical environment checks failed. Please review the output above to resolve the issues.\n";
-}
-echo "---------------------------\n";
 
 ?>

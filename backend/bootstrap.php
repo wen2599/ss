@@ -43,6 +43,12 @@ if (!function_exists('load_env')) {
                 putenv(sprintf('%s=%s', $name, $value));
                 $_ENV[$name] = $value;
                 $_SERVER[$name] = $value;
+                // Log the loaded environment variable
+                if ($name === 'TELEGRAM_WEBHOOK_SECRET') {
+                    write_log("Loaded env var: {$name} = [SECRET_VALUE_LOADED]");
+                } else {
+                    write_log("Loaded env var: {$name} = {$value}");
+                }
             }
         }
     }
