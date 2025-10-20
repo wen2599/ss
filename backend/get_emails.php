@@ -1,52 +1,60 @@
 <?php
+// backend/get_emails.php
+// This endpoint is designed to receive incoming email data, typically from a Cloudflare Worker
+// or a similar email forwarding service. It then uses email_handler.php to process the email.
+
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/email_handler.php';
 
-write_log("------ get_emails.php Entry Point ------");
+header('Content-Type: application/json');
 
-// --- Authentication Check ---
-if (!isset($_SESSION['user_id'])) {
-    json_response('error', 'Unauthorized: User not logged in.', 401);
+// --- Security Check ---
+// It's CRUCIAL to secure this endpoint.
+// Implement a robust authentication mechanism (e.g., a shared secret, API key, or signed request)
+// to ensure only your Cloudflare Worker can access this endpoint.
+// Example: Check for a custom header with a pre-shared key.
+$sharedSecret = $_ENV['EMAIL_HANDLER_SECRET'] ?? ''; 
+$incomingSecret = $_SERVER['HTTP_X_EMAIL_WORKER_SECRET'] ?? '';
+
+if ($incomingSecret !== $sharedSecret || empty($sharedSecret)) {
+    http_response_code(403); // Forbidden
+    echo json_encode(['error' => 'Unauthorized access or missing secret.']);
+    exit();
 }
 
-$userId = $_SESSION['user_id'];
-$emailId = $_GET['id'] ?? null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $input = file_get_contents('php://input');
+    $emailData = json_decode($input, true);
 
-try {
-    $pdo = get_db_connection();
-    if ($emailId) {
-        // --- Fetch a single email by ID ---
-        $stmt = $pdo->prepare(
-            "SELECT id, sender, recipient, subject, html_content, created_at 
-             FROM emails 
-             WHERE id = ? AND user_id = ?"
-        );
-        $stmt->execute([$emailId, $userId]);
-        $email = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($email) {
-            json_response('success', ['email' => $email]); // Return single email directly
-        } else {
-            write_log("Email ID {$emailId} not found for user {$userId} or unauthorized.");
-            json_response('error', '未找到该邮件或无权查看。', 404);
-        }
-    } else {
-        // --- Fetch all emails for the user ---
-        $stmt = $pdo->prepare(
-            "SELECT id, sender, subject, created_at 
-             FROM emails 
-             WHERE user_id = ? 
-             ORDER BY created_at DESC"
-        );
-        $stmt->execute([$userId]);
-        $emails = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        json_response('success', ['emails' => $emails]);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid JSON payload.']);
+        exit();
     }
-} catch (PDOException $e) {
-    write_log("Database error in get_emails.php: " . $e->getMessage());
-    json_response('error', 'An error occurred while fetching emails.', 500);
+
+    // Expected fields from Cloudflare Worker
+    $rawEmail = $emailData['rawEmail'] ?? null;
+    $subject = $emailData['subject'] ?? 'No Subject';
+    $recipient = $emailData['recipient'] ?? null; // The email address this email was sent to
+
+    if (empty($rawEmail) || empty($recipient)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing raw email content or recipient.']);
+        exit();
+    }
+
+    // Process the email using the email_handler function
+    $result = processIncomingEmail($pdo, $rawEmail, $subject, $recipient);
+
+    if ($result['success']) {
+        http_response_code(200);
+        echo json_encode(['message' => $result['message'], 'billId' => $result['billId'] ?? null]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['error' => $result['message']]);
+    }
+
+} else {
+    http_response_code(405); // Method Not Allowed
+    echo json_encode(['error' => 'Invalid request method.']);
 }
-
-write_log("------ get_emails.php Exit Point ------");
-
-?>

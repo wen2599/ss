@@ -1,90 +1,109 @@
 <?php
-/**
- * db_operations.php
- * This file contains all database-related functions.
- * It relies on bootstrap.php to load the environment and provide the get_db_connection function.
- */
+// backend/db_operations.php
+// Contains common database operation functions.
 
 /**
- * Establishes and returns a singleton PDO database connection.
- * @throws PDOException if the connection fails or environment variables are not set.
+ * Executes a prepared statement with given parameters.
+ * @param PDO $pdo The PDO database connection object.
+ * @param string $sql The SQL query string.
+ * @param array $params An associative array of parameters for the prepared statement.
+ * @return PDOStatement The executed PDOStatement object.
+ * @throws PDOException If the query fails.
  */
-function get_db_connection() {
-    static $pdo = null;
-    if ($pdo === null) {
-        $host = getenv('DB_HOST');
-        $port = getenv('DB_PORT');
-        $dbname = getenv('DB_DATABASE');
-        $user = getenv('DB_USER');
-        $pass = getenv('DB_PASSWORD');
-
-        if (empty($host) || empty($port) || empty($dbname) || empty($user)) {
-            $error_msg = "Database connection error: Required environment variables are not set. Check .env file.";
-            error_log($error_msg);
-            throw new PDOException($error_msg);
-        }
-
-        $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
-        $options = [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
-        ];
-        // PDO constructor will throw a PDOException on connection failure
-        $pdo = new PDO($dsn, $user, $pass, $options);
+function executeStatement(PDO $pdo, string $sql, array $params = []): PDOStatement
+{
+    $stmt = $pdo->prepare($sql);
+    if (!$stmt->execute($params)) {
+        throw new PDOException("Statement execution failed: " . implode(", ", $stmt->errorInfo()));
     }
-    return $pdo;
+    return $stmt;
 }
 
 /**
- * Retrieves all users from the database.
+ * Fetches a single row from the database.
+ * @param PDO $pdo The PDO database connection object.
+ * @param string $sql The SQL query string.
+ * @param array $params An associative array of parameters for the prepared statement.
+ * @return array|false An associative array of the row, or false if no row is found.
  */
-function getAllUsers() {
-    try {
-        $pdo = get_db_connection();
-        $stmt = $pdo->query("SELECT id, email, created_at FROM users ORDER BY created_at DESC");
-        return $stmt->fetchAll();
-    } catch (PDOException $e) {
-        error_log("Error in getAllUsers: " . $e->getMessage());
-        return [];
-    }
+function fetchOne(PDO $pdo, string $sql, array $params = []): array|false
+{
+    $stmt = executeStatement($pdo, $sql, $params);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 /**
- * Deletes a user from the database by their email address.
+ * Fetches all rows from the database.
+ * @param PDO $pdo The PDO database connection object.
+ * @param string $sql The SQL query string.
+ * @param array $params An associative array of parameters for the prepared statement.
+ * @return array An array of associative arrays, each representing a row.
  */
-function deleteUserByEmail($email) {
-    try {
-        $pdo = get_db_connection();
-        $stmt = $pdo->prepare("DELETE FROM users WHERE email = ?");
-        $stmt->execute([$email]);
-        return $stmt->rowCount() > 0;
-    } catch (PDOException $e) {
-        error_log("Error in deleteUserByEmail for {$email}: " . $e->getMessage());
-        return false;
-    }
+function fetchAll(PDO $pdo, string $sql, array $params = []): array
+{
+    $stmt = executeStatement($pdo, $sql, $params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 /**
- * Stores lottery results into the lottery_results table.
+ * Inserts a new row into the database.
+ * @param PDO $pdo The PDO database connection object.
+ * @param string $table The name of the table to insert into.
+ * @param array $data An associative array of column_name => value.
+ * @return int The ID of the last inserted row.
+ * @throws PDOException If the insertion fails.
  */
-function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate) {
-    try {
-        $pdo = get_db_connection();
-        $stmt = $pdo->prepare("SELECT id FROM lottery_results WHERE lottery_type = ? AND issue_number = ?");
-        $stmt->execute([$lotteryType, $issueNumber]);
-        if ($stmt->fetch()) {
-            error_log("Lottery result for type '{$lotteryType}' and issue '{$issueNumber}' already exists. Skipping insertion.");
-            return true;
-        }
-        $stmt = $pdo->prepare(
-            "INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date) VALUES (?, ?, ?, ?, ?, ?)"
-        );
-        $stmt->execute([$lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate]);
-        error_log("Successfully stored lottery result for {$lotteryType} - {$issueNumber}.");
-        return true;
-    } catch (PDOException $e) {
-        error_log("Error storing lottery result for {$lotteryType} - {$issueNumber}: " . $e->getMessage());
-        return false;
+function insert(PDO $pdo, string $table, array $data): int
+{
+    $columns = implode(', ', array_keys($data));
+    $placeholders = ':' . implode(', :', array_keys($data));
+    $sql = "INSERT INTO `$table` ($columns) VALUES ($placeholders)";
+    executeStatement($pdo, $sql, $data);
+    return (int)$pdo->lastInsertId();
+}
+
+/**
+ * Updates rows in the database.
+ * @param PDO $pdo The PDO database connection object.
+ * @param string $table The name of the table to update.
+ * @param array $data An associative array of column_name => value to set.
+ * @param string $whereClause The WHERE clause for the update statement (e.g., 'id = :id').
+ * @param array $whereParams An associative array of parameters for the WHERE clause.
+ * @return int The number of affected rows.
+ * @throws PDOException If the update fails.
+ */
+function update(PDO $pdo, string $table, array $data, string $whereClause, array $whereParams = []): int
+{
+    $setParts = [];
+    foreach ($data as $key => $value) {
+        $setParts[] = "`$key` = :set_$key";
     }
+    $setSql = implode(', ', $setParts);
+
+    $sql = "UPDATE `$table` SET $setSql WHERE $whereClause";
+
+    $params = [];
+    foreach ($data as $key => $value) {
+        $params[":set_$key"] = $value;
+    }
+    $params = array_merge($params, $whereParams);
+
+    $stmt = executeStatement($pdo, $sql, $params);
+    return $stmt->rowCount();
+}
+
+/**
+ * Deletes rows from the database.
+ * @param PDO $pdo The PDO database connection object.
+ * @param string $table The name of the table to delete from.
+ * @param string $whereClause The WHERE clause for the delete statement (e.g., 'id = :id').
+ * @param array $whereParams An associative array of parameters for the WHERE clause.
+ * @return int The number of affected rows.
+ * @throws PDOException If the deletion fails.
+ */
+function delete(PDO $pdo, string $table, string $whereClause, array $whereParams = []): int
+{
+    $sql = "DELETE FROM `$table` WHERE $whereClause";
+    $stmt = executeStatement($pdo, $sql, $whereParams);
+    return $stmt->rowCount();
 }

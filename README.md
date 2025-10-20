@@ -1,100 +1,235 @@
-# README
+# Bill & Lottery Tracker
 
-## 全栈Web应用项目
+This project provides a full-stack solution to automatically process bills from emails using AI and track lottery results. It consists of a React frontend deployed on Cloudflare Pages, a pure PHP backend deployed on Serv00, and a Cloudflare Worker for email processing.
 
-### 描述
-这是一个经过全面重构和优化的全栈Web应用程序，前端使用React，后端使用原生PHP。项目采用统一的API入口(`index.php`)、强大的引导文件(`bootstrap.php`)以及一个清晰、安全的项目结构。
+## Project Architecture
 
-### 部署指南 (Nginx) - 已修正
+*   **Frontend**: React application for user interface, deployed on Cloudflare Pages.
+*   **Backend**: Pure PHP application for API endpoints, database interactions, and Telegram Bot logic, deployed on Serv00.
+*   **Cloudflare Worker**: Intercepts incoming emails, parses them, and forwards the raw email content to the backend for AI processing.
+*   **Database**: MySQL (or compatible) database to store user information, bills, sessions, and lottery results.
 
-**1. 文件上传**
-将所有文件上传到您的服务器。`frontend/build`目录包含所有编译好的前端静态资源，后端PHP文件位于`backend`目录。
+## Features
 
-**2. Nginx 配置 (重要更新)**
-请使用以下经过修正的Nginx配置。此配置能正确处理前端路由，并将API请求无误地交由后端的PHP-FPM执行。
+*   User registration and authentication (frontend and Telegram Bot).
+*   View and manage parsed bills.
+*   Track lottery results.
+*   AI-powered email parsing for bill details and lottery numbers (using Gemini or Cloudflare AI).
+*   Telegram Bot integration for user interaction and notifications.
+*   Cron job for automated lottery result checking and winner notification.
 
-```nginx
-server {
-    listen 80;
-    server_name your_domain.com; # 替换为您的域名
+## Setup and Deployment
 
-    # 1. 前端应用配置
-    location / {
-        # 指向您前端构建输出的目录 (通常是 build 或 dist)
-        root /path/to/your/project/frontend/build;
-        # 此设置确保在使用 history 模式路由时，刷新页面不会导致404
-        try_files $uri $uri/ /index.html;
+### 1. Backend (Serv00)
+
+#### A. Prerequisites
+
+*   A Serv00 account with PHP and MySQL database access.
+*   PHP 8.1+ with `pdo_mysql`, `curl`, `json` extensions enabled.
+*   Your `.env` file with configurations (see below).
+
+#### B. Database Setup
+
+1.  **Create Database**: Log in to your Serv00 panel and create a new MySQL database.
+2.  **Initialize Tables**: Upload `backend/database_schema.sql` to your Serv00 server. You can then import it using phpMyAdmin or run the `backend/initialize_database.php` script via SSH:
+    ```bash
+    php /path/to/your/backend/initialize_database.php
+    ```
+    *Make sure the `backend` directory is the root of your PHP deployment or configure your web server accordingly.*
+
+#### C. Environment Variables (`backend/.env`)
+
+Create a `.env` file in your `backend` directory on Serv00 with the following content. **Replace placeholder values with your actual credentials.**
+
+```env
+# --- Database Configuration ---
+DB_HOST="mysql12.serv00.com" # Your Serv00 MySQL host
+DB_PORT="3306"
+DB_DATABASE="m10300_sj" # Your database name
+DB_USER="m10300_yh"     # Your database user
+DB_PASSWORD="Wenxiu1234*" # Your database password
+
+# --- Security Tokens ---
+# A strong, random string. Must match in Cloudflare Worker (WORKER_SECRET) and backend (EMAIL_HANDLER_SECRET).
+EMAIL_HANDLER_SECRET="816429fb-1649-4e48-9288-7629893311a6"
+# A strong, random string for Telegram Webhook secret_token.
+TELEGRAM_WEBHOOK_SECRET="A7kZp9sR3bV2nC1mE6gH_jL5tP8vF4qW"
+# A strong, random string for protecting admin endpoints.
+ADMIN_SECRET="your_admin_secret_here_change_this"
+
+# --- Telegram Bot Configuration ---
+TELEGRAM_BOT_TOKEN="7222421940:AAEUTuFvonFCP1o-nRtNWbojCzSM9GQ--jU" # Your Telegram Bot API Token
+TELEGRAM_ADMIN_ID="1878794912" # Your personal Telegram User ID for admin notifications
+LOTTERY_CHANNEL_ID="-1002652392716" # Optional: Telegram Channel ID to announce lottery winners
+
+# --- AI API Keys ---
+GEMINI_API_KEY="AIzaSyDiG87DWQlcc4cSJqDno19ETfsXOTfgQDQ" # Your Google Gemini API Key
+# DEEPSEEK_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" # If using DeepSeek AI
+
+# --- Cloudflare AI Configuration (if using Cloudflare AI) ---
+CLOUDFLARE_ACCOUNT_ID="d67543ae14aee902dafcc4d251a713cd" # Your Cloudflare Account ID
+CLOUDFLARE_API_TOKEN="boyDTR3dAZxbGawXSyG5k7R6fEclWaQVGBr8rgWw" # Your Cloudflare API Token (for AI Gateway)
+
+# --- Backend Public URL ---
+BACKEND_PUBLIC_URL="https://wenge.cloudns.ch" # The public URL of your backend
+```
+
+#### D. Deploy Backend Files
+
+Upload all files and folders from the `backend` directory to the root directory of your PHP application on Serv00.
+
+#### E. Set up Telegram Webhook
+
+Once your backend is deployed and accessible via `https://wenge.cloudns.ch`, set up the Telegram webhook by visiting this URL in your browser (replace `your_admin_secret_here`):
+
+`https://wenge.cloudns.ch/admin/set_telegram_webhook?secret=your_admin_secret_here`
+
+You should see `{"ok":true,"result":true,"description":"Webhook was set"}` on success.
+
+#### F. Configure Cron Job for Lottery Check
+
+Set up a cron job on Serv00 to run `backend/check_lottery_data.php` periodically. For example, to run daily:
+
+```bash
+0 18 * * * php /path/to/your/backend/check_lottery_data.php
+```
+*(Adjust `/path/to/your/backend/` to your actual path on Serv00 and `0 18 * * *` to your desired schedule).* You can also trigger it manually via the admin endpoint: `https://wenge.cloudns.ch/admin/check_lottery_data?secret=your_admin_secret_here` (Note: `check_lottery_data` is a direct endpoint in this example, not under `/admin`).
+
+### 2. Frontend (Cloudflare Pages)
+
+#### A. Prerequisites
+
+*   Node.js and npm installed locally.
+*   A Cloudflare account with Cloudflare Pages set up.
+
+#### B. Configuration
+
+Edit `frontend/vite.config.js` to set the proxy target to your backend URL:
+
+```javascript
+// ...
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://wenge.cloudns.ch', // Your Serv00 PHP backend URL
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        secure: true,
+      },
+    },
+  },
+})
+```
+
+#### C. Build and Deploy
+
+1.  Navigate to the `frontend` directory in your local terminal:
+    ```bash
+    cd frontend
+    ```
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+3.  Build the project for production:
+    ```bash
+    npm run build
+    ```
+4.  Deploy the contents of the `dist` folder to Cloudflare Pages. Configure Cloudflare Pages to build from the `frontend` directory and publish the `dist` directory.
+
+### 3. Cloudflare Worker
+
+#### A. Prerequisites
+
+*   A Cloudflare account.
+*   An email address configured with Cloudflare Email Routing.
+
+#### B. Worker Script (`worker/worker.js`)
+
+```javascript
+// worker/worker.js
+
+export default {
+  async email(message, env, ctx) {
+    const backendUrl = env.BACKEND_URL; // e.g., "https://wenge.cloudns.ch"
+    const workerSecret = env.WORKER_SECRET; // Must match EMAIL_HANDLER_SECRET in backend .env
+
+    if (!backendUrl || !workerSecret) {
+      console.error("Missing BACKEND_URL or WORKER_SECRET environment variables.");
+      return;
     }
 
-    # 2. 后端 API 代理配置
-    # 所有以 /api/ 开头的请求都会被这里处理
-    location /api/ {
-        # 'alias' 指令将URL路径映射到服务器上的物理路径。
-        # 例如, 请求 /api/index.php 将会执行 /path/to/your/project/backend/index.php 文件。
-        alias /path/to/your/project/backend/;
+    const rawEmail = await new Response(message.raw, { headers: { "Content-Type": "text/plain" } }).text();
 
-        # 确保所有请求都最终指向 index.php 前端控制器
-        try_files $uri $uri/ /api/index.php?$query_string;
+    const emailData = {
+      rawEmail: rawEmail,
+      subject: message.headers.get("Subject") || "No Subject",
+      recipient: message.to,
+    };
 
-        # 嵌套 location 块，专门处理 PHP 文件的执行
-        location ~ \.php$ {
-            include fastcgi_params;
+    try {
+      const response = await fetch(`${backendUrl}/email_webhook`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Email-Worker-Secret": workerSecret, // Security header
+        },
+        body: JSON.stringify(emailData),
+      });
 
-            # SCRIPT_FILENAME 是最重要的参数，它告诉PHP-FPM要执行哪个文件。
-            # $request_filename 变量会持有由 alias 指令转换后的正确文件路径。
-            fastcgi_param SCRIPT_FILENAME $request_filename;
-
-            # 根据您的服务器环境，选择使用 sock 文件或 TCP 端口
-            # 示例 (Ubuntu with PHP 8.1):
-            fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
-            # 或者使用 TCP 端口:
-            # fastcgi_pass 127.0.0.1:9000;
-
-            fastcgi_index index.php;
-        }
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Failed to forward email to backend: ${response.status} - ${errorText}`);
+      } else {
+        console.log("Email successfully forwarded to backend.");
+      }
+    } catch (e) {
+      console.error(`Error forwarding email to backend: ${e.message}`);
     }
-
-    # 可选: 为静态资源设置浏览器缓存
-    location ~* \.(?:jpg|jpeg|gif|png|ico|css|js)$ {
-        expires 1y;
-        add_header Cache-Control "public";
-    }
-}
+  },
+};
 ```
 
-**3. .env 文件**
-在项目的根目录下创建一个`.env`文件，并填入以下凭证：
-```
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=your_db_name
-DB_USER=your_db_user
-DB_PASSWORD=your_db_password
+#### C. Deploy Worker
 
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-TELEGRAM_WEBHOOK_SECRET=your_secret_string_for_webhook
-TELEGRAM_ADMIN_ID=your_telegram_admin_id
-LOTTERY_CHANNEL_ID=your_lottery_channel_id
+1.  Deploy the `worker/worker.js` script to Cloudflare Workers.
+2.  **Environment Variables**: In your Cloudflare Worker settings, add the following environment variables:
+    *   `BACKEND_URL`: Your backend's public URL (e.g., `https://wenge.cloudns.ch`).
+    *   `WORKER_SECRET`: The same secret string you used for `EMAIL_HANDLER_SECRET` in your backend's `.env` file.
+3.  **Email Routing**: Configure Cloudflare Email Routing to forward emails from a designated address (e.g., `bills@yourdomain.com`) to this Worker. The Worker will then process and forward them to your backend.
 
-GEMINI_API_KEY=your_gemini_api_key_here
-CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id_here
-CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here
-```
+## Usage
 
-**4. 初始化数据库**
-通过命令行在`backend`目录中执行`php initialize_database.php`来创建数据库表。
+### Frontend
 
-### 项目结构
-```
-.env
-README.md
-frontend/
-  build/            # 前端静态文件 (Web根目录)
-  src/
-    ...
-    api.js
-backend/
-  index.php         # 所有API请求的统一入口
-  bootstrap.php     # 核心：加载配置、函数、会话、数据库
-  ... (其他PHP文件)
-```
+Access your frontend application at `https://ss.wenxiuxiu.eu.org`.
+
+*   **Register**: Create a new account.
+*   **Login**: Log in to view your bills and lottery results.
+*   **My Bills**: See a list of bills parsed from your emails.
+*   **Lottery Results**: Check the latest lottery winning numbers.
+
+### Telegram Bot
+
+Interact with your Telegram Bot:
+
+*   `/start`: Get a welcome message and command list.
+*   `/register`: Create a new user account through a guided conversation.
+*   `/login`: Link your Telegram chat to an existing web account.
+*   `/bills`: View your latest bills.
+
+### Email Processing
+
+Forward your bill emails to the email address configured with your Cloudflare Email Routing (e.g., `bills@yourdomain.com`). The Cloudflare Worker will intercept, parse, and send them to your backend for AI processing.
+
+## Development Notes
+
+*   **Security**: Always use strong, random secrets and API keys. Do not expose sensitive information.
+*   **Error Logging**: Ensure proper error logging is set up on your Serv00 PHP environment for debugging.
+*   **AI Model**: You can switch between Gemini and Cloudflare AI in `backend/process_email_ai.php` by modifying the `ACTIVE_AI_SERVICE` define.
+
+---
+
+This `README.md` provides a comprehensive guide for setting up and deploying your project. Please review it carefully and ensure all configurations match your environment.

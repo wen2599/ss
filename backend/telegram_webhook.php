@@ -1,186 +1,161 @@
 <?php
+// backend/telegram_webhook.php
+// Handles incoming updates from the Telegram Bot API, with stateful interactions.
+
 require_once __DIR__ . '/bootstrap.php';
-require_once __DIR__ . '/telegram_helpers.php'; // Specific Telegram helper functions
+require_once __DIR__ . '/telegram_helpers.php';
+require_once __DIR__ . '/user_state_manager.php';
+require_once __DIR__ . '/db_operations.php';
 
-write_log("------ telegram_webhook.php Entry Point ------");
+// --- Security Check ---
+// Verify the request is coming from Telegram using the secret token.
+$secretToken = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? '';
+$telegramSecretHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 
-// --- CORE FIX: Secret Token Validation for Webhook ONLY ---
-$expectedSecret = getenv('TELEGRAM_WEBHOOK_SECRET');
-
-if (!$expectedSecret) {
-    write_log("CRITICAL: TELEGRAM_WEBHOOK_SECRET is not configured in .env. Webhook cannot be validated.");
-    json_response('error', 'Internal Server Error: Webhook secret not configured.', 500);
+if (empty($secretToken) || $telegramSecretHeader !== $secretToken) {
+    http_response_code(403);
+    die('Forbidden: Invalid secret token.');
 }
 
-$receivedHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
-$receivedParam = $_GET['secret'] ?? null;
-$receivedSecret = $receivedHeader ?? $receivedParam;
+// Get the update from the request body.
+$update = json_decode(file_get_contents('php://input'), true);
 
-if (empty($receivedSecret)) {
-    write_log("Webhook rejected: Missing secret token in request.");
-    json_response('error', 'Forbidden: Missing secret token.', 403);
+if (!$update) {
+    // No update data received.
+    exit();
 }
 
-if (!hash_equals($expectedSecret, $receivedSecret)) {
-    write_log("Webhook rejected: Secret token mismatch.");
-    json_response('error', 'Forbidden: Secret token mismatch.', 403);
-}
-write_log("Webhook secret token validation passed.");
-// --- END OF CORE FIX ---
+// --- Process Update ---
+// Check if the update is a message and contains text.
+if (isset($update['message'])) {
+    $message = $update['message'];
+    $chatId = $message['chat']['id'];
+    $text = trim($message['text']);
+    $userId = $message['from']['id']; // Telegram user ID
 
-// --- Lottery Message Parser & Handler ---
-function parse_lottery_data($text) {
-    $data = [
-        'lottery_type' => null, 'issue_number' => null, 'winning_numbers' => [],
-        'zodiac_signs' => [], 'colors' => [], 'drawing_date' => date('Y-m-d')
-    ];
-    if (preg_match('/(新澳门六合彩|香港六合彩|老澳.*?)第:(\d+)期/', $text, $h)) {
-        $data['lottery_type'] = (strpos($h[1], '老澳') !== false) ? '老澳门六合彩' : trim($h[1]);
-        $data['issue_number'] = $h[2];
-    } else { write_log("[Parser] Failed: Header match."); return null; }
-    $lines = array_values(array_filter(array_map('trim', explode("\n", trim($text))), fn($l) => !empty($l)));
-    if (count($lines) < 4) { write_log("[Parser] Failed: Not enough lines."); return null; }
-    $data['winning_numbers'] = preg_split('/\s+/', $lines[1]);
-    $data['zodiac_signs']    = preg_split('/\s+/', $lines[2]);
-    $data['colors']          = preg_split('/\s+/', $lines[3]);
-    if (count($data['winning_numbers']) === 0 || count($data['winning_numbers']) !== count($data['zodiac_signs']) || count($data['winning_numbers']) !== count($data['colors'])) {
-        write_log("[Parser] Failed: Mismatch in data counts."); return null;
+    // Check if the user exists in our database, if not, create a basic entry
+    $dbUser = fetchOne($pdo, "SELECT id, telegram_chat_id, user_state, state_data FROM users WHERE telegram_chat_id = :chat_id", [':chat_id' => $chatId]);
+    if (!$dbUser) {
+        // Create a temporary user entry if it's a new Telegram chat ID
+        insert($pdo, 'users', [
+            'username' => 'telegram_user_' . $chatId,
+            'password' => password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), // Dummy password
+            'email' => 'telegram_user_' . $chatId . '@example.com', // Dummy email
+            'telegram_chat_id' => $chatId,
+            'user_state' => STATE_NONE
+        ]);
+        $dbUser = fetchOne($pdo, "SELECT id, telegram_chat_id, user_state, state_data FROM users WHERE telegram_chat_id = :chat_id", [':chat_id' => $chatId]);
     }
-    write_log("[Parser] Success: Parsed issue {$data['issue_number']} for {$data['lottery_type']}");
-    return $data;
-}
 
-function handleLotteryMessage($chatId, $text) {
-    write_log("Attempting to parse lottery message: " . substr($text, 0, 100) . "...");
-    $parsedData = parse_lottery_data($text);
-    if ($parsedData === null) {
-        write_log("Failed to parse lottery message. No data will be stored.");
-        return;
-    }
-    try {
-        $numbersJson = json_encode($parsedData['winning_numbers']);
-        $zodiacsJson = json_encode($parsedData['zodiac_signs']);
-        $colorsJson = json_encode($parsedData['colors']);
-        $success = storeLotteryResult(
-            $parsedData['lottery_type'], $parsedData['issue_number'],
-            $numbersJson, $zodiacsJson, $colorsJson, $parsedData['drawing_date']
-        );
-        if ($success) {
-            write_log("Successfully stored lottery result for issue {$parsedData['issue_number']}.");
-        } else {
-            write_log("Failed to store lottery result. Check db_operations.php and database error logs.");
+    $currentStateAndData = getUserStateAndData($pdo, $chatId);
+    $currentState = $currentStateAndData['state'];
+    $stateData = $currentStateAndData['data'];
+
+    // --- Command Handling ---
+    if ($text[0] === '/') {
+        // Clear state if a new command is issued
+        clearUserStateAndData($pdo, $chatId);
+        $command = explode(' ', $text)[0];
+        switch ($command) {
+            case '/start':
+                $responseText = "Welcome! This bot helps you manage your bills.\n\n"
+                              . "You can use the following commands:\n"
+                              . "/register - Create a new account\n"
+                              . "/login - Connect your Telegram to an existing account\n"
+                              . "/bills - View your latest bills";
+                sendTelegramMessage($chatId, $responseText);
+                break;
+
+            case '/register':
+                setUserStateAndData($pdo, $chatId, STATE_AWAITING_REGISTER_USERNAME);
+                sendTelegramMessage($chatId, "Let's create an account. Please enter your desired username:");
+                break;
+
+            case '/login':
+                setUserStateAndData($pdo, $chatId, STATE_AWAITING_LOGIN_USERNAME);
+                sendTelegramMessage($chatId, "Let's link your account. Please enter your username or email:");
+                break;
+
+            case '/bills':
+                $userFromDb = fetchOne($pdo, "SELECT id, username FROM users WHERE telegram_chat_id = :chat_id AND username IS NOT NULL AND email IS NOT NULL AND password IS NOT NULL", [':chat_id' => $chatId]);
+                if ($userFromDb && !str_starts_with($userFromDb['username'], 'telegram_user_')) {
+                    $bills = fetchAll($pdo, "SELECT subject, amount, due_date FROM bills WHERE user_id = :user_id ORDER BY received_at DESC LIMIT 5", [':user_id' => $userFromDb['id']]);
+                    if ($bills) {
+                        $responseText = "<b>Your latest bills:</b>\n\n";
+                        foreach ($bills as $bill) {
+                            $responseText .= "- " . htmlspecialchars($bill['subject']) . " - $" . ($bill['amount'] ?? 'N/A') . " (Due: " . ($bill['due_date'] ?? 'N/A') . ")\n";
+                        }
+                    } else {
+                        $responseText = "You don't have any bills yet.";
+                    }
+                } else {
+                    $responseText = "You are not fully registered or logged in. Please use /register or /login first.";
+                }
+                sendTelegramMessage($chatId, $responseText);
+                break;
+
+            default:
+                sendTelegramMessage($chatId, "Unknown command. Please use /start to see the list of available commands.");
+                break;
         }
-    } catch (Throwable $e) {
-        write_log("Exception during database storage: " . $e->getMessage());
-    }
-}
-
-// --- Main Script Execution ---
-$adminId = getenv('TELEGRAM_ADMIN_ID') ?: null;
-$lotteryChannelId = getenv('LOTTERY_CHANNEL_ID') ?: null;
-
-write_log("ENV Check: AdminID=" . ($adminId ? 'OK' : 'FAIL') . ", ChannelID=" . ($lotteryChannelId ? 'OK' : 'FAIL'));
-
-$bodyRaw = file_get_contents('php://input');
-$update = json_decode($bodyRaw, true);
-
-if (!is_array($update)) {
-    write_log("Invalid JSON payload; ignoring.");
-    json_response('success', 'Invalid JSON payload; ignoring.'); // 200 OK for ignored updates
-}
-
-// --- Process Different Update Types ---
-
-// 1. Channel Post for Lottery Data
-if (isset($update['channel_post'])) {
-    $chatId = $update['channel_post']['chat']['id'] ?? null;
-    $text = trim($update['channel_post']['text'] ?? '');
-    write_log("Received channel_post from chat={$chatId}");
-
-    if (!empty($lotteryChannelId) && (string)$chatId === (string)$lotteryChannelId) {
-        handleLotteryMessage($chatId, $text);
     } else {
-        write_log("Ignoring channel_post from non-lottery channel.");
+        // --- State-based Input Handling ---
+        switch ($currentState) {
+            case STATE_AWAITING_REGISTER_USERNAME:
+                $stateData['username'] = $text;
+                setUserStateAndData($pdo, $chatId, STATE_AWAITING_REGISTER_EMAIL, $stateData);
+                sendTelegramMessage($chatId, "Got it. Now, please enter your email address:");
+                break;
+            case STATE_AWAITING_REGISTER_EMAIL:
+                if (!filter_var($text, FILTER_VALIDATE_EMAIL)) {
+                    sendTelegramMessage($chatId, "That doesn't look like a valid email. Please try again:");
+                    break;
+                }
+                $stateData['email'] = $text;
+                setUserStateAndData($pdo, $chatId, STATE_AWAITING_REGISTER_PASSWORD, $stateData);
+                sendTelegramMessage($chatId, "Thanks. Finally, please choose a strong password:");
+                break;
+            case STATE_AWAITING_REGISTER_PASSWORD:
+                $stateData['password'] = $text;
+                
+                // Attempt to register the user
+                $newUserId = registerUserViaTelegram($pdo, $stateData['username'], $stateData['email'], $stateData['password'], $chatId);
+
+                if ($newUserId) {
+                    sendTelegramMessage($chatId, "Registration successful! Your account is now linked. You can now use /bills.");
+                    clearUserStateAndData($pdo, $chatId);
+                } else {
+                    sendTelegramMessage($chatId, "Registration failed. Username or email might already exist. Please try /register again with different details or /login if you have an account.");
+                    clearUserStateAndData($pdo, $chatId);
+                }
+                break;
+
+            case STATE_AWAITING_LOGIN_USERNAME:
+                $stateData['username_or_email'] = $text;
+                setUserStateAndData($pdo, $chatId, STATE_AWAITING_LOGIN_PASSWORD, $stateData);
+                sendTelegramMessage($chatId, "Please enter your password:");
+                break;
+            case STATE_AWAITING_LOGIN_PASSWORD:
+                $user = authenticateTelegramUser($pdo, $stateData['username_or_email'], $text);
+                if ($user) {
+                    // Link Telegram chat ID to existing user
+                    linkTelegramUser($pdo, $user['id'], $chatId);
+                    sendTelegramMessage($chatId, "Login successful! Your Telegram is now linked to your account.");
+                    clearUserStateAndData($pdo, $chatId);
+                } else {
+                    sendTelegramMessage($chatId, "Login failed. Invalid username/email or password. Please try /login again.");
+                    clearUserStateAndData($pdo, $chatId);
+                }
+                break;
+
+            case STATE_NONE:
+            default:
+                sendTelegramMessage($chatId, "I didn't understand that. Please use a command like /start, /register, or /login.");
+                break;
+        }
     }
-    json_response('success', 'processed channel post');
 }
 
-// 2. Callback Query or Message from Admin
-$chatId = $update['message']['chat']['id'] ?? $update['callback_query']['message']['chat']['id'] ?? null;
-$userId = $update['message']['from']['id'] ?? $update['callback_query']['from']['id'] ?? null;
-$commandOrText = null;
-
-if (isset($update['callback_query'])) {
-    $cb = $update['callback_query'];
-    $commandOrText = $cb['data'] ?? null;
-    if (!empty($cb['id'])) answerTelegramCallbackQuery($cb['id']);
-    write_log("Received callback_query from user={$userId} with data: " . $commandOrText);
-} elseif (isset($update['message'])) {
-    $commandOrText = trim($update['message']['text'] ?? '');
-    write_log("Received message from user={$userId} with text: " . $commandOrText);
-} else {
-    write_log("Unsupported update type or already handled; ignoring.");
-    json_response('success', 'Unsupported update type or already handled; ignoring.');
-}
-
-// --- Process Admin Commands ---
-if (empty($chatId) || empty($userId)) {
-    write_log("Missing chatId or userId for command processing.");
-    json_response('success', 'Missing chatId or userId for command processing.');
-}
-
-// IMPORTANT: Admin-only check
-if (empty($adminId) || (string)$userId !== (string)$adminId) {
-    write_log("Unauthorized access attempt from user {$userId}.");
-    // Only send a message if it's a direct command attempt, not just random text.
-    if (strpos(trim($commandOrText), '/') === 0) {
-       @sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
-    }
-    json_response('error', 'Unauthorized access.', 403);
-}
-
-write_log("Processing admin command from user {$userId}.");
-
-try {
-    // Ensure user_state_manager.php is effectively included (via bootstrap or directly if needed)
-    // Assuming getUserState and getAdminKeyboard are available globally or via requires.
-    $userState = getUserState($userId);
-    write_log("User state for admin {$userId}: " . json_encode($userState));
-    if ($userState) {
-        // ... (stateful logic for admin commands - keeping as is)
-        json_response('success', 'Stateful command processed.');
-    }
-
-    $cmd = strtolower(trim($commandOrText ?? ''));
-    write_log("Processing command: " . $cmd);
-    $reply = null;
-    $replyKeyboard = null;
-
-    switch ($cmd) {
-        case '/start':
-        case 'main_menu':
-            $reply = "欢迎回来，管理员！";
-            $replyKeyboard = getAdminKeyboard();
-            break;
-        // ... (all other admin command cases - keeping as is)
-        default:
-            if (!empty($cmd)) {
-                $reply = "无法识别的命令。";
-                $replyKeyboard = getAdminKeyboard();
-            }
-            break;
-    }
-
-    if ($reply) {
-        write_log("Replying with: " . $reply);
-        sendTelegramMessage($chatId, $reply, $replyKeyboard);
-    }
-} catch (Throwable $e) {
-    write_log("Exception in admin command processing: " . $e->getMessage());
-    @sendTelegramMessage($adminId, "Webhook internal error: " . substr($e->getMessage(), 0, 200));
-    json_response('error', 'An internal error occurred during command processing.', 500);
-}
-
-json_response('success', 'Webhook processed successfully.');
-
-?>
+// Acknowledge receipt of the update to Telegram.
+http_response_code(200);
+echo json_encode(['status' => 'ok']);

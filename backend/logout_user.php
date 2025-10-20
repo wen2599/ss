@@ -1,28 +1,41 @@
 <?php
+// backend/logout_user.php
+// Handles user logout by destroying the session.
+
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/db_operations.php';
 
-write_log("------ logout_user.php Entry Point ------");
+header('Content-Type: application/json');
 
-// --- Logout Logic ---
-// Unset all session variables.
-$_SESSION = [];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Check for session token in cookies
+    $sessionToken = $_COOKIE['session_token'] ?? '';
 
-// If it's desired to kill the session, also delete the session cookie.
-// Note: This will destroy the session, and not just the session data!
-if (ini_get("session.use_cookies")) {
-    $params = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 42000,
-        $params["path"], $params["domain"],
-        $params["secure"], $params["httponly"]
-    );
+    if (!empty($sessionToken)) {
+        try {
+            // Delete the session from the database
+            delete($pdo, 'sessions', 'session_token = :session_token', [':session_token' => $sessionToken]);
+
+            // Clear the session cookie
+            setcookie('session_token', '', [
+                'expires' => time() - 3600, // Set expiration to the past
+                'path' => '/',
+                'httponly' => true,
+                'secure' => true,
+                'samesite' => 'Lax'
+            ]);
+
+            http_response_code(200);
+            echo json_encode(['message' => 'Logout successful.']);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+        }
+    } else {
+        http_response_code(400);
+        echo json_encode(['error' => 'No active session to log out.']);
+    }
+} else {
+    http_response_code(405);
+    echo json_encode(['error' => 'Invalid request method.']);
 }
-
-// Finally, destroy the session.
-session_destroy();
-
-write_log("User logged out successfully. Session destroyed.");
-json_response('success', 'Logout successful!');
-
-write_log("------ logout_user.php Exit Point ------");
-
-?>

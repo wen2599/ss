@@ -1,121 +1,56 @@
 <?php
 // backend/bootstrap.php
+// Basic configuration and database connection.
 
-// --- Error Reporting & Logging ---
-ini_set('display_errors', 0);
-ini_set('log_errors', 1);
-$log_path = __DIR__ . '/../backend.log';
-ini_set('error_log', $log_path);
+// Load environment variables from .env file
+require_once __DIR__ . '/load_env.php';
 
-// --- Centralized Logging Function ---
-if (!function_exists('write_log')) {
-    function write_log($message) {
-        global $log_path;
-        $timestamp = date('Y-m-d H:i:s');
-        if (!is_string($message)) {
-            $message = print_r($message, true);
-        }
-        @file_put_contents($log_path, "[{$timestamp}] " . $message . "\n", FILE_APPEND);
-    }
-}
+// --- Database Configuration ---
+define('DB_HOST', $_ENV['DB_HOST'] ?? 'localhost');
+define('DB_PORT', $_ENV['DB_PORT'] ?? '3306');
+define('DB_DATABASE', $_ENV['DB_DATABASE'] ?? '');
+define('DB_USER', $_ENV['DB_USER'] ?? '');
+define('DB_PASSWORD', $_ENV['DB_PASSWORD'] ?? '');
 
-// --- Environment Variable Loading ---
-if (!function_exists('load_env')) {
-    function load_env($path) {
-        if (!file_exists($path)) { return; }
-        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if ($lines === false) { return; }
-        foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) { continue; }
-            list($name, $value) = explode('=', $line, 2);
-            $name = trim($name);
-            $value = trim($value);
-            if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
-                putenv(sprintf('%s=%s', $name, $value));
-                $_ENV[$name] = $value;
-                $_SERVER[$name] = $value;
-            }
-        }
-    }
-}
+// --- Global Settings ---
+// Set the default timezone.
+date_default_timezone_set('UTC');
 
-// Load .env file from the project root
-load_env(__DIR__ . '/../.env');
+// Enable error reporting for development.
+// In a production environment, you should log errors to a file instead.
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
-// --- Standardized JSON Response Function ---
-if (!function_exists('json_response')) {
-    function json_response($status, $data = null, $http_code = 200) {
-        http_response_code($http_code);
-        header('Content-Type: application/json; charset=utf-8');
-        $response = ['status' => $status];
-        if ($data !== null) {
-            $response[$status === 'error' ? 'message' : 'data'] = $data;
-        }
-        echo json_encode($response);
-        exit;
-    }
-}
-
-// --- Global Exception & Error Handlers ---
-set_exception_handler(function($exception) {
-    write_log(
-        "--- UNCAUGHT EXCEPTION ---\n" .
-        "Message: " . $exception->getMessage() . "\n" .
-        "File: " . $exception->getFile() . " on line " . $exception->getLine() . "\n" .
-        "Trace: " . $exception->getTraceAsString() .
-        "\n--------------------------"
+// --- Database Connection ---
+// Establish a connection to the MySQL database using PDO.
+try {
+    $pdo = new PDO(
+        "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_DATABASE . ";charset=utf8mb4",
+        DB_USER,
+        DB_PASSWORD
     );
-    json_response('error', 'An unexpected internal server error occurred.', 500);
-});
-
-register_shutdown_function(function () {
-    $error = error_get_last();
-    if ($error !== null && in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
-        write_log(
-            "--- FATAL ERROR ---\n" .
-            "Type: " . $error['type'] . "\n" .
-            "Message: " . $error['message'] . "\n" .
-            "File: " . $error['file'] . " on line " . $error['line'] .
-            "\n---------------------"
-        );
-        if (!headers_sent()) {
-            json_response('error', 'A critical internal server error occurred.', 500);
-        }
-    }
-});
+    // Set PDO to throw exceptions on error.
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    // If the connection fails, terminate the script and display an error.
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
+    exit();
+}
 
 // --- Session Management ---
-ini_set('session.use_only_cookies', 1);
-ini_set('session.cookie_httponly', 1);
-ini_set('session.cookie_secure', isset($_SERVER['HTTPS']));
-ini_set('session.cookie_samesite', 'Lax');
-
-if (session_status() === PHP_SESSION_NONE) {
+// Start or resume a session.
+if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-// --- Database Connection ---
-require_once __DIR__ . '/db_operations.php';
+// --- Headers ---
+// Set common security headers.
+// Note: These might be better handled by your web server (Nginx/Apache) in production.
+header("Content-Security-Policy: default-src 'self'");
+header("X-Content-Type-Options: nosniff");
+header("X-Frame-Options: DENY");
+header("X-XSS-Protection: 1; mode=block");
 
-// --- API Header Logic ---
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS, DELETE");
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, X-Telegram-Bot-Api-Secret-Token");
-
-// Handle pre-flight OPTIONS requests
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    json_response('success', 'Pre-flight check successful.');
-}
-
-// --- Include all helper functions ---
-require_once __DIR__ . '/api_curl_helper.php';
-require_once __DIR__ . '/cloudflare_ai_helper.php';
-require_once __DIR__ . '/gemini_ai_helper.php';
-require_once __DIR__ . '/telegram_helpers.php';
-require_once __DIR__ . '/user_state_manager.php';
-require_once __DIR__ . '/email_handler.php';
-require_once __DIR__ . '/process_email_ai.php';
-
-write_log("Bootstrap finished for: " . ($_SERVER['REQUEST_URI'] ?? 'unknown_request'));
 ?>

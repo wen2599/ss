@@ -1,92 +1,65 @@
 .bills-page {
-    max-width: 1200px;
-    margin: 2rem auto;
-    padding: 0 2rem;
+  padding: 20px;
 }
 
 .bills-page h1 {
-    text-align: center;
-    margin-bottom: 2rem;
-    color: var(--primary-text);
+  color: #2c3e50;
+  margin-bottom: 25px;
+  text-align: center;
 }
 
-.notification {
-    background-color: #4CAF50;
-    color: white;
-    padding: 15px;
-    margin-bottom: 20px;
-    border-radius: 5px;
-    text-align: center;
+.bills-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background-color: #fff;
 }
 
-.bill-list {
-    list-style: none;
-    padding: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.5rem;
+.bills-table th,
+.bills-table td {
+  border: 1px solid #e0e0e0;
+  padding: 12px 15px;
+  text-align: left;
 }
 
-.bill-item {
-    background-color: var(--secondary-bg);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 1.5rem;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    /* Make email-item a flex container to align content and button */
-    display: flex;
-    justify-content: space-between; /* Pushes button to the right */
-    align-items: center; /* Vertically centers content and button */
-    cursor: pointer;
+.bills-table th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  color: #333;
 }
 
-.email-item:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+.bills-table tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
 }
 
-.bill-content {
-    flex-grow: 1; /* Allows email content to take up available space */
-    cursor: pointer;
+.bills-table tbody tr:hover {
+  background-color: #f1f1f1;
 }
 
-.bill-name {
-    font-weight: bold;
-    color: var(--primary-text);
-    margin-bottom: 0.5rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.bills-table td a {
+  color: #3498db;
+  text-decoration: none;
 }
 
-.bill-amount {
-    color: var(--secondary-text);
-    margin-bottom: 1rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.bills-table td a:hover {
+  text-decoration: underline;
 }
 
-.bill-due-date {
-    font-size: 0.875rem;
-    color: var(--secondary-text);
-    text-align: right;
+.bills-table .actions .btn {
+  padding: 8px 12px;
+  font-size: 0.9em;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
-.delete-button {
-    background-color: var(--danger-color, #dc3545); /* Red color for delete */
-    color: white;
-    border: none;
-    border-radius: var(--border-radius);
-    padding: 0.5rem 1rem;
-    margin-left: 1rem; /* Space between content and button */
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: background-color 0.2s ease-in-out;
-    flex-shrink: 0; /* Prevent button from shrinking */
+.bills-table .actions .btn-danger {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
 }
 
-.delete-button:hover {
-    background-color: var(--danger-hover-color, #c82333);
+.bills-table .actions .btn-danger:hover {
+  background-color: #c0392b;
 }

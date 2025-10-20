@@ -1,105 +1,82 @@
-// frontend/src/api.js
+const API_BASE_URL = '/api'; // Proxy in Vite, or your full backend URL in production
 
-const API_BASE_URL = '/api'; // Always prefix with /api
-
-/**
- * A helper function to build the correct API endpoint URL.
- * @param {string} endpoint - The name of the endpoint (e.g., 'login_user').
- * @param {URLSearchParams} [params] - Optional URL search parameters.
- * @returns {string} The full API URL.
- */
-const buildApiUrl = (endpoint, params = null) => {
-    // All requests now go through index.php with the /api prefix
-    const url = new URL(`${API_BASE_URL}/index.php`, window.location.origin);
-    url.searchParams.append('endpoint', endpoint);
-
-    // Append any additional query parameters
-    if (params) {
-        for (const [key, value] of params.entries()) {
-            url.searchParams.append(key, value);
-        }
-    }
-    return url.toString();
+const handleResponse = async (response) => {
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Something went wrong.');
+  }
+  return response.json();
 };
 
-
-/**
- * A helper function to handle fetch requests and responses.
- */
-const fetchJson = async (url, options = {}) => {
-    const response = await fetch(url, {
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', ...options.headers },
-        ...options,
-    });
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Network response was not ok' }));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-    }
-    return response.json();
+export const registerUser = async (username, email, password) => {
+  const response = await fetch(`${API_BASE_URL}/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ username, email, password }),
+  });
+  return handleResponse(response);
 };
 
-export const registerUser = (userData) => {
-    return fetchJson(buildApiUrl('register_user'), {
-        method: 'POST',
-        body: JSON.stringify(userData),
-    });
+export const loginUser = async (username, password) => {
+  const response = await fetch(`${API_BASE_URL}/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ username, password }),
+  });
+  return handleResponse(response);
 };
 
-export const loginUser = (credentials) => {
-    return fetchJson(buildApiUrl('login_user'), {
-        method: 'POST',
-        body: JSON.stringify(credentials),
-    });
+export const logoutUser = async () => {
+  const response = await fetch(`${API_BASE_URL}/logout`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  return handleResponse(response);
 };
 
-export const logoutUser = () => {
-    return fetchJson(buildApiUrl('logout_user'), {
-        method: 'POST',
-    });
+export const checkSession = async () => {
+  const response = await fetch(`${API_BASE_URL}/check_session`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  return handleResponse(response);
 };
 
-export const checkSession = () => {
-    return fetchJson(buildApiUrl('check_session'));
+export const getBills = async () => {
+  const response = await fetch(`${API_BASE_URL}/get_bills`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  return handleResponse(response);
 };
 
-export const getEmails = () => {
-    return fetchJson(buildApiUrl('get_emails'));
+export const deleteBill = async (billId) => {
+  const response = await fetch(`${API_BASE_URL}/delete_bill`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ billId }),
+  });
+  return handleResponse(response);
 };
 
-export const getEmailById = (id) => {
-    const params = new URLSearchParams({ id });
-    return fetchJson(buildApiUrl('get_emails', params));
-};
-
-export const getBills = () => {
-    return fetchJson(buildApiUrl('get_bills'));
-};
-
-// New function to get single bill details
-export const getBillDetails = (id) => {
-    const params = new URLSearchParams({ id });
-    return fetchJson(buildApiUrl('get_bills', params));
-};
-
-export const deleteBill = (id) => {
-    const params = new URLSearchParams({ id });
-    return fetchJson(buildApiUrl('delete_bill', params), {
-        method: 'DELETE',
-    });
-};
-
-export const processEmailWithAI = (id) => {
-    return fetchJson(buildApiUrl('process_email_ai'), {
-        method: 'POST',
-        body: JSON.stringify({ email_id: id }),
-    });
-};
-
-export const getLotteryResults = (type = null) => {
-    const params = new URLSearchParams();
-    if (type) {
-        params.append('lottery_type', type);
-    }
-    return fetchJson(buildApiUrl('get_lottery_results', params));
+export const getLotteryResults = async () => {
+  const response = await fetch(`${API_BASE_URL}/get_lottery_results`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  return handleResponse(response);
 };

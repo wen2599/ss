@@ -1,41 +1,56 @@
 <?php
+// backend/delete_bill.php
+// Deletes a bill for the logged-in user.
+
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/db_operations.php';
+require_once __DIR__ . '/check_session.php'; // To ensure user is logged in
 
-write_log("------ delete_bill.php Entry Point ------");
+header('Content-Type: application/json');
 
-// --- Authentication Check ---
-if (!isset($_SESSION['user_id'])) {
-    json_response('error', 'Unauthorized: User not logged in.', 401);
-}
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Re-use the session checking logic.
+    ob_start(); 
+    require __DIR__ . '/check_session.php';
+    $session_check_output = json_decode(ob_get_clean(), true); 
 
-// Check if the request method is DELETE
-if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
-    json_response('error', 'Invalid request method. Only DELETE is allowed.', 405);
-}
+    if (!isset($session_check_output['isLoggedIn']) || !$session_check_output['isLoggedIn'])) {
+        exit(); 
+    }
 
-$userId = $_SESSION['user_id'];
+    $userId = $session_check_output['user']['id'];
 
-// Expect bill ID from query parameter
-$billId = $_GET['id'] ?? null;
+    $input = file_get_contents('php://input');
+    $data = json_decode($input, true);
 
-if (!$billId) {
-    json_response('error', 'Bill ID is required.', 400);
-}
+    if (empty($data['billId'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing bill ID.']);
+        exit();
+    }
 
-$pdo = get_db_connection();
-// Prepare and execute the delete query from the 'bills' table
-// IMPORTANT: The WHERE clause includes user_id to ensure a user can only delete their own bills.
-$stmt = $pdo->prepare("DELETE FROM bills WHERE id = ? AND user_id = ?");
-$stmt->execute([$billId, $userId]);
+    $billId = (int)$data['billId'];
 
-// Check if any row was actually deleted
-if ($stmt->rowCount() > 0) {
-    write_log("Bill ID {$billId} deleted successfully by user {$userId}.");
-    json_response('success', '账单已成功删除。');
+    try {
+        // Ensure the bill belongs to the logged-in user before deleting.
+        $deletedRows = delete($pdo, 'bills', 'id = :bill_id AND user_id = :user_id', [
+            ':bill_id' => $billId,
+            ':user_id' => $userId
+        ]);
+
+        if ($deletedRows > 0) {
+            http_response_code(200);
+            echo json_encode(['message' => 'Bill deleted successfully.']);
+        } else {
+            http_response_code(404);
+            echo json_encode(['error' => 'Bill not found or does not belong to the user.']);
+        }
+
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    }
 } else {
-    // This means either the bill didn't exist or it didn't belong to the user
-    write_log("Failed to delete bill ID {$billId} for user {$userId}: Not found or unauthorized.");
-    json_response('error', '未找到该账单或无权删除。', 404);
+    http_response_code(405);
+    echo json_encode(['error' => 'Invalid request method.']);
 }
-
-write_log("------ delete_bill.php Exit Point ------");

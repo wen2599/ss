@@ -1,36 +1,25 @@
 <?php
+// backend/get_lottery_results.php
+// Fetches lottery results.
+
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/db_operations.php';
 
-write_log("------ get_lottery_results.php Entry Point ------");
+header('Content-Type: application/json');
 
-$pdo = get_db_connection();
-$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
-$lotteryType = isset($_GET['lottery_type']) ? urldecode($_GET['lottery_type']) : null;
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    try {
+        // Fetch all lottery results, ordered by draw date descending.
+        $results = fetchAll($pdo, "SELECT id, draw_date, winning_numbers FROM lottery_results ORDER BY draw_date DESC");
 
-$sql = "SELECT id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at FROM lottery_results ";
-$params = [];
+        http_response_code(200);
+        echo json_encode(['success' => true, 'lotteryResults' => $results]);
 
-if ($lotteryType) {
-    $sql .= " WHERE lottery_type = ?";
-    $params[] = $lotteryType;
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    }
+} else {
+    http_response_code(405);
+    echo json_encode(['error' => 'Invalid request method.']);
 }
-
-$sql .= " ORDER BY drawing_date DESC, issue_number DESC LIMIT ?";
-$params[] = $limit;
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$processedResults = array_map(function($row) {
-    $row['winning_numbers'] = json_decode($row['winning_numbers'], true) ?: [];
-    $row['zodiac_signs'] = json_decode($row['zodiac_signs'], true) ?: [];
-    $row['colors'] = json_decode($row['colors'], true) ?: [];
-    return $row;
-}, $results);
-
-json_response('success', ['lottery_results' => $processedResults]);
-
-write_log("------ get_lottery_results.php Exit Point ------");
-
-?>

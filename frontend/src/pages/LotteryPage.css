@@ -1,21 +1,46 @@
-.lottery-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: calc(100vh - 80px);
-    text-align: center;
-    background-color: #f0f2f5;
+.lottery-page {
+  padding: 20px;
 }
 
-.lottery-title {
-    font-size: 2.5rem;
-    color: #333;
-    margin-bottom: 20px;
+.lottery-page h1 {
+  color: #2c3e50;
+  margin-bottom: 25px;
+  text-align: center;
 }
 
-.lottery-number {
-    font-size: 4rem;
-    color: #d9534f;
-    font-weight: bold;
+.lottery-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background-color: #fff;
+}
+
+.lottery-table th,
+.lottery-table td {
+  border: 1px solid #e0e0e0;
+  padding: 12px 15px;
+  text-align: left;
+}
+
+.lottery-table th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  color: #333;
+}
+
+.lottery-table tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.lottery-table tbody tr:hover {
+  background-color: #f1f1f1;
+}
+
+.lottery-table td {
+  font-size: 1.1em;
+}
+
+.lottery-table td:first-child {
+  font-weight: bold;
 }

@@ -1,40 +1,53 @@
 import React from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import './Navbar.css';
 
 const Navbar = () => {
-    const { isAuthenticated, logout } = useAuth();
-    const navigate = useNavigate();
+  const { isLoggedIn, logout, user } = useAuth();
+  const navigate = useNavigate();
 
-    const handleLogout = async () => {
-        await logout();
-        navigate('/login');
-    };
+  const handleLogout = async () => {
+    const result = await logout();
+    if (result.success) {
+      navigate('/login');
+    }
+  };
 
-    return (
-        <header className="navbar-banner">
-            <div className="navbar-container">
-                <Link to="/" className="navbar-logo">电子账单系统</Link>
-                <nav>
-                    <ul className="navbar-links">
-                        <li><NavLink to="/" className={({ isActive }) => isActive ? 'active' : ''}>首页</NavLink></li>
-                        {isAuthenticated ? (
-                            <>
-                                <li><NavLink to="/bills" className={({ isActive }) => isActive ? 'active' : ''}>我的账单</NavLink></li>
-                                <li><button onClick={handleLogout} className="logout-button">退出登录</button></li>
-                            </>
-                        ) : (
-                            <>
-                                <li><NavLink to="/login" className={({ isActive }) => isActive ? 'active' : ''}>登录</NavLink></li>
-                                <li><NavLink to="/register" className={({ isActive }) => isActive ? 'active' : ''}>注册</NavLink></li>
-                            </>
-                        )}
-                    </ul>
-                </nav>
-            </div>
-        </header>
-    );
+  return (
+    <nav className="navbar">
+      <div className="navbar-brand">
+        <Link to="/">Bill & Lottery App</Link>
+      </div>
+      <ul className="navbar-nav">
+        {isLoggedIn ? (
+          <>
+            <li className="nav-item">
+              <Link to="/bills">My Bills</Link>
+            </li>
+            <li className="nav-item">
+              <Link to="/lottery">Lottery Results</Link>
+            </li>
+            <li className="nav-item">
+              <span>Welcome, {user?.username || 'User'}!</span>
+            </li>
+            <li className="nav-item">
+              <button onClick={handleLogout} className="nav-link-button">Logout</button>
+            </li>
+          </>
+        ) : (
+          <>
+            <li className="nav-item">
+              <Link to="/login">Login</Link>
+            </li>
+            <li className="nav-item">
+              <Link to="/register">Register</Link>
+            </li>
+          </>
+        )}
+      </ul>
+    </nav>
+  );
 };
 
 export default Navbar;

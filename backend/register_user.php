@@ -1,60 +1,71 @@
 <?php
+// backend/register_user.php
+// Handles user registration.
+
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/db_operations.php';
 
-write_log("------ register_user.php Entry Point ------");
+header('Content-Type: application/json');
 
-// --- Input Reception and Validation ---
-$data = json_decode(file_get_contents('php://input'), true);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Get the raw POST data.
+    $input = file_get_contents('php://input');
+    $data = json_decode($input, true);
 
-if (!$data) {
-    json_response('error', 'Invalid JSON received.', 400);
-}
+    // Validate input data.
+    if (empty($data['username']) || empty($data['password']) || empty($data['email'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing required fields.']);
+        exit();
+    }
 
-$email = $data['email'] ?? null;
-$password = $data['password'] ?? null;
+    $username = trim($data['username']);
+    $password = $data['password']; // Password will be hashed.
+    $email = trim($data['email']);
 
-$username = $email; // The username is now the email.
+    // Basic email format validation.
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid email format.']);
+        exit();
+    }
 
-if (empty($email) || empty($password)) {
-    json_response('error', 'Missing required fields: email and password.', 400);
-}
+    // Hash the password for security.
+    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    json_response('error', 'Invalid email format.', 400);
-}
+    try {
+        // Check if username or email already exists.
+        $existingUser = fetchOne($pdo, "SELECT id FROM users WHERE username = :username OR email = :email", [
+            ':username' => $username,
+            ':email' => $email
+        ]);
 
-// --- Database Interaction ---
-$pdo = get_db_connection();
-// 1. Check if email already exists
-$stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-$stmt->execute([$email]);
-if ($stmt->fetch()) {
-    json_response('error', 'A user with this email already exists.', 409);
-}
+        if ($existingUser) {
+            http_response_code(409); // Conflict
+            echo json_encode(['error' => 'Username or email already exists.']);
+            exit();
+        }
 
-// 2. Insert the new user into the database
-$password_hash = password_hash($password, PASSWORD_DEFAULT);
-$stmt = $pdo->prepare(
-    "INSERT INTO users (email, password_hash) VALUES (?, ?)"
-);
+        // Insert new user into the database.
+        $userId = insert($pdo, 'users', [
+            'username' => $username,
+            'password' => $hashed_password,
+            'email' => $email
+        ]);
 
-$isSuccess = $stmt->execute([$email, $password_hash]);
+        if ($userId) {
+            http_response_code(201); // Created
+            echo json_encode(['message' => 'User registered successfully.', 'userId' => $userId]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to register user.']);
+        }
 
-if ($isSuccess) {
-    // Automatically log the user in by creating a session.
-    $user_id = $pdo->lastInsertId();
-    $_SESSION['user_id'] = $user_id;
-    $_SESSION['email'] = $email;
-
-    json_response('success', [
-        'message' => 'User registered successfully.',
-        'user' => [
-            'id' => $user_id,
-                'email' => $email
-        ]
-    ], 201);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    }
 } else {
-    json_response('error', 'Failed to register the user due to a server issue.', 500);
+    http_response_code(405); // Method Not Allowed
+    echo json_encode(['error' => 'Invalid request method.']);
 }
-
-write_log("------ register_user.php Exit Point ------");

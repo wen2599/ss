@@ -1,45 +1,66 @@
 <?php
+// backend/login_user.php
+// Handles user login and session creation.
+
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/db_operations.php';
 
-write_log("------ login_user.php Entry Point ------");
+header('Content-Type: application/json');
 
-// --- Input and Validation ---
-$data = json_decode(file_get_contents('php://input'), true);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $input = file_get_contents('php://input');
+    $data = json_decode($input, true);
 
-if (!$data) {
-    json_response('error', 'Invalid JSON received.', 400);
-}
+    if (empty($data['username']) || empty($data['password'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing username or password.']);
+        exit();
+    }
 
-$email = $data['email'] ?? null;
-$password = $data['password'] ?? null;
+    $username = trim($data['username']);
+    $password = $data['password'];
 
-if (empty($email) || empty($password)) {
-    json_response('error', 'Email and password are required.', 400);
-}
+    try {
+        // Fetch user by username or email
+        $user = fetchOne($pdo, "SELECT id, username, email, password FROM users WHERE username = :username OR email = :username", [
+            ':username' => $username
+        ]);
 
-// --- Database and Authentication ---
-$pdo = get_db_connection();
-$stmt = $pdo->prepare("SELECT id, email, password_hash FROM users WHERE email = ?");
-$stmt->execute([$email]);
-$user = $stmt->fetch();
+        if ($user && password_verify($password, $user['password'])) {
+            // Password is correct, create a session.
+            // Generate a secure session token.
+            $sessionToken = bin2hex(random_bytes(32));
+            $expiresAt = date('Y-m-d H:i:s', strtotime('+1 day')); // Session expires in 1 day.
 
-if ($user && password_verify($password, $user['password_hash'])) {
-    // --- Session Creation ---
-    $_SESSION['user_id'] = $user['id'];
-    $_SESSION['email'] = $user['email'];
+            // Store session in the database.
+            insert($pdo, 'sessions', [
+                'user_id' => $user['id'],
+                'session_token' => $sessionToken,
+                'expires_at' => $expiresAt
+            ]);
 
-    write_log("User logged in successfully: " . $email . ". Session ID: " . session_id());
-    json_response('success', [
-        'message' => 'Login successful!',
-        'user' => [
-            'id' => $user['id'],
-                'email' => $user['email']
-        ]
-    ]);
+            // Set a secure cookie for the session token.
+            setcookie('session_token', $sessionToken, [
+                'expires' => strtotime('+1 day'),
+                'path' => '/',
+                'httponly' => true, // HttpOnly prevents JavaScript access to the cookie.
+                'secure' => true,   // Secure ensures the cookie is only sent over HTTPS.
+                'samesite' => 'Lax' // Or 'Strict', depending on your needs.
+            ]);
 
+            http_response_code(200);
+            echo json_encode(['message' => 'Login successful.', 'user' => ['id' => $user['id'], 'username' => $user['username'], 'email' => $user['email'] ]]);
+
+        } else {
+            http_response_code(401);
+            echo json_encode(['error' => 'Invalid username or password.']);
+        }
+
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    }
 } else {
-    write_log("Login failed for email: " . $email . ". Invalid credentials.");
-    json_response('error', 'Invalid email or password.', 401);
+    http_response_code(405);
+    echo json_encode(['error' => 'Invalid request method.']);
 }
-
-write_log("------ login_user.php Exit Point ------");

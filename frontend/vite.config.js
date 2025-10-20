@@ -5,13 +5,15 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5175,
+    // This will forward all requests that start with /api to your PHP backend.
+    // Adjust the target to your PHP backend's URL (e.g., your serv00.com address).
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: 'https://wenge.cloudns.ch', // Your serv00 PHP backend URL
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
-      }
-    }
-  }
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        secure: true, // Assuming your backend is HTTPS
+      },
+    },
+  },
 })

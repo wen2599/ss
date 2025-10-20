@@ -1,75 +1,89 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { checkSession, logoutUser as apiLogout } from '../api';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { checkSession, loginUser, logoutUser, registerUser } from '../api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true); // Start with loading true
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const verifySession = async () => {
-            try {
-                const response = await checkSession();
-                if (response.isAuthenticated && response.user) {
-                    // Session is valid on the backend, sync the frontend state
-                    setUser(response.user);
-                    localStorage.setItem('user', JSON.stringify(response.user));
-                } else {
-                    // No valid session on the backend, clear client-side state
-                    setUser(null);
-                    localStorage.removeItem('user');
-                }
-            } catch (error) {
-                console.error("Session check failed:", error);
-                // On error, assume not authenticated
-                setUser(null);
-                localStorage.removeItem('user');
-            } finally {
-                setLoading(false); // Stop loading once the check is complete
-            }
-        };
-
-        verifySession();
-    }, []); // Empty dependency array means this runs once on mount
-
-    const login = (userData) => {
-        setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
-    };
-
-    const logout = async () => {
-        try {
-            await apiLogout(); // Call the backend to destroy the session
-        } catch (error) {
-            console.error("Logout failed on server:", error);
-        } finally {
-            // Always clear client-side state
-            setUser(null);
-            localStorage.removeItem('user');
+  useEffect(() => {
+    const verifySession = async () => {
+      try {
+        const data = await checkSession();
+        if (data.isLoggedIn) {
+          setIsLoggedIn(true);
+          setUser(data.user);
+        } else {
+          setIsLoggedIn(false);
+          setUser(null);
         }
+      } catch (error) {
+        console.error("Session check failed:", error);
+        setIsLoggedIn(false);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
     };
+    verifySession();
+  }, []);
 
-    const value = {
-        user,
-        isAuthenticated: !!user,
-        loading, // Expose loading state
-        login,
-        logout,
-    };
-
-    // Don't render children until session check is complete
-    if (loading) {
-        return <div>Loading application...</div>; // Or a proper spinner component
+  const login = async (username, password) => {
+    setLoading(true);
+    try {
+      const data = await loginUser(username, password);
+      if (data.message === 'Login successful.') {
+        setIsLoggedIn(true);
+        setUser(data.user);
+        return { success: true };
+      }
+    } catch (error) {
+      console.error("Login failed:", error);
+      return { success: false, message: error.message };
+    } finally {
+      setLoading(false);
     }
+  };
 
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const register = async (username, email, password) => {
+    setLoading(true);
+    try {
+      const data = await registerUser(username, email, password);
+      if (data.message === 'User registered successfully.') {
+        return { success: true, message: data.message };
+      }
+    } catch (error) {
+      console.error("Registration failed:", error);
+      return { success: false, message: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    setLoading(true);
+    try {
+      await logoutUser();
+      setIsLoggedIn(false);
+      setUser(null);
+      return { success: true };
+    } catch (error) {
+      console.error("Logout failed:", error);
+      return { success: false, message: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ isLoggedIn, user, login, logout, register, loading }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
+  return useContext(AuthContext);
 };

@@ -1,94 +1,89 @@
 <?php
+// backend/process_email_ai.php
+// This script is intended to be run as a cron job or triggered by a worker.
+// It fetches unprocessed emails, sends them to AI for parsing, and updates the database.
+
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/db_operations.php';
+require_once __DIR__ . '/email_handler.php';
+require_once __DIR__ . '/gemini_ai_helper.php';     // For Gemini AI integration
+require_once __DIR__ . '/cloudflare_ai_helper.php'; // For Cloudflare AI integration
 
-write_log("------ process_email_ai.php Entry Point ------");
-
-// --- Authentication Check ---
-if (!isset($_SESSION['user_id'])) {
-    json_response('error', 'You must be logged in.', 401);
+// Prevent direct web access, only allow CLI or authenticated worker calls.
+// In a real scenario, implement a secure token check for HTTP_X_WORKER_AUTH
+// For now, allow CLI and simple browser access with ADMIN_SECRET for testing.
+if (php_sapi_name() !== 'cli') {
+    $adminSecret = $_GET['secret'] ?? '';
+    if (!isset($_ENV['ADMIN_SECRET']) || $adminSecret !== $_ENV['ADMIN_SECRET']) {
+         http_response_code(403);
+         echo json_encode(['error' => 'Access denied.']);
+         exit();
+    }
 }
 
-// --- Input Validation ---
-$data = json_decode(file_get_contents('php://input'), true);
-$emailId = $data['email_id'] ?? null;
+header('Content-Type: application/json');
 
-if (!$emailId) {
-    json_response('error', 'Email ID is required.', 400);
-}
+// --- Configuration for AI Service ---
+// Choose which AI service to use. Read from .env, default to 'GEMINI'.
+$activeAiService = $_ENV['ACTIVE_AI_SERVICE'] ?? 'GEMINI'; 
+
+echo json_encode(['message' => 'Starting email AI processing...']);
 
 try {
-    $userId = $_SESSION['user_id'];
-    $pdo = get_db_connection();
+    // Fetch unprocessed bills.
+    $unprocessedBills = fetchAll($pdo, "SELECT id, user_id, subject, raw_email, is_lottery FROM bills WHERE status = 'unprocessed'");
 
-    // 1. Fetch the email content from the database
-    $stmt = $pdo->prepare("SELECT html_content FROM emails WHERE id = ? AND user_id = ?");
-    $stmt->execute([$emailId, $userId]);
-    $email = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$email) {
-        json_response('error', 'Email not found or you do not have permission to access it.', 404);
+    if (empty($unprocessedBills)) {
+        echo json_encode(['message' => 'No unprocessed emails found.']);
+        exit();
     }
 
-    $htmlContent = $email['html_content'];
+    foreach ($unprocessedBills as $bill) {
+        $billId = $bill['id'];
+        $rawEmailContent = $bill['raw_email'];
+        $isLottery = (bool)$bill['is_lottery'];
 
-    // 2. Send the content to the Cloudflare Worker for AI processing
-    $workerUrl = 'https://ss.wenxiuxiu.eu.org/process-ai';
-    $postData = json_encode(['email_content' => $htmlContent]);
+        $parsedData = null;
 
-    $ch = curl_init($workerUrl);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'Content-Length: ' . strlen($postData)
-    ]);
+        // Call the active AI service.
+        if ($activeAiService === 'GEMINI') {
+            $parsedData = parseEmailWithGemini($rawEmailContent);
+        } elseif ($activeAiService === 'CLOUDFLARE') {
+            $parsedData = parseEmailWithCloudflareAI($rawEmailContent);
+        } else {
+            error_log("Unknown AI service configured: " . $activeAiService);
+        }
+        
+        if ($parsedData) {
+            $status = 'processed';
 
-    $workerResponse = curl_exec($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+            // Handle lottery results specifically
+            if ($isLottery && isset($parsedData['lottery_numbers']) && !empty($parsedData['lottery_numbers'])) {
+                // For lottery emails, the due_date might represent the draw_date
+                $drawDate = $parsedData['due_date'] ?? date('Y-m-d'); 
+                saveLotteryResults($pdo, $drawDate, $parsedData['lottery_numbers']);
+            }
 
-    if ($http_code !== 200) {
-        write_log("AI worker failed with code {$http_code}: " . $workerResponse);
-        json_response('error', 'Failed to process email with AI worker.', 502);
+            // Update the bill with parsed data
+            $updateSuccess = updateBillAfterAiProcessing($pdo, $billId, $parsedData, $status);
+            if ($updateSuccess) {
+                echo json_encode(['message' => "Bill #{$billId} processed by AI and updated."]);
+            } else {
+                error_log("Failed to update bill #{$billId} after AI processing.");
+                updateBillAfterAiProcessing($pdo, $billId, [], 'error_update'); // Mark as error
+            }
+        } else {
+            error_log("AI failed to parse email for bill #{$billId}.");
+            updateBillAfterAiProcessing($pdo, $billId, [], 'error_ai_parse'); // Mark as error
+        }
     }
 
-    $aiData = json_decode($workerResponse, true);
-
-    // 3. Update the database with the extracted data
-    $updateStmt = $pdo->prepare(
-        "UPDATE emails SET
-            vendor_name = :vendor_name,
-            bill_amount = :bill_amount,
-            currency = :currency,
-            due_date = :due_date,
-            invoice_number = :invoice_number,
-            category = :category,
-            is_processed = TRUE
-         WHERE id = :id"
-    );
-
-    $updateParams = [
-        ':id' => $emailId,
-        ':vendor_name' => $aiData['vendor_name'] ?? null,
-        ':bill_amount' => !empty($aiData['bill_amount']) ? $aiData['bill_amount'] : null,
-        ':currency' => $aiData['currency'] ?? null,
-        ':due_date' => !empty($aiData['due_date']) ? $aiData['due_date'] : null,
-        ':invoice_number' => $aiData['invoice_number'] ?? null,
-        ':category' => $aiData['category'] ?? null,
-    ];
-
-    $updateStmt->execute($updateParams);
-
-    // 4. Return the structured data to the frontend
-    json_response('success', $aiData);
+    echo json_encode(['message' => 'Email AI processing completed.']);
 
 } catch (PDOException $e) {
-    write_log("Database error in process_email_ai.php: " . $e->getMessage());
-    json_response('error', 'Database error: ' . $e->getMessage(), 500);
+    http_response_code(500);
+    echo json_encode(['error' => 'Database error during AI processing: ' . $e->getMessage()]);
 } catch (Exception $e) {
-    write_log("Unexpected error in process_email_ai.php: " . $e->getMessage());
-    json_response('error', 'An unexpected error occurred: ' . $e->getMessage(), 500);
+    http_response_code(500);
+    echo json_encode(['error' => 'General error during AI processing: ' . $e->getMessage()]);
 }
-
-write_log("------ process_email_ai.php Exit Point ------");

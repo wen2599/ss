@@ -1,30 +1,53 @@
 <?php
+// backend/api_curl_helper.php
+// Contains helper functions for making HTTP requests using cURL.
 
 /**
- * 通用的 API 调用辅助函数，处理 cURL 请求和基础错误。
- *
- * @param string $url API 的 URL 端点。
- * @param array $payload 要发送的请求体数据。
- * @param array $headers HTTP 请求头。
- * @param int $timeout 超时时间（秒）。
- * @return array 包含 http_code, response_body, curl_error 的数组。
+ * Sends a POST request using cURL.
+ * @param string $url The URL to send the request to.
+ * @param array $data The data to send in the request body (will be JSON encoded).
+ * @param array $headers Optional: an array of custom headers.
+ * @return array The decoded JSON response.
  */
-function _call_api_curl($url, $payload, $headers, $timeout = 90) {
+function postRequest(string $url, array $data, array $headers = []): array
+{
     $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-
-    $responseBody = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array_merge([
+        'Content-Type: application/json',
+        'Content-Length: ' . strlen(json_encode($data))
+    ], $headers));
+    
+    $response = curl_exec($ch);
+    if (curl_errno($ch)) {
+        error_log("cURL POST Error: " . curl_error($ch));
+        return ['ok' => false, 'description' => curl_error($ch)];
+    }
     curl_close($ch);
 
-    return [
-        'http_code' => $httpCode,
-        'response_body' => $responseBody,
-        'curl_error' => $curlError
-    ];
+    return json_decode($response, true) ?? ['ok' => false, 'description' => 'Invalid JSON response'];
+}
+
+/**
+ * Sends a GET request using cURL.
+ * @param string $url The URL to send the request to.
+ * @param array $headers Optional: an array of custom headers.
+ * @return array The decoded JSON response.
+ */
+function getRequest(string $url, array $headers = []): array
+{
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    
+    $response = curl_exec($ch);
+    if (curl_errno($ch)) {
+        error_log("cURL GET Error: " . curl_error($ch));
+        return ['ok' => false, 'description' => curl_error($ch)];
+    }
+    curl_close($ch);
+
+    return json_decode($response, true) ?? ['ok' => false, 'description' => 'Invalid JSON response'];
 }
