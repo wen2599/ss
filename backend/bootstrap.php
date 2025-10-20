@@ -6,6 +6,19 @@ ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 ini_set('error_log', __DIR__ . '/../backend.log');
 
+// --- Centralized Logging Function ---
+if (!function_exists('write_log')) {
+    function write_log($message) {
+        $log_path = __DIR__ . '/../backend.log';
+        $timestamp = date('Y-m-d H:i:s');
+        if (!is_string($message)) {
+            $message = print_r($message, true);
+        }
+        // Use @ to suppress errors if logging fails (e.g., file permissions)
+        @file_put_contents($log_path, "[{$timestamp}] " . $message . "\n", FILE_APPEND);
+    }
+}
+
 // --- Environment Variable Loading ---
 if (!function_exists('load_env')) {
     function load_env($path)
@@ -15,6 +28,10 @@ if (!function_exists('load_env')) {
             return;
         }
         $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false) {
+            write_log("Warning: Could not read .env file at path: {$path}");
+            return;
+        }
         foreach ($lines as $line) {
             if (strpos(trim($line), '#') === 0) {
                 continue;
@@ -28,18 +45,6 @@ if (!function_exists('load_env')) {
                 $_SERVER[$name] = $value;
             }
         }
-    }
-}
-
-// --- Centralized Logging Function ---
-if (!function_exists('write_log')) {
-    function write_log($message) {
-        $log_path = __DIR__ . '/../backend.log';
-        $timestamp = date('Y-m-d H:i:s');
-        if (!is_string($message)) {
-            $message = print_r($message, true);
-        }
-        file_put_contents($log_path, "[{$timestamp}] " . $message . "\n", FILE_APPEND);
     }
 }
 
@@ -61,6 +66,19 @@ function json_response($status, $data = null, $http_code = 200) {
     echo json_encode($response);
     exit;
 }
+
+// --- Global Exception Handler ---
+set_exception_handler(function($exception) {
+    // Log the exception to the main log file
+    write_log("--- UNCAUGHT EXCEPTION ---");
+    write_log("Message: " . $exception->getMessage());
+    write_log("File: " . $exception->getFile() . " on line " . $exception->getLine());
+    write_log("Trace: " . $exception->getTraceAsString());
+    write_log("--------------------------");
+
+    // Send a generic error response to the client
+    json_response('error', 'An unexpected internal server error occurred.', 500);
+});
 
 // --- Session Management ---
 ini_set('session.use_only_cookies', 1);
@@ -85,12 +103,6 @@ header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     json_response('success', 'Pre-flight check successful.');
 }
-
-// --- Global Exception Handler ---
-set_exception_handler(function($exception) {
-    write_log("Uncaught Exception: " . $exception->getMessage());
-    json_response('error', 'An unexpected internal error occurred.', 500);
-});
 
 // --- Include all helper functions ---
 require_once __DIR__ . '/api_curl_helper.php';
