@@ -19,14 +19,14 @@ const RegisterPage = () => {
     setSuccess(null);
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError('密码不匹配。');
       return;
     }
 
     const result = await register(username, email, password);
 
     if (result.success) {
-      setSuccess(result.message || 'Registration successful! Please log in.');
+      setSuccess(result.message || '注册成功！请登录。');
       setUsername('');
       setEmail('');
       setPassword('');
@@ -36,18 +36,18 @@ const RegisterPage = () => {
         navigate('/login');
       }, 2000);
     } else {
-      setError(result.message || 'Registration failed.');
+      setError(result.message || '注册失败。');
     }
   };
 
   return (
     <div className="register-page">
-      <h2>Register</h2>
+      <h2>注册</h2>
       <form onSubmit={handleSubmit} className="register-form">
         {error && <div className="alert error">{error}</div>}
         {success && <div className="alert success">{success}</div>}
         <div className="form-group">
-          <label htmlFor="reg-username">Username:</label>
+          <label htmlFor="reg-username">用户名：</label>
           <input
             type="text"
             id="reg-username"
@@ -57,7 +57,7 @@ const RegisterPage = () => {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="reg-email">Email:</label>
+          <label htmlFor="reg-email">邮箱：</label>
           <input
             type="email"
             id="reg-email"
@@ -67,7 +67,7 @@ const RegisterPage = () => {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="reg-password">Password:</label>
+          <label htmlFor="reg-password">密码：</label>
           <input
             type="password"
             id="reg-password"
@@ -77,7 +77,7 @@ const RegisterPage = () => {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="reg-confirm-password">Confirm Password:</label>
+          <label htmlFor="reg-confirm-password">确认密码：</label>
           <input
             type="password"
             id="reg-confirm-password"
@@ -86,7 +86,7 @@ const RegisterPage = () => {
             required
           />
         </div>
-        <button type="submit" className="btn">Register</button>
+        <button type="submit" className="btn">注册</button>
       </form>
     </div>
   );

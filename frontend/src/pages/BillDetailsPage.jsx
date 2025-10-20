@@ -20,13 +20,13 @@ const BillDetailsPage = () => {
           if (foundBill) {
             setBill(foundBill);
           } else {
-            setError('Bill not found.');
+            setError('未找到账单。');
           }
         } else {
-          setError(data.error || 'Failed to fetch bill details.');
+          setError(data.error || '获取账单详情失败。');
         }
       } catch (err) {
-        setError(err.message || 'An error occurred while fetching bill details.');
+        setError(err.message || '获取账单详情时发生错误。');
       } finally {
         setLoading(false);
       }
@@ -35,21 +35,21 @@ const BillDetailsPage = () => {
     fetchBillDetails();
   }, [id]);
 
-  if (loading) return <div>Loading bill details...</div>;
-  if (error) return <div className="alert error">Error: {error}</div>;
-  if (!bill) return <div className="alert error">Bill not found.</div>;
+  if (loading) return <div>正在加载账单详情...</div>;
+  if (error) return <div className="alert error">错误：{error}</div>;
+  if (!bill) return <div className="alert error">未找到账单。</div>;
 
   return (
     <div className="bill-details-page">
-      <h1>Bill Details</h1>
+      <h1>账单详情</h1>
       <div className="bill-info">
-        <p><strong>Subject:</strong> {bill.subject}</p>
-        <p><strong>Amount:</strong> {bill.amount ? `$${parseFloat(bill.amount).toFixed(2)}` : 'N/A'}</p>
-        <p><strong>Due Date:</strong> {bill.due_date || 'N/A'}</p>
-        <p><strong>Status:</strong> {bill.status}</p>
-        <p><strong>Received At:</strong> {new Date(bill.received_at).toLocaleString()}</p>
+        <p><strong>主题：</strong> {bill.subject}</p>
+        <p><strong>金额：</strong> {bill.amount ? `$${parseFloat(bill.amount).toFixed(2)}` : 'N/A'}</p>
+        <p><strong>到期日期：</strong> {bill.due_date || 'N/A'}</p>
+        <p><strong>状态：</strong> {bill.status}</p>
+        <p><strong>接收时间：</strong> {new Date(bill.received_at).toLocaleString()}</p>
         {bill.is_lottery === 1 && (
-          <p><strong>Lottery Numbers:</strong> {bill.lottery_numbers || 'N/A'}</p>
+          <p><strong>彩票号码：</strong> {bill.lottery_numbers || 'N/A'}</p>
         )}
         {/* Display raw email content (for debugging/advanced users) */}
         {/* <div className="raw-email-content">
@@ -57,7 +57,7 @@ const BillDetailsPage = () => {
           <pre>{bill.raw_email}</pre>
         </div> */}
       </div>
-      <button onClick={() => navigate('/bills')} className="btn mt-3">Back to Bills</button>
+      <button onClick={() => navigate('/bills')} className="btn mt-3">返回账单列表</button>
     </div>
   );
 };

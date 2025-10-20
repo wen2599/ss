@@ -58,22 +58,22 @@ if (isset($update['message'])) {
         $command = explode(' ', $text)[0];
         switch ($command) {
             case '/start':
-                $responseText = "Welcome! This bot helps you manage your bills.\n\n"
-                              . "You can use the following commands:\n"
-                              . "/register - Create a new account\n"
-                              . "/login - Connect your Telegram to an existing account\n"
-                              . "/bills - View your latest bills";
+                $responseText = "欢迎！我是一个可以帮助您管理账单的机器人。\n\n"
+                              . "您可以使用以下命令：\n"
+                              . "/register - 创建一个新账户\n"
+                              . "/login - 将您的 Telegram 关联到现有账户\n"
+                              . "/bills - 查看您的最新账单";
                 sendTelegramMessage($chatId, $responseText);
                 break;
 
             case '/register':
                 setUserStateAndData($pdo, $chatId, STATE_AWAITING_REGISTER_USERNAME);
-                sendTelegramMessage($chatId, "Let's create an account. Please enter your desired username:");
+                sendTelegramMessage($chatId, "让我们开始创建账户。请输入您期望的用户名：");
                 break;
 
             case '/login':
                 setUserStateAndData($pdo, $chatId, STATE_AWAITING_LOGIN_USERNAME);
-                sendTelegramMessage($chatId, "Let's link your account. Please enter your username or email:");
+                sendTelegramMessage($chatId, "好的，让我们关联您的账户。请输入您的用户名或邮箱：");
                 break;
 
             case '/bills':
@@ -81,21 +81,21 @@ if (isset($update['message'])) {
                 if ($userFromDb && !str_starts_with($userFromDb['username'], 'telegram_user_')) {
                     $bills = fetchAll($pdo, "SELECT subject, amount, due_date FROM bills WHERE user_id = :user_id ORDER BY received_at DESC LIMIT 5", [':user_id' => $userFromDb['id']]);
                     if ($bills) {
-                        $responseText = "<b>Your latest bills:</b>\n\n";
+                        $responseText = "<b>您的最新账单：</b>\n\n";
                         foreach ($bills as $bill) {
-                            $responseText .= "- " . htmlspecialchars($bill['subject']) . " - $" . ($bill['amount'] ?? 'N/A') . " (Due: " . ($bill['due_date'] ?? 'N/A') . ")\n";
+                            $responseText .= "- " . htmlspecialchars($bill['subject']) . " - 金额：" . ($bill['amount'] ?? '未知') . " (到期日: " . ($bill['due_date'] ?? '未知') . ")\n";
                         }
                     } else {
-                        $responseText = "You don't have any bills yet.";
+                        $responseText = "您还没有任何账单。";
                     }
                 } else {
-                    $responseText = "You are not fully registered or logged in. Please use /register or /login first.";
+                    $responseText = "您尚未完成注册或登录。请先使用 /register 或 /login。";
                 }
                 sendTelegramMessage($chatId, $responseText);
                 break;
 
             default:
-                sendTelegramMessage($chatId, "Unknown command. Please use /start to see the list of available commands.");
+                sendTelegramMessage($chatId, "未知命令。请输入 /start 查看可用的命令列表。");
                 break;
         }
     } else {
@@ -104,16 +104,16 @@ if (isset($update['message'])) {
             case STATE_AWAITING_REGISTER_USERNAME:
                 $stateData['username'] = $text;
                 setUserStateAndData($pdo, $chatId, STATE_AWAITING_REGISTER_EMAIL, $stateData);
-                sendTelegramMessage($chatId, "Got it. Now, please enter your email address:");
+                sendTelegramMessage($chatId, "好的。现在，请输入您的邮箱地址：");
                 break;
             case STATE_AWAITING_REGISTER_EMAIL:
                 if (!filter_var($text, FILTER_VALIDATE_EMAIL)) {
-                    sendTelegramMessage($chatId, "That doesn't look like a valid email. Please try again:");
+                    sendTelegramMessage($chatId, "这个邮箱地址格式似乎不正确，请再试一次：");
                     break;
                 }
                 $stateData['email'] = $text;
                 setUserStateAndData($pdo, $chatId, STATE_AWAITING_REGISTER_PASSWORD, $stateData);
-                sendTelegramMessage($chatId, "Thanks. Finally, please choose a strong password:");
+                sendTelegramMessage($chatId, "谢谢。最后，请设置一个安全的密码：");
                 break;
             case STATE_AWAITING_REGISTER_PASSWORD:
                 $stateData['password'] = $text;
@@ -122,10 +122,10 @@ if (isset($update['message'])) {
                 $newUserId = registerUserViaTelegram($pdo, $stateData['username'], $stateData['email'], $stateData['password'], $chatId);
 
                 if ($newUserId) {
-                    sendTelegramMessage($chatId, "Registration successful! Your account is now linked. You can now use /bills.");
+                    sendTelegramMessage($chatId, "注册成功！您的账户已经成功关联。现在您可以使用 /bills 命令了。");
                     clearUserStateAndData($pdo, $chatId);
                 } else {
-                    sendTelegramMessage($chatId, "Registration failed. Username or email might already exist. Please try /register again with different details or /login if you have an account.");
+                    sendTelegramMessage($chatId, "注册失败。用户名或邮箱可能已被占用。请使用 /register 命令尝试其他信息，或者如果您已有账户，请使用 /login。");
                     clearUserStateAndData($pdo, $chatId);
                 }
                 break;
@@ -133,24 +133,24 @@ if (isset($update['message'])) {
             case STATE_AWAITING_LOGIN_USERNAME:
                 $stateData['username_or_email'] = $text;
                 setUserStateAndData($pdo, $chatId, STATE_AWAITING_LOGIN_PASSWORD, $stateData);
-                sendTelegramMessage($chatId, "Please enter your password:");
+                sendTelegramMessage($chatId, "请输入您的密码：");
                 break;
             case STATE_AWAITING_LOGIN_PASSWORD:
                 $user = authenticateTelegramUser($pdo, $stateData['username_or_email'], $text);
                 if ($user) {
                     // Link Telegram chat ID to existing user
                     linkTelegramUser($pdo, $user['id'], $chatId);
-                    sendTelegramMessage($chatId, "Login successful! Your Telegram is now linked to your account.");
+                    sendTelegramMessage($chatId, "登录成功！您的 Telegram 已成功关联到您的账户。");
                     clearUserStateAndData($pdo, $chatId);
                 } else {
-                    sendTelegramMessage($chatId, "Login failed. Invalid username/email or password. Please try /login again.");
+                    sendTelegramMessage($chatId, "登录失败。用户名/邮箱或密码无效。请重新使用 /login 命令。");
                     clearUserStateAndData($pdo, $chatId);
                 }
                 break;
 
             case STATE_NONE:
             default:
-                sendTelegramMessage($chatId, "I didn't understand that. Please use a command like /start, /register, or /login.");
+                sendTelegramMessage($chatId, "我不明白您的意思。请使用 /start, /register, 或 /login 等命令。");
                 break;
         }
     }

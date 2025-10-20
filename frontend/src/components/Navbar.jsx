@@ -17,31 +17,31 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <div className="navbar-brand">
-        <Link to="/">Bill & Lottery App</Link>
+        <Link to="/">账单与彩票应用</Link>
       </div>
       <ul className="navbar-nav">
         {isLoggedIn ? (
           <>
             <li className="nav-item">
-              <Link to="/bills">My Bills</Link>
+              <Link to="/bills">我的账单</Link>
             </li>
             <li className="nav-item">
-              <Link to="/lottery">Lottery Results</Link>
+              <Link to="/lottery">开奖结果</Link>
             </li>
             <li className="nav-item">
-              <span>Welcome, {user?.username || 'User'}!</span>
+              <span>欢迎, {user?.username || '用户'}!</span>
             </li>
             <li className="nav-item">
-              <button onClick={handleLogout} className="nav-link-button">Logout</button>
+              <button onClick={handleLogout} className="nav-link-button">退出登录</button>
             </li>
           </>
         ) : (
           <>
             <li className="nav-item">
-              <Link to="/login">Login</Link>
+              <Link to="/login">登录</Link>
             </li>
             <li className="nav-item">
-              <Link to="/register">Register</Link>
+              <Link to="/register">注册</Link>
             </li>
           </>
         )}

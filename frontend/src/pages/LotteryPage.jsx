@@ -15,10 +15,10 @@ const LotteryPage = () => {
         if (data.success) {
           setLotteryResults(data.lotteryResults);
         } else {
-          setError(data.error || 'Failed to fetch lottery results.');
+          setError(data.error || '获取开奖结果失败。');
         }
       } catch (err) {
-        setError(err.message || 'An error occurred while fetching lottery results.');
+        setError(err.message || '获取开奖结果时发生错误。');
       } finally {
         setLoading(false);
       }
@@ -27,20 +27,20 @@ const LotteryPage = () => {
     fetchLotteryResults();
   }, []);
 
-  if (loading) return <div>Loading lottery results...</div>;
-  if (error) return <div className="alert error">Error: {error}</div>;
+  if (loading) return <div>正在加载开奖结果...</div>;
+  if (error) return <div className="alert error">错误：{error}</div>;
 
   return (
     <div className="lottery-page">
-      <h1>Latest Lottery Results</h1>
+      <h1>最新开奖结果</h1>
       {lotteryResults.length === 0 ? (
-        <p>No lottery results found yet.</p>
+        <p>暂无开奖结果。</p>
       ) : (
         <table className="lottery-table">
           <thead>
             <tr>
-              <th>Draw Date</th>
-              <th>Winning Numbers</th>
+              <th>开奖日期</th>
+              <th>中奖号码</th>
             </tr>
           </thead>
           <tbody>

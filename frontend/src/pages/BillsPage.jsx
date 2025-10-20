@@ -16,10 +16,10 @@ const BillsPage = () => {
       if (data.success) {
         setBills(data.bills);
       } else {
-        setError(data.error || 'Failed to fetch bills.');
+        setError(data.error || '获取账单失败。');
       }
     } catch (err) {
-      setError(err.message || 'An error occurred while fetching bills.');
+      setError(err.message || '获取账单时发生错误。');
     } finally {
       setLoading(false);
     }
@@ -30,7 +30,7 @@ const BillsPage = () => {
   }, []);
 
   const handleDelete = async (billId) => {
-    if (window.confirm('Are you sure you want to delete this bill?')) {
+    if (window.confirm('您确定要删除此账单吗？')) {
       try {
         const data = await deleteBill(billId);
         if (data.message) {
@@ -38,30 +38,30 @@ const BillsPage = () => {
           fetchBills(); // Refresh the list after deletion
         }
       } catch (err) {
-        setError(err.message || 'Failed to delete bill.');
+        setError(err.message || '删除账单失败。');
       }
     }
   };
 
-  if (loading) return <div>Loading bills...</div>;
-  if (error) return <div className="alert error">Error: {error}</div>;
+  if (loading) return <div>正在加载账单...</div>;
+  if (error) return <div className="alert error">错误：{error}</div>;
 
   return (
     <div className="bills-page">
-      <h1>My Bills</h1>
+      <h1>我的账单</h1>
       {message && <div className="alert success">{message}</div>}
       {bills.length === 0 ? (
-        <p>No bills found. Start forwarding your bills to your registered email!</p>
+        <p>未找到任何账单。请开始将您的账单转发到您注册的邮箱！</p>
       ) : (
         <table className="bills-table">
           <thead>
             <tr>
-              <th>Subject</th>
-              <th>Amount</th>
-              <th>Due Date</th>
-              <th>Status</th>
-              <th>Received At</th>
-              <th>Actions</th>
+              <th>主题</th>
+              <th>金额</th>
+              <th>到期日期</th>
+              <th>状态</th>
+              <th>接收时间</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -73,7 +73,7 @@ const BillsPage = () => {
                 <td>{bill.status}</td>
                 <td>{new Date(bill.received_at).toLocaleDateString()}</td>
                 <td className="actions">
-                  <button onClick={() => handleDelete(bill.id)} className="btn btn-danger">Delete</button>
+                  <button onClick={() => handleDelete(bill.id)} className="btn btn-danger">删除</button>
                 </td>
               </tr>
             ))}

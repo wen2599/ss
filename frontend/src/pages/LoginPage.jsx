@@ -17,17 +17,17 @@ const LoginPage = () => {
     if (result.success) {
       navigate('/bills'); // Redirect to bills page on successful login
     } else {
-      setError(result.message || 'Login failed.');
+      setError(result.message || '登录失败。');
     }
   };
 
   return (
     <div className="login-page">
-      <h2>Login</h2>
+      <h2>登录</h2>
       <form onSubmit={handleSubmit} className="login-form">
         {error && <div className="alert error">{error}</div>}
         <div className="form-group">
-          <label htmlFor="username">Username or Email:</label>
+          <label htmlFor="username">用户名或邮箱：</label>
           <input
             type="text"
             id="username"
@@ -37,7 +37,7 @@ const LoginPage = () => {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="password">Password:</label>
+          <label htmlFor="password">密码：</label>
           <input
             type="password"
             id="password"
@@ -46,7 +46,7 @@ const LoginPage = () => {
             required
           />
         </div>
-        <button type="submit" className="btn">Login</button>
+        <button type="submit" className="btn">登录</button>
       </form>
     </div>
   );

@@ -14,7 +14,7 @@ const PrivateRoute = ({ children }) => {
   const { isLoggedIn, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>; // Or a more sophisticated loading spinner
+    return <div>加载中...</div>; // Or a more sophisticated loading spinner
   }
 
   return isLoggedIn ? children : <Navigate to="/login" replace />;
