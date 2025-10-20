@@ -1,51 +1,60 @@
 # README
 
-## 最终版前后端分离项目
+## 全栈Web应用项目
 
 ### 描述
-这是一个经过全面重构和优化的全栈Web应用程序，前端使用 Vue.js，后端使用原生 PHP。我们实现了一个统一的 API 入口 (`index.php`)，一个强大的引导文件 (`bootstrap.php`)，以及一个更清晰、更安全的项目结构。
+这是一个经过全面重构和优化的全栈Web应用程序，前端使用React，后端使用原生PHP。项目采用统一的API入口(`index.php`)、强大的引导文件(`bootstrap.php`)以及一个清晰、安全的项目结构。
 
-### 部署指南 (Nginx)
+### 部署指南 (Nginx) - 已修正
 
 **1. 文件上传**
-将所有文件上传到您的服务器。`frontend/dist` 目录包含所有编译好的前端静态资源，后端 PHP 文件位于 `backend` 目录。
+将所有文件上传到您的服务器。`frontend/build`目录包含所有编译好的前端静态资源，后端PHP文件位于`backend`目录。
 
-**2. Nginx 配置**
-使用以下配置。这个配置将Web根目录指向 `frontend/dist`，并设置了一个代理，将所有以 `/api/` 开头的请求转发到后端的 `index.php`。
+**2. Nginx 配置 (重要更新)**
+请使用以下经过修正的Nginx配置。此配置能正确处理前端路由，并将API请求无误地交由后端的PHP-FPM执行。
 
 ```nginx
 server {
     listen 80;
-    server_name your_domain.com;
-    root /path/to/your/project/frontend/dist; # 指向前端构建输出目录
+    server_name your_domain.com; # 替换为您的域名
 
-    index index.html;
-
-    # 处理前端路由 (History 模式)
+    # 1. 前端应用配置
     location / {
+        # 指向您前端构建输出的目录 (通常是 build 或 dist)
+        root /path/to/your/project/frontend/build;
+        # 此设置确保在使用 history 模式路由时，刷新页面不会导致404
         try_files $uri $uri/ /index.html;
     }
 
-    # API 代理
+    # 2. 后端 API 代理配置
+    # 所有以 /api/ 开头的请求都会被这里处理
     location /api/ {
-        # 重写请求，将 /api/index.php?endpoint=xyz -> /index.php?endpoint=xyz
-        rewrite ^/api/(.*)$ /$1 break;
+        # 'alias' 指令将URL路径映射到服务器上的物理路径。
+        # 例如, 请求 /api/index.php 将会执行 /path/to/your/project/backend/index.php 文件。
+        alias /path/to/your/project/backend/;
 
-        # 代理到后端的 PHP-FPM
-        proxy_pass http://127.0.0.1:9000; # 确保这是您的 PHP-FPM 监听地址
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        # 确保所有请求都最终指向 index.php 前端控制器
+        try_files $uri $uri/ /api/index.php?$query_string;
 
-        # 包含标准的 FastCGI 参数
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME /path/to/your/project/backend/index.php; # 指向后端的统一入口
-        fastcgi_param SCRIPT_NAME /index.php; # 告诉 PHP 脚本名称
-        fastcgi_param DOCUMENT_ROOT /path/to/your/project/backend; # 后端根目录
+        # 嵌套 location 块，专门处理 PHP 文件的执行
+        location ~ \.php$ {
+            include fastcgi_params;
+
+            # SCRIPT_FILENAME 是最重要的参数，它告诉PHP-FPM要执行哪个文件。
+            # $request_filename 变量会持有由 alias 指令转换后的正确文件路径。
+            fastcgi_param SCRIPT_FILENAME $request_filename;
+
+            # 根据您的服务器环境，选择使用 sock 文件或 TCP 端口
+            # 示例 (Ubuntu with PHP 8.1):
+            fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+            # 或者使用 TCP 端口:
+            # fastcgi_pass 127.0.0.1:9000;
+
+            fastcgi_index index.php;
+        }
     }
 
-    # 处理静态文件缓存
+    # 可选: 为静态资源设置浏览器缓存
     location ~* \.(?:jpg|jpeg|gif|png|ico|css|js)$ {
         expires 1y;
         add_header Cache-Control "public";
@@ -54,7 +63,7 @@ server {
 ```
 
 **3. .env 文件**
-在项目的根目录下创建一个 `.env` 文件，并填入以下凭证：
+在项目的根目录下创建一个`.env`文件，并填入以下凭证：
 ```
 DB_HOST=127.0.0.1
 DB_PORT=3306
@@ -63,7 +72,9 @@ DB_USER=your_db_user
 DB_PASSWORD=your_db_password
 
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-TELEGRAM_ADMIN_CHAT_ID=your_telegram_chat_id_here
+TELEGRAM_WEBHOOK_SECRET=your_secret_string_for_webhook
+TELEGRAM_ADMIN_ID=your_telegram_admin_id
+LOTTERY_CHANNEL_ID=your_lottery_channel_id
 
 GEMINI_API_KEY=your_gemini_api_key_here
 CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id_here
@@ -71,55 +82,19 @@ CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here
 ```
 
 **4. 初始化数据库**
-通过命令行在 `backend` 目录中执行 `php initialize_database.php` 来创建数据库表。
+通过命令行在`backend`目录中执行`php initialize_database.php`来创建数据库表。
 
-### 项目结构 (最终版)
+### 项目结构
 ```
 .env
 README.md
-
 frontend/
-  dist/             # 前端静态文件 (Web根目录)
+  build/            # 前端静态文件 (Web根目录)
   src/
-    components/
-    router/
-    views/
-    App.vue
-    main.js
+    ...
     api.js
-  package.json
-  vite.config.js
-
 backend/
-  index.php           # 所有API请求的统一入口
-  bootstrap.php       # 核心：加载配置、函数、会话、数据库
-  db_operations.php   # 数据库操作函数
-  database_schema.sql # 数据库结构
-  initialize_database.php # 数据库初始化脚本
-
-  # --- 辅助模块 (全部由 bootstrap.php 加载) ---
-  api_curl_helper.php
-  cloudflare_ai_helper.php
-  gemini_ai_helper.php
-  telegram_helpers.php
-  user_state_manager.php
-  email_handler.php
-  process_email_ai.php
-
-  # --- 日志文件 ---
-  backend.log
+  index.php         # 所有API请求的统一入口
+  bootstrap.php     # 核心：加载配置、函数、会话、数据库
+  ... (其他PHP文件)
 ```
-
-### API 端点 (通过 index.php)
-所有API请求都发送到 `GET /api/index.php?endpoint=<endpoint_name>`。
-
-- `register_user` (POST)
-- `login_user` (POST)
-- `logout_user` (POST)
-- `check_session` (GET)
-- `get_emails` (GET)
-- `get_bills` (GET)
-- `delete_bill` (DELETE)
-- `process_email_ai` (POST)
-- `get_lottery_results` (GET)
-- `telegram_webhook` (POST) - Bot 的 Webhook 入口
