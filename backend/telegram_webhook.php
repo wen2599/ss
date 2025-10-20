@@ -1,5 +1,19 @@
 <?php
 // backend/telegram_webhook.php
+
+// Bootstrap logging - MUST be the very first thing.
+// This helps debug cases where the script is not even being executed.
+$log_file = __DIR__ . '/../telegram_bootstrap.log';
+$timestamp = date("Y-m-d H:i:s");
+$request_body = file_get_contents('php://input');
+// Use FILE_APPEND to not overwrite the log on each request.
+file_put_contents($log_file, "[$timestamp] Webhook received.\n", FILE_APPEND);
+if (empty($request_body)) {
+    file_put_contents($log_file, "[$timestamp] Request body was empty.\n", FILE_APPEND);
+} else {
+    file_put_contents($log_file, "[$timestamp] Request body: $request_body\n", FILE_APPEND);
+}
+
 // Handles incoming updates from the Telegram Bot API, with stateful interactions.
 
 require_once __DIR__ . '/bootstrap.php';
