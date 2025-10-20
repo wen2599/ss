@@ -60,6 +60,9 @@ const LotteryPage = () => {
     if (!lotteryData) {
         return <div className="card no-data-card">暂无开奖数据</div>;
     }
+    
+    // Helper to safely join array data
+    const displayArray = (arr) => arr && Array.isArray(arr) ? arr.join(' ') : 'N/A';
 
     return (
       <div className="card lottery-display-card">
@@ -68,15 +71,15 @@ const LotteryPage = () => {
         <p className="lottery-drawing-date">开奖日期: {lotteryData.drawing_date || '--'}</p>
         <div className="lottery-detail-section">
             <h3>开奖号码</h3>
-            <p className="lottery-winning-numbers">{lotteryData.winning_numbers || 'N/A'}</p>
+            <p className="lottery-winning-numbers">{displayArray(lotteryData.winning_numbers)}</p>
         </div>
         <div className="lottery-detail-section">
             <h3>生肖</h3>
-            <p className="lottery-zodiac-signs">{lotteryData.zodiac_signs || 'N/A'}</p>
+            <p className="lottery-zodiac-signs">{displayArray(lotteryData.zodiac_signs)}</p>
         </div>
         <div className="lottery-detail-section">
             <h3>颜色</h3>
-            <p className="lottery-colors">{lotteryData.colors || 'N/A'}</p>
+            <p className="lottery-colors">{displayArray(lotteryData.colors)}</p>
         </div>
         <p className="lottery-timestamp">数据更新于: {lotteryData.created_at ? new Date(lotteryData.created_at).toLocaleString() : '--'}</p>
       </div>

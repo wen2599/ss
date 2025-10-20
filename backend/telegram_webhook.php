@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/telegram_helpers.php';
+require_once __DIR__ . '/db_operations.php';
+require_once __DIR__ . '/user_state_manager.php';
 
 write_log("------ telegram_webhook.php Entry Point ------");
 
@@ -51,15 +54,12 @@ function handleLotteryMessage($chatId, $text) {
 }
 
 // --- Main Script Execution ---
-
-// Read configured secrets
 $expectedSecret = getenv('TELEGRAM_WEBHOOK_SECRET') ?: null;
 $adminId = getenv('TELEGRAM_ADMIN_ID') ?: null;
 $lotteryChannelId = getenv('LOTTERY_CHANNEL_ID') ?: null;
 
 write_log("ENV Check: AdminID=" . ($adminId ? 'OK' : 'FAIL') . ", ChannelID=" . ($lotteryChannelId ? 'OK' : 'FAIL') . ", WebhookSecret=" . ($expectedSecret ? 'OK' : 'FAIL'));
 
-// --- DUAL SECRET TOKEN VALIDATION ---
 $receivedHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
 $receivedParam = $_GET['secret'] ?? null;
 $receivedSecret = $receivedHeader ?? $receivedParam;
@@ -67,93 +67,85 @@ write_log("Secret Check: Header was " . ($receivedHeader ? 'present' : 'missing'
 
 if ($expectedSecret) {
     if (empty($receivedSecret)) {
-        write_log("Webhook rejected: Missing secret token in both header and URL parameter.");
-        http_response_code(403);
-        exit('Forbidden: Missing secret token.');
+        write_log("Webhook rejected: Missing secret token.");
+        http_response_code(403); exit('Forbidden: Missing secret token.');
     }
     if (!hash_equals($expectedSecret, $receivedSecret)) {
         write_log("Webhook rejected: Secret token mismatch.");
-        http_response_code(403);
-        exit('Forbidden: Secret token mismatch.');
+        http_response_code(403); exit('Forbidden: Secret token mismatch.');
     }
 } else {
     write_log("WARNING: TELEGRAM_WEBHOOK_SECRET is not configured.");
 }
 
-// --- Process Incoming Update ---
 $bodyRaw = file_get_contents('php://input');
 $update = json_decode($bodyRaw, true);
 
 if (!is_array($update)) {
     write_log("Invalid JSON payload; ignoring.");
-    http_response_code(200);
-    exit();
+    http_response_code(200); exit();
 }
 
-// Main update parsing
-$chatId = $update['message']['chat']['id'] 
-    ?? $update['channel_post']['chat']['id'] 
-    ?? $update['callback_query']['message']['chat']['id'] 
-    ?? null;
+// --- Process Different Update Types ---
 
-$userId = $update['message']['from']['id'] 
-    ?? $update['callback_query']['from']['id'] 
-    ?? $chatId;
-
-// Check for channel post first
+// 1. Channel Post for Lottery Data
 if (isset($update['channel_post'])) {
-    $post = $update['channel_post'];
-    $text = trim($post['text'] ?? '');
-    write_log("Received channel_post from chat={$chatId} with text: " . substr($text, 0, 200));
+    $chatId = $update['channel_post']['chat']['id'] ?? null;
+    $text = trim($update['channel_post']['text'] ?? '');
+    write_log("Received channel_post from chat={$chatId}");
 
     if (!empty($lotteryChannelId) && (string)$chatId === (string)$lotteryChannelId) {
         handleLotteryMessage($chatId, $text);
-        http_response_code(200);
-        exit(json_encode(['status' => 'ok', 'message' => 'processed lottery channel post']));
+    } else {
+        write_log("Ignoring channel_post from non-lottery channel.");
     }
-} 
-// Check for callback query
-elseif (isset($update['callback_query'])) {
+    http_response_code(200); exit(json_encode(['status' => 'ok', 'message' => 'processed channel post']));
+}
+
+// 2. Callback Query or Message from Admin
+$chatId = $update['message']['chat']['id'] ?? $update['callback_query']['message']['chat']['id'] ?? null;
+$userId = $update['message']['from']['id'] ?? $update['callback_query']['from']['id'] ?? null;
+$commandOrText = null;
+
+if (isset($update['callback_query'])) {
     $cb = $update['callback_query'];
     $commandOrText = $cb['data'] ?? null;
     if (!empty($cb['id'])) answerTelegramCallbackQuery($cb['id']);
     write_log("Received callback_query from user={$userId} with data: " . $commandOrText);
-} 
-// Check for personal message
-elseif (isset($update['message'])) {
-    $msg = $update['message'];
-    $commandOrText = trim($msg['text'] ?? '');
+} elseif (isset($update['message'])) {
+    $commandOrText = trim($update['message']['text'] ?? '');
     write_log("Received message from user={$userId} with text: " . $commandOrText);
 } else {
-    write_log("Unsupported update type; ignoring.");
-    http_response_code(200);
-    exit();
+    write_log("Unsupported update type or already handled; ignoring.");
+    http_response_code(200); exit();
 }
 
-// --- Process Admin Commands (if not a channel post) ---
+// --- Process Admin Commands ---
 if (empty($chatId) || empty($userId)) {
-    write_log("Missing chatId or userId after parsing update.");
-    http_response_code(200);
-    exit();
+    write_log("Missing chatId or userId for command processing.");
+    http_response_code(200); exit();
 }
 
-if (!empty($adminId) && ((string)$userId !== (string)$adminId)) {
-    write_log("Unauthorized command access from user {$userId}.");
-    @sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
-    http_response_code(200);
-    exit();
+// IMPORTANT: Admin-only check
+if (empty($adminId) || (string)$userId !== (string)$adminId) {
+    write_log("Unauthorized access attempt from user {$userId}.");
+    // Only send a message if it's a direct command attempt, not just random text.
+    if (strpos(trim($commandOrText), '/') === 0) {
+       @sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
+    }
+    http_response_code(200); exit();
 }
+
+write_log("Processing admin command from user {$userId}.");
 
 try {
-    // State handling...
     $userState = getUserState($userId);
-    write_log("User state for user {$userId}: " . json_encode($userState));
+    write_log("User state for admin {$userId}: " . json_encode($userState));
     if ($userState) {
         // ... (stateful logic for admin commands - keeping as is)
         http_response_code(200); exit();
     }
 
-    // Command handling...
     $cmd = strtolower(trim($commandOrText ?? ''));
     write_log("Processing command: " . $cmd);
     $reply = null;
@@ -180,14 +172,10 @@ try {
     }
 } catch (Throwable $e) {
     write_log("Exception in admin command processing: " . $e->getMessage());
-    if (!empty($adminId)) {
-        @sendTelegramMessage($adminId, "Webhook internal error: " . substr($e->getMessage(), 0, 200));
-    }
+    @sendTelegramMessage($adminId, "Webhook internal error: " . substr($e->getMessage(), 0, 200));
 }
 
-// Final OK response to Telegram
 http_response_code(200);
 echo json_encode(['status' => 'ok']);
 exit();
-
 ?>
