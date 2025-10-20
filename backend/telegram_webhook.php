@@ -1,8 +1,6 @@
 <?php
-require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/telegram_helpers.php';
-require_once __DIR__ . '/db_operations.php';
-require_once __DIR__ . '/user_state_manager.php';
+require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/telegram_helpers.php'; // Specific Telegram helper functions
 
 write_log("------ telegram_webhook.php Entry Point ------");
 
@@ -68,11 +66,11 @@ write_log("Secret Check: Header was " . ($receivedHeader ? 'present' : 'missing'
 if ($expectedSecret) {
     if (empty($receivedSecret)) {
         write_log("Webhook rejected: Missing secret token.");
-        http_response_code(403); exit('Forbidden: Missing secret token.');
+        json_response('error', 'Forbidden: Missing secret token.', 403);
     }
     if (!hash_equals($expectedSecret, $receivedSecret)) {
         write_log("Webhook rejected: Secret token mismatch.");
-        http_response_code(403); exit('Forbidden: Secret token mismatch.');
+        json_response('error', 'Forbidden: Secret token mismatch.', 403);
     }
 } else {
     write_log("WARNING: TELEGRAM_WEBHOOK_SECRET is not configured.");
@@ -83,7 +81,7 @@ $update = json_decode($bodyRaw, true);
 
 if (!is_array($update)) {
     write_log("Invalid JSON payload; ignoring.");
-    http_response_code(200); exit();
+    json_response('success', 'Invalid JSON payload; ignoring.'); // 200 OK for ignored updates
 }
 
 // --- Process Different Update Types ---
@@ -99,7 +97,7 @@ if (isset($update['channel_post'])) {
     } else {
         write_log("Ignoring channel_post from non-lottery channel.");
     }
-    http_response_code(200); exit(json_encode(['status' => 'ok', 'message' => 'processed channel post']));
+    json_response('success', 'processed channel post');
 }
 
 // 2. Callback Query or Message from Admin
@@ -117,13 +115,13 @@ if (isset($update['callback_query'])) {
     write_log("Received message from user={$userId} with text: " . $commandOrText);
 } else {
     write_log("Unsupported update type or already handled; ignoring.");
-    http_response_code(200); exit();
+    json_response('success', 'Unsupported update type or already handled; ignoring.');
 }
 
 // --- Process Admin Commands ---
 if (empty($chatId) || empty($userId)) {
     write_log("Missing chatId or userId for command processing.");
-    http_response_code(200); exit();
+    json_response('success', 'Missing chatId or userId for command processing.');
 }
 
 // IMPORTANT: Admin-only check
@@ -133,17 +131,19 @@ if (empty($adminId) || (string)$userId !== (string)$adminId) {
     if (strpos(trim($commandOrText), '/') === 0) {
        @sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
     }
-    http_response_code(200); exit();
+    json_response('error', 'Unauthorized access.', 403);
 }
 
 write_log("Processing admin command from user {$userId}.");
 
 try {
+    // Ensure user_state_manager.php is effectively included (via bootstrap or directly if needed)
+    // Assuming getUserState and getAdminKeyboard are available globally or via requires.
     $userState = getUserState($userId);
     write_log("User state for admin {$userId}: " . json_encode($userState));
     if ($userState) {
         // ... (stateful logic for admin commands - keeping as is)
-        http_response_code(200); exit();
+        json_response('success', 'Stateful command processed.');
     }
 
     $cmd = strtolower(trim($commandOrText ?? ''));
@@ -173,9 +173,9 @@ try {
 } catch (Throwable $e) {
     write_log("Exception in admin command processing: " . $e->getMessage());
     @sendTelegramMessage($adminId, "Webhook internal error: " . substr($e->getMessage(), 0, 200));
+    json_response('error', 'An internal error occurred during command processing.', 500);
 }
 
-http_response_code(200);
-echo json_encode(['status' => 'ok']);
-exit();
+json_response('success', 'Webhook processed successfully.');
+
 ?>

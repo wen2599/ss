@@ -19,23 +19,17 @@ function RegisterPage() {
 
         try {
             const response = await registerUser({ username: email, email, password });
-            if (response.user) {
-                login(response.user);
+            // Assuming success response has a 'user' object and 'status': 'success'
+            if (response.status === 'success' && response.data && response.data.user) {
+                login(response.data.user);
                 navigate('/bills');
             } else {
-                // Check for the detailed db_error field and display it
-                const errorMessage = response.db_error ? `${response.error} (Details: ${response.db_error})` : (response.error || '注册失败。');
-                setError(errorMessage);
+                // Handle cases where status is not 'success' but no error was thrown
+                setError(response.message || '注册失败。');
             }
         } catch (err) {
-            // Attempt to parse the error message as JSON to get the detailed error
-            try {
-                const errorJson = JSON.parse(err.message);
-                const errorMessage = errorJson.db_error ? `${errorJson.error} (Details: ${errorJson.db_error})` : (errorJson.error || '注册时发生错误。');
-                setError(errorMessage);
-            } catch (e) {
-                setError(err.message || '注册时发生错误。');
-            }
+            // The fetchJson helper should throw an Error object with the message from the backend
+            setError(err.message || '注册时发生错误。');
         } finally {
             setIsLoading(false);
         }

@@ -1,45 +1,24 @@
 <?php
+require_once __DIR__ . '/bootstrap.php';
 
-require_once __DIR__ . '/api_header.php';
-
-global $debug_info; // Access the global debug_info array
+write_log("------ login_user.php Entry Point ------");
 
 // --- Input and Validation ---
 $data = json_decode(file_get_contents('php://input'), true);
 
 if (!$data) {
-    http_response_code(400);
-    echo json_encode([
-        'error' => 'Invalid JSON received.'
-    ]);
-    exit;
+    json_response('error', 'Invalid JSON received.', 400);
 }
 
 $email = $data['email'] ?? null;
 $password = $data['password'] ?? null;
 
 if (empty($email) || empty($password)) {
-    http_response_code(400);
-    echo json_encode([
-        'error' => 'Email and password are required.'
-    ]);
-    exit;
+    json_response('error', 'Email and password are required.', 400);
 }
 
 // --- Database and Authentication ---
 $pdo = get_db_connection();
-if (is_array($pdo) && isset($pdo['db_error'])) {
-    http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => $pdo['db_error']]);
-    exit;
-}
-if (!$pdo) {
-    http_response_code(503);
-    echo json_encode([
-        'error' => 'Database connection is currently unavailable.'
-    ]);
-    exit;
-}
 
 try {
     $stmt = $pdo->prepare("SELECT id, username, email, password_hash FROM users WHERE email = ?");
@@ -51,28 +30,8 @@ try {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['email'] = $user['email'];
 
-        // 主动 setcookie，确保 session cookie 被浏览器收下
-        $params = session_get_cookie_params();
-        setcookie(
-            session_name(),
-            session_id(),
-            [
-                'expires' => time() + $params['lifetime'],
-                'path' => $params['path'],
-                'domain' => $params['domain'],
-                'secure' => $params['secure'],
-                'httponly' => $params['httponly'],
-                'samesite' => $params['samesite'] ?? 'None'
-            ]
-        );
-
-        // Add session data to debug info AFTER setting it
-        $debug_info['login_session_data_after_set'] = $_SESSION;
-        $debug_info['login_session_id_after_set'] = session_id();
-
-        http_response_code(200);
-        echo json_encode([
-            'status' => 'success',
+        write_log("User logged in successfully: " . $email . ". Session ID: " . session_id());
+        json_response('success', [
             'message' => 'Login successful!',
             'user' => [
                 'id' => $user['id'],
@@ -82,18 +41,13 @@ try {
         ]);
 
     } else {
-        http_response_code(401); // Unauthorized
-        echo json_encode([
-            'error' => 'Invalid email or password.'
-        ]);
+        write_log("Login failed for email: " . $email . ". Invalid credentials.");
+        json_response('error', 'Invalid email or password.', 401);
     }
 
 } catch (PDOException $e) {
-    error_log("User login error: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode([
-        'error' => 'An internal database error occurred.'
-    ]);
+    write_log("User login error: " . $e->getMessage());
+    json_response('error', 'An internal database error occurred.', 500);
 }
 
-?>
+write_log("------ login_user.php Exit Point ------");

@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getEmails, deleteBill } from '../api.js';
+import { getBills, deleteBill } from '../api.js'; // Updated to use getBills
 import { useAuth } from '../context/AuthContext.jsx';
 import './BillsPage.css';
 
 const BillsPage = () => {
-    const [emails, setEmails] = useState([]);
-    const [loading, setLoading] = useState(true); // This state is for fetching emails
+    const [bills, setBills] = useState([]); // Renamed from emails to bills
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
-    // Get isAuthenticated and the new loading state from AuthContext
     const { isAuthenticated, loading: authLoading } = useAuth();
 
     const handleBillClick = (id) => {
@@ -22,8 +21,8 @@ const BillsPage = () => {
             try {
                 const response = await deleteBill(id);
                 if (response.status === 'success') {
-                    setEmails(emails.filter(email => email.id !== id));
-                    alert(response.message);
+                    setBills(bills.filter(bill => bill.id !== id));
+                    alert(response.data || '删除成功');
                 } else {
                     setError(response.message || '删除账单失败');
                 }
@@ -35,29 +34,25 @@ const BillsPage = () => {
     };
 
     useEffect(() => {
-        // Don't do anything until the auth check is complete
         if (authLoading) {
             return;
         }
 
-        // If not authenticated after the check, redirect to login
         if (!isAuthenticated) {
             navigate('/login');
             return;
         }
 
-        // Now that we're authenticated, fetch the emails
-        const fetchEmails = async () => {
+        const fetchBills = async () => {
             try {
-                setLoading(true); // Start loading emails
-                const response = await getEmails();
-                if (response.status === 'success') {
-                    setEmails(response.emails);
+                setLoading(true);
+                const response = await getBills(); // Use getBills instead of getEmails
+                if (response.status === 'success' && response.data && response.data.bills) {
+                    setBills(response.data.bills); // Set bills from response.data.bills
                 } else {
                     setError(response.message || '无法获取账单列表');
                 }
             } catch (err) {
-                // The error might be a 401 if the session expired between the auth check and this fetch
                 if (err.message.includes('401')) {
                     setError('您的会话已过期，请重新登录。');
                     navigate('/login');
@@ -66,15 +61,13 @@ const BillsPage = () => {
                 }
                 console.error(err);
             } finally {
-                setLoading(false); // Finish loading emails
+                setLoading(false);
             }
         };
 
-        fetchEmails();
-        // This effect should run when the auth state is confirmed
+        fetchBills();
     }, [isAuthenticated, authLoading, navigate]);
 
-    // Show a loading message while either auth check or email fetch is in progress.
     if (authLoading || loading) {
         return <div className="loading">正在加载账单...</div>;
     }
@@ -86,18 +79,18 @@ const BillsPage = () => {
     return (
         <div className="bills-page">
             <h1>我的电子账单</h1>
-            {emails.length > 0 ? (
-                <ul className="email-list">
-                    {emails.map((email) => (
-                        <li key={email.id} className="email-item">
-                            <div className="email-content" onClick={() => handleBillClick(email.id)}>
-                                <div className="email-sender">{email.sender}</div>
-                                <div className="email-subject">{email.subject}</div>
-                                <div className="email-date">{new Date(email.created_at).toLocaleDateString('zh-CN')}</div>
+            {bills.length > 0 ? (
+                <ul className="bill-list"> {/* Updated class name */}
+                    {bills.map((bill) => (
+                        <li key={bill.id} className="bill-item"> {/* Updated class name */}
+                            <div className="bill-content" onClick={() => handleBillClick(bill.id)}>
+                                <div className="bill-name">{bill.bill_name || 'N/A'}</div>
+                                <div className="bill-amount">¥{bill.amount || '0.00'}</div>
+                                <div className="bill-due-date">到期日: {new Date(bill.due_date).toLocaleDateString('zh-CN')}</div>
                             </div>
                             <button
                                 className="delete-button"
-                                onClick={(event) => handleDeleteBill(email.id, event)}
+                                onClick={(event) => handleDeleteBill(bill.id, event)}
                             >
                                 删除
                             </button>

@@ -1,4 +1,4 @@
-// 文件: frontend/src/api.js (MODIFIED FOR FRONT CONTROLLER)
+// frontend/src/api.js
 
 const API_BASE_URL = import.meta.env.DEV ? '/api' : '';
 
@@ -33,8 +33,8 @@ const fetchJson = async (url, options = {}) => {
         ...options,
     });
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Network response was not ok' }));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({ message: 'Network response was not ok' }));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
     return response.json();
 };
@@ -47,20 +47,20 @@ export const registerUser = (userData) => {
 };
 
 export const loginUser = (credentials) => {
-    return fetchJson(buildApiUrl('login_user'), {
+    return fetchJson(buildApiUrl('login_user'), { // Corrected from buildApiurl to buildApiUrl
         method: 'POST',
         body: JSON.stringify(credentials),
     });
 };
 
 export const logoutUser = () => {
-    return fetchJson(buildApiUrl('logout_user'), { // Endpoint name adjusted
+    return fetchJson(buildApiUrl('logout_user'), {
         method: 'POST',
     });
 };
 
 export const checkSession = () => {
-    return fetchJson(buildApiUrl('check_session')); // Endpoint name adjusted
+    return fetchJson(buildApiUrl('check_session'));
 };
 
 export const getEmails = () => {
@@ -69,12 +69,22 @@ export const getEmails = () => {
 
 export const getEmailById = (id) => {
     const params = new URLSearchParams({ id });
-    return fetchJson(buildApiUrl('get_emails', params)); // Pass id as a URL parameter
+    return fetchJson(buildApiUrl('get_emails', params));
+};
+
+export const getBills = () => {
+    return fetchJson(buildApiUrl('get_bills'));
+};
+
+// New function to get single bill details
+export const getBillDetails = (id) => {
+    const params = new URLSearchParams({ id });
+    return fetchJson(buildApiUrl('get_bills', params));
 };
 
 export const deleteBill = (id) => {
     const params = new URLSearchParams({ id });
-    return fetchJson(buildApiUrl('delete_bill', params), { // Pass id as a URL parameter
+    return fetchJson(buildApiUrl('delete_bill', params), {
         method: 'DELETE',
     });
 };

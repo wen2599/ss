@@ -1,22 +1,16 @@
 <?php
-// backend/get_emails.php
+require_once __DIR__ . '/bootstrap.php';
 
-require_once __DIR__ . '/api_header.php';
+write_log("------ get_emails.php Entry Point ------");
 
 // --- Authentication Check ---
 if (!isset($_SESSION['user_id'])) {
-    http_response_code(401); // Unauthorized
-    echo json_encode(['status' => 'error', 'message' => 'You must be logged in to view emails.']);
-    exit;
+    json_response('error', 'Unauthorized: User not logged in.', 401);
 }
 
 $pdo = get_db_connection();
-if (is_array($pdo) && isset($pdo['db_error'])) {
-    http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => $pdo['db_error']]);
-    exit;
-}
 $userId = $_SESSION['user_id'];
+
 $emailId = $_GET['id'] ?? null;
 
 try {
@@ -31,10 +25,10 @@ try {
         $email = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($email) {
-            echo json_encode(['status' => 'success', 'emails' => [$email]]);
+            json_response('success', ['email' => $email]); // Return single email directly
         } else {
-            http_response_code(404); // Not Found
-            echo json_encode(['status' => 'error', 'message' => '未找到该账单']);
+            write_log("Email ID {$emailId} not found for user {$userId} or unauthorized.");
+            json_response('error', '未找到该邮件或无权查看。', 404);
         }
     } else {
         // --- Fetch all emails for the user ---
@@ -47,10 +41,13 @@ try {
         $stmt->execute([$userId]);
         $emails = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        echo json_encode(['status' => 'success', 'emails' => $emails]);
+        json_response('success', ['emails' => $emails]);
     }
 } catch (PDOException $e) {
-    error_log("Error fetching emails: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'An error occurred while fetching emails.']);
+    write_log("Error fetching emails: " . $e->getMessage());
+    json_response('error', 'An error occurred while fetching emails.', 500);
 }
+
+write_log("------ get_emails.php Exit Point ------");
+
+?>

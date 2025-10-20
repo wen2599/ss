@@ -60,9 +60,12 @@ const HomePage = () => {
         '老澳门六合彩': null,
     });
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null); // Added for error handling
 
     useEffect(() => {
         const fetchAllResults = async () => {
+            setLoading(true);
+            setError(null);
             try {
                 const types = ['新澳门六合彩', '香港六合彩', '老澳门六合彩'];
                 const promises = types.map(type => getLotteryResults(type));
@@ -70,17 +73,19 @@ const HomePage = () => {
 
                 const newResults = {};
                 responses.forEach((response, index) => {
-                    if (response.status === 'success' && response.lottery_results && response.lottery_results.length > 0) {
-                        // 只取最新一条
-                        newResults[types[index]] = response.lottery_results[0];
+                    // Corrected data access path to response.data.lottery_results
+                    if (response.status === 'success' && response.data && response.data.lottery_results && response.data.lottery_results.length > 0) {
+                        // Get the latest result
+                        newResults[types[index]] = response.data.lottery_results[0];
                     } else {
                         newResults[types[index]] = null;
                     }
                 });
 
                 setResults(newResults);
-            } catch (error) {
-                console.error("Failed to fetch lottery results:", error);
+            } catch (err) {
+                console.error("Failed to fetch lottery results:", err);
+                setError(err.message || '获取开奖结果失败。'); // Set error state for UI
             } finally {
                 setLoading(false);
             }
@@ -93,6 +98,8 @@ const HomePage = () => {
             <div className="lottery-container">
                 {loading ? (
                     <div className="lottery-banner-placeholder"><h2>正在加载开奖结果...</h2></div>
+                ) : error ? (
+                    <div className="lottery-banner-placeholder error"><h2>{error}</h2></div>
                 ) : (
                     Object.entries(results).map(([type, result]) => (
                         <LotteryBanner key={type} result={result} type={type} />

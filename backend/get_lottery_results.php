@@ -1,23 +1,9 @@
 <?php
-require_once __DIR__ . '/api_header.php';
+require_once __DIR__ . '/bootstrap.php';
 
 write_log("------ get_lottery_results.php Entry Point ------");
 
 $pdo = get_db_connection();
-if (is_array($pdo) && isset($pdo['db_error'])) {
-    $errorMsg = "Database connection error: " . $pdo['db_error'];
-    write_log($errorMsg);
-    http_response_code(503);
-    echo json_encode(['status' => 'error', 'message' => $errorMsg]);
-    exit;
-}
-if (!$pdo) {
-    $errorMsg = "Database connection returned null.";
-    write_log($errorMsg);
-    http_response_code(503);
-    echo json_encode(['status' => 'error', 'message' => $errorMsg]);
-    exit;
-}
 
 try {
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
@@ -45,13 +31,11 @@ try {
         return $row;
     }, $results);
 
-    echo json_encode(['status' => 'success', 'lottery_results' => $processedResults]);
+    json_response('success', ['lottery_results' => $processedResults]);
 
 } catch (PDOException $e) {
-    $errorMsg = "Error fetching lottery results: " . $e->getMessage();
-    write_log($errorMsg);
-    http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'An error occurred while fetching lottery results.']);
+    write_log("Error fetching lottery results: " . $e->getMessage());
+    json_response('error', 'An error occurred while fetching lottery results.', 500);
 }
 
 write_log("------ get_lottery_results.php Exit Point ------");

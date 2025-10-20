@@ -1,6 +1,7 @@
 <?php
+require_once __DIR__ . '/bootstrap.php';
 
-require_once __DIR__ . '/api_header.php';
+write_log("------ logout_user.php Entry Point ------");
 
 // --- Logout Logic ---
 // Unset all session variables.
@@ -19,7 +20,9 @@ if (ini_get("session.use_cookies")) {
 // Finally, destroy the session.
 session_destroy();
 
-http_response_code(200);
-echo json_encode(['message' => 'Logout successful!']);
+write_log("User logged out successfully. Session destroyed.");
+json_response('success', 'Logout successful!');
+
+write_log("------ logout_user.php Exit Point ------");
 
 ?>
