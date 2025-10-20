@@ -1,14 +1,12 @@
-# Dependencies
-/node_modules
-
-# Environment variables
-.env
-
-# Build artifacts
-/build
-/dist
-
 # Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+*.log
+
+# Node dependencies
+node_modules/
+
+# Frontend build artifacts
+frontend/dist/
+frontend/build/
+
+# Jules temporary files
+jules-scratch/

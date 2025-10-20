@@ -9,26 +9,13 @@ header('Content-Type: text/plain; charset=utf-8');
 write_log("------ check_lottery_data.php Entry Point (Diagnostic) ------");
 echo "--- Lottery Data Diagnostic Script ---\n\n";
 
-echo "Attempting to connect to the database...\n";
-
-$pdo = get_db_connection();
-
-if (is_array($pdo) && isset($pdo['db_error'])) {
-    echo "FATAL: Database connection failed!\n";
-    echo "Error: " . $pdo['db_error'] . "\n";
-    write_log("Diagnostic Failed: Database connection error - " . $pdo['db_error']);
-    exit;
-}
-if (!$pdo) {
-    echo "FATAL: Database connection failed! (Returned null)\n";
-    write_log("Diagnostic Failed: Database connection returned null.");
-    exit;
-}
-
-echo "Database connection successful.\n\n";
-echo "Querying the 'lottery_results' table for any 10 entries...\n";
-
 try {
+    echo "Attempting to connect to the database...\n";
+    $pdo = get_db_connection();
+    echo "Database connection successful.\n\n";
+
+    echo "Querying the 'lottery_results' table for any 10 entries...\n";
+
     // A simple query to get a sample of data from the table
     $stmt = $pdo->query("SELECT * FROM lottery_results LIMIT 10");
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -46,9 +33,9 @@ try {
         write_log("Diagnostic Result: Found " . count($results) . " entries. Sample data: " . json_encode($results[0]));
     }
 } catch (PDOException $e) {
-    echo "ERROR: An exception occurred while querying the database.\n";
-    echo "Message: " . $e->getMessage() . "\n";
-    write_log("Diagnostic Error: " . $e->getMessage());
+    echo "FATAL: A database error occurred!\n";
+    echo "Error: " . $e->getMessage() . "\n";
+    write_log("Diagnostic Failed: Database error - " . $e->getMessage());
 }
 
 echo "\n--- End of Diagnostic Script ---\n";

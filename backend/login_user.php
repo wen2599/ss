@@ -18,9 +18,8 @@ if (empty($email) || empty($password)) {
 }
 
 // --- Database and Authentication ---
-$pdo = get_db_connection();
-
 try {
+    $pdo = get_db_connection();
     $stmt = $pdo->prepare("SELECT id, username, email, password_hash FROM users WHERE email = ?");
     $stmt->execute([$email]);
     $user = $stmt->fetch();
@@ -46,7 +45,7 @@ try {
     }
 
 } catch (PDOException $e) {
-    write_log("User login error: " . $e->getMessage());
+    write_log("Database error in login_user.php: " . $e->getMessage());
     json_response('error', 'An internal database error occurred.', 500);
 }
 

@@ -8,12 +8,11 @@ if (!isset($_SESSION['user_id'])) {
     json_response('error', 'Unauthorized: User not logged in.', 401);
 }
 
-$pdo = get_db_connection();
 $userId = $_SESSION['user_id'];
-
 $emailId = $_GET['id'] ?? null;
 
 try {
+    $pdo = get_db_connection();
     if ($emailId) {
         // --- Fetch a single email by ID ---
         $stmt = $pdo->prepare(
@@ -44,7 +43,7 @@ try {
         json_response('success', ['emails' => $emails]);
     }
 } catch (PDOException $e) {
-    write_log("Error fetching emails: " . $e->getMessage());
+    write_log("Database error in get_emails.php: " . $e->getMessage());
     json_response('error', 'An error occurred while fetching emails.', 500);
 }
 

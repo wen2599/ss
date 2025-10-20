@@ -3,8 +3,6 @@ require_once __DIR__ . '/../bootstrap.php';
 
 write_log("------ get_bills.php Entry Point ------");
 
-$pdo = get_db_connection();
-
 // Check if user is authenticated
 if (!isset($_SESSION['user_id'])) {
     json_response('error', 'Unauthorized: User not logged in.', 401);
@@ -14,6 +12,7 @@ $userId = $_SESSION['user_id'];
 $billId = $_GET['id'] ?? null;
 
 try {
+    $pdo = get_db_connection();
     if ($billId) {
         // Fetch a single bill by ID for the logged-in user
         $stmt = $pdo->prepare("SELECT id, user_id, email_id, bill_name, amount, due_date, status, created_at FROM bills WHERE id = ? AND user_id = ?");
@@ -36,7 +35,7 @@ try {
     }
 
 } catch (PDOException $e) {
-    write_log("Error fetching bills: " . $e->getMessage());
+    write_log("Database error in get_bills.php: " . $e->getMessage());
     json_response('error', 'An error occurred while fetching bills.', 500);
 }
 

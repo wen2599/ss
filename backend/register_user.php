@@ -24,9 +24,8 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 // --- Database Interaction ---
-$pdo = get_db_connection();
-
 try {
+    $pdo = get_db_connection();
     // 1. Check if email already exists
     $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
     $stmt->execute([$email]);
@@ -61,7 +60,7 @@ try {
     }
 
 } catch (PDOException $e) {
-    write_log("User registration error: " . $e->getMessage());
+    write_log("Database error in register_user.php: " . $e->getMessage());
     json_response('error', 'An internal database error occurred.', 500);
 }
 
