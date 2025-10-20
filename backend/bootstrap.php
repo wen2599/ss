@@ -86,6 +86,13 @@ register_shutdown_function('handle_fatal_error');
 // --- Database Connection ---
 // Establish a connection to the MySQL database using PDO. The global exception
 // handler will catch any connection failures.
+
+// First, check if the PDO class exists. A silent fatal error occurs if it doesn't.
+if (!class_exists('PDO')) {
+    // Manually trigger our exception handler to ensure a clean JSON response.
+    handle_exception(new Exception('Server Configuration Error: The PDO class is not available. This is required for database operations.'));
+}
+
 $pdo = new PDO(
     "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_DATABASE . ";charset=utf8mb4",
     DB_USER,
