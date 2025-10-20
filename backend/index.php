@@ -3,6 +3,13 @@
 
 require_once __DIR__ . '/bootstrap.php'; // Load common functionalities
 
+// Special handling for check_environment.php to bypass secret token check
+// This allows direct access for debugging environment variables.
+if (strpos($_SERVER['REQUEST_URI'], 'check_environment.php') !== false) {
+    require_once __DIR__ . '/check_environment.php';
+    exit; // Exit immediately after running check_environment.php
+}
+
 write_log("------ index.php Entry Point ------");
 
 $endpoint = $_GET['endpoint'] ?? null;
