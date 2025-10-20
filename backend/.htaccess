@@ -9,5 +9,14 @@
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Rule to pass the Telegram secret token header
     RewriteRule .* - [E=HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN:%{HTTP:X-Telegram-Bot-Api-Secret-Token}]
+
+    # Front Controller Pattern:
+    # If the requested file or directory does not exist,
+    # redirect all requests to index.php.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php [L,QSA]
 </IfModule>

@@ -23,11 +23,23 @@ require_once __DIR__ . '/db_operations.php';
 
 // --- Security Check ---
 // Verify the request is coming from Telegram using the secret token.
-$secretToken = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? '';
-$telegramSecretHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
+// The token can be provided in a header or as a URL parameter.
+$expectedToken = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? '';
+$providedToken = '';
 
-if (empty($secretToken) || $telegramSecretHeader !== $secretToken) {
+// Check header first
+if (isset($_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'])) {
+    $providedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'];
+}
+// If not in header, check URL parameter (for services that don't support custom headers)
+elseif (isset($_GET['secret'])) {
+    $providedToken = $_GET['secret'];
+}
+
+if (empty($expectedToken) || $providedToken !== $expectedToken) {
     http_response_code(403);
+    // Log the failed attempt for debugging, but be careful not to log sensitive info
+    custom_log('Forbidden: Invalid or missing secret token. Header: ' . ($_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? 'Not Set') . ', Query: ' . ($_GET['secret'] ?? 'Not Set'), 'WARNING');
     die('Forbidden: Invalid secret token.');
 }
 
