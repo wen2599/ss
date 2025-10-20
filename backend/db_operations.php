@@ -12,6 +12,13 @@
 function get_db_connection() {
     static $pdo = null;
     if ($pdo === null) {
+        // Defensive check for PDO extension
+        if (!class_exists('PDO')) {
+            $error_msg = "Database connection error: PDO class not found. The pdo_mysql extension may be missing.";
+            error_log($error_msg);
+            throw new PDOException($error_msg);
+        }
+
         $host = getenv('DB_HOST');
         $port = getenv('DB_PORT');
         $dbname = getenv('DB_DATABASE');
