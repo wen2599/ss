@@ -6,3 +6,8 @@
         SecRuleEngine Off
     </Files>
 </IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule .* - [E=HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN:%{HTTP:X-Telegram-Bot-Api-Secret-Token}]
+</IfModule>
