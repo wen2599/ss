@@ -57,8 +57,16 @@ if (extension_loaded('pdo_mysql')) {
     $allChecksPassed = false;
 }
 
-// --- Check 5: Database Connection ---
-echo "5. Attempting Database Connection...\n";
+echo "5. Checking for 'curl' extension...";
+if (extension_loaded('curl')) {
+    echo "OK (Installed)\n";
+} else {
+    echo "FAIL (NOT INSTALLED - This is needed for making external API calls)\n";
+    $allChecksPassed = false;
+}
+
+// --- Check 6: Database Connection ---
+echo "6. Attempting Database Connection...\n";
 if ($allChecksPassed) {
     // Only attempt connection if basic checks are fine
     require_once __DIR__ . '/bootstrap.php';

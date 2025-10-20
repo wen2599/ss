@@ -80,6 +80,25 @@ set_exception_handler(function($exception) {
     json_response('error', 'An unexpected internal server error occurred.', 500);
 });
 
+// --- Fatal Error Handler ---
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
+        // Log the fatal error
+        write_log("--- FATAL ERROR ---");
+        write_log("Type: " . $error['type']);
+        write_log("Message: " . $error['message']);
+        write_log("File: " . $error['file'] . " on line " . $error['line']);
+        write_log("---------------------");
+
+        // Check if headers have already been sent to avoid "headers already sent" error
+        if (!headers_sent()) {
+            // Send a generic error response to the client
+            json_response('error', 'A critical internal server error occurred.', 500);
+        }
+    }
+});
+
 // --- Session Management ---
 ini_set('session.use_only_cookies', 1);
 ini_set('session.cookie_httponly', 1);

@@ -8,6 +8,7 @@ const BillsPage = () => {
     const [bills, setBills] = useState([]); // Renamed from emails to bills
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [notification, setNotification] = useState('');
     const navigate = useNavigate();
     const { isAuthenticated, loading: authLoading } = useAuth();
 
@@ -22,7 +23,7 @@ const BillsPage = () => {
                 const response = await deleteBill(id);
                 if (response.status === 'success') {
                     setBills(bills.filter(bill => bill.id !== id));
-                    alert(response.data || '删除成功');
+                    setNotification(response.data || '删除成功');
                 } else {
                     setError(response.message || '删除账单失败');
                 }
@@ -32,6 +33,15 @@ const BillsPage = () => {
             }
         }
     };
+
+    useEffect(() => {
+        if (notification) {
+            const timer = setTimeout(() => {
+                setNotification('');
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [notification]);
 
     useEffect(() => {
         if (authLoading) {
@@ -79,6 +89,7 @@ const BillsPage = () => {
     return (
         <div className="bills-page">
             <h1>我的电子账单</h1>
+            {notification && <div className="notification">{notification}</div>}
             {bills.length > 0 ? (
                 <ul className="bill-list"> {/* Updated class name */}
                     {bills.map((bill) => (

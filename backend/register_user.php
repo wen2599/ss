@@ -24,44 +24,37 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 // --- Database Interaction ---
-try {
-    $pdo = get_db_connection();
-    // 1. Check if email already exists
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    if ($stmt->fetch()) {
-        json_response('error', 'A user with this email already exists.', 409);
-    }
+$pdo = get_db_connection();
+// 1. Check if email already exists
+$stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+$stmt->execute([$email]);
+if ($stmt->fetch()) {
+    json_response('error', 'A user with this email already exists.', 409);
+}
 
-    // 2. Insert the new user into the database
-    $password_hash = password_hash($password, PASSWORD_DEFAULT);
-    $stmt = $pdo->prepare(
-        "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)"
-    );
+// 2. Insert the new user into the database
+$password_hash = password_hash($password, PASSWORD_DEFAULT);
+$stmt = $pdo->prepare(
+    "INSERT INTO users (email, password_hash) VALUES (?, ?)"
+);
 
-    $isSuccess = $stmt->execute([$username, $email, $password_hash]);
+$isSuccess = $stmt->execute([$email, $password_hash]);
 
-    if ($isSuccess) {
-        // Automatically log the user in by creating a session.
-        $user_id = $pdo->lastInsertId();
-        $_SESSION['user_id'] = $user_id;
-        $_SESSION['email'] = $email;
+if ($isSuccess) {
+    // Automatically log the user in by creating a session.
+    $user_id = $pdo->lastInsertId();
+    $_SESSION['user_id'] = $user_id;
+    $_SESSION['email'] = $email;
 
-        json_response('success', [
-            'message' => 'User registered successfully.',
-            'user' => [
-                'id' => $user_id,
-                'email' => $email,
-                'username' => $username
-            ]
-        ], 201);
-    } else {
-        json_response('error', 'Failed to register the user due to a server issue.', 500);
-    }
-
-} catch (PDOException $e) {
-    write_log("Database error in register_user.php: " . $e->getMessage());
-    json_response('error', 'An internal database error occurred.', 500);
+    json_response('success', [
+        'message' => 'User registered successfully.',
+        'user' => [
+            'id' => $user_id,
+                'email' => $email
+        ]
+    ], 201);
+} else {
+    json_response('error', 'Failed to register the user due to a server issue.', 500);
 }
 
 write_log("------ register_user.php Exit Point ------");

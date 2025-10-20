@@ -10,7 +10,16 @@
     color: var(--primary-text);
 }
 
-.email-list {
+.notification {
+    background-color: #4CAF50;
+    color: white;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.bill-list {
     list-style: none;
     padding: 0;
     display: grid;
@@ -18,7 +27,7 @@
     gap: 1.5rem;
 }
 
-.email-item {
+.bill-item {
     background-color: var(--secondary-bg);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
@@ -37,12 +46,12 @@
     box-shadow: 0 8px 15px rgba(0,0,0,0.1);
 }
 
-.email-content {
+.bill-content {
     flex-grow: 1; /* Allows email content to take up available space */
     cursor: pointer;
 }
 
-.email-sender {
+.bill-name {
     font-weight: bold;
     color: var(--primary-text);
     margin-bottom: 0.5rem;
@@ -51,7 +60,7 @@
     text-overflow: ellipsis;
 }
 
-.email-subject {
+.bill-amount {
     color: var(--secondary-text);
     margin-bottom: 1rem;
     white-space: nowrap;
@@ -59,7 +68,7 @@
     text-overflow: ellipsis;
 }
 
-.email-date {
+.bill-due-date {
     font-size: 0.875rem;
     color: var(--secondary-text);
     text-align: right;

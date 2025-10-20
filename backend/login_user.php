@@ -18,35 +18,28 @@ if (empty($email) || empty($password)) {
 }
 
 // --- Database and Authentication ---
-try {
-    $pdo = get_db_connection();
-    $stmt = $pdo->prepare("SELECT id, username, email, password_hash FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch();
+$pdo = get_db_connection();
+$stmt = $pdo->prepare("SELECT id, email, password_hash FROM users WHERE email = ?");
+$stmt->execute([$email]);
+$user = $stmt->fetch();
 
-    if ($user && password_verify($password, $user['password_hash'])) {
-        // --- Session Creation ---
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['email'] = $user['email'];
+if ($user && password_verify($password, $user['password_hash'])) {
+    // --- Session Creation ---
+    $_SESSION['user_id'] = $user['id'];
+    $_SESSION['email'] = $user['email'];
 
-        write_log("User logged in successfully: " . $email . ". Session ID: " . session_id());
-        json_response('success', [
-            'message' => 'Login successful!',
-            'user' => [
-                'id' => $user['id'],
-                'email' => $user['email'],
-                'username' => $user['username']
-            ]
-        ]);
+    write_log("User logged in successfully: " . $email . ". Session ID: " . session_id());
+    json_response('success', [
+        'message' => 'Login successful!',
+        'user' => [
+            'id' => $user['id'],
+                'email' => $user['email']
+        ]
+    ]);
 
-    } else {
-        write_log("Login failed for email: " . $email . ". Invalid credentials.");
-        json_response('error', 'Invalid email or password.', 401);
-    }
-
-} catch (PDOException $e) {
-    write_log("Database error in login_user.php: " . $e->getMessage());
-    json_response('error', 'An internal database error occurred.', 500);
+} else {
+    write_log("Login failed for email: " . $email . ". Invalid credentials.");
+    json_response('error', 'Invalid email or password.', 401);
 }
 
 write_log("------ login_user.php Exit Point ------");
