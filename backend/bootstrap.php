@@ -84,8 +84,7 @@ register_shutdown_function('handle_fatal_error');
 
 
 // --- Database Connection ---
-// Establish a connection to the MySQL database using PDO. The global exception
-// handler will catch any connection failures.
+// Establish a connection to the MySQL database using PDO.
 
 // First, check if the PDO class exists. A silent fatal error occurs if it doesn't.
 if (!class_exists('PDO')) {
@@ -93,13 +92,25 @@ if (!class_exists('PDO')) {
     handle_exception(new Exception('Server Configuration Error: The PDO class is not available. This is required for database operations.'));
 }
 
-$pdo = new PDO(
-    "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_DATABASE . ";charset=utf8mb4",
-    DB_USER,
-    DB_PASSWORD
-);
-// Set PDO to throw exceptions on error.
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+try {
+    $pdo = new PDO(
+        "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_DATABASE . ";charset=utf8mb4",
+        DB_USER,
+        DB_PASSWORD
+    );
+    // Set PDO to throw exceptions on error.
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    // The most common cause of a total application failure is a bad DB connection.
+    // We catch this specific exception to provide a more helpful error message
+    // than the generic "Internal Server Error".
+    // We log the real error for debugging, but send a clean message to the user.
+    error_log("Database connection failed: " . $e->getMessage());
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'error', 'message' => 'Database connection failed. Please check your backend/.env file.']);
+    exit;
+}
 
 // --- Session Management ---
 // Configure session cookie for cross-domain access before starting the session.
