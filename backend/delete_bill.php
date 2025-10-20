@@ -13,7 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
     json_response('error', 'Invalid request method. Only DELETE is allowed.', 405);
 }
 
-$pdo = get_db_connection();
 $userId = $_SESSION['user_id'];
 
 // Expect bill ID from query parameter
@@ -24,6 +23,7 @@ if (!$billId) {
 }
 
 try {
+    $pdo = get_db_connection();
     // Prepare and execute the delete query from the 'bills' table
     // IMPORTANT: The WHERE clause includes user_id to ensure a user can only delete their own bills.
     $stmt = $pdo->prepare("DELETE FROM bills WHERE id = ? AND user_id = ?");
@@ -39,7 +39,7 @@ try {
         json_response('error', '未找到该账单或无权删除。', 404);
     }
 } catch (PDOException $e) {
-    write_log("Error deleting bill: " . $e->getMessage());
+    write_log("Database error in delete_bill.php: " . $e->getMessage());
     json_response('error', 'An error occurred while deleting the bill.', 500);
 }
 

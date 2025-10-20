@@ -1,11 +1,11 @@
 <?php
-require_once __DIR__ . '/api_header.php';
+require_once __DIR__ . '/bootstrap.php';
+
+write_log("------ process_email_ai.php Entry Point ------");
 
 // --- Authentication Check ---
 if (!isset($_SESSION['user_id'])) {
-    http_response_code(401);
-    echo json_encode(['status' => 'error', 'message' => 'You must be logged in.']);
-    exit;
+    json_response('error', 'You must be logged in.', 401);
 }
 
 // --- Input Validation ---
@@ -13,36 +13,25 @@ $data = json_decode(file_get_contents('php://input'), true);
 $emailId = $data['email_id'] ?? null;
 
 if (!$emailId) {
-    http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => 'Email ID is required.']);
-    exit;
-}
-
-$userId = $_SESSION['user_id'];
-$pdo = get_db_connection();
-
-if (is_array($pdo) && isset($pdo['db_error'])) {
-    http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => $pdo['db_error']]);
-    exit;
+    json_response('error', 'Email ID is required.', 400);
 }
 
 try {
+    $userId = $_SESSION['user_id'];
+    $pdo = get_db_connection();
+
     // 1. Fetch the email content from the database
     $stmt = $pdo->prepare("SELECT html_content FROM emails WHERE id = ? AND user_id = ?");
     $stmt->execute([$emailId, $userId]);
     $email = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$email) {
-        http_response_code(404);
-        echo json_encode(['status' => 'error', 'message' => 'Email not found or you do not have permission to access it.']);
-        exit;
+        json_response('error', 'Email not found or you do not have permission to access it.', 404);
     }
 
     $htmlContent = $email['html_content'];
 
     // 2. Send the content to the Cloudflare Worker for AI processing
-    // The worker URL is the public frontend URL, which will proxy to the worker.
     $workerUrl = 'https://ss.wenxiuxiu.eu.org/process-ai';
     $postData = json_encode(['email_content' => $htmlContent]);
 
@@ -60,9 +49,8 @@ try {
     curl_close($ch);
 
     if ($http_code !== 200) {
-        http_response_code(502); // Bad Gateway
-        echo json_encode(['status' => 'error', 'message' => 'Failed to process email with AI worker.', 'worker_response' => $workerResponse]);
-        exit;
+        write_log("AI worker failed with code {$http_code}: " . $workerResponse);
+        json_response('error', 'Failed to process email with AI worker.', 502);
     }
 
     $aiData = json_decode($workerResponse, true);
@@ -80,7 +68,6 @@ try {
          WHERE id = :id"
     );
 
-    // Make sure all keys exist, defaulting to null if not provided by the AI
     $updateParams = [
         ':id' => $emailId,
         ':vendor_name' => $aiData['vendor_name'] ?? null,
@@ -94,14 +81,14 @@ try {
     $updateStmt->execute($updateParams);
 
     // 4. Return the structured data to the frontend
-    http_response_code(200);
-    echo json_encode(['status' => 'success', 'data' => $aiData]);
+    json_response('success', $aiData);
 
 } catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    write_log("Database error in process_email_ai.php: " . $e->getMessage());
+    json_response('error', 'Database error: ' . $e->getMessage(), 500);
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'An unexpected error occurred: ' . $e->getMessage()]);
+    write_log("Unexpected error in process_email_ai.php: " . $e->getMessage());
+    json_response('error', 'An unexpected error occurred: ' . $e->getMessage(), 500);
 }
-?>
+
+write_log("------ process_email_ai.php Exit Point ------");

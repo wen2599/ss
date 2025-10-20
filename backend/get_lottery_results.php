@@ -3,9 +3,8 @@ require_once __DIR__ . '/bootstrap.php';
 
 write_log("------ get_lottery_results.php Entry Point ------");
 
-$pdo = get_db_connection();
-
 try {
+    $pdo = get_db_connection();
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
     $lotteryType = isset($_GET['lottery_type']) ? urldecode($_GET['lottery_type']) : null;
 
@@ -34,7 +33,7 @@ try {
     json_response('success', ['lottery_results' => $processedResults]);
 
 } catch (PDOException $e) {
-    write_log("Error fetching lottery results: " . $e->getMessage());
+    write_log("Database error in get_lottery_results.php: " . $e->getMessage());
     json_response('error', 'An error occurred while fetching lottery results.', 500);
 }
 

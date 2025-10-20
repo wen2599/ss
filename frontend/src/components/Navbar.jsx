@@ -13,23 +13,26 @@ const Navbar = () => {
     };
 
     return (
-        <header className="navbar">
-            <Link to="/" className="navbar-logo">电子账单系统</Link>
-            <nav>
-                <ul className="navbar-links">
-                    {isAuthenticated ? (
-                        <>
-                            <li><NavLink to="/bills" className={({ isActive }) => isActive ? 'active' : ''}>我的账单</NavLink></li>
-                            <li><button onClick={handleLogout}>退出登录</button></li>
-                        </>
-                    ) : (
-                        <>
-                            <li><NavLink to="/login" className={({ isActive }) => isActive ? 'active' : ''}>登录</NavLink></li>
-                            <li><NavLink to="/register" className={({ isActive }) => isActive ? 'active' : ''}>注册</NavLink></li>
-                        </>
-                    )}
-                </ul>
-            </nav>
+        <header className="navbar-banner">
+            <div className="navbar-container">
+                <Link to="/" className="navbar-logo">电子账单系统</Link>
+                <nav>
+                    <ul className="navbar-links">
+                        <li><NavLink to="/" className={({ isActive }) => isActive ? 'active' : ''}>首页</NavLink></li>
+                        {isAuthenticated ? (
+                            <>
+                                <li><NavLink to="/bills" className={({ isActive }) => isActive ? 'active' : ''}>我的账单</NavLink></li>
+                                <li><button onClick={handleLogout} className="logout-button">退出登录</button></li>
+                            </>
+                        ) : (
+                            <>
+                                <li><NavLink to="/login" className={({ isActive }) => isActive ? 'active' : ''}>登录</NavLink></li>
+                                <li><NavLink to="/register" className={({ isActive }) => isActive ? 'active' : ''}>注册</NavLink></li>
+                            </>
+                        )}
+                    </ul>
+                </nav>
+            </div>
         </header>
     );
 };

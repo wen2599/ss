@@ -46,11 +46,6 @@ if ($action === 'is_user_registered') {
 
     try {
         $pdo = get_db_connection();
-        if (is_array($pdo) && isset($pdo['db_error'])) {
-            http_response_code(500);
-            echo json_encode(['status' => 'error', 'message' => $pdo['db_error']]);
-            exit;
-        }
         $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
         $stmt->execute([$email]);
         $userExists = $stmt->fetchColumn();
@@ -86,27 +81,21 @@ if ($action === 'process_email') {
         exit;
     }
     
-    // Find the user by their email address
-    $pdo = get_db_connection();
-    if (is_array($pdo) && isset($pdo['db_error'])) {
-        http_response_code(500);
-        echo json_encode(['status' => 'error', 'message' => $pdo['db_error']]);
-        exit;
-    }
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-    $stmt->execute([$from]);
-    $user = $stmt->fetch();
-    
-    if (!$user) {
-        write_debug_log("Email Handler: Received email from '$from' but user not found in DB. Ignoring.", $debugLogFile);
-        echo json_encode(['status' => 'success', 'message' => 'User not found, but acknowledged.']);
-        exit;
-    }
-    
-    $userId = $user['id'];
-    
-    // Insert the email into the database
     try {
+        $pdo = get_db_connection();
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$from]);
+        $user = $stmt->fetch();
+
+        if (!$user) {
+            write_debug_log("Email Handler: Received email from '$from' but user not found in DB. Ignoring.", $debugLogFile);
+            echo json_encode(['status' => 'success', 'message' => 'User not found, but acknowledged.']);
+            exit;
+        }
+
+        $userId = $user['id'];
+
+        // Insert the email into the database
         $stmt = $pdo->prepare("INSERT INTO emails (user_id, sender, recipient, subject, html_content) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([$userId, $from, $to, $subject, $body]);
     
