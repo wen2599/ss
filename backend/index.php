@@ -3,13 +3,6 @@
 
 require_once __DIR__ . '/bootstrap.php'; // Load common functionalities
 
-// Special handling for check_environment.php to bypass secret token check
-// This allows direct access for debugging environment variables.
-if (strpos($_SERVER['REQUEST_URI'], 'check_environment.php') !== false) {
-    require_once __DIR__ . '/check_environment.php';
-    exit; // Exit immediately after running check_environment.php
-}
-
 write_log("------ index.php Entry Point ------");
 
 $endpoint = $_GET['endpoint'] ?? null;
@@ -59,6 +52,4 @@ switch ($endpoint) {
 }
 
 write_log("------ index.php Exit Point (unreached for successful endpoints) ------");
-// This line should ideally not be reached if an endpoint successfully calls json_response and exits.
-// However, it's harmless if reached due to logic flow not using json_response.
 ?>
