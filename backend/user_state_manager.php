@@ -10,21 +10,24 @@ const STATE_FILE = __DIR__ . '/user_states.json';
  * @return string|null The user's current state or null if not set.
  */
 function getUserState($userId) {
-    // Before reading, check if the file exists and is readable.
-    if (!file_exists(STATE_FILE) || !is_readable(STATE_FILE)) {
+    if (!file_exists(STATE_FILE)) {
+        return null; // File doesn't exist, so no state.
+    }
+    if (!is_readable(STATE_FILE)) {
+        error_log("getUserState failed: state file is not readable at " . STATE_FILE);
         return null;
     }
 
-    $content = file_get_contents(STATE_FILE);
+    $content = @file_get_contents(STATE_FILE);
     if ($content === false) {
-        return null; // Failed to read
+        error_log("getUserState failed: could not read content from " . STATE_FILE);
+        return null;
     }
 
     $states = json_decode($content, true);
 
-    // Check for JSON errors
     if (json_last_error() !== JSON_ERROR_NONE) {
-        // If the file is corrupt, we can't determine state.
+        error_log("getUserState failed: invalid JSON in state file. Error: " . json_last_error_msg());
         return null;
     }
 
@@ -40,38 +43,55 @@ function getUserState($userId) {
  */
 function setUserState($userId, $state) {
     $states = [];
-    // Check if the directory is writable. This is the most critical check.
     $directory = dirname(STATE_FILE);
-    if (!is_writable($directory)) {
-        return false; // Cannot write, so fail early.
-    }
 
-    // Check if the file itself is writable if it exists.
+    // Pre-emptive check for directory writability
+    if (!is_writable($directory)) {
+        error_log("setUserState failed: directory is not writable at " . $directory);
+        return false;
+    }
+    // Pre-emptive check for file writability if it exists
     if (file_exists(STATE_FILE) && !is_writable(STATE_FILE)) {
+        error_log("setUserState failed: state file is not writable at " . STATE_FILE);
         return false;
     }
 
-    if (file_exists(STATE_FILE) && is_readable(STATE_FILE)) {
-        $content = file_get_contents(STATE_FILE);
+    // Read existing states if possible
+    if (file_exists(STATE_FILE)) {
+        if (!is_readable(STATE_FILE)) {
+            error_log("setUserState failed: state file exists but is not readable.");
+            return false;
+        }
+        $content = @file_get_contents(STATE_FILE);
         if ($content !== false) {
-            $states = json_decode($content, true);
-            // If JSON is invalid, reset to avoid corrupting the file further.
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                $states = [];
+            $decoded = json_decode($content, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $states = $decoded;
+            } else {
+                error_log("setUserState warning: could not decode JSON from state file, will overwrite. Error: " . json_last_error_msg());
             }
         }
     }
 
+    // Update state
     if ($state === null) {
         unset($states[$userId]);
     } else {
         $states[$userId] = $state;
     }
 
-    // Attempt to write the file. The @ suppresses PHP's warning on failure,
-    // allowing our custom logic to handle the error.
-    $result = @file_put_contents(STATE_FILE, json_encode($states, JSON_PRETTY_PRINT), LOCK_EX);
+    // Write updated states back to the file
+    $jsonPayload = json_encode($states, JSON_PRETTY_PRINT);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        error_log("setUserState failed: could not encode states to JSON. Error: " . json_last_error_msg());
+        return false;
+    }
 
-    // Return true if the write was successful, false otherwise.
+    $result = @file_put_contents(STATE_FILE, $jsonPayload, LOCK_EX);
+
+    if ($result === false) {
+        error_log("setUserState failed: file_put_contents returned false for " . STATE_FILE);
+    }
+
     return $result !== false;
 }
