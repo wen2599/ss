@@ -108,42 +108,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     json_response('success', 'Pre-flight check successful.');
 }
 
-// --- **CORE FIX: Intelligent Secret Token Validation** ---
-// This logic ensures that the secret token validation ONLY runs for the Telegram webhook.
-// It inspects the script filename to make this determination, making it robust against
-// server misconfigurations that route all traffic to a single entry point.
-$is_webhook_request = (
-    (isset($_GET['endpoint']) && $_GET['endpoint'] === 'telegram_webhook') ||
-    (isset($_SERVER['SCRIPT_NAME']) && basename($_SERVER['SCRIPT_NAME']) === 'telegram_webhook.php') ||
-    (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], 'telegram_webhook') !== false)
-);
-
-if ($is_webhook_request) {
-    write_log("Webhook request detected. Performing secret token validation.");
-    $expectedSecret = getenv('TELEGRAM_WEBHOOK_SECRET');
-    if (!$expectedSecret) {
-        write_log("CRITICAL: TELEGRAM_WEBHOOK_SECRET is not configured in .env. Webhook cannot be validated.");
-        json_response('error', 'Internal Server Error: Webhook secret not configured.', 500);
-    }
-
-    $receivedHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
-    $receivedParam = $_GET['secret'] ?? null;
-    $receivedSecret = $receivedHeader ?? $receivedParam;
-
-    if (empty($receivedSecret)) {
-        write_log("Webhook rejected: Missing secret token in request.");
-        json_response('error', 'Forbidden: Missing secret token.', 403);
-    }
-
-    if (!hash_equals($expectedSecret, $receivedSecret)) {
-        write_log("Webhook rejected: Secret token mismatch.");
-        json_response('error', 'Forbidden: Secret token mismatch.', 403);
-    }
-    write_log("Webhook secret token validation passed.");
-}
-// --- END OF CORE FIX ---
-
-
 // --- Include all helper functions ---
 require_once __DIR__ . '/api_curl_helper.php';
 require_once __DIR__ . '/cloudflare_ai_helper.php';

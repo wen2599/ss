@@ -4,6 +4,30 @@ require_once __DIR__ . '/telegram_helpers.php'; // Specific Telegram helper func
 
 write_log("------ telegram_webhook.php Entry Point ------");
 
+// --- CORE FIX: Secret Token Validation for Webhook ONLY ---
+$expectedSecret = getenv('TELEGRAM_WEBHOOK_SECRET');
+
+if (!$expectedSecret) {
+    write_log("CRITICAL: TELEGRAM_WEBHOOK_SECRET is not configured in .env. Webhook cannot be validated.");
+    json_response('error', 'Internal Server Error: Webhook secret not configured.', 500);
+}
+
+$receivedHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
+$receivedParam = $_GET['secret'] ?? null;
+$receivedSecret = $receivedHeader ?? $receivedParam;
+
+if (empty($receivedSecret)) {
+    write_log("Webhook rejected: Missing secret token in request.");
+    json_response('error', 'Forbidden: Missing secret token.', 403);
+}
+
+if (!hash_equals($expectedSecret, $receivedSecret)) {
+    write_log("Webhook rejected: Secret token mismatch.");
+    json_response('error', 'Forbidden: Secret token mismatch.', 403);
+}
+write_log("Webhook secret token validation passed.");
+// --- END OF CORE FIX ---
+
 // --- Lottery Message Parser & Handler ---
 function parse_lottery_data($text) {
     $data = [
@@ -52,29 +76,10 @@ function handleLotteryMessage($chatId, $text) {
 }
 
 // --- Main Script Execution ---
-$expectedSecret = getenv('TELEGRAM_WEBHOOK_SECRET') ?: null;
 $adminId = getenv('TELEGRAM_ADMIN_ID') ?: null;
 $lotteryChannelId = getenv('LOTTERY_CHANNEL_ID') ?: null;
 
-write_log("ENV Check: AdminID=" . ($adminId ? 'OK' : 'FAIL') . ", ChannelID=" . ($lotteryChannelId ? 'OK' : 'FAIL') . ", WebhookSecret=" . ($expectedSecret ? 'OK' : 'FAIL'));
-
-$receivedHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
-$receivedParam = $_GET['secret'] ?? null;
-$receivedSecret = $receivedHeader ?? $receivedParam;
-write_log("Secret Check: Header was " . ($receivedHeader ? 'present' : 'missing') . ". Param was " . ($receivedParam ? 'present' : 'missing') . ".");
-
-if ($expectedSecret) {
-    if (empty($receivedSecret)) {
-        write_log("Webhook rejected: Missing secret token.");
-        json_response('error', 'Forbidden: Missing secret token.', 403);
-    }
-    if (!hash_equals($expectedSecret, $receivedSecret)) {
-        write_log("Webhook rejected: Secret token mismatch.");
-        json_response('error', 'Forbidden: Secret token mismatch.', 403);
-    }
-} else {
-    write_log("WARNING: TELEGRAM_WEBHOOK_SECRET is not configured.");
-}
+write_log("ENV Check: AdminID=" . ($adminId ? 'OK' : 'FAIL') . ", ChannelID=" . ($lotteryChannelId ? 'OK' : 'FAIL'));
 
 $bodyRaw = file_get_contents('php://input');
 $update = json_decode($bodyRaw, true);
