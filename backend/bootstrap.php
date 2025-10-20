@@ -56,6 +56,19 @@ if (!function_exists('json_response')) {
     }
 }
 
+// --- API Header Logic ---
+// Moved up to handle pre-flight requests before potential fatal errors.
+header("Access-Control-Allow-Origin: https://ss.wenxiuxiu.eu.org");
+header("Access-Control-Allow-Credentials: true");
+header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS, DELETE");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, X-Telegram-Bot-Api-Secret-Token");
+
+// Handle pre-flight OPTIONS requests immediately
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    json_response('success', 'Pre-flight check successful.');
+}
+
 // --- Global Exception & Error Handlers ---
 set_exception_handler(function($exception) {
     write_log(
@@ -85,10 +98,11 @@ register_shutdown_function(function () {
 });
 
 // --- Session Management ---
+// Settings must be set before session_start()
 ini_set('session.use_only_cookies', 1);
 ini_set('session.cookie_httponly', 1);
-ini_set('session.cookie_secure', isset($_SERVER['HTTPS']));
-ini_set('session.cookie_samesite', 'Lax');
+ini_set('session.cookie_secure', 1); // Enforce secure cookies for cross-site
+ini_set('session.cookie_samesite', 'None'); // Required for cross-site cookies
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -96,17 +110,6 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // --- Database Connection ---
 require_once __DIR__ . '/db_operations.php';
-
-// --- API Header Logic ---
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS, DELETE");
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, X-Telegram-Bot-Api-Secret-Token");
-
-// Handle pre-flight OPTIONS requests
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    json_response('success', 'Pre-flight check successful.');
-}
 
 // --- Include all helper functions ---
 require_once __DIR__ . '/api_curl_helper.php';
