@@ -1,6 +1,6 @@
 // frontend/src/api.js
 
-const API_BASE_URL = import.meta.env.DEV ? '/api' : '';
+const API_BASE_URL = '/api'; // Always prefix with /api
 
 /**
  * A helper function to build the correct API endpoint URL.
@@ -9,7 +9,7 @@ const API_BASE_URL = import.meta.env.DEV ? '/api' : '';
  * @returns {string} The full API URL.
  */
 const buildApiUrl = (endpoint, params = null) => {
-    // All requests now go through index.php
+    // All requests now go through index.php with the /api prefix
     const url = new URL(`${API_BASE_URL}/index.php`, window.location.origin);
     url.searchParams.append('endpoint', endpoint);
 
@@ -47,7 +47,7 @@ export const registerUser = (userData) => {
 };
 
 export const loginUser = (credentials) => {
-    return fetchJson(buildApiUrl('login_user'), { // Corrected from buildApiurl to buildApiUrl
+    return fetchJson(buildApiUrl('login_user'), {
         method: 'POST',
         body: JSON.stringify(credentials),
     });
