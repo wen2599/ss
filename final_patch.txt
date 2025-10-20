@@ -1,0 +1,1113 @@
+================================================================================
+FILE: .gitignore
+================================================================================
+# Logs
+*.log
+
+# Node dependencies
+node_modules/
+
+# Frontend build artifacts
+frontend/dist/
+frontend/build/
+
+# Jules temporary files
+jules-scratch/
+
+================================================================================
+FILE: backend/api/get_bills.php
+================================================================================
+<?php
+require_once __DIR__ . '/../bootstrap.php';
+
+write_log("------ get_bills.php Entry Point ------");
+
+// Check if user is authenticated
+if (!isset($_SESSION['user_id'])) {
+    json_response('error', 'Unauthorized: User not logged in.', 401);
+}
+
+$userId = $_SESSION['user_id'];
+$billId = $_GET['id'] ?? null;
+
+try {
+    $pdo = get_db_connection();
+    if ($billId) {
+        // Fetch a single bill by ID for the logged-in user
+        $stmt = $pdo->prepare("SELECT id, user_id, email_id, bill_name, amount, due_date, status, created_at FROM bills WHERE id = ? AND user_id = ?");
+        $stmt->execute([$billId, $userId]);
+        $bill = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($bill) {
+            json_response('success', ['bill' => $bill]);
+        } else {
+            write_log("Bill ID {$billId} not found for user {$userId} or unauthorized.");
+            json_response('error', '未找到该账单或无权查看。', 404);
+        }
+    } else {
+        // Fetch all bills for the logged-in user
+        $stmt = $pdo->prepare("SELECT id, user_id, email_id, bill_name, amount, due_date, status, created_at FROM bills WHERE user_id = ? ORDER BY due_date DESC");
+        $stmt->execute([$userId]);
+        $bills = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        json_response('success', ['bills' => $bills]);
+    }
+
+} catch (PDOException $e) {
+    write_log("Database error in get_bills.php: " . $e->getMessage());
+    json_response('error', 'An error occurred while fetching bills.', 500);
+}
+
+write_log("------ get_bills.php Exit Point ------");
+
+================================================================================
+FILE: backend/bootstrap.php
+================================================================================
+<?php
+// backend/bootstrap.php
+
+// --- Error Reporting & Logging ---
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/../backend.log');
+
+// --- Centralized Logging Function ---
+if (!function_exists('write_log')) {
+    function write_log($message) {
+        $log_path = __DIR__ . '/../backend.log';
+        $timestamp = date('Y-m-d H:i:s');
+        if (!is_string($message)) {
+            $message = print_r($message, true);
+        }
+        // Use @ to suppress errors if logging fails (e.g., file permissions)
+        @file_put_contents($log_path, "[{$timestamp}] " . $message . "\n", FILE_APPEND);
+    }
+}
+
+// --- Environment Variable Loading ---
+if (!function_exists('load_env')) {
+    function load_env($path)
+    {
+        if (!file_exists($path)) {
+            write_log("Warning: .env file not found at path: {$path}");
+            return;
+        }
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false) {
+            write_log("Warning: Could not read .env file at path: {$path}");
+            return;
+        }
+        foreach ($lines as $line) {
+            if (strpos(trim($line), '#') === 0) {
+                continue;
+            }
+            list($name, $value) = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim($value);
+            if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
+                putenv(sprintf('%s=%s', $name, $value));
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+            }
+        }
+    }
+}
+
+// Load .env file
+load_env(__DIR__ . '/../.env');
+
+// --- Standardized JSON Response Function ---
+function json_response($status, $data = null, $http_code = 200) {
+    http_response_code($http_code);
+    header('Content-Type: application/json; charset=utf-8');
+    $response = ['status' => $status];
+    if ($data !== null) {
+        if ($status === 'error') {
+            $response['message'] = $data;
+        } else {
+            $response['data'] = $data;
+        }
+    }
+    echo json_encode($response);
+    exit;
+}
+
+// --- Global Exception Handler ---
+set_exception_handler(function($exception) {
+    // Log the exception to the main log file
+    write_log("--- UNCAUGHT EXCEPTION ---");
+    write_log("Message: " . $exception->getMessage());
+    write_log("File: " . $exception->getFile() . " on line " . $exception->getLine());
+    write_log("Trace: " . $exception->getTraceAsString());
+    write_log("--------------------------");
+
+    // Send a generic error response to the client
+    json_response('error', 'An unexpected internal server error occurred.', 500);
+});
+
+// --- Session Management ---
+ini_set('session.use_only_cookies', 1);
+ini_set('session.cookie_httponly', 1);
+ini_set('session.cookie_secure', isset($_SERVER['HTTPS']));
+ini_set('session.cookie_samesite', 'Lax');
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// --- Database Connection ---
+require_once __DIR__ . '/db_operations.php';
+
+// --- API Header Logic ---
+header("Access-Control-Allow-Origin: *");
+header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS, DELETE");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, X-Telegram-Bot-Api-Secret-Token");
+
+// Handle pre-flight OPTIONS requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    json_response('success', 'Pre-flight check successful.');
+}
+
+// --- Include all helper functions ---
+require_once __DIR__ . '/api_curl_helper.php';
+require_once __DIR__ . '/cloudflare_ai_helper.php';
+require_once __DIR__ . '/gemini_ai_helper.php';
+require_once __DIR__ . '/telegram_helpers.php';
+require_once __DIR__ . '/user_state_manager.php';
+require_once __DIR__ . '/email_handler.php';
+require_once __DIR__ . '/process_email_ai.php';
+
+
+write_log("Bootstrap finished for: " . basename($_SERVER['SCRIPT_NAME']));
+
+================================================================================
+FILE: backend/check_environment.php
+================================================================================
+<?php
+header('Content-Type: text/plain; charset=utf-8');
+
+echo "--- Backend Environment Diagnostic Script ---\n\n";
+
+$allChecksPassed = true;
+$logFilePath = __DIR__ . '/../backend.log';
+$envFilePath = __DIR__ . '/.env';
+
+// --- Check 1: PHP Version ---
+echo "1. Checking PHP Version...";
+if (version_compare(PHP_VERSION, '7.4.0', '>=')) {
+    echo "OK (v" . PHP_VERSION . ")\n";
+} else {
+    echo "FAIL (v" . PHP_VERSION . " - Recommended: 7.4.0 or higher)\n";
+    $allChecksPassed = false;
+}
+
+// --- Check 2: .env File ---
+echo "2. Checking .env File...";
+if (file_exists($envFilePath)) {
+    if (is_readable($envFilePath)) {
+        echo "OK (Exists and is readable)\n";
+    } else {
+        echo "FAIL (.env file exists but is NOT READABLE)\n";
+        $allChecksPassed = false;
+    }
+} else {
+    echo "FAIL (.env file does NOT EXIST at {$envFilePath})\n";
+    $allChecksPassed = false;
+}
+
+// --- Check 3: Log File Permissions ---
+echo "3. Checking Log File Permissions...";
+if (file_exists($logFilePath)) {
+    if (is_writable($logFilePath)) {
+        echo "OK (Log file is writable)\n";
+    } else {
+        echo "FAIL (Log file exists but is NOT WRITABLE)\n";
+        $allChecksPassed = false;
+    }
+} else {
+    if (is_writable(dirname($logFilePath))) {
+        echo "OK (Log directory is writable, file will be created)\n";
+    } else {
+        echo "FAIL (Log file does not exist and its directory is NOT WRITABLE)\n";
+        $allChecksPassed = false;
+    }
+}
+
+// --- Check 4: Required PHP Extensions ---
+echo "4. Checking for 'pdo_mysql' extension...";
+if (extension_loaded('pdo_mysql')) {
+    echo "OK (Installed)\n";
+} else {
+    echo "FAIL (NOT INSTALLED - This is critical for database connectivity)\n";
+    $allChecksPassed = false;
+}
+
+// --- Check 5: Database Connection ---
+echo "5. Attempting Database Connection...\n";
+if ($allChecksPassed) {
+    // Only attempt connection if basic checks are fine
+    require_once __DIR__ . '/bootstrap.php';
+    try {
+        $pdo = get_db_connection();
+        echo "   ... OK (Successfully connected to the database)\n";
+    } catch (PDOException $e) {
+        echo "   ... FAIL (Connection failed: " . $e->getMessage() . ")\n";
+        $allChecksPassed = false;
+    }
+} else {
+    echo "   ... SKIPPED (Due to previous failures)\n";
+}
+
+// --- Final Summary ---
+echo "\n--- DIAGNOSTIC COMPLETE ---\n";
+if ($allChecksPassed) {
+    echo "RESULT: All critical environment checks passed successfully.\n";
+} else {
+    echo "RESULT: One or more critical environment checks failed. Please review the output above to resolve the issues.\n";
+}
+echo "---------------------------\n";
+
+?>
+
+================================================================================
+FILE: backend/check_lottery_data.php
+================================================================================
+<?php
+// backend/check_lottery_data.php
+
+require_once __DIR__ . '/bootstrap.php'; // Load common functionalities including get_db_connection and write_log
+
+// Set headers for clear text output in the browser
+header('Content-Type: text/plain; charset=utf-8');
+
+write_log("------ check_lottery_data.php Entry Point (Diagnostic) ------");
+echo "--- Lottery Data Diagnostic Script ---\n\n";
+
+try {
+    echo "Attempting to connect to the database...\n";
+    $pdo = get_db_connection();
+    echo "Database connection successful.\n\n";
+
+    echo "Querying the 'lottery_results' table for any 10 entries...\n";
+
+    // A simple query to get a sample of data from the table
+    $stmt = $pdo->query("SELECT * FROM lottery_results LIMIT 10");
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($results)) {
+        echo "RESULT: The 'lottery_results' table is EMPTY or contains no data.\n\n";
+        echo "This is the primary reason why no lottery numbers are displayed.\n";
+        echo "Please check the process that is supposed to be populating this table with data.\n";
+        write_log("Diagnostic Result: lottery_results table is empty.");
+    } else {
+        echo "RESULT: Found " . count($results) . " entries. The table is NOT empty.\n\n";
+        echo "Here is a sample of the data:\n\n";
+        print_r($results);
+        echo "\n\nIf the 'lottery_type' values below do not exactly match '新澳门六合彩', '香港六合彩', or '老澳门六合彩', the query will not find them.\n";
+        write_log("Diagnostic Result: Found " . count($results) . " entries. Sample data: " . json_encode($results[0]));
+    }
+} catch (PDOException $e) {
+    echo "FATAL: A database error occurred!\n";
+    echo "Error: " . $e->getMessage() . "\n";
+    write_log("Diagnostic Failed: Database error - " . $e->getMessage());
+}
+
+echo "\n--- End of Diagnostic Script ---\n";
+write_log("------ check_lottery_data.php Exit Point ------");
+
+?>
+
+================================================================================
+FILE: backend/db_operations.php
+================================================================================
+<?php
+/**
+ * db_operations.php
+ * This file contains all database-related functions.
+ * It relies on bootstrap.php to load the environment and provide the get_db_connection function.
+ */
+
+/**
+ * Establishes and returns a singleton PDO database connection.
+ * @throws PDOException if the connection fails or environment variables are not set.
+ */
+function get_db_connection() {
+    static $pdo = null;
+    if ($pdo === null) {
+        $host = getenv('DB_HOST');
+        $port = getenv('DB_PORT');
+        $dbname = getenv('DB_DATABASE');
+        $user = getenv('DB_USER');
+        $pass = getenv('DB_PASSWORD');
+
+        if (empty($host) || empty($port) || empty($dbname) || empty($user)) {
+            $error_msg = "Database connection error: Required environment variables are not set. Check .env file.";
+            error_log($error_msg);
+            throw new PDOException($error_msg);
+        }
+
+        $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ];
+        // PDO constructor will throw a PDOException on connection failure
+        $pdo = new PDO($dsn, $user, $pass, $options);
+    }
+    return $pdo;
+}
+
+/**
+ * Retrieves all users from the database.
+ */
+function getAllUsers() {
+    try {
+        $pdo = get_db_connection();
+        $stmt = $pdo->query("SELECT id, email, created_at FROM users ORDER BY created_at DESC");
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Error in getAllUsers: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Deletes a user from the database by their email address.
+ */
+function deleteUserByEmail($email) {
+    try {
+        $pdo = get_db_connection();
+        $stmt = $pdo->prepare("DELETE FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log("Error in deleteUserByEmail for {$email}: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Stores lottery results into the lottery_results table.
+ */
+function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate) {
+    try {
+        $pdo = get_db_connection();
+        $stmt = $pdo->prepare("SELECT id FROM lottery_results WHERE lottery_type = ? AND issue_number = ?");
+        $stmt->execute([$lotteryType, $issueNumber]);
+        if ($stmt->fetch()) {
+            error_log("Lottery result for type '{$lotteryType}' and issue '{$issueNumber}' already exists. Skipping insertion.");
+            return true;
+        }
+        $stmt = $pdo->prepare(
+            "INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date) VALUES (?, ?, ?, ?, ?, ?)"
+        );
+        $stmt->execute([$lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate]);
+        error_log("Successfully stored lottery result for {$lotteryType} - {$issueNumber}.");
+        return true;
+    } catch (PDOException $e) {
+        error_log("Error storing lottery result for {$lotteryType} - {$issueNumber}: " . $e->getMessage());
+        return false;
+    }
+}
+
+================================================================================
+FILE: backend/delete_bill.php
+================================================================================
+<?php
+require_once __DIR__ . '/bootstrap.php';
+
+write_log("------ delete_bill.php Entry Point ------");
+
+// --- Authentication Check ---
+if (!isset($_SESSION['user_id'])) {
+    json_response('error', 'Unauthorized: User not logged in.', 401);
+}
+
+// Check if the request method is DELETE
+if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
+    json_response('error', 'Invalid request method. Only DELETE is allowed.', 405);
+}
+
+$userId = $_SESSION['user_id'];
+
+// Expect bill ID from query parameter
+$billId = $_GET['id'] ?? null;
+
+if (!$billId) {
+    json_response('error', 'Bill ID is required.', 400);
+}
+
+try {
+    $pdo = get_db_connection();
+    // Prepare and execute the delete query from the 'bills' table
+    // IMPORTANT: The WHERE clause includes user_id to ensure a user can only delete their own bills.
+    $stmt = $pdo->prepare("DELETE FROM bills WHERE id = ? AND user_id = ?");
+    $stmt->execute([$billId, $userId]);
+
+    // Check if any row was actually deleted
+    if ($stmt->rowCount() > 0) {
+        write_log("Bill ID {$billId} deleted successfully by user {$userId}.");
+        json_response('success', '账单已成功删除。');
+    } else {
+        // This means either the bill didn't exist or it didn't belong to the user
+        write_log("Failed to delete bill ID {$billId} for user {$userId}: Not found or unauthorized.");
+        json_response('error', '未找到该账单或无权删除。', 404);
+    }
+} catch (PDOException $e) {
+    write_log("Database error in delete_bill.php: " . $e->getMessage());
+    json_response('error', 'An error occurred while deleting the bill.', 500);
+}
+
+write_log("------ delete_bill.php Exit Point ------");
+
+================================================================================
+FILE: backend/email_handler.php
+================================================================================
+<?php
+
+// --- Unified Configuration and Helpers ---
+// The config file is in the same directory.
+require_once __DIR__ . '/config.php';
+
+// Define a specific log file path within the backend directory
+$debugLogFile = __DIR__ . '/email_handler_debug.log';
+
+// Helper function to write to the debug log file
+function write_debug_log($message, $logFile) {
+    file_put_contents($logFile, date('[Y-m-d H:i:s]') . ' ' . $message . PHP_EOL, FILE_APPEND);
+}
+
+// --- Security Check ---
+// This secret ensures that only our Cloudflare Worker can call this endpoint.
+$secretToken = getenv('EMAIL_HANDLER_SECRET');
+// Use $_REQUEST to accept the secret from either GET or POST requests.
+$receivedToken = $_REQUEST['worker_secret'] ?? '';
+
+// Basic logging to help debug authentication issues.
+// Changed to write directly to a file for environments without error_log access.
+write_debug_log("Email Handler Debug: secretToken (from env) = [" . (isset($secretToken) ? (empty($secretToken) ? 'EMPTY_STRING' : $secretToken) : 'NOT_SET') . "]", $debugLogFile);
+write_debug_log("Email Handler Debug: receivedToken (from REQUEST) = [" . (isset($receivedToken) ? (empty($receivedToken) ? 'EMPTY_STRING' : $receivedToken) : 'NOT_SET') . "]", $debugLogFile);
+
+if (empty($secretToken) || $receivedToken !== $secretToken) {
+    write_debug_log("Email Handler: Forbidden - Invalid or missing secret token. Received: [" . ($receivedToken ? $receivedToken : "EMPTY_OR_NOT_SET") . "], Expected: [" . ($secretToken ? $secretToken : "EMPTY_OR_NOT_SET") . "]", $debugLogFile);
+    http_response_code(403);
+    echo json_encode(['status' => 'error', 'message' => 'Forbidden: Invalid or missing secret token.']);
+    exit;
+}
+
+// --- Action Routing ---
+// Determine the action based on the 'action' query parameter.
+$action = $_GET['action'] ?? 'process_email'; // Default to processing email
+
+if ($action === 'is_user_registered') {
+    // --- User Verification Logic ---
+    $email = $_GET['email'] ?? null;
+    if (empty($email)) {
+        write_debug_log("Email Handler: Missing email parameter for is_user_registered.", $debugLogFile);
+        http_response_code(400);
+        echo json_encode(['success' => false, 'is_registered' => false, 'message' => 'Email parameter is missing.']);
+        exit;
+    }
+
+    try {
+        $pdo = get_db_connection();
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $userExists = $stmt->fetchColumn();
+
+        write_debug_log("Email Handler: User '{$email}' registered status: " . ($userExists ? 'true' : 'false'), $debugLogFile);
+
+        if ($userExists) {
+            echo json_encode(['success' => true, 'is_registered' => true]);
+        } else {
+            echo json_encode(['success' => true, 'is_registered' => false, 'message' => 'User not found.']);
+        }
+    } catch (PDOException $e) {
+        write_debug_log("Database error in is_user_registered: " . $e->getMessage(), $debugLogFile);
+        http_response_code(500);
+        echo json_encode(['success' => false, 'is_registered' => false, 'message' => 'Internal server error during user check.']);
+    }
+    exit;
+}
+
+
+if ($action === 'process_email') {
+     // --- Email Processing Logic ---
+    $from = $_POST['from'] ?? 'Unknown Sender';
+    $to = $_POST['to'] ?? 'Unknown Recipient';
+    $subject = $_POST['subject'] ?? 'No Subject';
+    $body = $_POST['body'] ?? ''; // The HTML content of the email
+
+    // Validate required fields
+    if (empty($from) || empty($to) || empty($body)) {
+        write_debug_log("Email Handler: Missing required fields (from, to, or body) for process_email.", $debugLogFile);
+        http_response_code(400); // Bad Request
+        echo json_encode(['status' => 'error', 'message' => 'Missing required fields: from, to, or body.']);
+        exit;
+    }
+
+    try {
+        $pdo = get_db_connection();
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$from]);
+        $user = $stmt->fetch();
+
+        if (!$user) {
+            write_debug_log("Email Handler: Received email from '$from' but user not found in DB. Ignoring.", $debugLogFile);
+            echo json_encode(['status' => 'success', 'message' => 'User not found, but acknowledged.']);
+            exit;
+        }
+
+        $userId = $user['id'];
+
+        // Insert the email into the database
+        $stmt = $pdo->prepare("INSERT INTO emails (user_id, sender, recipient, subject, html_content) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$userId, $from, $to, $subject, $body]);
+
+        write_debug_log("Email Handler: Email from '$from' processed successfully.", $debugLogFile);
+        http_response_code(200);
+        echo json_encode(['status' => 'success', 'message' => 'Email processed successfully.']);
+
+    } catch (PDOException $e) {
+        write_debug_log("Email Handler DB Error: " . $e->getMessage(), $debugLogFile);
+        http_response_code(500); // Internal Server Error
+        echo json_encode(['status' => 'error', 'message' => 'Failed to save email to the database.']);
+        exit; // Exit after handling the database error
+    }
+    exit; // Exit after successful processing
+}
+
+// Fallback for unknown actions
+write_debug_log("Email Handler: Unknown action: '" . ($action ?? 'null') . "'.", $debugLogFile);
+http_response_code(400);
+echo json_encode(['status' => 'error', 'message' => 'Unknown action.']);
+
+================================================================================
+FILE: backend/get_emails.php
+================================================================================
+<?php
+require_once __DIR__ . '/bootstrap.php';
+
+write_log("------ get_emails.php Entry Point ------");
+
+// --- Authentication Check ---
+if (!isset($_SESSION['user_id'])) {
+    json_response('error', 'Unauthorized: User not logged in.', 401);
+}
+
+$userId = $_SESSION['user_id'];
+$emailId = $_GET['id'] ?? null;
+
+try {
+    $pdo = get_db_connection();
+    if ($emailId) {
+        // --- Fetch a single email by ID ---
+        $stmt = $pdo->prepare(
+            "SELECT id, sender, recipient, subject, html_content, created_at
+             FROM emails
+             WHERE id = ? AND user_id = ?"
+        );
+        $stmt->execute([$emailId, $userId]);
+        $email = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($email) {
+            json_response('success', ['email' => $email]); // Return single email directly
+        } else {
+            write_log("Email ID {$emailId} not found for user {$userId} or unauthorized.");
+            json_response('error', '未找到该邮件或无权查看。', 404);
+        }
+    } else {
+        // --- Fetch all emails for the user ---
+        $stmt = $pdo->prepare(
+            "SELECT id, sender, subject, created_at
+             FROM emails
+             WHERE user_id = ?
+             ORDER BY created_at DESC"
+        );
+        $stmt->execute([$userId]);
+        $emails = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        json_response('success', ['emails' => $emails]);
+    }
+} catch (PDOException $e) {
+    write_log("Database error in get_emails.php: " . $e->getMessage());
+    json_response('error', 'An error occurred while fetching emails.', 500);
+}
+
+write_log("------ get_emails.php Exit Point ------");
+
+?>
+
+================================================================================
+FILE: backend/get_lottery_results.php
+================================================================================
+<?php
+require_once __DIR__ . '/bootstrap.php';
+
+write_log("------ get_lottery_results.php Entry Point ------");
+
+try {
+    $pdo = get_db_connection();
+    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
+    $lotteryType = isset($_GET['lottery_type']) ? urldecode($_GET['lottery_type']) : null;
+
+    $sql = "SELECT id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at FROM lottery_results ";
+    $params = [];
+
+    if ($lotteryType) {
+        $sql .= " WHERE lottery_type = ?";
+        $params[] = $lotteryType;
+    }
+
+    $sql .= " ORDER BY drawing_date DESC, issue_number DESC LIMIT ?";
+    $params[] = $limit;
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $processedResults = array_map(function($row) {
+        $row['winning_numbers'] = json_decode($row['winning_numbers'], true) ?: [];
+        $row['zodiac_signs'] = json_decode($row['zodiac_signs'], true) ?: [];
+        $row['colors'] = json_decode($row['colors'], true) ?: [];
+        return $row;
+    }, $results);
+
+    json_response('success', ['lottery_results' => $processedResults]);
+
+} catch (PDOException $e) {
+    write_log("Database error in get_lottery_results.php: " . $e->getMessage());
+    json_response('error', 'An error occurred while fetching lottery results.', 500);
+}
+
+write_log("------ get_lottery_results.php Exit Point ------");
+
+?>
+
+================================================================================
+FILE: backend/initialize_database.php
+================================================================================
+<?php
+
+// This script should be run from the command line to set up the database tables.
+
+require_once __DIR__ . '/bootstrap.php'; // Load common functionalities
+
+echo "--- Database Initialization Script ---\n\n";
+
+try {
+    // 1. Get Database Connection
+    echo "Step 1: Connecting to the database...\n";
+    $pdo = get_db_connection();
+    echo "  [SUCCESS] Database connection established.\n\n";
+
+    // 2. Read the SQL Schema File
+    echo "Step 2: Reading the database schema file (database_schema.sql)...\n";
+    $sql_file = __DIR__ . '/database_schema.sql';
+    if (!file_exists($sql_file)) {
+        throw new Exception("`database_schema.sql` not found in the backend directory.");
+    }
+    $sql = file_get_contents($sql_file);
+    if (empty($sql)) {
+        throw new Exception("`database_schema.sql` is empty.");
+    }
+    echo "  [SUCCESS] SQL schema file read successfully.\n\n";
+
+    // 3. Execute the SQL to Create Tables
+    echo "Step 3: Executing SQL to create tables...\n";
+    $pdo->exec($sql);
+    echo "  [SUCCESS] All tables have been created successfully (or already existed).\n\n";
+
+    echo "--- Database Initialization Complete! ---\n";
+    write_log("Database initialization script completed successfully.");
+
+} catch (PDOException $e) {
+    echo "[FAILURE] A database error occurred.\n";
+    echo "  Error: " . $e->getMessage() . "\n";
+    write_log("Database initialization failed: " . $e->getMessage());
+    exit(1);
+} catch (Exception $e) {
+    echo "[FAILURE] An unexpected error occurred.\n";
+    echo "  Error: " . $e->getMessage() . "\n";
+    write_log("Database initialization failed: " . $e->getMessage());
+    exit(1);
+}
+
+?>
+
+================================================================================
+FILE: backend/login_user.php
+================================================================================
+<?php
+require_once __DIR__ . '/bootstrap.php';
+
+write_log("------ login_user.php Entry Point ------");
+
+// --- Input and Validation ---
+$data = json_decode(file_get_contents('php://input'), true);
+
+if (!$data) {
+    json_response('error', 'Invalid JSON received.', 400);
+}
+
+$email = $data['email'] ?? null;
+$password = $data['password'] ?? null;
+
+if (empty($email) || empty($password)) {
+    json_response('error', 'Email and password are required.', 400);
+}
+
+// --- Database and Authentication ---
+try {
+    $pdo = get_db_connection();
+    $stmt = $pdo->prepare("SELECT id, username, email, password_hash FROM users WHERE email = ?");
+    $stmt->execute([$email]);
+    $user = $stmt->fetch();
+
+    if ($user && password_verify($password, $user['password_hash'])) {
+        // --- Session Creation ---
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['email'] = $user['email'];
+
+        write_log("User logged in successfully: " . $email . ". Session ID: " . session_id());
+        json_response('success', [
+            'message' => 'Login successful!',
+            'user' => [
+                'id' => $user['id'],
+                'email' => $user['email'],
+                'username' => $user['username']
+            ]
+        ]);
+
+    } else {
+        write_log("Login failed for email: " . $email . ". Invalid credentials.");
+        json_response('error', 'Invalid email or password.', 401);
+    }
+
+} catch (PDOException $e) {
+    write_log("Database error in login_user.php: " . $e->getMessage());
+    json_response('error', 'An internal database error occurred.', 500);
+}
+
+write_log("------ login_user.php Exit Point ------");
+
+================================================================================
+FILE: backend/process_email_ai.php
+================================================================================
+<?php
+require_once __DIR__ . '/bootstrap.php';
+
+write_log("------ process_email_ai.php Entry Point ------");
+
+// --- Authentication Check ---
+if (!isset($_SESSION['user_id'])) {
+    json_response('error', 'You must be logged in.', 401);
+}
+
+// --- Input Validation ---
+$data = json_decode(file_get_contents('php://input'), true);
+$emailId = $data['email_id'] ?? null;
+
+if (!$emailId) {
+    json_response('error', 'Email ID is required.', 400);
+}
+
+try {
+    $userId = $_SESSION['user_id'];
+    $pdo = get_db_connection();
+
+    // 1. Fetch the email content from the database
+    $stmt = $pdo->prepare("SELECT html_content FROM emails WHERE id = ? AND user_id = ?");
+    $stmt->execute([$emailId, $userId]);
+    $email = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$email) {
+        json_response('error', 'Email not found or you do not have permission to access it.', 404);
+    }
+
+    $htmlContent = $email['html_content'];
+
+    // 2. Send the content to the Cloudflare Worker for AI processing
+    $workerUrl = 'https://ss.wenxiuxiu.eu.org/process-ai';
+    $postData = json_encode(['email_content' => $htmlContent]);
+
+    $ch = curl_init($workerUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Content-Length: ' . strlen($postData)
+    ]);
+
+    $workerResponse = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($http_code !== 200) {
+        write_log("AI worker failed with code {$http_code}: " . $workerResponse);
+        json_response('error', 'Failed to process email with AI worker.', 502);
+    }
+
+    $aiData = json_decode($workerResponse, true);
+
+    // 3. Update the database with the extracted data
+    $updateStmt = $pdo->prepare(
+        "UPDATE emails SET
+            vendor_name = :vendor_name,
+            bill_amount = :bill_amount,
+            currency = :currency,
+            due_date = :due_date,
+            invoice_number = :invoice_number,
+            category = :category,
+            is_processed = TRUE
+         WHERE id = :id"
+    );
+
+    $updateParams = [
+        ':id' => $emailId,
+        ':vendor_name' => $aiData['vendor_name'] ?? null,
+        ':bill_amount' => !empty($aiData['bill_amount']) ? $aiData['bill_amount'] : null,
+        ':currency' => $aiData['currency'] ?? null,
+        ':due_date' => !empty($aiData['due_date']) ? $aiData['due_date'] : null,
+        ':invoice_number' => $aiData['invoice_number'] ?? null,
+        ':category' => $aiData['category'] ?? null,
+    ];
+
+    $updateStmt->execute($updateParams);
+
+    // 4. Return the structured data to the frontend
+    json_response('success', $aiData);
+
+} catch (PDOException $e) {
+    write_log("Database error in process_email_ai.php: " . $e->getMessage());
+    json_response('error', 'Database error: ' . $e->getMessage(), 500);
+} catch (Exception $e) {
+    write_log("Unexpected error in process_email_ai.php: " . $e->getMessage());
+    json_response('error', 'An unexpected error occurred: ' . $e->getMessage(), 500);
+}
+
+write_log("------ process_email_ai.php Exit Point ------");
+
+================================================================================
+FILE: backend/register_user.php
+================================================================================
+<?php
+require_once __DIR__ . '/bootstrap.php';
+
+write_log("------ register_user.php Entry Point ------");
+
+// --- Input Reception and Validation ---
+$data = json_decode(file_get_contents('php://input'), true);
+
+if (!$data) {
+    json_response('error', 'Invalid JSON received.', 400);
+}
+
+$email = $data['email'] ?? null;
+$password = $data['password'] ?? null;
+
+$username = $email; // The username is now the email.
+
+if (empty($email) || empty($password)) {
+    json_response('error', 'Missing required fields: email and password.', 400);
+}
+
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    json_response('error', 'Invalid email format.', 400);
+}
+
+// --- Database Interaction ---
+try {
+    $pdo = get_db_connection();
+    // 1. Check if email already exists
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt->execute([$email]);
+    if ($stmt->fetch()) {
+        json_response('error', 'A user with this email already exists.', 409);
+    }
+
+    // 2. Insert the new user into the database
+    $password_hash = password_hash($password, PASSWORD_DEFAULT);
+    $stmt = $pdo->prepare(
+        "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)"
+    );
+
+    $isSuccess = $stmt->execute([$username, $email, $password_hash]);
+
+    if ($isSuccess) {
+        // Automatically log the user in by creating a session.
+        $user_id = $pdo->lastInsertId();
+        $_SESSION['user_id'] = $user_id;
+        $_SESSION['email'] = $email;
+
+        json_response('success', [
+            'message' => 'User registered successfully.',
+            'user' => [
+                'id' => $user_id,
+                'email' => $email,
+                'username' => $username
+            ]
+        ], 201);
+    } else {
+        json_response('error', 'Failed to register the user due to a server issue.', 500);
+    }
+
+} catch (PDOException $e) {
+    write_log("Database error in register_user.php: " . $e->getMessage());
+    json_response('error', 'An internal database error occurred.', 500);
+}
+
+write_log("------ register_user.php Exit Point ------");
+
+================================================================================
+FILE: frontend/src/App.jsx
+================================================================================
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar.jsx';
+import HomePage from './pages/HomePage.jsx';
+import BillsPage from './pages/BillsPage.jsx';
+import BillDetailsPage from './pages/BillDetailsPage.jsx';
+import LoginPage from './pages/LoginPage.jsx';
+import RegisterPage from './pages/RegisterPage.jsx';
+import { AuthProvider } from './context/AuthContext.jsx';
+import './App.css';
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <Navbar />
+        <div className="main-content">
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/bills" element={<BillsPage />} />
+            <Route path="/bill/:id" element={<BillDetailsPage />} />
+          </Routes>
+        </div>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+export default App;
+
+================================================================================
+FILE: frontend/src/components/Navbar.css
+================================================================================
+.navbar-banner {
+    background-color: #2c3e50; /* A professional dark slate gray */
+    padding: 1rem 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+}
+
+.navbar-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.navbar-logo {
+    color: #ecf0f1; /* A light, clean text color */
+    text-decoration: none;
+    font-size: 1.8rem;
+    font-weight: 600;
+}
+
+.navbar-links {
+    list-style: none;
+    display: flex;
+    margin: 0;
+    padding: 0;
+    align-items: center;
+}
+
+.navbar-links li {
+    margin-left: 2.5rem;
+}
+
+.navbar-links a {
+    color: #bdc3c7; /* A slightly muted text color */
+    text-decoration: none;
+    font-size: 1.1rem;
+    font-weight: 500;
+    padding: 0.5rem 0;
+    transition: color 0.3s ease;
+}
+
+.navbar-links a:hover,
+.navbar-links a.active {
+    color: #ffffff; /* Highlight color for active/hover links */
+}
+
+.logout-button {
+    background-color: #e74c3c; /* A distinct red for logout */
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: background-color 0.3s ease;
+}
+
+.logout-button:hover {
+    background-color: #c0392b; /* A darker red on hover */
+}
+
+================================================================================
+FILE: frontend/src/components/Navbar.jsx
+================================================================================
+import React from 'react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.jsx';
+import './Navbar.css';
+
+const Navbar = () => {
+    const { isAuthenticated, logout } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        await logout();
+        navigate('/login');
+    };
+
+    return (
+        <header className="navbar-banner">
+            <div className="navbar-container">
+                <Link to="/" className="navbar-logo">电子账单系统</Link>
+                <nav>
+                    <ul className="navbar-links">
+                        <li><NavLink to="/" className={({ isActive }) => isActive ? 'active' : ''}>首页</NavLink></li>
+                        {isAuthenticated ? (
+                            <>
+                                <li><NavLink to="/bills" className={({ isActive }) => isActive ? 'active' : ''}>我的账单</NavLink></li>
+                                <li><button onClick={handleLogout} className="logout-button">退出登录</button></li>
+                            </>
+                        ) : (
+                            <>
+                                <li><NavLink to="/login" className={({ isActive }) => isActive ? 'active' : ''}>登录</NavLink></li>
+                                <li><NavLink to="/register" className={({ isActive }) => isActive ? 'active' : ''}>注册</NavLink></li>
+                            </>
+                        )}
+                    </ul>
+                </nav>
+            </div>
+        </header>
+    );
+};
+
+export default Navbar;
