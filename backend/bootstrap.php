@@ -1,4 +1,4 @@
-
+<?php
 // backend/bootstrap.php
 
 // --- Error Reporting & Logging ---
