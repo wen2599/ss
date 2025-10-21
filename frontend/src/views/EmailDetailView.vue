@@ -1,20 +1,20 @@
 <template>
   <div class="email-detail-container">
-    <button @click="goBack" class="back-button">&larr; Back to List</button>
-    <div v-if="loading" class="loading-message">Loading email...</div>
+    <button @click="goBack" class="back-button">&larr; 返回列表</button>
+    <div v-if="loading" class="loading-message">正在加载邮件...</div>
     <div v-if="error" class="error-message">{{ error }}</div>
     <div v-if="email" class="email-content-wrapper">
       <div class="email-header-info">
-        <h2>{{ email.subject || 'No Subject' }}</h2>
-        <p><strong>From:</strong> {{ email.from_address }}</p>
-        <p><strong>To:</strong> {{ email.to_address }}</p>
-        <p><strong>Received:</strong> {{ formatDate(email.received_at) }}</p>
+        <h2>{{ email.subject || '无主题' }}</h2>
+        <p><strong>发件人：</strong> {{ email.from_address }}</p>
+        <p><strong>收件人：</strong> {{ email.to_address }}</p>
+        <p><strong>接收时间：</strong> {{ formatDate(email.received_at) }}</p>
       </div>
 
       <div class="email-body-tabs">
-        <button :class="{ active: activeTab === 'html' }" @click="activeTab = 'html'">HTML View</button>
-        <button :class="{ active: activeTab === 'raw' }" @click="activeTab = 'raw'">Raw Content</button>
-        <button :class="{ active: activeTab === 'parsed' }" @click="activeTab = 'parsed'">Parsed Data (JSON)</button>
+        <button :class="{ active: activeTab === 'html' }" @click="activeTab = 'html'">HTML 视图</button>
+        <button :class="{ active: activeTab === 'raw' }" @click="activeTab = 'raw'">原始文本</button>
+        <button :class="{ active: activeTab === 'parsed' }" @click="activeTab = 'parsed'">解析数据 (JSON)</button>
       </div>
 
       <div class="email-body">
@@ -58,8 +58,8 @@ async function fetchEmail() {
     // Default to HTML tab if content exists, otherwise RAW
     activeTab.value = response.data.html_content ? 'html' : 'raw';
   } catch (err) {
-    console.error(`Error fetching email ${emailId.value}:`, err);
-    error.value = 'Failed to load email details.'
+    console.error(`获取邮件 ${emailId.value} 时出错：`, err);
+    error.value = '加载邮件详情失败。'
   }
   loading.value = false
 }
@@ -69,9 +69,9 @@ function goBack() {
 }
 
 function formatDate(dateString) {
-  if (!dateString) return 'N/A';
+  if (!dateString) return '无';
   const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
-  return new Date(dateString).toLocaleString(undefined, options);
+  return new Date(dateString).toLocaleString('zh-CN', options);
 }
 
 function resizeIframe(event) {

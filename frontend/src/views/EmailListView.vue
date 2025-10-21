@@ -1,15 +1,15 @@
 <template>
   <div class="email-list-container">
-    <h2>Received Emails</h2>
-    <div v-if="loading" class="loading-message">Loading...</div>
+    <h2>收到的邮件</h2>
+    <div v-if="loading" class="loading-message">加载中...</div>
     <div v-if="error" class="error-message">{{ error }}</div>
     <div v-if="emails.length > 0" class="email-table-wrapper">
       <table class="email-table">
         <thead>
           <tr>
-            <th>From</th>
-            <th>Subject</th>
-            <th>Received</th>
+            <th>发件人</th>
+            <th>主题</th>
+            <th>接收时间</th>
           </tr>
         </thead>
         <tbody>
@@ -22,7 +22,7 @@
       </table>
     </div>
     <div v-else-if="!loading" class="no-emails-message">
-      <p>No emails found.</p>
+      <p>未找到邮件。</p>
     </div>
   </div>
 </template>
@@ -46,8 +46,8 @@ async function fetchEmails() {
     const response = await axios.get(`${API_URL}/emails`);
     emails.value = response.data.data; // Access the data array from pagination
   } catch (err) {
-    console.error('Error fetching emails:', err);
-    error.value = 'Failed to load emails. Is the backend running and accessible?'
+    console.error('获取邮件时出错：', err);
+    error.value = '加载邮件失败。请检查后端服务是否正在运行并可以访问？'
   }
   loading.value = false
 }
@@ -57,9 +57,9 @@ function viewEmail(id) {
 }
 
 function formatDate(dateString) {
-  if (!dateString) return 'N/A';
+  if (!dateString) return '无';
   const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-  return new Date(dateString).toLocaleDateString(undefined, options);
+  return new Date(dateString).toLocaleDateString('zh-CN', options);
 }
 
 onMounted(() => {

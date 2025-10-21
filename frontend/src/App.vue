@@ -2,10 +2,10 @@
   <div id="app-layout">
     <header class="header">
       <div class="logo">
-        <h1>Email Viewer</h1>
+        <h1>邮件查看器</h1>
       </div>
       <nav class="navigation">
-        <RouterLink to="/">Email List</RouterLink>
+        <RouterLink to="/">邮件列表</RouterLink>
       </nav>
     </header>
     <main class="main-content">
