@@ -5,6 +5,7 @@ namespace App\Controllers;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use App\Models\ApiKey;
 use App\Models\User;
 use Telegram\Bot\Api;
 
@@ -59,6 +60,35 @@ class TelegramController
                     'parse_mode' => 'MarkdownV2',
                 ]);
             }
+        } elseif (strpos($text, '/set_gemini_api_key') === 0) {
+            if ((string) $chatId !== $_ENV['TELEGRAM_ADMIN_ID']) {
+                $telegram->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => 'You are not authorized to use this command.',
+                ]);
+                return $response;
+            }
+
+            $parts = explode(' ', $text);
+            if (count($parts) < 2) {
+                $telegram->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => 'Please provide the new Gemini API key.',
+                ]);
+                return $response;
+            }
+
+            $newApiKey = $parts[1];
+
+            ApiKey::updateOrCreate(
+                ['service_name' => 'gemini'],
+                ['api_key' => $newApiKey]
+            );
+
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => 'Gemini API key has been updated.',
+            ]);
         }
 
         return $response;
