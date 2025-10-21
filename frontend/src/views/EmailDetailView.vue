@@ -1,126 +1,178 @@
-<script setup>
-import { onMounted } from 'vue';
-import { useRoute } from 'vue-router';
-import { useEmailStore } from '@/stores/emails';
-import { storeToRefs } from 'pinia';
-import LoadingSpinner from '@/components/LoadingSpinner.vue';
-
-const route = useRoute();
-const emailStore = useEmailStore();
-const { currentEmail, loading, error } = storeToRefs(emailStore);
-
-onMounted(() => {
-  const emailId = route.params.id;
-  emailStore.fetchEmailById(emailId);
-});
-</script>
-
 <template>
-  <main>
-    <h1>Email Details</h1>
-    <div v-if="loading">
-      <LoadingSpinner />
-    </div>
-    <div v-else-if="error" class="error-message">
-      {{ error }}
-    </div>
-    <div v-else-if="currentEmail" class="email-details-grid">
-      <div class="detail-item">
-        <strong>From:</strong>
-        <span>{{ currentEmail.from_address }}</span>
-      </div>
-      <div class="detail-item">
-        <strong>Subject:</strong>
-        <span>{{ currentEmail.subject }}</span>
-      </div>
-      <div class="detail-item">
-        <strong>Received At:</strong>
-        <span>{{ currentEmail.received_at }}</span>
+  <div class="email-detail-container">
+    <button @click="goBack" class="back-button">&larr; Back to List</button>
+    <div v-if="loading" class="loading-message">Loading email...</div>
+    <div v-if="error" class="error-message">{{ error }}</div>
+    <div v-if="email" class="email-content-wrapper">
+      <div class="email-header-info">
+        <h2>{{ email.subject || 'No Subject' }}</h2>
+        <p><strong>From:</strong> {{ email.from_address }}</p>
+        <p><strong>To:</strong> {{ email.to_address }}</p>
+        <p><strong>Received:</strong> {{ formatDate(email.received_at) }}</p>
       </div>
 
-      <div class="content-section">
-        <h3>Raw Email Content</h3>
-        <div class="raw-content-container">
-            <iframe :srcdoc="currentEmail.raw_content" class="email-iframe"></iframe>
+      <div class="email-body-tabs">
+        <button :class="{ active: activeTab === 'html' }" @click="activeTab = 'html'">HTML View</button>
+        <button :class="{ active: activeTab === 'raw' }" @click="activeTab = 'raw'">Raw Content</button>
+        <button :class="{ active: activeTab === 'parsed' }" @click="activeTab = 'parsed'">Parsed Data (JSON)</button>
+      </div>
+
+      <div class="email-body">
+        <div v-if="activeTab === 'html'" class="html-view">
+          <iframe :srcdoc="email.html_content || ''" @load="resizeIframe"></iframe>
+        </div>
+        <div v-if="activeTab === 'raw'" class="raw-view">
+          <pre>{{ email.raw_content }}</pre>
+        </div>
+        <div v-if="activeTab === 'parsed'" class="parsed-view">
+          <pre>{{ JSON.stringify(email.parsed_data, null, 2) }}</pre>
         </div>
       </div>
-
-      <div class="content-section">
-        <h3>Processed Form Data</h3>
-        <pre class="processed-data">{{ JSON.stringify(currentEmail.processed_form_data, null, 2) }}</pre>
-      </div>
     </div>
-  </main>
+  </div>
 </template>
 
+<script setup>
+import { ref, onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import axios from 'axios'
+
+const route = useRoute()
+const router = useRouter()
+
+const email = ref(null)
+const loading = ref(true)
+const error = ref(null)
+const activeTab = ref('html')
+
+const emailId = computed(() => route.params.id)
+const API_URL = 'https://wenge.cloudns.ch/api';
+
+async function fetchEmail() {
+  if (!emailId.value) return;
+  loading.value = true
+  error.value = null
+  try {
+    const response = await axios.get(`${API_URL}/emails/${emailId.value}`);
+    email.value = response.data
+    // Default to HTML tab if content exists, otherwise RAW
+    activeTab.value = response.data.html_content ? 'html' : 'raw';
+  } catch (err) {
+    console.error(`Error fetching email ${emailId.value}:`, err);
+    error.value = 'Failed to load email details.'
+  }
+  loading.value = false
+}
+
+function goBack() {
+  router.push({ name: 'email-list' })
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'N/A';
+  const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+  return new Date(dateString).toLocaleString(undefined, options);
+}
+
+function resizeIframe(event) {
+  const iframe = event.target;
+  if (iframe && iframe.contentWindow) {
+    iframe.style.height = iframe.contentWindow.document.body.scrollHeight + 'px';
+  }
+}
+
+onMounted(() => {
+  fetchEmail()
+})
+</script>
 
 <style scoped>
-main {
-  padding: 2rem;
-}
-.error-message {
-  color: #dc3545;
-}
-.email-details-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
+.email-detail-container {
+  font-family: Arial, sans-serif;
 }
 
-.detail-item {
-  display: contents; /* Allows grid styling to apply to children */
-}
-
-.detail-item strong {
-  font-weight: bold;
-  margin-bottom: 0.25rem; 
-  grid-column: 1;
-}
-
-.detail-item span {
-  grid-column: 2;
+.back-button {
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
   margin-bottom: 1rem;
+  font-size: 1rem;
 }
 
-.content-section {
-  margin-top: 1rem;
-  grid-column: 1 / -1; /* Span across all columns */
+.email-content-wrapper {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #fff;
 }
 
-.content-section h3 {
-  margin-bottom: 0.75rem;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 0.5rem;
+.email-header-info {
+  padding: 1.5rem;
+  border-bottom: 1px solid #ddd;
 }
 
-.raw-content-container {
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  overflow: hidden;
-  height: 400px; /* Default height */
-  resize: vertical;
+.email-header-info h2 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
 }
 
-.email-iframe {
-  width: 100%;
-  height: 100%;
+.email-header-info p {
+  margin: 0.25rem 0;
+  color: #555;
+}
+
+.email-body-tabs {
+  display: flex;
+  border-bottom: 1px solid #ddd;
+  padding: 0 1.5rem;
+  background-color: #f9f9f9;
+}
+
+.email-body-tabs button {
+  padding: 1rem 1.5rem;
   border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #333;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px; /* Overlap with container border */
 }
 
-.processed-data {
-  background-color: #f8f9fa;
+.email-body-tabs button.active {
+  border-bottom-color: #007bff;
+  font-weight: bold;
+}
+
+.email-body {
+  padding: 1.5rem;
+}
+
+.html-view iframe {
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  min-height: 400px; /* Minimum height */
+}
+
+.raw-view pre, .parsed-view pre {
+  white-space: pre-wrap; /* Wrap long lines */
+  word-break: break-all; /* Break long words */
+  background-color: #f4f4f4;
   padding: 1rem;
-  border-radius: 4px;
-  border: 1px solid var(--color-border);
-  white-space: pre-wrap; /* Allows long lines to wrap */
-  word-wrap: break-word; /* Breaks long words if necessary */
+  border-radius: 5px;
+  max-height: 600px;
+  overflow-y: auto;
 }
 
-/* Responsive grid layout */
-@media (min-width: 768px) {
-  .email-details-grid {
-    grid-template-columns: 150px 1fr; /* Label and value columns */
-    align-items: center;
-  }
+.loading-message, .error-message {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.2rem;
+}
+
+.error-message {
+  color: #d9534f;
 }
 </style>

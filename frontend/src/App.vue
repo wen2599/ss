@@ -1,49 +1,60 @@
+<template>
+  <div id="app-layout">
+    <header class="header">
+      <div class="logo">
+        <h1>Email Viewer</h1>
+      </div>
+      <nav class="navigation">
+        <RouterLink to="/">Email List</RouterLink>
+      </nav>
+    </header>
+    <main class="main-content">
+      <RouterView />
+    </main>
+  </div>
+</template>
+
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
 </script>
 
-<template>
-  <header>
-    <div class="wrapper">
-      <nav>
-        <RouterLink to="/">Home</RouterLink>
-        <RouterLink to="/emails">Emails</RouterLink>
-      </nav>
-    </div>
-  </header>
-
-  <RouterView />
-</template>
-
 <style scoped>
-header {
-  line-height: 1.5;
-  max-height: 100vh;
-  padding: 2rem;
-  border-bottom: 1px solid var(--color-border);
+#app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
 
-nav {
-  width: 100%;
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: #333;
+  color: white;
+  border-bottom: 1px solid #444;
+}
+
+.logo h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.navigation a {
+  color: #fff;
+  text-decoration: none;
+  margin-left: 1rem;
   font-size: 1rem;
-  text-align: center;
 }
 
-nav a.router-link-exact-active {
-  color: var(--color-text);
+.navigation a:hover, .navigation a.router-link-exact-active {
+  text-decoration: underline;
 }
 
-nav a.router-link-exact-active:hover {
-  background-color: transparent;
-}
-
-nav a {
-  display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
-}
-
-nav a:first-of-type {
-  border: 0;
+.main-content {
+  flex-grow: 1;
+  padding: 2rem;
+  background-color: #f4f4f4;
+  overflow-y: auto;
 }
 </style>

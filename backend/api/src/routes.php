@@ -1,1 +1,32 @@
-<?php\ndeclare(strict_types=1);\n\nuse Psr\\Http\\Message\\ResponseInterface as Response;\nuse Psr\Http\\Message\\ServerRequestInterface as Request;\nuse Slim\\App;\nuse Psr\\Container\\ContainerInterface;\n\nreturn function (App $app) {\n    $container = $app->getContainer();\n\n    // 基础的 /ping 路由\n    $app->get(\'/ping\', function (Request $request, Response $response) {\n        $payload = json_encode([\'status\' => \'ok\', \'message\' => \'Pong! Correctly routed through root .htaccess to /api directory.\']);\n        $response->getBody()->write($payload);\n        return $response->withHeader(\'Content-Type\', \'application/json\');\n    });\n\n    // 数据库连接测试路由\n    $app->get(\'/db-test\', function (Request $request, Response $response) use ($container) {\n        try {\n            $db = $container->get(\'db\');\n            $pdo = $db->getConnection()->getPdo();\n            $payload = json_encode([\'status\' => \'ok\', \'message\' => \'Database connection successful.\']);\n        } catch (\\Exception $e) {\n            $response = $response->withStatus(500);\n            $payload = json_encode([\'status\' => \'error\', \'message\' => \'Database connection failed.\', \'details\' => $e->getMessage()]);\n        }\n        $response->getBody()->write($payload);\n        return $response->withHeader(\'Content-Type\', \'application/json\');\n    });\n\n    // 环境变量测试路由\n    $app->get(\'/env-test\', function (Request $request, Response $response) {\n        $data = [\n            \'DB_HOST_from_env\' => $_ENV[\'DB_HOST\'] ?? \'NOT FOUND\',\n            \'Display_Errors_from_settings\' => $this->get(\'settings\')[\'displayErrorDetails\'] ? \'true\' : \'false\'\n        ];\n        $payload = json_encode($data);\n        $response->getBody()->write($payload);\n        return $response->withHeader(\'Content-Type\', \'application/json\');\n    });\n};
+<?php
+declare(strict_types=1);
+
+use App\Controllers\EmailController;
+use Slim\App;
+use Slim\Psr7\Request;
+use Slim\Psr7\Response;
+
+return function (App $app) {
+
+    // API group
+    $app->group('/api', function ($group) {
+
+        // Health check endpoint
+        $group->get('/ping', function (Request $request, Response $response) {
+            $response->getBody()->write(json_encode(['status' => 'ok', 'message' => 'Backend is running']));
+            return $response->withHeader('Content-Type', 'application/json');
+        });
+
+        // Email routes
+        $group->post('/emails', [EmailController::class, 'receiveEmail']);
+        $group->get('/emails', [EmailController::class, 'listEmails']);
+        $group->get('/emails/{id}', [EmailController::class, 'getEmail']);
+
+    });
+
+    // Catch-all for the root for basic feedback
+    $app->get('/', function (Request $request, Response $response) {
+        $response->getBody()->write("<h1>Backend API is active</h1><p>Use the /api endpoints to interact.</p>");
+        return $response;
+    });
+};

@@ -1,30 +1,25 @@
 <?php
 declare(strict_types=1);
 
-use Psr\Container\ContainerInterface;
 use Slim\App;
 use Tuupola\Middleware\CorsMiddleware;
 
 return function (App $app) {
-    $container = $app->getContainer();
 
-    // 添加 CORS 中-中间件
+    // CORS Middleware
     $app->add(new CorsMiddleware([
-        "origin" => ["https://ss.wenxiuxiu.eu.org", "http://localhost:5173"],
+        "origin" => ["http://localhost:5173", "https://ss.wenxiuxiu.eu.org"], // Replace with your frontend URLs
         "methods" => ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        "headers.allow" => ["Authorization", "Content-Type", "Accept"],
+        "headers.allow" => ["X-Requested-With", "Content-Type", "Accept", "Origin", "Authorization", "X-Worker-Secret"],
+        "headers.expose" => [],
         "credentials" => true,
-        "cache" => 86400
+        "cache" => 86400 // 1 day
     ]));
 
-    // 添加路由中间件
-    $app->addRoutingMiddleware();
-
-    // 添加错误处理中间件 (必须在最后添加)
-    $settings = $container->get('settings');
-    $errorMiddleware = $app->addErrorMiddleware(
-        $settings['displayErrorDetails'],
-        true,
-        true
-    );
+    // Ensure the 'db' connection is initialized for every request.
+    $app->add(function ($request, $handler) use ($app) {
+        $container = $app->getContainer();
+        $container->get('db'); // This initializes the database connection.
+        return $handler->handle($request);
+    });
 };

@@ -1,24 +1,20 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
+import EmailListView from '../views/EmailListView.vue'
+import EmailDetailView from '../views/EmailDetailView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: HomeView
+      name: 'email-list',
+      component: EmailListView
     },
     {
-      path: '/emails',
-      name: 'emails',
-      component: () => import('../views/EmailListView.vue')
-    },
-    {
-      path: '/emails/:id',
+      path: '/email/:id',
       name: 'email-detail',
-      component: () => import('../views/EmailDetailView.vue'),
-      props: true
+      component: EmailDetailView,
+      props: true // Pass route params as props to the component
     }
   ]
 })

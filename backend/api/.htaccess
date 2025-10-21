@@ -1,12 +1,4 @@
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-
-    # 解决某些环境下 Authorization 头丢失的问题
-    RewriteCond %{HTTP:Authorization} .
-    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-
-    # 将所有请求转发给当前目录的 index.php
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^ index.php [QSA,L]
-</IfModule>
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
