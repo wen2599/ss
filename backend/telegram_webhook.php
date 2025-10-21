@@ -1,19 +1,5 @@
 <?php
 // backend/telegram_webhook.php
-
-// Bootstrap logging - MUST be the very first thing.
-// This helps debug cases where the script is not even being executed.
-$log_file = __DIR__ . '/../telegram_bootstrap.log';
-$timestamp = date("Y-m-d H:i:s");
-$request_body = file_get_contents('php://input');
-// Use FILE_APPEND to not overwrite the log on each request.
-file_put_contents($log_file, "[$timestamp] Webhook received.\n", FILE_APPEND);
-if (empty($request_body)) {
-    file_put_contents($log_file, "[$timestamp] Request body was empty.\n", FILE_APPEND);
-} else {
-    file_put_contents($log_file, "[$timestamp] Request body: $request_body\n", FILE_APPEND);
-}
-
 // Handles incoming updates from the Telegram Bot API, with stateful interactions.
 
 require_once __DIR__ . '/bootstrap.php';
@@ -23,23 +9,11 @@ require_once __DIR__ . '/db_operations.php';
 
 // --- Security Check ---
 // Verify the request is coming from Telegram using the secret token.
-// The token can be provided in a header or as a URL parameter.
-$expectedToken = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? '';
-$providedToken = '';
+$secretToken = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? '';
+$telegramSecretHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 
-// Check header first
-if (isset($_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'])) {
-    $providedToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'];
-}
-// If not in header, check URL parameter (for services that don't support custom headers)
-elseif (isset($_GET['secret'])) {
-    $providedToken = $_GET['secret'];
-}
-
-if (empty($expectedToken) || $providedToken !== $expectedToken) {
+if (empty($secretToken) || $telegramSecretHeader !== $secretToken) {
     http_response_code(403);
-    // Log the failed attempt for debugging, but be careful not to log sensitive info
-    custom_log('Forbidden: Invalid or missing secret token. Header: ' . ($_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? 'Not Set') . ', Query: ' . ($_GET['secret'] ?? 'Not Set'), 'WARNING');
     die('Forbidden: Invalid secret token.');
 }
 
