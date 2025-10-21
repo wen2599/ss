@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use App\Controllers\EmailController;
+use App\Controllers\TelegramController;
 use App\Controllers\UserController;
 use Slim\App;
 use Slim\Psr7\Request;
@@ -26,6 +27,9 @@ return function (App $app) {
 
         // User routes
         $group->get('/users/is-registered', [UserController::class, 'isUserRegistered']);
+
+        // Telegram bot webhook
+        $group->post('/telegram-webhook', [TelegramController::class, 'webhook']);
 
     });
 
