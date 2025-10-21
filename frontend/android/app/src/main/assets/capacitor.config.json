@@ -1,8 +1,0 @@
-{
-	"appId": "com.example.app",
-	"appName": "my-app",
-	"webDir": "dist",
-	"server": {
-		"androidScheme": "https"
-	}
-}
