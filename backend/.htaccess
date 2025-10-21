@@ -1,9 +1,10 @@
-<IfModule mod_rewrite.c>
-    RewriteEngine On
+<Files .env>
+    Order allow,deny
+    Deny from all
+</Files>
 
-    # 条件：仅当请求的 URI 不是以 /api/ 开头时，才执行下面的规则
-    RewriteCond %{REQUEST_URI} !^/api/
-
-    # 规则：将所有不以 /api/ 开头的请求，都重写到 api/ 目录中处理
-    RewriteRule ^(.*)$ api/$1 [L]
-</IfModule>
+RewriteEngine On
+RewriteRule ^$ api/ [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ api/$1 [L]
