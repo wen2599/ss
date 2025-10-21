@@ -226,13 +226,13 @@ export default {
     }
 
     // Proxy API calls (e.g., /login, /register, etc.) to the backend
-    if (url.pathname.endsWith('.php') || url.pathname.startsWith('/api/')) {
-      const backendUrl = new URL(url.pathname, backendServer);
-      backendUrl.search = url.search;
+    if (url.pathname.startsWith('/api/')) {
+        const backendUrl = new URL(url.pathname, backendServer);
+        backendUrl.search = url.search;
 
-      // Forward the request as-is to the backend.
-      const backendRequest = new Request(backendUrl, request);
-      return fetch(backendRequest);
+        // Forward the request as-is to the backend.
+        const backendRequest = new Request(backendUrl, request);
+        return fetch(backendRequest);
     }
 
     // For any other request, return a simple "Not Found" or handle as needed.
@@ -259,7 +259,7 @@ export default {
     try {
       // Step 1: Verify if the user is registered in the backend.
       // --- FIX: CONSTRUCT THE URL CORRECTLY WITH 'action' AS A QUERY PARAMETER ---
-      const verificationUrl = `${PUBLIC_API_ENDPOINT}?action=is_user_registered&worker_secret=${EMAIL_HANDLER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
+      const verificationUrl = `${PUBLIC_API_ENDPOINT}/api/users/is-registered?worker_secret=${EMAIL_HANDLER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
       console.log(`Worker Email Handler: Calling verification URL: ${verificationUrl}`);
       
       const verificationResponse = await fetch(verificationUrl);
@@ -277,7 +277,7 @@ export default {
       const verificationData = await verificationResponse.json();
       console.log("Worker Email Handler: Verification response received:", JSON.stringify(verificationData));
 
-      if (!verificationData.success || !verificationData.is_registered) {
+      if (verificationData.status !== 'success' || !verificationData.data.is_registered) {
         console.log(`Worker Email Handler: User ${senderEmail} is not registered or verification failed. Discarding email.`);
         return; // Stop processing, user is not authorized.
       }
@@ -290,20 +290,22 @@ export default {
       const subject = decodeSubject(headers['subject']);
       const body = extractHTMLBody(rawEmail); // Use the new function to get clean HTML
 
-      const formData = new FormData();
-      formData.append('worker_secret', EMAIL_HANDLER_SECRET);
-      formData.append('from', senderEmail);
-      formData.append('to', message.to);
-      formData.append('subject', subject);
-      formData.append('body', body);
+      const postData = {
+          worker_secret: EMAIL_HANDLER_SECRET,
+          from: senderEmail,
+          to: message.to,
+          subject: subject,
+          body: body,
+      };
       
       // --- FIX: Ensure the POST request URL is correct without extra path segments ---
-      const postUrl = `${PUBLIC_API_ENDPOINT}?action=process_email`;
+      const postUrl = `${PUBLIC_API_ENDPOINT}/api/emails`;
       console.log(`Worker Email Handler: Posting email content to: ${postUrl}`);
 
       const postResponse = await fetch(postUrl, {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(postData),
       });
 
       if (!postResponse.ok) {
@@ -312,8 +314,8 @@ export default {
         throw new Error(`Failed to post email with status ${postResponse.status}`);
       }
 
-      const postData = await postResponse.json();
-      console.log('Worker Email Handler: Email forwarded successfully. Backend response:', JSON.stringify(postData));
+      const responseData = await postResponse.json();
+      console.log('Worker Email Handler: Email forwarded successfully. Backend response:', JSON.stringify(responseData));
 
     } catch (error) {
       console.error('Worker Email Handler: An unexpected error occurred:', error.message);

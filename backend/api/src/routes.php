@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use App\Controllers\EmailController;
+use App\Controllers\UserController;
 use Slim\App;
 use Slim\Psr7\Request;
 use Slim\Psr7\Response;
@@ -13,7 +14,8 @@ return function (App $app) {
 
         // Health check endpoint
         $group->get('/ping', function (Request $request, Response $response) {
-            $response->getBody()->write(json_encode(['status' => 'ok', 'message' => 'Backend is running']));
+            $payload = json_encode(['status' => 'success', 'data' => 'Backend is running']);
+            $response->getBody()->write($payload);
             return $response->withHeader('Content-Type', 'application/json');
         });
 
@@ -21,6 +23,9 @@ return function (App $app) {
         $group->post('/emails', [EmailController::class, 'receiveEmail']);
         $group->get('/emails', [EmailController::class, 'listEmails']);
         $group->get('/emails/{id}', [EmailController::class, 'getEmail']);
+
+        // User routes
+        $group->get('/users/is-registered', [UserController::class, 'isUserRegistered']);
 
     });
 
