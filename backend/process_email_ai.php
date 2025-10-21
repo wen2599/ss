@@ -9,16 +9,21 @@ require_once __DIR__ . '/email_handler.php';
 require_once __DIR__ . '/gemini_ai_helper.php';     // For Gemini AI integration
 require_once __DIR__ . '/cloudflare_ai_helper.php'; // For Cloudflare AI integration
 
-// Prevent direct web access, only allow CLI or authenticated worker calls.
-// In a real scenario, implement a secure token check for HTTP_X_WORKER_AUTH
-// For now, allow CLI and simple browser access with ADMIN_SECRET for testing.
+// This script should ONLY be run from the command line (e.g., via a cron job)
+// or triggered by a securely authenticated worker.
 if (php_sapi_name() !== 'cli') {
-    $adminSecret = $_GET['secret'] ?? '';
-    if (!isset($_ENV['ADMIN_SECRET']) || $adminSecret !== $_ENV['ADMIN_SECRET']) {
-         http_response_code(403);
-         echo json_encode(['error' => 'Access denied.']);
-         exit();
-    }
+    // For a worker, you'd implement a robust token/signature check here, e.g.:
+    // $workerAuthToken = $_SERVER['HTTP_X_WORKER_AUTH'] ?? '';
+    // if (empty($_ENV['WORKER_AUTH_SECRET']) || $workerAuthToken !== $_ENV['WORKER_AUTH_SECRET']) {
+    //     http_response_code(403);
+    //     echo json_encode(['error' => 'Access denied: Invalid worker authentication.']);
+    //     exit();
+    // }
+
+    // For now, disallow all HTTP access for this sensitive script.
+    http_response_code(403);
+    echo json_encode(['error' => 'Forbidden: This script can only be accessed via the command line or a securely authenticated worker.']);
+    exit();
 }
 
 header('Content-Type: application/json');

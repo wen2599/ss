@@ -1,96 +1,63 @@
+import axios from 'axios';
+
 const API_BASE_URL = ''; // The backend directory is served as the root
 
-const handleResponse = async (response) => {
-  // First, check for a 204 No Content response, which doesn't have a body.
-  if (response.status === 204) {
-    return { success: true, message: 'Operation successful.' };
-  }
-  
-  // For other responses, try to parse the JSON body.
-  const text = await response.text();
-  try {
-    const data = JSON.parse(text);
-    if (!response.ok) {
-      throw new Error(data.error || 'Something went wrong.');
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true, // Important for session management
+});
+
+api.interceptors.response.use(
+  (response) => {
+    // Any status code that lie within the range of 2xx cause this function to trigger
+    return response.data; // Return the actual data from the response
+  },
+  (error) => {
+    // Any status codes that falls outside the range of 2xx cause this function to trigger
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error('API Error:', error.response.data);
+      throw new Error(error.response.data.error || 'Something went wrong.');
+    } else if (error.request) {
+      // The request was made but no response was received
+      console.error('API Error: No response received', error.request);
+      throw new Error('No response from server. Please check your network connection.');
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.error('API Error:', error.message);
+      throw new Error('An unexpected error occurred.');
     }
-    return data;
-  } catch (err) {
-    // If JSON parsing fails, the response was not valid JSON.
-    console.error('Failed to parse JSON:', text);
-    // Provide a more structured error.
-    throw new Error('The server returned an unexpected response. Please check the console for more details.');
   }
-};
+);
 
 export const registerUser = async (username, email, password) => {
-  const response = await fetch(`${API_BASE_URL}/register`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ username, email, password }),
-  });
-  return handleResponse(response);
+  return api.post('/register', { username, email, password });
 };
 
 export const loginUser = async (username, password) => {
-  const response = await fetch(`${API_BASE_URL}/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ username, password }),
-  });
-  return handleResponse(response);
+  return api.post('/login', { username, password });
 };
 
 export const logoutUser = async () => {
-  const response = await fetch(`${API_BASE_URL}/logout`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-  return handleResponse(response);
+  return api.post('/logout');
 };
 
 export const checkSession = async () => {
-  const response = await fetch(`${API_BASE_URL}/check_session`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-  return handleResponse(response);
+  return api.get('/check_session');
 };
 
 export const getBills = async () => {
-  const response = await fetch(`${API_BASE_URL}/get_bills`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-  return handleResponse(response);
+  return api.get('/get_bills');
 };
 
 export const deleteBill = async (billId) => {
-  const response = await fetch(`${API_BASE_URL}/delete_bill`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ billId }),
-  });
-  return handleResponse(response);
+  return api.post('/delete_bill', { billId });
 };
 
 export const getLotteryResults = async () => {
-  const response = await fetch(`${API_BASE_URL}/get_lottery_results`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-  return handleResponse(response);
+  return api.get('/get_lottery_results');
 };

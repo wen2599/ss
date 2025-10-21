@@ -52,7 +52,14 @@ if (!defined('BOOTSTRAP_INITIALIZED')) {
 }
 
 // --- CORS Handling ---
-header("Access-Control-Allow-Origin: *");
+require_once __DIR__ . '/load_env.php'; // Ensure environment variables are loaded
+
+$allowedOrigin = $_ENV['FRONTEND_PUBLIC_URL'] ?? '';
+if (empty($allowedOrigin)) {
+    error_log('FRONTEND_PUBLIC_URL is not set in .env. Falling back to * for Access-Control-Allow-Origin.');
+    $allowedOrigin = '*';
+}
+header("Access-Control-Allow-Origin: " . $allowedOrigin);
 header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
 header("Access-Control-Allow-Headers: Content-Type, X-Requested-With, Authorization");
@@ -63,8 +70,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 // --- Environment & Database ---
-require_once __DIR__ . '/load_env.php';
-
 global $pdo;
 if (!isset($pdo)) {
     define('DB_HOST', $_ENV['DB_HOST'] ?? 'localhost');

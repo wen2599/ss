@@ -24,76 +24,83 @@
 
 #### A. 前提条件
 
-*   一个拥有 PHP 和 MySQL 数据库访问权限的 Serv00 账户。
-*   PHP 8.1+，并启用 `pdo_mysql`、`curl`、`json` 扩展。
-*   配置正确的 `.env` 文件（见下文）。
+*   一个支持纯 PHP 和 MySQL 的托管环境（例如 Serv00）。
+*   已创建 Telegram Bot 并获取 Bot Token。
+*   Google Gemini API 密钥或 Cloudflare AI 账户详情。
 
-#### B. 数据库设置
+#### B. 配置
 
-1.  **创建数据库**：登录您的 Serv00 面板并创建一个新的 MySQL 数据库。
-2.  **初始化数据表**：将 `backend/database_schema.sql` 上传到您的 Serv00 服务器。您可以通过 phpMyAdmin 导入，或通过 SSH 运行 `backend/initialize_database.php` 脚本：
-    ```bash
-    php /path/to/your/backend/initialize_database.php
+1.  **数据库**：使用 `backend/database_schema.sql` 中的 SQL 语句创建数据库表。
+2.  **环境变量**：在您的后端环境根目录创建一个 `.env` 文件。您可以使用提供的 `.env.example` 作为模板。这是一个关键步骤，用于安全地存储您的凭据。
+
+    ```dotenv
+    # --- 数据库凭据 ---
+    DB_HOST="your_database_host"
+    DB_NAME="your_database_name"
+    DB_USER="your_database_user"
+    DB_PASS="your_database_password"
+
+    # --- AI 服务配置 ---
+    # 选择 'GEMINI' 或 'CLOUDFLARE' 作为激活的 AI 服务
+    ACTIVE_AI_SERVICE="GEMINI"
+    GEMINI_API_KEY="your_gemini_api_key"
+    CLOUDFLARE_ACCOUNT_ID="your_cloudflare_account_id"
+    CLOUDFLARE_API_TOKEN="your_cloudflare_api_token"
+
+    # --- Telegram Bot 配置 ---
+    TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
+    TELEGRAM_WEBHOOK_SECRET="a_very_strong_and_random_secret_string_for_webhook"
+    TELEGRAM_ADMIN_ID="your_telegram_admin_user_id" # 用于接收管理通知
+    LOTTERY_CHANNEL_ID="your_public_lottery_channel_id" # (可选)
+
+    # --- 安全密钥 ---
+    ADMIN_SECRET="another_very_strong_random_secret_for_admin_actions"
+    EMAIL_HANDLER_SECRET="a_third_strong_secret_for_email_worker"
+
+    # --- 前端公共 URL ---
+    FRONTEND_PUBLIC_URL="https://your_frontend_public_url.com" # 您的前端公共 URL
+    
+    # --- 后端公共 URL ---
+    BACKEND_PUBLIC_URL="https://your_backend_public_url.com" # 您的后端公共 URL
     ```
-    *请确保 `backend` 目录是您的 PHP 部署的根目录，或者您的 Web 服务器已相应配置。*
 
-#### C. 环境变量 (`backend/.env`)
+#### C. 部署后端文件
 
-在您的 Serv00 `backend` 目录中创建一个 `.env` 文件，内容如下。**请用您的实际凭据替换占位符值。**
+将 `backend` 目录中的所有文件和文件夹上传到 PHP 应用程序的根目录。
 
-```env
-# --- Database Configuration ---
-DB_HOST="your_db_host" # 您的数据库主机
-DB_PORT="3306"
-DB_DATABASE="your_db_name" # 您的数据库名称
-DB_USER="your_db_user"     # 您的数据库用户
-DB_PASSWORD="your_db_password" # 您的数据库密码
+#### D. 设置 Telegram Webhook
 
-# --- Security Tokens ---
-# 一个强随机字符串。必须与 Cloudflare Worker (WORKER_SECRET) 和后端 (EMAIL_HANDLER_SECRET) 中的值匹配。
-EMAIL_HANDLER_SECRET="your_email_handler_secret"
-# 用于 Telegram Webhook secret_token 的强随机字符串。
-TELEGRAM_WEBHOOK_SECRET="your_telegram_webhook_secret"
-# 用于保护管理端点的强随机字符串。
-ADMIN_SECRET="your_admin_secret_here"
+一旦您的后端部署完成并通过 `https://your_backend_public_url.com` 可访问，请使用 cURL 或任何 API 工具向以下 URL 发送一个 **POST** 请求来设置 Telegram Webhook。**不要**在浏览器中直接访问此 URL。
 
-# --- Telegram Bot Configuration ---
-TELEGRAM_BOT_TOKEN="your_telegram_bot_token" # 您的 Telegram Bot API Token
-TELEGRAM_ADMIN_ID="your_telegram_admin_id" # 您的个人 Telegram 用户 ID，用于接收管理通知
-LOTTERY_CHANNEL_ID="your_lottery_channel_id" # 可选：用于宣布彩票中奖者的 Telegram 频道 ID
+**请求 URL:**
+`https://your_backend_public_url.com/admin/set_telegram_webhook`
 
-# --- AI API Keys ---
-GEMINI_API_KEY="your_gemini_api_key" # 您的 Google Gemini API Key
-DEEPSEEK_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" # 如果使用 DeepSeek AI
+**请求方法:**
+`POST`
 
-# --- Cloudflare AI Configuration (如果使用 Cloudflare AI) ---
-CLOUDFLARE_ACCOUNT_ID="your_cloudflare_account_id" # 您的 Cloudflare 账户 ID
-CLOUDFLARE_API_TOKEN="your_cloudflare_api_token" # 您的 Cloudflare API Token (用于 AI Gateway)
-
-# --- 后端公共 URL ---
-BACKEND_PUBLIC_URL="https://your_backend_public_url.com" # 您的后端公共 URL
+**请求体 (JSON):**
+```json
+{
+    "secret": "your_admin_secret_here"
+}
 ```
-
-#### D. 部署后端文件
-
-将 `backend` 目录中的所有文件和文件夹上传到 Serv00 PHP 应用程序的根目录。
-
-#### E. 设置 Telegram Webhook
-
-一旦您的后端部署完成并通过 `https://your_backend_public_url.com` 可访问，请通过在浏览器中访问以下 URL 来设置 Telegram Webhook（请替换 `your_admin_secret_here` 为您 `.env` 中设置的 `ADMIN_SECRET`）：
-
-`https://your_backend_public_url.com/admin/set_telegram_webhook?secret=your_admin_secret_here`
+*请将 `your_admin_secret_here` 替换为您在 `.env` 文件中设置的 `ADMIN_SECRET`。*
 
 成功后，您应该看到 `{"ok":true,"result":true,"description":"Webhook was set"}`。
 
-#### F. 配置彩票检查 Cron Job
+#### E. 配置 Cron Jobs
 
-在 Serv00 上设置一个 Cron Job，定期运行 `backend/check_lottery_data.php`。例如，每天运行一次：
+在您的托管服务上设置 Cron Jobs 以自动化任务：
 
-```bash
-0 18 * * * php /path/to/your/backend/check_lottery_data.php
-```
-*(请根据您 Serv00 上的实际路径调整 `/path/to/your/backend/`，并根据您希望的计划调整 `0 18 * * *`。)*
+1.  **彩票检查**：定期运行 `backend/check_lottery_data.php`。例如，每天运行一次：
+    ```bash
+    0 18 * * * php /path/to/your/backend/check_lottery_data.php
+    ```
+2.  **AI 邮件处理**：定期运行 `backend/process_email_ai.php` 来处理未处理的邮件。
+    ```bash
+    */5 * * * * php /path/to/your/backend/process_email_ai.php
+    ```
+*(请根据您的实际路径调整 `/path/to/your/backend/`，并根据您希望的计划调整 cron 时间表。)*
 
 ### 2. 前端 (Cloudflare Pages)
 
@@ -104,54 +111,33 @@ BACKEND_PUBLIC_URL="https://your_backend_public_url.com" # 您的后端公共 UR
 
 #### B. 配置
 
-请确保 `frontend/src/api.js` 中的 `API_BASE_URL` 设置为空字符串，因为它将直接访问后端根目录：
+请确保 `frontend/vite.config.js` 中的 `server.proxy` 设置已被移除或注释掉，因为前端将直接与您的 `BACKEND_PUBLIC_URL` 通信。
 
-```javascript
-const API_BASE_URL = ''; // The backend directory is served as the root
-// ...
-```
+#### C. 构建与部署
 
-#### C. 构建和部署
+1.  在 `frontend` 目录中运行 `npm install` 来安装依赖项。
+2.  运行 `npm run build` 来构建生产版本。
+3.  将 `frontend/dist` 目录部署到 Cloudflare Pages。
 
-1.  在本地终端中导航到 `frontend` 目录：
-    ```bash
-    cd frontend
-    ```
-2.  安装依赖：
-    ```bash
-    npm install
-    ```
-3.  构建生产环境项目：
-    ```bash
-    npm run build
-    ```
-4.  将 `dist` 文件夹中的内容部署到您的 Cloudflare Pages。配置 Cloudflare Pages 从 `frontend` 目录构建并发布 `dist` 目录。
-    *重要提示：由于后端作为服务器根目录，您可能需要将 `frontend/dist` 的内容复制到您服务器的 `backend` 根目录下，以便前端文件能够被提供。*
-
-### 3. Cloudflare Worker (电子邮件处理)
+### 3. Cloudflare Worker (用于邮件处理)
 
 #### A. 前提条件
 
-*   一个 Cloudflare 账户。
-*   一个已配置 Cloudflare 电子邮件路由的电子邮件地址。
+*   一个配置了 Cloudflare 电子邮件路由的域名。
 
-#### B. Worker 脚本 (`worker/worker.js`)
-
-请根据您的环境配置 `worker/worker.js` 中的 `backendUrl` 和 `workerSecret`。确保 `workerSecret` 与您后端 `.env` 中的 `EMAIL_HANDLER_SECRET` 匹配。
-
-#### C. 部署 Worker
+#### B. 部署 Worker
 
 1.  将 `worker/worker.js` 脚本部署到 Cloudflare Workers。
 2.  **环境变量**：在您的 Cloudflare Worker 设置中，添加以下环境变量：
-    *   `BACKEND_URL`: 您的后端公共 URL (例如 `https://your_backend_public_url.com`)。
-    *   `WORKER_SECRET`: 与您后端 `.env` 文件中 `EMAIL_HANDLER_SECRET` 相同的密钥字符串。
+    *   `PUBLIC_API_ENDPOINT`: 您的后端 `email_webhook` 端点的完整 URL (例如 `https://your_backend_public_url.com/email_webhook`)。
+    *   `EMAIL_HANDLER_SECRET`: 与您后端 `.env` 文件中 `EMAIL_HANDLER_SECRET` 相同的密钥字符串。
 3.  **电子邮件路由**：配置 Cloudflare 电子邮件路由，将指定地址（例如 `bills@yourdomain.com`）的电子邮件转发到此 Worker。Worker 将处理并将其转发到您的后端。
 
 ## 使用方法
 
 ### 前端应用
 
-访问您的前端应用程序 `https://ss.wenxiuxiu.eu.org`。
+访问您部署在 Cloudflare Pages 上的前端应用。
 
 *   **注册**：创建新账户。
 *   **登录**：登录以查看您的账单和彩票结果。
@@ -169,10 +155,4 @@ const API_BASE_URL = ''; // The backend directory is served as the root
 
 ### 电子邮件处理
 
-将您的账单邮件转发到您配置了 Cloudflare 电子邮件路由的电子邮件地址（例如 `bills@yourdomain.com`）。Cloudflare Worker 将拦截、解析并将其发送到您的后端进行 AI 处理。
-
-## 开发注意事项
-
-*   **安全性**：始终使用强、随机的密钥和 API 密钥。不要暴露敏感信息。
-*   **错误日志**：确保您的 Serv00 PHP 环境中设置了适当的错误日志，以便进行调试。
-*   **AI 模型**：您可以通过修改 `backend/process_email_ai.php` 中的 `ACTIVE_AI_SERVICE` 定义来在 Gemini 和 Cloudflare AI 之间切换。
+将您的账单邮件转发到您配置了 Cloudflare 电子邮件路由的电子邮件地址（例如 `bills@yourdomain.com`）。Cloudflare Worker 将拦截并将其发送到您的后端进行 AI 处理。

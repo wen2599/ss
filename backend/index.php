@@ -8,14 +8,8 @@ require_once __DIR__ . '/bootstrap.php';
 $request_path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 $request_method = $_SERVER['REQUEST_METHOD'];
 
-// If the request path starts with 'backend/', remove it.
-// This makes the routing logic independent of whether the URL includes the subdirectory.
-if (strpos($request_path, 'backend/') === 0) {
-    $request_path = substr($request_path, strlen('backend/'));
-}
-
 $path_parts = explode('/', $request_path);
-// The endpoint is now the first part of the path after potentially removing 'backend/'
+// The endpoint is now the first part of the path
 $endpoint = $path_parts[0] ?? null;
 
 // Route the request to the appropriate handler.
@@ -45,16 +39,29 @@ switch ($endpoint) {
         require_once __DIR__ . '/telegram_webhook.php';
         break;
     case 'email_webhook':
-        require_once __DIR__ . '/get_emails.php';
+        require_once __DIR__ . '/process_email_webhook.php';
         break;
     default:
         // Check for admin actions if no other endpoint matches
         if ($endpoint === 'admin' && isset($path_parts[1])) {
             $admin_action = $path_parts[1];
-            // Example protection: ?secret=YOUR_ADMIN_SECRET
-            if (!isset($_GET['secret']) || $_GET['secret'] !== ($_ENV['ADMIN_SECRET'] ?? 'default_secret')) {
-                 http_response_code(403);
-                 die('Forbidden');
+            
+            // Admin actions should be POST requests or run from CLI for security
+            if (php_sapi_name() === 'cli') {
+                // Allow CLI access without secret for convenience in scripts
+                // No explicit secret check needed here for CLI
+            } elseif ($request_method === 'POST') {
+                $input = file_get_contents('php://input');
+                $data = json_decode($input, true);
+                $adminSecret = $data['secret'] ?? '';
+
+                if (empty($adminSecret) || $adminSecret !== ($_ENV['ADMIN_SECRET'] ?? 'default_secret')) {
+                    http_response_code(403);
+                    die('Forbidden: Invalid or missing admin secret.');
+                }
+            } else {
+                http_response_code(405); // Method Not Allowed
+                die('Method Not Allowed: Admin actions require POST requests or CLI access.');
             }
 
             require_once __DIR__ . '/telegram_helpers.php';

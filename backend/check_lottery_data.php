@@ -18,6 +18,7 @@ if (!defined('LOTTERY_CHANNEL_ID') && isset($_ENV['LOTTERY_CHANNEL_ID'])) {
 // --- Main Logic ---
 function checkLotteryTickets(PDO $pdo)
 {
+    // Output for CLI/cron logs
     echo "Starting lottery check...\n";
 
     // 1. Get the latest lottery draw result. We'll fetch the most recent one.
@@ -79,23 +80,20 @@ function checkLotteryTickets(PDO $pdo)
             }
             
             // Update the bill status to 'completed' to avoid re-checking.
-            update($pdo, 'bills', ['status' => 'completed'], 'id = :id', [\':id\' => $bill['id']]);
+            update($pdo, 'bills', ['status' => 'completed'], 'id = :id', [':id' => $bill['id']]);
         } else {
              // If not a winner, mark as 'completed' as well to avoid re-checking.
-             update($pdo, 'bills', ['status' => 'completed'], 'id = :id', [\':id\' => $bill['id']]);
+             update($pdo, 'bills', ['status' => 'completed'], 'id = :id', [':id' => $bill['id']]);
         }
     }
-    echo "Lottery check finished.\n\";
+    echo "Lottery check finished.\n";
 }
 
 // --- Execution ---
-// Allow running from the command line.
-if (php_sapi_name() === \'cli\') {
+// This script should ONLY be run from the command line (e.g., via a cron job).
+if (php_sapi_name() === 'cli') {
     checkLotteryTickets($pdo);
 } else {
-    // If accessed via browser, protect it with ADMIN_SECRET.
-    $adminSecret = $_GET[\'secret\'] ?? \'\';\n    if (!isset($_ENV[\'ADMIN_SECRET\']) || $adminSecret === $_ENV[\'ADMIN_SECRET\']) {
-        header(\'Content-Type: text/plain\');
-        checkLotteryTickets($pdo);
-    } else {
-        http_response_code(403);\n        die(\'Forbidden\');\n    }\n}\n
+    http_response_code(403);
+    die('Forbidden: This script can only be accessed via the command line.');
+}
