@@ -107,3 +107,45 @@ function delete(PDO $pdo, string $table, string $whereClause, array $whereParams
     $stmt = executeStatement($pdo, $sql, $whereParams);
     return $stmt->rowCount();
 }
+
+/**
+ * Verifies the current user's session from a cookie.
+ * @param PDO $pdo The PDO database connection object.
+ * @return array|false The user's data array if the session is valid, otherwise false.
+ */
+function verify_user_session(PDO $pdo): array|false
+{
+    $sessionToken = $_COOKIE['session_token'] ?? '';
+
+    if (empty($sessionToken)) {
+        return false;
+    }
+
+    try {
+        $session = fetchOne($pdo,
+            "SELECT s.user_id, u.username, u.email
+             FROM sessions s
+             JOIN users u ON s.user_id = u.id
+             WHERE s.session_token = :session_token AND s.expires_at > NOW()",
+            [':session_token' => $sessionToken]
+        );
+
+        if ($session) {
+            return ['id' => $session['user_id'], 'username' => $session['username'], 'email' => $session['email']];
+        } else {
+            // Clear the invalid cookie if the session is not found or expired.
+            setcookie('session_token', '', [
+                'expires' => time() - 3600,
+                'path' => '/',
+                'httponly' => true,
+                'secure' => true,
+                'samesite' => 'Lax'
+            ]);
+            return false;
+        }
+    } catch (PDOException $e) {
+        // Log the error, but for security, don't expose details to the caller.
+        error_log("Session verification failed: " . $e->getMessage());
+        return false;
+    }
+}

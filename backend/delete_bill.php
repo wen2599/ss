@@ -4,21 +4,18 @@
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/db_operations.php';
-require_once __DIR__ . '/check_session.php'; // To ensure user is logged in
 
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Re-use the session checking logic.
-    ob_start(); 
-    require __DIR__ . '/check_session.php';
-    $session_check_output = json_decode(ob_get_clean(), true); 
-
-    if (!isset($session_check_output['isLoggedIn']) || !$session_check_output['isLoggedIn'])) {
-        exit(); 
+    $user = verify_user_session($pdo);
+    if (!$user) {
+        http_response_code(401);
+        echo json_encode(['error' => 'You must be logged in to delete bills.']);
+        exit();
     }
 
-    $userId = $session_check_output['user']['id'];
+    $userId = $user['id'];
 
     $input = file_get_contents('php://input');
     $data = json_decode($input, true);
