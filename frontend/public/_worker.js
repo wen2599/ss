@@ -62,6 +62,19 @@ export default {
     }
 
     // For non-API paths, serve the static assets from the Pages deployment.
-    return env.ASSETS.fetch(request);
+    // Defensive check: If the ASSETS binding is not available, return a clear error.
+    if (!env.ASSETS) {
+      return new Response('Static asset binding not found. This is a deployment configuration issue.', {
+        status: 404,
+        statusText: 'Not Found',
+      });
+    }
+
+    try {
+      return await env.ASSETS.fetch(request);
+    } catch (e) {
+      // If the asset fetch fails, return a 404.
+      return new Response(null, { status: 404 });
+    }
   },
 };
