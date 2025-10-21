@@ -3,7 +3,8 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const backendServer = "https://wenge.cloudns.ch"; // Your backend server
+    // Use the BACKEND_URL from environment variables, with a fallback.
+    const backendServer = env.BACKEND_URL || "https://wenge.cloudns.ch";
 
     // Define the API paths that should be proxied to the backend.
     const apiPaths = [
