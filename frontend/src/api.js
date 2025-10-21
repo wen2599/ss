@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = ''; // The backend directory is served as the root
 
 const handleResponse = async (response) => {
   // First, check for a 204 No Content response, which doesn't have a body.
