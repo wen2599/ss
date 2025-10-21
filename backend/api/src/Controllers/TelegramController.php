@@ -21,13 +21,24 @@ class TelegramController
         $chatId = $message->getChat()->getId();
         $text = $message->getText();
 
-        if ($text === '/start') {
-            $telegram->sendMessage([
-                'chat_id' => $chatId,
-                'text' => 'Hello! I am your user management bot.',
-            ]);
-        } elseif (strpos($text, '/deleteuser') === 0) {
-            if ((string) $chatId !== $_ENV['TELEGRAM_ADMIN_ID']) {
+        try {
+            if ($text === '/start') {
+                $telegram->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => 'Hello! I am your user management bot.',
+                ]);
+            } elseif ($text === '/help') {
+                $helpText = "Available admin commands:\n\n";
+                $helpText .= "/deleteuser <username|id> - Deletes a user.\n";
+                $helpText .= "/set_gemini_api_key <api_key> - Sets the Gemini API key.\n";
+                $helpText .= "/cfai <prompt> - Sends a prompt to the Cloudflare AI.\n";
+
+                $telegram->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => $helpText,
+                ]);
+            } elseif (strpos($text, '/deleteuser') === 0) {
+            if (!$this->isAdmin($chatId)) {
                 $telegram->sendMessage([
                     'chat_id' => $chatId,
                     'text' => 'You are not authorized to use this command.',
@@ -62,7 +73,7 @@ class TelegramController
                 ]);
             }
         } elseif (strpos($text, '/set_gemini_api_key') === 0) {
-            if ((string) $chatId !== $_ENV['TELEGRAM_ADMIN_ID']) {
+            if (!$this->isAdmin($chatId)) {
                 $telegram->sendMessage([
                     'chat_id' => $chatId,
                     'text' => 'You are not authorized to use this command.',
@@ -91,7 +102,7 @@ class TelegramController
                 'text' => 'Gemini API key has been updated.',
             ]);
         } elseif (strpos($text, '/cfai') === 0) {
-            if ((string) $chatId !== $_ENV['TELEGRAM_ADMIN_ID']) {
+            if (!$this->isAdmin($chatId)) {
                 $telegram->sendMessage([
                     'chat_id' => $chatId,
                     'text' => 'You are not authorized to use this command.',
@@ -110,30 +121,56 @@ class TelegramController
 
             $prompt = $parts[1];
 
-            $client = new Client();
-            $response = $client->post(
-                "https://api.cloudflare.com/client/v4/accounts/{$_ENV['CLOUDFLARE_ACCOUNT_ID']}/ai/run/@cf/meta/llama-2-7b-chat-int8",
-                [
-                    'headers' => [
-                        'Authorization' => "Bearer {$_ENV['CLOUDFLARE_API_TOKEN']}",
-                        'Content-Type' => 'application/json',
-                    ],
-                    'json' => [
-                        'prompt' => $prompt,
-                    ],
-                ]
-            );
+            try {
+                $client = new Client();
+                $apiResponse = $client->post(
+                    "https://api.cloudflare.com/client/v4/accounts/{$_ENV['CLOUDFLARE_ACCOUNT_ID']}/ai/run/@cf/meta/llama-2-7b-chat-int8",
+                    [
+                        'headers' => [
+                            'Authorization' => "Bearer {$_ENV['CLOUDFLARE_API_TOKEN']}",
+                            'Content-Type' => 'application/json',
+                        ],
+                        'json' => [
+                            'prompt' => $prompt,
+                        ],
+                    ]
+                );
 
-            $body = json_decode((string) $response->getBody(), true);
-            $aiResponse = $body['result']['response'];
+                $body = json_decode((string) $apiResponse->getBody(), true);
+                $aiResponse = $body['result']['response'];
 
-            $telegram->sendMessage([
-                'chat_id' => $chatId,
-                'text' => $aiResponse,
-            ]);
+                $telegram->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => $aiResponse,
+                ]);
+            } catch (\Exception $e) {
+                $telegram->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => 'An error occurred while contacting the Cloudflare AI: ' . $e->getMessage(),
+                ]);
+            }
+        }
+        } catch (\Exception $e) {
+            // Log the error message
+            error_log($e->getMessage());
+            // Optionally, send a generic error message to the user
+            try {
+                $telegram->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => 'An unexpected error occurred. Please try again later.',
+                ]);
+            } catch (\Exception $e) {
+                // If sending the message fails, log that as well
+                error_log('Failed to send error message to user: ' . $e->getMessage());
+            }
         }
 
         return $response;
+    }
+
+    private function isAdmin(int $chatId): bool
+    {
+        return (string) $chatId === $_ENV['TELEGRAM_ADMIN_ID'];
     }
 
     private function escapeMarkdownV2($string)
