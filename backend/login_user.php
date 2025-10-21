@@ -11,19 +11,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = file_get_contents('php://input');
     $data = json_decode($input, true);
 
-    if (empty($data['username']) || empty($data['password'])) {
+    if (empty($data['email']) || empty($data['password'])) {
         http_response_code(400);
-        echo json_encode(['error' => 'Missing username or password.']);
+        echo json_encode(['error' => 'Missing email or password.']);
         exit();
     }
 
-    $username = trim($data['username']);
+    $email = trim($data['email']);
     $password = $data['password'];
 
     try {
         // Fetch user by username or email
-        $user = fetchOne($pdo, "SELECT id, username, email, password FROM users WHERE username = :username OR email = :username", [
-            ':username' => $username
+        $user = fetchOne($pdo, "SELECT id, username, email, password FROM users WHERE username = :email OR email = :email", [
+            ':email' => $email
         ]);
 
         if ($user && password_verify($password, $user['password'])) {
