@@ -6,9 +6,6 @@ if (!defined('BOOTSTRAP_INITIALIZED')) {
     define('BOOTSTRAP_INITIALIZED', true);
 
     // --- Global Error and Exception Handling ---
-    // This ensures that any error anywhere in the application will be caught
-    // and a standardized JSON response will be returned.
-
     if (!function_exists('global_exception_handler')) {
         function global_exception_handler($exception) {
             if (headers_sent()) {
@@ -22,10 +19,7 @@ if (!defined('BOOTSTRAP_INITIALIZED')) {
                 " in " . $exception->getFile() . ":" . $exception->getLine() .
                 "\nStack trace:\n" . $exception->getTraceAsString()
             );
-            echo json_encode([
-                'status' => 'error',
-                'message' => 'An unexpected server error occurred.'
-            ]);
+            echo json_encode(['status' => 'error', 'message' => 'An unexpected server error occurred.']);
             exit();
         }
     }
@@ -48,36 +42,29 @@ if (!defined('BOOTSTRAP_INITIALIZED')) {
         }
     }
 
-    // Set the handlers at the very beginning.
     set_exception_handler('global_exception_handler');
     set_error_handler('error_to_exception_handler');
     register_shutdown_function('fatal_error_shutdown_handler');
 
-    // --- Error Reporting Configuration ---
     ini_set('display_errors', 0);
     ini_set('log_errors', 1);
     error_reporting(E_ALL);
 }
 
-// --- CORS (Cross-Origin Resource Sharing) Handling ---
-// Headers should be sent on every request, even if bootstrap is already initialized.
+// --- CORS Handling ---
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
 header("Access-Control-Allow-Headers: Content-Type, X-Requested-With, Authorization");
 
-// Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     http_response_code(200);
     exit();
 }
 
-// --- Environment Variable Loading ---
-// The 'require_once' ensures this is only loaded once per request.
+// --- Environment & Database ---
 require_once __DIR__ . '/load_env.php';
 
-// --- Database Configuration & Connection ---
-// Use a global variable to cache the database connection.
 global $pdo;
 if (!isset($pdo)) {
     define('DB_HOST', $_ENV['DB_HOST'] ?? 'localhost');
@@ -87,7 +74,7 @@ if (!isset($pdo)) {
     define('DB_PASSWORD', $_ENV['DB_PASSWORD'] ?? '');
 
     if (!class_exists('PDO')) {
-        error_log("Fatal Error: PDO class not found. Make sure the pdo_mysql extension is enabled.");
+        error_log("Fatal Error: PDO class not found.");
         http_response_code(500);
         header('Content-Type: application/json');
         echo json_encode(['status' => 'error', 'message' => 'Server configuration error: PDO is not available.']);
