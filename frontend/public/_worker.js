@@ -19,10 +19,25 @@ export default {
       '/admin'
     ];
 
-    // Check if the request path starts with any of the defined API paths.
-    const isApiPath = apiPaths.some(path => url.pathname.startsWith(path));
+    // Check if the request path is an exact match or a sub-path of an API path.
+    const isApiPath = apiPaths.some(path => url.pathname === path || url.pathname.startsWith(path + '/'));
 
     if (isApiPath) {
+      // Handle CORS preflight requests directly.
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204, // No Content
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
+            'Access-Control-Allow-Headers': 'Content-Type, X-Requested-With, Authorization',
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Max-Age': '86400', // Cache for 1 day
+          },
+        });
+      }
+
+      // Proxy other API requests to the backend.
       const backendUrl = new URL(url.pathname, backendServer);
       backendUrl.search = url.search;
 
@@ -30,30 +45,23 @@ export default {
         method: request.method,
         headers: request.headers,
         body: request.body,
-        redirect: 'follow'
+        redirect: 'follow',
       });
 
       try {
         const response = await fetch(backendRequest);
-        // Add CORS headers to the response from the backend
-        const newHeaders = new Headers(response.headers);
-        newHeaders.set("Access-Control-Allow-Origin", "*");
-        newHeaders.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE");
-        newHeaders.set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With, Authorization");
-        newHeaders.set("Access-Control-Allow-Credentials", "true");
-
-        return new Response(response.body, {
-          status: response.status,
-          statusText: response.statusText,
-          headers: newHeaders
-        });
+        // Clone the response to make headers mutable.
+        const newResponse = new Response(response.body, response);
+        newResponse.headers.set('Access-Control-Allow-Origin', '*');
+        newResponse.headers.set('Access-Control-Allow-Credentials', 'true');
+        return newResponse;
       } catch (error) {
         console.error(`Backend fetch failed: ${error.message}`);
         return new Response('Bad Gateway', { status: 502, statusText: 'Bad Gateway' });
       }
     }
 
-    // Otherwise, serve the static assets from the Pages deployment.
+    // For non-API paths, serve the static assets from the Pages deployment.
     return env.ASSETS.fetch(request);
   },
 };
