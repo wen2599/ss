@@ -36,11 +36,48 @@ class EmailController
         $email->to_address = $body['to'];
         $email->subject = $body['subject'];
         $email->raw_content = $body['body'];
+
+        // Call the AI worker to get structured data
+        $parsedData = $this->getParsedDataFromWorker($email->raw_content);
+        if ($parsedData) {
+            $email->parsed_data = $parsedData;
+        }
+
         $email->save();
 
         $payload = json_encode(['status' => 'success', 'data' => $email]);
         $response->getBody()->write($payload);
         return $response->withHeader('Content-Type', 'application/json');
+    }
+
+    private function getParsedDataFromWorker(string $emailContent): ?array
+    {
+        $workerUrl = $_ENV['WORKER_URL'] ?? null;
+        if (!$workerUrl) {
+            // Worker URL not configured, so we can't process the email
+            return null;
+        }
+
+        try {
+            $ch = curl_init($workerUrl . '/process-ai');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['email_content' => $emailContent]));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+            ]);
+
+            $response = curl_exec($ch);
+            curl_close($ch);
+
+            if ($response) {
+                return json_decode($response, true);
+            }
+        } catch (\Exception $e) {
+            // Log the error if you have a logger
+        }
+
+        return null;
     }
 
     public function listEmails(Request $request, Response $response): Response
