@@ -1,6 +1,12 @@
 <?php
 // backend/bootstrap.php
 
+// --- Error Reporting Configuration ---
+// Enable all error reporting for development.
+ini_set('display_errors', 0); // DO NOT display errors directly to the browser
+ini_set('log_errors', 1);    // DO log errors to the server error log
+error_reporting(E_ALL);      // Report all PHP errors
+
 // --- CORS (Cross-Origin Resource Sharing) Handling ---
 // Allow requests from any origin for debugging.
 // For production, you should restrict this to your specific frontend domain.

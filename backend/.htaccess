@@ -1,13 +1,5 @@
-<IfModule mod_security2.c>
-    <Files "index.php">
-        SecRuleEngine Off
-    </Files>
-    <Files "webhook_test.php">
-        SecRuleEngine Off
-    </Files>
-</IfModule>
-
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-    RewriteRule .* - [E=HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN:%{HTTP:X-Telegram-Bot-Api-Secret-Token}]
-</IfModule>
+Options -MultiViews
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
