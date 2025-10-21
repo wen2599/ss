@@ -39,18 +39,13 @@ export default {
       }
 
       // Proxy other API requests to the backend.
-      const backendUrl = new URL(url.pathname, backendServer);
-      backendUrl.search = url.search;
-
-      const backendRequest = new Request(backendUrl.toString(), {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-        redirect: 'follow',
-      });
+      const backendUrl = new URL(url.pathname + url.search, backendServer);
 
       try {
-        const response = await fetch(backendRequest);
+        // Use a more direct fetch method, passing the original request object
+        // through with the new URL. This is often more stable.
+        const response = await fetch(backendUrl.toString(), request);
+
         // Clone the response to make headers mutable.
         const newResponse = new Response(response.body, response);
         newResponse.headers.set('Access-Control-Allow-Origin', '*');
