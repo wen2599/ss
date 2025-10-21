@@ -1,3 +1,13 @@
+# This .htaccess file is crucial for routing all non-file/non-directory requests
+# to index.php, which then handles API endpoints.
+#
+# Ensure that your Apache server (on Serv00) has mod_rewrite enabled
+# and that the AllowOverride directive for this directory is set to 'All'
+# or at least 'FileInfo' for this file to be effective.
+#
+# If using Nginx, you will need to translate these rewrite rules directly
+# into your Nginx server block configuration (e.g., using try_files).
+
 Options -MultiViews
 RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
