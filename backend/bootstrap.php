@@ -1,52 +1,66 @@
 <?php
 // backend/bootstrap.php
 
-// --- Global Error and Exception Handling ---
-// This ensures that any error anywhere in the application will be caught
-// and a standardized JSON response will be returned.
+// Use a constant to ensure this script's initial setup is only run once.
+if (!defined('BOOTSTRAP_INITIALIZED')) {
+    define('BOOTSTRAP_INITIALIZED', true);
 
-// Function to handle all exceptions, including those converted from errors.
-function global_exception_handler($exception) {
-    if (headers_sent()) {
-        error_log('Headers already sent, cannot send JSON error response.');
-        return;
+    // --- Global Error and Exception Handling ---
+    // This ensures that any error anywhere in the application will be caught
+    // and a standardized JSON response will be returned.
+
+    if (!function_exists('global_exception_handler')) {
+        function global_exception_handler($exception) {
+            if (headers_sent()) {
+                error_log('Headers already sent, cannot send JSON error response.');
+                return;
+            }
+            http_response_code(500);
+            header('Content-Type: application/json');
+            error_log(
+                "Uncaught Exception: " . $exception->getMessage() .
+                " in " . $exception->getFile() . ":" . $exception->getLine() .
+                "\nStack trace:\n" . $exception->getTraceAsString()
+            );
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'An unexpected server error occurred.'
+            ]);
+            exit();
+        }
     }
-    http_response_code(500);
-    header('Content-Type: application/json');
-    error_log(
-        "Uncaught Exception: " . $exception->getMessage() .
-        " in " . $exception->getFile() . ":" . $exception->getLine() .
-        "\nStack trace:\n" . $exception->getTraceAsString()
-    );
-    echo json_encode([
-        'status' => 'error',
-        'message' => 'An unexpected server error occurred.'
-    ]);
-    exit();
-}
 
-// Function to handle fatal errors that aren't caught by the exception handler.
-function fatal_error_shutdown_handler() {
-    $last_error = error_get_last();
-    if ($last_error && in_array($last_error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
-        global_exception_handler(new ErrorException($last_error['message'], 0, $last_error['type'], $last_error['file'], $last_error['line']));
+    if (!function_exists('fatal_error_shutdown_handler')) {
+        function fatal_error_shutdown_handler() {
+            $last_error = error_get_last();
+            if ($last_error && in_array($last_error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
+                global_exception_handler(new ErrorException($last_error['message'], 0, $last_error['type'], $last_error['file'], $last_error['line']));
+            }
+        }
     }
-}
 
-// Function to convert traditional PHP errors into exceptions.
-function error_to_exception_handler($severity, $message, $file, $line) {
-    if (!(error_reporting() & $severity)) {
-        return;
+    if (!function_exists('error_to_exception_handler')) {
+        function error_to_exception_handler($severity, $message, $file, $line) {
+            if (!(error_reporting() & $severity)) {
+                return;
+            }
+            throw new ErrorException($message, 0, $severity, $file, $line);
+        }
     }
-    throw new ErrorException($message, 0, $severity, $file, $line);
-}
 
-// Set the handlers at the very beginning.
-set_exception_handler('global_exception_handler');
-set_error_handler('error_to_exception_handler');
-register_shutdown_function('fatal_error_shutdown_handler');
+    // Set the handlers at the very beginning.
+    set_exception_handler('global_exception_handler');
+    set_error_handler('error_to_exception_handler');
+    register_shutdown_function('fatal_error_shutdown_handler');
+
+    // --- Error Reporting Configuration ---
+    ini_set('display_errors', 0);
+    ini_set('log_errors', 1);
+    error_reporting(E_ALL);
+}
 
 // --- CORS (Cross-Origin Resource Sharing) Handling ---
+// Headers should be sent on every request, even if bootstrap is already initialized.
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
@@ -58,43 +72,42 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit();
 }
 
-// --- Error Reporting Configuration ---
-ini_set('display_errors', 0);
-ini_set('log_errors', 1);
-error_reporting(E_ALL);
-
 // --- Environment Variable Loading ---
+// The 'require_once' ensures this is only loaded once per request.
 require_once __DIR__ . '/load_env.php';
 
-// --- Database Configuration ---
-define('DB_HOST', $_ENV['DB_HOST'] ?? 'localhost');
-define('DB_PORT', $_ENV['DB_PORT'] ?? '3306');
-define('DB_DATABASE', $_ENV['DB_DATABASE'] ?? '');
-define('DB_USERNAME', $_ENV['DB_USERNAME'] ?? '');
-define('DB_PASSWORD', $_ENV['DB_PASSWORD'] ?? '');
+// --- Database Configuration & Connection ---
+// Use a global variable to cache the database connection.
+global $pdo;
+if (!isset($pdo)) {
+    define('DB_HOST', $_ENV['DB_HOST'] ?? 'localhost');
+    define('DB_PORT', $_ENV['DB_PORT'] ?? '3306');
+    define('DB_DATABASE', $_ENV['DB_DATABASE'] ?? '');
+    define('DB_USERNAME', $_ENV['DB_USERNAME'] ?? '');
+    define('DB_PASSWORD', $_ENV['DB_PASSWORD'] ?? '');
 
-// --- Database Connection Initialization ---
-if (!class_exists('PDO')) {
-    error_log("Fatal Error: PDO class not found. Make sure the pdo_mysql extension is enabled.");
-    http_response_code(500);
-    header('Content-Type: application/json');
-    echo json_encode(['status' => 'error', 'message' => 'Server configuration error: PDO is not available.']);
-    exit();
-}
+    if (!class_exists('PDO')) {
+        error_log("Fatal Error: PDO class not found. Make sure the pdo_mysql extension is enabled.");
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'message' => 'Server configuration error: PDO is not available.']);
+        exit();
+    }
 
-try {
-    $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_DATABASE . ";charset=utf8mb4";
-    $pdo = new PDO($dsn, DB_USERNAME, DB_PASSWORD, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
-    ]);
-} catch (PDOException $e) {
-    error_log("Database connection failed: " . $e->getMessage());
-    http_response_code(500);
-    header('Content-Type: application/json');
-    echo json_encode(['status' => 'error', 'message' => 'Database connection failed.']);
-    exit();
+    try {
+        $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_DATABASE . ";charset=utf8mb4";
+        $pdo = new PDO($dsn, DB_USERNAME, DB_PASSWORD, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
+    } catch (PDOException $e) {
+        error_log("Database connection failed: " . $e->getMessage());
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'message' => 'Database connection failed.']);
+        exit();
+    }
 }
 
 // --- Session Handling ---
