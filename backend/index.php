@@ -4,87 +4,82 @@
 
 require_once __DIR__ . '/bootstrap.php';
 
+// --- Safe File Inclusion Function ---
+// This function checks if a file exists before including it.
+// If the file does not exist, it throws an exception that will be caught
+// by our global exception handler, ensuring a clean JSON error response.
+function safe_require_once(string $file): void {
+    if (file_exists($file)) {
+        require_once $file;
+    } else {
+        // This exception will be caught by the bootstrap's global exception handler.
+        throw new RuntimeException("API handler file not found for the requested endpoint.");
+    }
+}
+
 // --- Request Routing ---
 $request_path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
-$request_method = $_SERVER['REQUEST_METHOD'];
 
-// If the request path starts with 'backend/', remove it.
-// This makes the routing logic independent of whether the URL includes the subdirectory.
+// If the request path starts with 'backend/', remove it for consistent routing.
 if (strpos($request_path, 'backend/') === 0) {
     $request_path = substr($request_path, strlen('backend/'));
 }
 
 $path_parts = explode('/', $request_path);
-// The endpoint is now the first part of the path after potentially removing 'backend/'
-$endpoint = $path_parts[0] ?? null;
+$endpoint = $path_parts[0] ?? '';
 
-// Route the request to the appropriate handler.
-switch ($endpoint) {
-    case 'register':
-        require_once __DIR__ . '/register_user.php';
-        break;
-    case 'login':
-        require_once __DIR__ . '/login_user.php';
-        break;
-    case 'logout':
-        require_once __DIR__ . '/logout_user.php';
-        break;
-    case 'check_session':
-        require_once __DIR__ . '/check_session.php';
-        break;
-    case 'get_bills':
-        require_once __DIR__ . '/get_bills.php';
-        break;
-    case 'delete_bill':
-        require_once __DIR__ . '/delete_bill.php';
-        break;
-    case 'get_lottery_results':
-        require_once __DIR__ . '/get_lottery_results.php';
-        break;
-    case 'telegram_webhook':
-        require_once __DIR__ . '/telegram_webhook.php';
-        break;
-    case 'email_webhook':
-        require_once __DIR__ . '/get_emails.php';
-        break;
-    default:
-        // Check for admin actions if no other endpoint matches
-        if ($endpoint === 'admin' && isset($path_parts[1])) {
-            $admin_action = $path_parts[1];
-            // Example protection: ?secret=YOUR_ADMIN_SECRET
-            if (!isset($_GET['secret']) || $_GET['secret'] !== ($_ENV['ADMIN_SECRET'] ?? 'default_secret')) {
-                 http_response_code(403);
-                 die('Forbidden');
-            }
+// --- API Endpoint Mapping ---
+// A clear mapping of endpoints to their handler files.
+$api_routes = [
+    'register' => 'register_user.php',
+    'login' => 'login_user.php',
+    'logout' => 'logout_user.php',
+    'check_session' => 'check_session.php',
+    'get_bills' => 'get_bills.php',
+    'delete_bill' => 'delete_bill.php',
+    'get_lottery_results' => 'get_lottery_results.php',
+    'telegram_webhook' => 'telegram_webhook.php',
+    'email_webhook' => 'get_emails.php',
+];
 
-            require_once __DIR__ . '/telegram_helpers.php';
-            header('Content-Type: application/json');
-            
-            switch ($admin_action) {
-                case 'set_telegram_webhook':
-                    $webhookUrl = rtrim($_ENV['BACKEND_PUBLIC_URL'], '/') . '/telegram_webhook';
-                    $secretToken = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? '';
-                    $result = setTelegramWebhook($webhookUrl, $secretToken);
-                    echo json_encode($result);
-                    break;
-                case 'delete_telegram_webhook':
-                    $result = deleteTelegramWebhook();
-                    echo json_encode($result);
-                    break;
-                case 'get_webhook_info':
-                    $result = getTelegramWebhookInfo();
-                    echo json_encode($result);
-                    break;
-                default:
-                    http_response_code(404);
-                    echo json_encode(['error' => 'Admin action not found.']);
-                    break;
-            }
-        } else {
-            // --- Default case for unknown routes ---
-            header('Content-Type: application/json');
+// --- Route Handling ---
+if (isset($api_routes[$endpoint])) {
+    safe_require_once(__DIR__ . '/' . $api_routes[$endpoint]);
+} elseif ($endpoint === 'admin' && isset($path_parts[1])) {
+    // --- Admin Action Handling ---
+    $admin_action = $path_parts[1];
+
+    // Protect admin routes with a secret token.
+    if (!isset($_GET['secret']) || $_GET['secret'] !== ($_ENV['ADMIN_SECRET'] ?? '')) {
+         http_response_code(403);
+         header('Content-Type: application/json');
+         echo json_encode(['status' => 'error', 'message' => 'Forbidden: Invalid or missing secret token.']);
+         exit();
+    }
+
+    safe_require_once(__DIR__ . '/telegram_helpers.php');
+    header('Content-Type: application/json');
+
+    switch ($admin_action) {
+        case 'set_telegram_webhook':
+            $webhookUrl = rtrim($_ENV['BACKEND_PUBLIC_URL'], '/') . '/telegram_webhook';
+            $secretToken = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? '';
+            echo json_encode(setTelegramWebhook($webhookUrl, $secretToken));
+            break;
+        case 'delete_telegram_webhook':
+            echo json_encode(deleteTelegramWebhook());
+            break;
+        case 'get_webhook_info':
+            echo json_encode(getTelegramWebhookInfo());
+            break;
+        default:
             http_response_code(404);
-            echo json_encode(['error' => 'API endpoint not found.', 'requested' => $request_path]);
-        }
-        break;
+            echo json_encode(['status' => 'error', 'message' => 'Admin action not found.']);
+            break;
+    }
+} else {
+    // --- Default 404 Not Found ---
+    http_response_code(404);
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'error', 'message' => 'API endpoint not found.', 'requested' => $request_path]);
 }
