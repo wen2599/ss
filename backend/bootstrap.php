@@ -1,25 +1,67 @@
 <?php
 // backend/bootstrap.php
 
-// --- Error Reporting Configuration ---
-// Enable all error reporting for development.
-ini_set('display_errors', 0); // DO NOT display errors directly to the browser
-ini_set('log_errors', 1);    // DO log errors to the server error log
-error_reporting(E_ALL);      // Report all PHP errors
+// --- Global Error and Exception Handling ---
+// This ensures that any error anywhere in the application will be caught
+// and a standardized JSON response will be returned.
+
+// Function to handle all exceptions, including those converted from errors.
+function global_exception_handler($exception) {
+    if (headers_sent()) {
+        error_log('Headers already sent, cannot send JSON error response.');
+        return;
+    }
+    http_response_code(500);
+    header('Content-Type: application/json');
+    error_log(
+        "Uncaught Exception: " . $exception->getMessage() .
+        " in " . $exception->getFile() . ":" . $exception->getLine() .
+        "\nStack trace:\n" . $exception->getTraceAsString()
+    );
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'An unexpected server error occurred.'
+    ]);
+    exit();
+}
+
+// Function to handle fatal errors that aren't caught by the exception handler.
+function fatal_error_shutdown_handler() {
+    $last_error = error_get_last();
+    if ($last_error && in_array($last_error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
+        global_exception_handler(new ErrorException($last_error['message'], 0, $last_error['type'], $last_error['file'], $last_error['line']));
+    }
+}
+
+// Function to convert traditional PHP errors into exceptions.
+function error_to_exception_handler($severity, $message, $file, $line) {
+    if (!(error_reporting() & $severity)) {
+        return;
+    }
+    throw new ErrorException($message, 0, $severity, $file, $line);
+}
+
+// Set the handlers at the very beginning.
+set_exception_handler('global_exception_handler');
+set_error_handler('error_to_exception_handler');
+register_shutdown_function('fatal_error_shutdown_handler');
 
 // --- CORS (Cross-Origin Resource Sharing) Handling ---
-// Allow requests from any origin for debugging.
-// For production, you should restrict this to your specific frontend domain.
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Credentials: true"); // Allow cookies to be sent
+header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
-header("Access-Control-Allow-Headers: Content-Type, X-Requested-With, Authorization"); // Added Authorization
+header("Access-Control-Allow-Headers: Content-Type, X-Requested-With, Authorization");
 
-// Handle preflight requests (the browser sends an OPTIONS request first)
+// Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     http_response_code(200);
     exit();
 }
+
+// --- Error Reporting Configuration ---
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+error_reporting(E_ALL);
 
 // --- Environment Variable Loading ---
 require_once __DIR__ . '/load_env.php';
@@ -32,6 +74,14 @@ define('DB_USERNAME', $_ENV['DB_USERNAME'] ?? '');
 define('DB_PASSWORD', $_ENV['DB_PASSWORD'] ?? '');
 
 // --- Database Connection Initialization ---
+if (!class_exists('PDO')) {
+    error_log("Fatal Error: PDO class not found. Make sure the pdo_mysql extension is enabled.");
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'error', 'message' => 'Server configuration error: PDO is not available.']);
+    exit();
+}
+
 try {
     $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_DATABASE . ";charset=utf8mb4";
     $pdo = new PDO($dsn, DB_USERNAME, DB_PASSWORD, [
@@ -40,17 +90,14 @@ try {
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
 } catch (PDOException $e) {
-    // Log the error for debugging (consider a more robust logging mechanism for production)
     error_log("Database connection failed: " . $e->getMessage());
-    // Return a 500 Internal Server Error to the client
     http_response_code(500);
     header('Content-Type: application/json');
-    echo json_encode(['error' => 'Database connection failed.']);
+    echo json_encode(['status' => 'error', 'message' => 'Database connection failed.']);
     exit();
 }
 
 // --- Session Handling ---
-// Start the session only if it's not already started.
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
