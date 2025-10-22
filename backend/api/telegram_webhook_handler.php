@@ -14,6 +14,105 @@ use Telegram\Bot\Api;
 use Telegram\Bot\Keyboard\Keyboard;
 
 // --- Helper Functions ---
+
+/**
+ * A general-purpose function to make API calls using cURL.
+ *
+ * @param string $url The URL for the API endpoint.
+ * @param array $payload The data to be sent in the request body (will be JSON-encoded).
+ * @param array $headers An array of HTTP headers.
+ * @param string $method The HTTP method (e.g., 'POST', 'GET').
+ * @return array An array containing the HTTP status code, response body, and any cURL error.
+ */
+function _call_api_curl(string $url, array $payload = [], array $headers = [], string $method = 'POST'): array
+{
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+
+    if (!empty($payload)) {
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+    }
+
+    // Add timeout options to prevent long waits
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // 10 seconds to connect
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30); // 30 seconds for the entire request
+
+    $responseBody = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+
+    curl_close($ch);
+
+    return [
+        'http_code' => $httpCode,
+        'response_body' => $responseBody,
+        'curl_error' => $curlError
+    ];
+}
+
+
+/**
+ * Calls the Google Gemini API.
+ *
+ * @param string $prompt The text prompt to send to Gemini.
+ * @return string The text response from Gemini or an error message.
+ */
+function call_gemini_api($prompt) {
+    $apiKeyRecord = ApiKey::where('service_name', 'gemini')->first();
+    $apiKey = $apiKeyRecord->api_key ?? null;
+
+    if (empty($apiKey) || $apiKey === 'your_gemini_api_key_here') {
+        return '❌ **错误**: Gemini API 密钥未在数据库中配置。请使用 /set_gemini_api_key 命令进行设置。';
+    }
+
+    $apiUrl = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={$apiKey}";
+
+    $payload = [
+        'contents' => [
+            ['parts' => [['text' => $prompt]]]
+        ],
+        'safetySettings' => [
+            ['category' => 'HARM_CATEGORY_HARASSMENT', 'threshold' => 'BLOCK_NONE'],
+            ['category' => 'HARM_CATEGORY_HATE_SPEECH', 'threshold' => 'BLOCK_NONE'],
+            ['category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold' => 'BLOCK_NONE'],
+            ['category' => 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold' => 'BLOCK_NONE'],
+        ],
+    ];
+
+    $headers = ['Content-Type: application/json'];
+
+    // Use the general-purpose function to make the request
+    $result = _call_api_curl($apiUrl, $payload, $headers);
+
+    // Error handling and response parsing specific to Gemini API
+    if ($result['http_code'] !== 200) {
+        $responseData = json_decode($result['response_body'], true);
+        $errorMessage = $responseData['error']['message'] ?? '未知错误';
+
+        if (strpos($errorMessage, 'Insufficient Balance') !== false || $result['http_code'] === 402) {
+            return "❌ **API 请求失败**: 账户余额不足。请检查您的 Gemini 账户并充值。";
+        }
+        return "❌ **API 请求失败**:\n状态码: {$result['http_code']}\n错误: {$errorMessage}\nCURL 错误: {$result['curl_error']}";
+    }
+
+    $responseData = json_decode($result['response_body'], true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        return '❌ **错误**: 解析 Gemini API 的 JSON 响应失败。';
+    }
+
+    $textResponse = $responseData['candidates'][0]['content']['parts'][0]['text'] ?? null;
+    if (!$textResponse) {
+        // Log the full response for debugging
+        error_log('Gemini API did not return a valid text response. Full response: ' . $result['response_body']);
+        return '❌ **错误**: 未在 Gemini API 输出中找到有效的文本响应。可能由于内容安全策略被拦截。';
+    }
+
+    return $textResponse;
+}
+
 function isAdmin(int $chatId): bool
 {
     return (string) $chatId === $_ENV['TELEGRAM_ADMIN_ID'];
@@ -84,6 +183,7 @@ try {
         $helpText .= "/latest_lottery - 获取最新的彩票开奖号码。\n";
         $helpText .= "/deleteuser <用户名|ID> - 删除用户。\n";
         $helpText .= "/set_gemini_api_key <API密钥> - 设置 Gemini API 密钥。\n";
+        $helpText .= "/gemini <提示> - 发送提示给 Google Gemini。\n";
         $helpText .= "/cfai <提示> - 发送提示给 Cloudflare AI。\n";
 
         $telegram->sendMessage([
@@ -310,6 +410,40 @@ try {
         $telegram->sendMessage([
             'chat_id' => $chatId,
             'text' => $aiResponse,
+        ]);
+    } elseif (strpos($text, '/gemini') === 0) {
+        if (!isAdmin($chatId)) {
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => '您无权使用此命令。',
+            ]);
+            exit;
+        }
+
+        $parts = explode(' ', $text, 2);
+        if (count($parts) < 2 || empty(trim($parts[1]))) {
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => '请提供要发送给 Gemini 的提示。用法: /gemini <您的文本>',
+            ]);
+            exit;
+        }
+
+        $prompt = trim($parts[1]);
+
+        // Let the user know the bot is thinking
+        $telegram->sendMessage([
+            'chat_id' => $chatId,
+            'text' => '🤔 正在思考中，请稍候...',
+        ]);
+
+        $geminiResponse = call_gemini_api($prompt);
+
+        // Edit the "thinking" message with the final response
+        $telegram->sendMessage([
+            'chat_id' => $chatId,
+            'text' => escapeMarkdownV2($geminiResponse),
+            'parse_mode' => 'MarkdownV2',
         ]);
     }
 } catch (\Exception $e) {
