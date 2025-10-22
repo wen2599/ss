@@ -1,7 +1,3 @@
-CREATE DATABASE IF NOT EXISTS `email_processor_db`;
-
-USE `email_processor_db`;
-
 CREATE TABLE IF NOT EXISTS `emails` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `from_address` VARCHAR(255) NOT NULL,

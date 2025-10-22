@@ -33,11 +33,12 @@ $dbUser = $_ENV['DB_USER']; // Modified to DB_USER
 $dbPass = $_ENV['DB_PASSWORD'];
 
 try {
-    // Connect to MySQL server without specifying a database initially
-    $pdo = new PDO("mysql:host={$dbHost}", $dbUser, $dbPass);
+    // Connect directly to the database specified in the .env file
+    $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+    $pdo = new PDO($dsn, $dbUser, $dbPass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    echo "Successfully connected to MySQL server.<br>";
+    echo "Successfully connected to the database '{$dbName}'.<br>";
 
     // Read the SQL file
     $sqlFile = __DIR__ . '/database_schema.sql';
