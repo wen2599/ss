@@ -63,7 +63,7 @@ try {
 
     // 3. Construct the Webhook URL
     // Ensure the URL has a trailing slash, then append the relative path.
-    $webhookUrl = rtrim($backendUrl, '/') . '/api/telegram-webhook';
+    $webhookUrl = rtrim($backendUrl, '/') . '/api/telegram_webhook_handler.php';
     logMessage("Constructed Webhook URL: $webhookUrl", $logFile);
 
     // 4. Construct the Telegram API Request URL
