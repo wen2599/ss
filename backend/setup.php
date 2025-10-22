@@ -6,10 +6,11 @@ require __DIR__ . '/api/vendor/autoload.php';
 
 // Load environment variables
 try {
-    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
+    // Go two levels up to find the .env file in the root directory
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../../');
     $dotenv->load();
 } catch (Dotenv\Exception\InvalidPathException $e) {
-    $expectedPath = realpath(__DIR__ . '/../') . '/.env';
+    $expectedPath = realpath(__DIR__ . '/../../') . '/.env';
     die(
         "<div style='font-family: sans-serif; border: 2px solid red; padding: 1rem;'>" .
         "<h2>❌ Configuration Error</h2>" .
