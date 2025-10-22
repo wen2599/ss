@@ -1,14 +1,34 @@
 <?php
 declare(strict_types=1);
 
-// This script is intended to be run once from a web browser to set the Telegram webhook.
+// This script is intended to be run once from a web browser or CLI to set the Telegram webhook.
 // For security, it should be deleted from the server after successful execution.
-
-require __DIR__ . '/vendor/autoload.php';
 
 // --- Configuration ---
 $envPath = __DIR__ . '/../';
 $logFile = $envPath . 'logs/webhook_setup.log';
+
+// --- Self-contained .env parser ---
+function loadEnv(string $path): void {
+    if (!is_readable($path)) {
+        throw new RuntimeException("Cannot read .env file at: {$path}");
+    }
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) {
+            continue;
+        }
+        list($name, $value) = explode('=', $line, 2);
+        $name = trim($name);
+        $value = trim($value);
+        if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
+            putenv(sprintf('%s=%s', $name, $value));
+            $_ENV[$name] = $value;
+            $_SERVER[$name] = $value;
+        }
+    }
+}
+
 
 // --- Logging Function ---
 function logMessage(string $message, string $file): void {
@@ -21,11 +41,11 @@ header('Content-Type: text/plain');
 
 try {
     // 1. Load Environment Variables
-    if (!file_exists($envPath . '.env')) {
-        throw new Exception("Error: .env file not found. Please ensure it exists in the 'backend' directory.");
+    $envFilePath = $envPath . '.env';
+    if (!file_exists($envFilePath)) {
+        throw new Exception("Error: .env file not found. Please ensure it exists in the 'backend' directory at {$envFilePath}.");
     }
-    $dotenv = Dotenv\Dotenv::createImmutable($envPath);
-    $dotenv->load();
+    loadEnv($envFilePath);
     logMessage("Successfully loaded .env file.", $logFile);
 
     // 2. Validate Essential Variables
