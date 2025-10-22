@@ -3,10 +3,10 @@ CREATE TABLE IF NOT EXISTS `emails` (
     `from_address` VARCHAR(255) NOT NULL,
     `to_address` VARCHAR(255) NOT NULL,
     `subject` VARCHAR(255) DEFAULT NULL,
-    `raw_content` LONGTEXT NOT NULL, -- 存储原始邮件的完整内容
-    `html_content` LONGTEXT DEFAULT NULL, -- 存储提取的 HTML 部分
-    `ai_parsed_json` JSON DEFAULT NULL, -- 存储 AI 解析后的结构化 JSON 数据
-    `worker_secret_provided` BOOLEAN DEFAULT FALSE, -- 标记 Worker 是否提供了 secret
+    `raw_content` LONGTEXT NOT NULL,
+    `html_content` LONGTEXT DEFAULT NULL,
+    `ai_parsed_json` JSON DEFAULT NULL,
+    `worker_secret_provided` BOOLEAN DEFAULT FALSE,
     `received_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -18,9 +18,6 @@ CREATE TABLE IF NOT EXISTS `api_keys` (
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-DROP TABLE IF EXISTS `lottery_numbers`;
-DROP TABLE IF EXISTS `lottery_results`;
-
 CREATE TABLE IF NOT EXISTS `lottery_results` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `lottery_type` VARCHAR(50) NOT NULL,
@@ -31,4 +28,13 @@ CREATE TABLE IF NOT EXISTS `lottery_results` (
     `number_colors_json` TEXT DEFAULT NULL,
     `draw_time` TIMESTAMP NOT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `users` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `username` VARCHAR(255) NOT NULL UNIQUE,
+    `email` VARCHAR(255) NOT NULL UNIQUE,
+    `password` VARCHAR(255) NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
