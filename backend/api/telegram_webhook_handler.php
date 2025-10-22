@@ -7,6 +7,7 @@ require __DIR__ . '/vendor/autoload.php';
 
 use App\Models\ApiKey;
 use App\Models\User;
+use App\Models\Email;
 use GuzzleHttp\Client;
 use Telegram\Bot\Api;
 use Telegram\Bot\Keyboard\Keyboard;
@@ -41,7 +42,7 @@ try {
     $text = $message->getText();
 
     if ($text === '/start') {
-        $keyboard = Keyboard::make(['keyboard' => [['/help']], 'resize_keyboard' => true, 'one_time_keyboard' => false]);
+        $keyboard = Keyboard::make(['keyboard' => [['/help', '/list_emails']], 'resize_keyboard' => true, 'one_time_keyboard' => false]);
         $telegram->sendMessage([
             'chat_id' => $chatId,
             'text' => '你好！我是您的用户管理机器人。您可以通过以下命令进行操作：',
@@ -49,6 +50,8 @@ try {
         ]);
     } elseif ($text === '/help') {
         $helpText = "可用管理员命令：\n\n";
+        $helpText .= "/list_emails - 列出最近收到的邮件。\n";
+        $helpText .= "/get_email <邮件ID> - 获取指定邮件的详细信息。\n";
         $helpText .= "/deleteuser <用户名|ID> - 删除用户。\n";
         $helpText .= "/set_gemini_api_key <API密钥> - 设置 Gemini API 密钥。\n";
         $helpText .= "/cfai <提示> - 发送提示给 Cloudflare AI。\n";
@@ -57,6 +60,93 @@ try {
             'chat_id' => $chatId,
             'text' => $helpText,
         ]);
+    } elseif ($text === '/list_emails') {
+        if (!isAdmin($chatId)) {
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => '您无权使用此命令。',
+            ]);
+            exit;
+        }
+
+        $emails = Email::orderByDesc('received_at')->take(5)->get();
+
+        if ($emails->isEmpty()) {
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => '目前没有收到任何邮件。',
+            ]);
+            exit;
+        }
+
+        $response = "最近收到的邮件：\n\n";
+        foreach ($emails as $email) {
+            $response .= sprintf(
+                "*ID:* %s\n*发件人:* %s\n*主题:* %s\n*时间:* %s\n\n",
+                escapeMarkdownV2((string)$email->id),
+                escapeMarkdownV2($email->sender),
+                escapeMarkdownV2($email->subject ?? '无主题'),
+                escapeMarkdownV2($email->received_at->format('Y-m-d H:i:s'))
+            );
+        }
+
+        $telegram->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $response,
+            'parse_mode' => 'MarkdownV2',
+        ]);
+    } elseif (strpos($text, '/get_email') === 0) {
+        if (!isAdmin($chatId)) {
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => '您无权使用此命令。',
+            ]);
+            exit;
+        }
+
+        $parts = explode(' ', $text);
+        if (count($parts) < 2) {
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => '请提供要获取的邮件ID。',
+            ]);
+            exit;
+        }
+
+        $emailId = (int) $parts[1];
+        $email = Email::find($emailId);
+
+        if (!$email) {
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => sprintf('未找到ID为 `%s` 的邮件。', escapeMarkdownV2((string)$emailId)),
+                'parse_mode' => 'MarkdownV2',
+            ]);
+            exit;
+        }
+
+        $response = sprintf(
+            "*邮件ID:* %s\n*发件人:* %s\n*主题:* %s\n*接收时间:* %s\n\n",
+            escapeMarkdownV2((string)$email->id),
+            escapeMarkdownV2($email->sender),
+            escapeMarkdownV2($email->subject ?? '无主题'),
+            escapeMarkdownV2($email->received_at->format('Y-m-d H:i:s'))
+        );
+
+        if ($email->ai_parsed_json) {
+            $response .= "*AI解析数据：*\n";
+            $response .= "```json\n" . escapeMarkdownV2(json_encode(json_decode($email->ai_parsed_json), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) . "\n```\n";
+        }
+
+        $response .= "*原始内容：*\n";
+        $response .= "```\n" . escapeMarkdownV2($email->raw_content) . "\n```";
+
+        $telegram->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $response,
+            'parse_mode' => 'MarkdownV2',
+        ]);
+
     } elseif (strpos($text, '/deleteuser') === 0) {
         if (!isAdmin($chatId)) {
             $telegram->sendMessage([
