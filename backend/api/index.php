@@ -7,8 +7,8 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 
 require __DIR__ . '/vendor/autoload.php';
 
-// Load environment variables from the parent directory
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
+// Load environment variables from the project root
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../../../');
 $dotenv->load();
 
 // Create Container using PHP-DI
