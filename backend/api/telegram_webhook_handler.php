@@ -9,6 +9,7 @@ use App\Models\ApiKey;
 use App\Models\User;
 use GuzzleHttp\Client;
 use Telegram\Bot\Api;
+use Telegram\Bot\Keyboard\Keyboard;
 
 // --- Helper Functions ---
 function isAdmin(int $chatId): bool
@@ -40,15 +41,17 @@ try {
     $text = $message->getText();
 
     if ($text === '/start') {
+        $keyboard = Keyboard::make(['keyboard' => [['/help']], 'resize_keyboard' => true, 'one_time_keyboard' => false]);
         $telegram->sendMessage([
             'chat_id' => $chatId,
-            'text' => 'Hello! I am your user management bot.',
+            'text' => '你好！我是您的用户管理机器人。您可以通过以下命令进行操作：',
+            'reply_markup' => $keyboard,
         ]);
     } elseif ($text === '/help') {
-        $helpText = "Available admin commands:\n\n";
-        $helpText .= "/deleteuser <username|id> - Deletes a user.\n";
-        $helpText .= "/set_gemini_api_key <api_key> - Sets the Gemini API key.\n";
-        $helpText .= "/cfai <prompt> - Sends a prompt to the Cloudflare AI.\n";
+        $helpText = "可用管理员命令：\n\n";
+        $helpText .= "/deleteuser <用户名|ID> - 删除用户。\n";
+        $helpText .= "/set_gemini_api_key <API密钥> - 设置 Gemini API 密钥。\n";
+        $helpText .= "/cfai <提示> - 发送提示给 Cloudflare AI。\n";
 
         $telegram->sendMessage([
             'chat_id' => $chatId,
@@ -58,7 +61,7 @@ try {
         if (!isAdmin($chatId)) {
             $telegram->sendMessage([
                 'chat_id' => $chatId,
-                'text' => 'You are not authorized to use this command.',
+                'text' => '您无权使用此命令。',
             ]);
             exit;
         }
@@ -67,7 +70,7 @@ try {
         if (count($parts) < 2) {
             $telegram->sendMessage([
                 'chat_id' => $chatId,
-                'text' => 'Please provide a username or user ID to delete.',
+                'text' => '请提供要删除的用户名或用户ID。',
             ]);
             exit;
         }
@@ -79,13 +82,13 @@ try {
             $user->delete();
             $telegram->sendMessage([
                 'chat_id' => $chatId,
-                'text' => "User `" . escapeMarkdownV2($identifier) . "` has been deleted.",
+                'text' => "用户 `" . escapeMarkdownV2($identifier) . "` 已被删除。",
                 'parse_mode' => 'MarkdownV2',
             ]);
         } else {
             $telegram->sendMessage([
                 'chat_id' => $chatId,
-                'text' => "User `" . escapeMarkdownV2($identifier) . "` not found.",
+                'text' => "用户 `" . escapeMarkdownV2($identifier) . "` 未找到。",
                 'parse_mode' => 'MarkdownV2',
             ]);
         }
@@ -93,7 +96,7 @@ try {
         if (!isAdmin($chatId)) {
             $telegram->sendMessage([
                 'chat_id' => $chatId,
-                'text' => 'You are not authorized to use this command.',
+                'text' => '您无权使用此命令。',
             ]);
             exit;
         }
@@ -102,7 +105,7 @@ try {
         if (count($parts) < 2) {
             $telegram->sendMessage([
                 'chat_id' => $chatId,
-                'text' => 'Please provide the new Gemini API key.',
+                'text' => '请提供新的 Gemini API 密钥。',
             ]);
             exit;
         }
@@ -116,13 +119,13 @@ try {
 
         $telegram->sendMessage([
             'chat_id' => $chatId,
-            'text' => 'Gemini API key has been updated.',
+            'text' => 'Gemini API 密钥已更新。',
         ]);
     } elseif (strpos($text, '/cfai') === 0) {
         if (!isAdmin($chatId)) {
             $telegram->sendMessage([
                 'chat_id' => $chatId,
-                'text' => 'You are not authorized to use this command.',
+                'text' => '您无权使用此命令。',
             ]);
             exit;
         }
@@ -131,7 +134,7 @@ try {
         if (count($parts) < 2) {
             $telegram->sendMessage([
                 'chat_id' => $chatId,
-                'text' => 'Please provide a prompt for the Cloudflare AI.',
+                'text' => '请提供 Cloudflare AI 的提示。',
             ]);
             exit;
         }
