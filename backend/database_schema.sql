@@ -22,9 +22,17 @@ CREATE TABLE IF NOT EXISTS `api_keys` (
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `lottery_numbers` (
+DROP TABLE IF EXISTS `lottery_numbers`;
+DROP TABLE IF EXISTS `lottery_results`;
+
+CREATE TABLE IF NOT EXISTS `lottery_results` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `numbers` JSON NOT NULL,
+    `lottery_type` VARCHAR(50) NOT NULL,
+    `issue_number` VARCHAR(50) DEFAULT NULL,
+    `winning_numbers` JSON NOT NULL,
+    `zodiac_signs` JSON DEFAULT NULL,
+    `colors` JSON DEFAULT NULL,
+    `number_colors_json` TEXT DEFAULT NULL,
     `draw_time` TIMESTAMP NOT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

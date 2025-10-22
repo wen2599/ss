@@ -6,6 +6,7 @@
       </div>
       <nav class="navigation">
         <RouterLink to="/">邮件列表</RouterLink>
+        <RouterLink to="/lottery">彩票开奖</RouterLink>
         <RouterLink to="/login">登录</RouterLink>
         <RouterLink to="/register">注册</RouterLink>
       </nav>
