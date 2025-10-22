@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 use App\Controllers\EmailController;
 use App\Controllers\UserController;
+use App\Models\LotteryNumber;
 use Slim\App;
 use Slim\Psr7\Request;
 use Slim\Psr7\Response;
@@ -26,6 +27,27 @@ return function (App $app) {
 
         // User routes
         $group->get('/users/is-registered', [UserController::class, 'isUserRegistered']);
+
+        // Lottery routes
+        $group->get('/latest-lottery', function (Request $request, Response $response) {
+            $latestLottery = LotteryNumber::orderByDesc('draw_time')->first();
+
+            if ($latestLottery) {
+                $payload = json_encode([
+                    'status' => 'success',
+                    'data' => [
+                        'id' => $latestLottery->id,
+                        'numbers' => $latestLottery->numbers,
+                        'draw_time' => $latestLottery->draw_time->toDateTimeString(),
+                    ],
+                ]);
+            } else {
+                $payload = json_encode(['status' => 'success', 'data' => null, 'message' => 'No lottery numbers found.']);
+            }
+
+            $response->getBody()->write($payload);
+            return $response->withHeader('Content-Type', 'application/json');
+        });
 
     });
 

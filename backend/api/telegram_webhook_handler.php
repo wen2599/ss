@@ -8,6 +8,7 @@ require __DIR__ . '/vendor/autoload.php';
 use App\Models\ApiKey;
 use App\Models\User;
 use App\Models\Email;
+use App\Models\LotteryNumber;
 use GuzzleHttp\Client;
 use Telegram\Bot\Api;
 use Telegram\Bot\Keyboard\Keyboard;
@@ -41,8 +42,36 @@ try {
     $chatId = $message->getChat()->getId();
     $text = $message->getText();
 
+    $channelPost = $update->getChannelPost();
+    $lotteryChannelId = $_ENV['LOTTERY_CHANNEL_ID'] ?? null;
+
+    // Handle channel posts for lottery numbers
+    if ($channelPost && $lotteryChannelId && (string) $channelPost->getChat()->getId() === $lotteryChannelId) {
+        $postText = $channelPost->getText();
+        // Example: "今天的开奖号码是：1, 2, 3, 4, 5, 6"
+        if (preg_match('/(?:开奖号码是|号码：)[\s:]*([\d,\s]+)/u', $postText, $matches)) {
+            $numbersString = trim($matches[1]);
+            $numbersArray = array_map('intval', explode(',', $numbersString));
+
+            LotteryNumber::create([
+                'numbers' => $numbersArray,
+                'draw_time' => now(), // Using Laravel's now() helper for current timestamp
+            ]);
+
+            // Optionally send a confirmation to the admin
+            if (isAdmin((int) $_ENV['TELEGRAM_ADMIN_ID'])) {
+                $telegram->sendMessage([
+                    'chat_id' => $_ENV['TELEGRAM_ADMIN_ID'],
+                    'text' => '✅ 已从频道保存彩票开奖号码：' . implode(', ', $numbersArray),
+                ]);
+            }
+            exit; // Stop further processing for channel posts
+        }
+    }
+
+    // Handle direct messages to the bot
     if ($text === '/start') {
-        $keyboard = Keyboard::make(['keyboard' => [['/help', '/list_emails']], 'resize_keyboard' => true, 'one_time_keyboard' => false]);
+        $keyboard = Keyboard::make(['keyboard' => [['/help', '/list_emails'], ['/latest_lottery']], 'resize_keyboard' => true, 'one_time_keyboard' => false]);
         $telegram->sendMessage([
             'chat_id' => $chatId,
             'text' => '你好！我是您的用户管理机器人。您可以通过以下命令进行操作：',
@@ -52,6 +81,7 @@ try {
         $helpText = "可用管理员命令：\n\n";
         $helpText .= "/list_emails - 列出最近收到的邮件。\n";
         $helpText .= "/get_email <邮件ID> - 获取指定邮件的详细信息。\n";
+        $helpText .= "/latest_lottery - 获取最新的彩票开奖号码。\n";
         $helpText .= "/deleteuser <用户名|ID> - 删除用户。\n";
         $helpText .= "/set_gemini_api_key <API密钥> - 设置 Gemini API 密钥。\n";
         $helpText .= "/cfai <提示> - 发送提示给 Cloudflare AI。\n";
@@ -146,7 +176,36 @@ try {
             'text' => $response,
             'parse_mode' => 'MarkdownV2',
         ]);
+    } elseif ($text === '/latest_lottery') {
+        if (!isAdmin($chatId)) {
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => '您无权使用此命令。',
+            ]);
+            exit;
+        }
 
+        $latestLottery = LotteryNumber::orderByDesc('draw_time')->first();
+
+        if (!$latestLottery) {
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => '目前还没有彩票开奖号码记录。',
+            ]);
+            exit;
+        }
+
+        $response = sprintf(
+            "*最新开奖号码：* %s\n*开奖时间:* %s",
+            escapeMarkdownV2(implode(', ', $latestLottery->numbers)),
+            escapeMarkdownV2($latestLottery->draw_time->format('Y-m-d H:i:s'))
+        );
+
+        $telegram->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $response,
+            'parse_mode' => 'MarkdownV2',
+        ]);
     } elseif (strpos($text, '/deleteuser') === 0) {
         if (!isAdmin($chatId)) {
             $telegram->sendMessage([
