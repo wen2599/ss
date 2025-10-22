@@ -14,6 +14,24 @@ class TelegramController
 {
     public function webhook(Request $request, Response $response): Response
     {
+        // --- Pingback Diagnostic ---
+        // Send a message to the admin immediately to confirm the webhook is being hit.
+        try {
+            $telegram = new Api($_ENV['TELEGRAM_BOT_TOKEN']);
+            $adminId = $_ENV['TELEGRAM_ADMIN_ID'] ?? null;
+            if ($adminId) {
+                $rawInput = file_get_contents('php://input');
+                $telegram->sendMessage([
+                    'chat_id' => $adminId,
+                    'text' => 'Webhook received a request at ' . date('Y-m-d H:i:s') . "\n\n" . $rawInput,
+                ]);
+            }
+        } catch (\Exception $e) {
+            // If this fails, we can't send a message, but we'll log it if possible.
+            error_log('Pingback failed: ' . $e->getMessage());
+        }
+        // --- End Diagnostic ---
+
         $telegram = new Api($_ENV['TELEGRAM_BOT_TOKEN']);
         $update = $telegram->getWebhookUpdate();
 
