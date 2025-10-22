@@ -5,13 +5,13 @@
 require __DIR__ . '/api/vendor/autoload.php';
 
 // Load environment variables
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../'); // Modified path to .env
 $dotenv->load();
 
 // --- Database Connection ---
 $dbHost = $_ENV['DB_HOST'];
 $dbName = $_ENV['DB_DATABASE'];
-$dbUser = $_ENV['DB_USERNAME'];
+$dbUser = $_ENV['DB_USER']; // Modified to DB_USER
 $dbPass = $_ENV['DB_PASSWORD'];
 
 try {
@@ -42,7 +42,7 @@ try {
     echo "<ul>";
     echo "<li>Is the database server running at '{$dbHost}'?</li>";
     echo "<li>Have you created the database '{$dbName}'? The script tries to, but might not have permission.</li>";
-    echo "<li>Are the database credentials in your .env file correct (DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD)?</li>";
+    echo "<li>Are the database credentials in your .env file correct (DB_HOST, DB_DATABASE, DB_USER, DB_PASSWORD)?</li>";
     echo "</ul>";
 } catch (Exception $e) {
     echo "An unexpected error occurred: " . $e->getMessage();
