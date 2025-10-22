@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 use App\Controllers\EmailController;
 use App\Controllers\UserController;
-use App\Models\LotteryNumber;
+use App\Models\LotteryResult;
 use Slim\App;
 use Slim\Psr7\Request;
 use Slim\Psr7\Response;
@@ -32,26 +32,20 @@ return function (App $app) {
         $group->get('/users/is-registered', [UserController::class, 'isUserRegistered']);
 
         // Lottery routes
-        $group->get('/latest-lottery', function (Request $request, Response $response) {
-            $latestLottery = LotteryNumber::orderByDesc('draw_time')->first();
+        $group->get('/lottery-results', function (Request $request, Response $response) {
+            $latestResults = LotteryResult::query()
+                ->fromSub(
+                    LotteryResult::query()
+                        ->selectRaw('*, ROW_NUMBER() OVER(PARTITION BY lottery_type ORDER BY draw_time DESC) as rn')
+                    , 'lr'
+                )
+                ->where('rn', '=', 1)
+                ->get();
 
-            if ($latestLottery) {
-                $payload = json_encode([
-                    'status' => 'success',
-                    'data' => [
-                        'id' => $latestLottery->id,
-                        'numbers' => $latestLottery->numbers,
-                        'draw_time' => $latestLottery->draw_time->toDateTimeString(),
-                    ],
-                ]);
-            } else {
-                $payload = json_encode(['status' => 'success', 'data' => null, 'message' => 'No lottery numbers found.']);
-            }
-
+            $payload = json_encode(['status' => 'success', 'data' => $latestResults]);
             $response->getBody()->write($payload);
             return $response->withHeader('Content-Type', 'application/json');
         });
-
     });
 
     // Catch-all for the root for basic feedback

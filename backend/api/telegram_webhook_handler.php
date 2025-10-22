@@ -8,7 +8,7 @@ require __DIR__ . '/vendor/autoload.php';
 use App\Models\ApiKey;
 use App\Models\User;
 use App\Models\Email;
-use App\Models\LotteryNumber;
+use App\Models\LotteryResult;
 use GuzzleHttp\Client;
 use Telegram\Bot\Api;
 use Telegram\Bot\Keyboard\Keyboard;
@@ -147,21 +147,29 @@ try {
     // Handle channel posts for lottery numbers
     if ($channelPost && $lotteryChannelId && (string) $channelPost->getChat()->getId() === $lotteryChannelId) {
         $postText = $channelPost->getText();
-        // Example: "今天的开奖号码是：1, 2, 3, 4, 5, 6"
-        if (preg_match('/(?:开奖号码是|号码：)[\s:]*([\d,\s]+)/u', $postText, $matches)) {
-            $numbersString = trim($matches[1]);
-            $numbersArray = array_map('intval', explode(',', $numbersString));
 
-            LotteryNumber::create([
-                'numbers' => $numbersArray,
-                'draw_time' => now(), // Using Laravel's now() helper for current timestamp
+        // Updated regex to capture lottery type, issue number, and numbers
+        $pattern = '/\s*(?<type>老澳|新澳|香港)\s*第\s*(?<issue>\d+)\s*期\s*开奖结果\s*[\r\n]+(?<numbers>[\d,\s]+)/u';
+
+        if (preg_match($pattern, $postText, $matches)) {
+            $lotteryType = $matches['type'];
+            $issueNumber = $matches['issue'];
+            $numbersString = trim($matches['numbers']);
+            $numbersArray = array_map('intval', preg_split('/[\s,]+/', $numbersString));
+
+            // Assuming other fields like zodiac signs, colors are not in the message and can be null
+            LotteryResult::create([
+                'lottery_type' => $lotteryType,
+                'issue_number' => $issueNumber,
+                'winning_numbers' => $numbersArray,
+                'draw_time' => now(), // Or parse from message if available
             ]);
 
             // Optionally send a confirmation to the admin
             if (isAdmin((int) $_ENV['TELEGRAM_ADMIN_ID'])) {
                 $telegram->sendMessage([
                     'chat_id' => $_ENV['TELEGRAM_ADMIN_ID'],
-                    'text' => '✅ 已从频道保存彩票开奖号码：' . implode(', ', $numbersArray),
+                    'text' => "✅ 已保存 {$lotteryType} 第 {$issueNumber} 期开奖号码：" . implode(', ', $numbersArray),
                 ]);
             }
             exit; // Stop further processing for channel posts
@@ -285,7 +293,7 @@ try {
             exit;
         }
 
-        $latestLottery = LotteryNumber::orderByDesc('draw_time')->first();
+        $latestLottery = LotteryResult::orderByDesc('draw_time')->first();
 
         if (!$latestLottery) {
             $telegram->sendMessage([
@@ -296,8 +304,10 @@ try {
         }
 
         $response = sprintf(
-            "*最新开奖号码：* %s\n*开奖时间:* %s",
-            escapeMarkdownV2(implode(', ', $latestLottery->numbers)),
+            "*最新开奖结果 (%s - 第 %s 期)*\n\n*号码：* %s\n*开奖时间:* %s",
+            escapeMarkdownV2($latestLottery->lottery_type),
+            escapeMarkdownV2($latestLottery->issue_number),
+            escapeMarkdownV2(implode(', ', $latestLottery->winning_numbers)),
             escapeMarkdownV2($latestLottery->draw_time->format('Y-m-d H:i:s'))
         );
 
