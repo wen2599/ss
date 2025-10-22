@@ -5,8 +5,25 @@
 require __DIR__ . '/api/vendor/autoload.php';
 
 // Load environment variables
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../'); // Modified path to .env
-$dotenv->load();
+try {
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
+    $dotenv->load();
+} catch (Dotenv\Exception\InvalidPathException $e) {
+    $expectedPath = realpath(__DIR__ . '/../') . '/.env';
+    die(
+        "<div style='font-family: sans-serif; border: 2px solid red; padding: 1rem;'>" .
+        "<h2>❌ Configuration Error</h2>" .
+        "<p>The environment configuration file (<code>.env</code>) could not be found.</p>" .
+        "<p><b>Expected location:</b> <code>{$expectedPath}</code></p>" .
+        "<hr>" .
+        "<p><b>To fix this:</b></p>" .
+        "<ol>" .
+        "<li>Copy the example file <code>.env.example</code> to a new file named <code>.env</code> in the same directory.</li>" .
+        "<li>Open the new <code>.env</code> file and fill in your database credentials.</li>" .
+        "</ol>" .
+        "</div>"
+    );
+}
 
 // --- Database Connection ---
 $dbHost = $_ENV['DB_HOST'];
