@@ -26,6 +26,9 @@ return function (App $app) {
         $group->get('/emails/{id}', [EmailController::class, 'getEmail']);
 
         // User routes
+        $group->post('/register', [UserController::class, 'register']);
+        $group->post('/login', [UserController::class, 'login']);
+        $group->post('/logout', [UserController::class, 'logout']);
         $group->get('/users/is-registered', [UserController::class, 'isUserRegistered']);
 
         // Lottery routes

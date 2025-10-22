@@ -36,6 +36,7 @@ class EmailController
         $email->to_address = $body['to'];
         $email->subject = $body['subject'];
         $email->raw_content = $body['body'];
+        $email->user_id = $body['user_id'] ?? null; // Associate with user
         $email->save();
 
         $payload = json_encode(['status' => 'success', 'data' => $email]);
