@@ -42,8 +42,15 @@ async function fetchEmails() {
   error.value = null
   try {
     const response = await apiClient.get('/emails');
-    emails.value = response.data.data; // Access the data array from pagination
+    // Defensively check if the response has the expected structure
+    if (response && response.data && Array.isArray(response.data.data)) {
+      emails.value = response.data.data;
+    } else {
+      emails.value = []; // Default to an empty array if the structure is wrong
+      console.warn('API response for emails was not in the expected format:', response);
+    }
   } catch (err) {
+    emails.value = []; // Also default to an empty array on error
     console.error('获取邮件时出错：', err);
     error.value = '加载邮件失败。请检查后端服务是否正在运行并可以访问？'
   }
