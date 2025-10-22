@@ -282,7 +282,13 @@ export default {
         return; // Stop processing, user is not authorized.
       }
 
-      console.log(`Worker Email Handler: User ${senderEmail} is verified. Proceeding to forward email.`);
+      const userId = verificationData.data.user_id;
+      if (!userId) {
+        console.error(`Worker Email Handler: Verification successful but no user_id returned for ${senderEmail}. Discarding.`);
+        return;
+      }
+
+      console.log(`Worker Email Handler: User ${senderEmail} is verified with user_id: ${userId}. Proceeding to forward email.`);
 
       // Step 2: If user is verified, parse and forward the email content.
       const rawEmail = await streamToString(message.raw);
@@ -296,6 +302,7 @@ export default {
           to: message.to,
           subject: subject,
           body: body,
+          user_id: userId,
       };
       
       // --- FIX: Ensure the POST request URL is correct without extra path segments ---

@@ -6,6 +6,8 @@
       </div>
       <nav class="navigation">
         <RouterLink to="/">邮件列表</RouterLink>
+        <RouterLink to="/login">登录</RouterLink>
+        <RouterLink to="/register">注册</RouterLink>
       </nav>
     </header>
     <main class="main-content">
