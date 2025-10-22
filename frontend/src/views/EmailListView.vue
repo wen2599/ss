@@ -30,20 +30,18 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import apiClient from '../api'
 
 const router = useRouter()
 const emails = ref([])
 const loading = ref(true)
 const error = ref(null)
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost/api';
-
 async function fetchEmails() {
   loading.value = true
   error.value = null
   try {
-    const response = await axios.get(`${API_URL}/emails`);
+    const response = await apiClient.get('/emails');
     emails.value = response.data.data; // Access the data array from pagination
   } catch (err) {
     console.error('获取邮件时出错：', err);

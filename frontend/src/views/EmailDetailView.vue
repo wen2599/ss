@@ -35,7 +35,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import axios from 'axios'
+import apiClient from '../api'
 
 const route = useRoute()
 const router = useRouter()
@@ -46,14 +46,13 @@ const error = ref(null)
 const activeTab = ref('html')
 
 const emailId = computed(() => route.params.id)
-const API_URL = 'https://wenge.cloudns.ch/api';
 
 async function fetchEmail() {
   if (!emailId.value) return;
   loading.value = true
   error.value = null
   try {
-    const response = await axios.get(`${API_URL}/emails/${emailId.value}`);
+    const response = await apiClient.get(`/emails/${emailId.value}`);
     email.value = response.data
     // Default to HTML tab if content exists, otherwise RAW
     activeTab.value = response.data.html_content ? 'html' : 'raw';
