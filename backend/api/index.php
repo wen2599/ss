@@ -63,6 +63,7 @@ try {
     // These files configure the core of the application.
     (require __DIR__ . \'/src/dependencies.php\')($container);\
     (require __DIR__ . \'/src/bootstrap.php\')($app);\
+    (require __DIR__ . \'/src/middleware.php\')($app); // <-- LOAD MIDDLEWARE HERE
     (require __DIR__ . \'/src/routes.php\')($app);\
 
     // --- Run The App ---
