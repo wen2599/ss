@@ -40,9 +40,3 @@ jobs:
           rsync -avz --delete \
             --exclude '.env' \
             ./backend/ ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }}:${{ secrets.SERV00_PATH }}
-
-      - name: 5. Install Composer Dependencies
-        # This step runs 'composer install' on the server to install PHP dependencies.
-        # It navigates to the 'api' directory where composer.json is located.
-        run: |
-          ssh ${{ secrets.SERV00_USER }}@${{ secrets.SERV00_HOST }} "cd ${{ secrets.SERV00_PATH }}/api && composer install --no-dev --optimize-autoloader"
