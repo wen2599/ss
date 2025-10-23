@@ -1,33 +1,40 @@
 <?php
-declare(strict_types=1);
+// Included from /api/index.php
 
-// Assumes jsonResponse and jsonError functions are available from index.php
-// Assumes getDbConnection() is available from index.php
+// This script checks if a username is already registered.
 
-$pdo = getDbConnection();
-
-// 1. Basic Validation
-if (!isset($_GET['email']) || empty($_GET['email'])) {
-    jsonError(400, '邮箱参数不能为空。');
+// --- Input Validation ---
+if (!isset($_GET['username'])) {
+    jsonError(400, 'Username parameter is required.');
 }
 
-$email = filter_var($_GET['email'], FILTER_VALIDATE_EMAIL);
-if (!$email) {
-    jsonError(400, '无效的邮箱格式。');
+$username = trim($_GET['username']);
+
+if (empty($username)) {
+    jsonError(400, 'Username cannot be empty.');
 }
 
-// 2. Check for existing user
+// --- Database Interaction ---
 try {
-    $stmt = $pdo->prepare('SELECT id FROM users WHERE email = :email');
-    $stmt->execute(['email' => $email]);
-    $isRegistered = (bool) $stmt->fetch();
-} catch (PDOException $e) {
-    error_log('Database error checking if user is registered: ' . $e->getMessage());
-    jsonError(500, '查询失败，请稍后再试。');
-}
+    $pdo = getDbConnection();
 
-// 3. Return response
-jsonResponse(200, [
-    'status' => 'success',
-    'data' => ['isRegistered' => $isRegistered]
-]);
+    // Check if username exists
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+    $stmt->execute([$username]);
+    $isRegistered = ($stmt->fetch() !== false);
+
+    // --- Success Response ---
+    jsonResponse(200, [
+        'status' => 'success',
+        'data' => [
+            'isRegistered' => $isRegistered
+        ]
+    ]);
+
+} catch (PDOException $e) {
+    error_log("Is-Registered DB Error: " . $e->getMessage());
+    jsonError(500, 'Database error while checking username.');
+} catch (Throwable $e) {
+    error_log("Is-Registered Error: " . $e->getMessage());
+    jsonError(500, 'An unexpected error occurred.');
+}

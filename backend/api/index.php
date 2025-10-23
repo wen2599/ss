@@ -1,1 +1,202 @@
-<?php\ndeclare(strict_types=1);\n\n// --- AGGRESSIVE CORS FIX for shared hosting --- (Place at very top of entry file)\nif (isset($_SERVER[\\\'REQUEST_METHOD\\\'])) {\n    $origin = $_SERVER[\\\'HTTP_ORIGIN\\\'] ?? \\\'\\\';\n    $allowedOrigins = [\n        \\\'https://ss.wenxiuxiu.eu.org\\\',\n        \\\'http://localhost:5173\\\'\n    ];\n\n    if (in_array($origin, $allowedOrigins)) {\n        header(\"Access-Control-Allow-Origin: {$origin}\");\n    } else {\n        header(\"Access-Control-Allow-Origin: https://ss.wenxiuxiu.eu.org\");\n    }\n\n    header(\"Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS\");\n    header(\"Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With, X-Worker-Secret, Accept, Origin\");\n    header(\"Access-Control-Allow-Credentials: true\");\n    header(\"Access-Control-Max-Age: 86400\");\n\n    if ($_SERVER[\\\'REQUEST_METHOD\\\'] === \\\'OPTIONS\\\') {\n        http_response_code(204);\n        exit;\n    }\n}\n// --- END AGGRESSIVE CORS FIX ---\n\n// --- Global Error Handling ---\nset_exception_handler(function (Throwable $e) {\n    error_log(\"Uncaught Exception: \" . $e->getMessage() . \" in \" . $e->getFile() . \":\" . $e->getLine() . \"\\n\" . $e->getTraceAsString());\n    if (!headers_sent()) {\n        header(\\\'Content-Type: application/json\\\');\n        http_response_code(500);\n    }\n    echo json_encode([\n        \\\'status\\\' => \\\'error\\\',\n        \\\'message\\\' => \\\'An unexpected error occurred on the server.\\\',\n        // \'details\' => $e->getMessage() // Uncomment for debugging, but hide in production\n    ]);\n    exit;\n});\n\nset_error_handler(function ($severity, $message, $file, $line) {\n    if (!(error_reporting() & $severity)) {\n        return false;\n    }\n    throw new ErrorException($message, 0, $severity, $file, $line);\n});\n\nregister_shutdown_function(function () {\n    $lastError = error_get_last();\n    if ($lastError && ($lastError[\\\'type\\\'] & (E_ERROR | E_PARSE | E_CORE_ERROR | E_CORE_WARNING | E_COMPILE_ERROR | E_COMPILE_WARNING))) {\n        // If a fatal error occurred that wasn\'t caught by the exception handler\n        if (!headers_sent()) {\n            header(\\\'Content-Type: application/json\\\');\n            http_response_code(500);\n        }\n        echo json_encode([\n            \\\'status\\\' => \\\'error\\\',\n            \\\'message\\\' => \\\'A fatal error occurred on the server.\\\',\n            // \'details\' => $lastError[\'message\'] // Uncomment for debugging, but hide in production\n        ]);\n    }\n});\n\n// --- Environment Loading ---\nrequire_once __DIR__ . \\\'/vendor/autoload.php\\\';\nuse Dotenv\\\\Dotenv;\n\ntry {\n    $dotenv = Dotenv::createImmutable(__DIR__ . \\\'/../../../\\\');\n    $dotenv->load();\n} catch (\\Dotenv\\\\Exception\\\\InvalidPathException $e) {\n    header(\\\'Content-Type: application/json\\\');\n    http_response_code(500);\n    echo json_encode([\\\'status\\\' => \\\'error\\\', \\\'message\\\' => \\\'Environment file not found.\\\']);\n    exit;\n}\n\n// --- Database Connection (PDO) ---\nfunction getDbConnection(): PDO\n{\n    static $pdo = null;\n\n    if ($pdo === null) {\n        $dbHost = $_ENV[\\\'DB_HOST\\\'] ?? \\\'localhost\\\';\n        $dbName = $_ENV[\\\'DB_DATABASE\\\'] ?? \\\'\\\';\n        $dbUser = $_ENV[\\\'DB_USERNAME\\\'] ?? \\\'\\\';\n        $dbPass = $_ENV[\\\'DB_PASSWORD\\\'] ?? \\\'\\\';\n\n        $dsn = \"mysql:host={\$dbHost};dbname={\$dbName};charset=utf8mb4\";\n        $options = [\n            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,\n            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,\n            PDO::ATTR_EMULATE_PREPARES   => false,\n        ];\n        try {\n            $pdo = new PDO($dsn, $dbUser, $dbPass, $options);\n        } catch (PDOException $e) {\n            error_log(\"Database connection failed: \" . $e->getMessage());\n            header(\\\'Content-Type: application/json\\\');\n            http_response_code(503);\n            echo json_encode([\\\'status\\\' => \\\'error\\\', \\\'message\\\' => \\\'Database connection unavailable.\\\'\\\n            // \'details\' => $e->getMessage() // Uncomment for debugging\n            ]);\n            exit;\n        }\n    }\n    return $pdo;\n}\n\n// --- Simple Router ---\n$requestUri = parse_url($_SERVER[\\\'REQUEST_URI\\\'], PHP_URL_PATH);\n$requestMethod = $_SERVER[\\\'REQUEST_METHOD\\\'];\n\n// All API routes are expected to be relative to /api/\n// Remove the /api prefix for internal routing\n$basePath = \'/api\';\nif (strpos($requestUri, $basePath) === 0) {\n    $requestUri = substr($requestUri, strlen($basePath));\n}\n\nfunction jsonResponse(int $statusCode, array $data): void\n{\n    http_response_code($statusCode);\n    header(\\\'Content-Type: application/json\\\');\n    echo json_encode($data);\n    exit;\n}\n\nfunction jsonError(int $statusCode, string $message, array $details = []): void\n{\n    jsonResponse($statusCode, array_merge([\\\'status\\\' => \\\'error\\\', \\\'message\\\' => $message], $details));\n}\n\n// --- Route Definitions ---\nswitch ($requestUri) {\n    case \\\'/ping\\\':\n        if ($requestMethod === \\\'GET\\\') {\n            jsonResponse(200, [\\\'status\\\' => \\\'success\\\', \\\'data\\\' => \\\'Backend is running (Pure PHP)\\\']);\n        } else {\n            jsonError(405, \\\'Method Not Allowed\\\');\n        }\n        break;\n\n    case \\\'/register\\\':\n        if ($requestMethod === \\\'POST\\\') {\n            // Include the registration logic\n            require __DIR__ . \\\'/src/handlers/register.php\\\';\n        } else {\n            jsonError(405, \\\'Method Not Allowed\\\');\n        }\n        break;\n\n    case \\\'/login\\\':\n        if ($requestMethod === \\\'POST\\\') {\n            require __DIR__ . \\\'/src/handlers/login.php\\\';\n        } else {\n            jsonError(405, \\\'Method Not Allowed\\\');\n        }\n        break;\n\n    case \\\'/logout\\\':\n        if ($requestMethod === \\\'POST\\\') {\n            require __DIR__ . \\\'/src/handlers/logout.php\\\';\n        } else {\n            jsonError(405, \\\'Method Not Allowed\\\');\n        }\n        break;\n\n    case \\\'/users/is-registered\\\':\n        if ($requestMethod === \\\'GET\\\') {\n            require __DIR__ . \\\'/src/handlers/is_user_registered.php\\\';\n        } else {\n            jsonError(405, \\\'Method Not Allowed\\\');\n        }\n        break;\n\n    case \\\'/emails\\\':\n        if ($requestMethod === \\\'POST\\\') {\n            require __DIR__ . \\\'/src/handlers/receive_email.php\\\';\n        } else if ($requestMethod === \\\'GET\\\') {\n            require __DIR__ . \\\'/src/handlers/list_emails.php\\\';\n        } else {\n            jsonError(405, \\\'Method Not Allowed\\\');\n        }\n        break;\n\n    case (preg_match(\\\'/^\\\\/emails\\\\/(\\\\d+)$\\\', $requestUri, $matches) ? true : false):\n        if ($requestMethod === \\\'GET\\\') {\n            $_GET[\\\'id\\\'] = $matches[1]; // Pass ID as GET param for handler\n            require __DIR__ . \\\'/src/handlers/get_email.php\\\';\n        } else {\n            jsonError(405, \\\'Method Not Allowed\\\');\n        }\n        break;\n    \n    case \\\'/lottery-results\\\':\n        if ($requestMethod === \\\'GET\\\') {\n            require __DIR__ . \\\'/src/handlers/lottery_results.php\\\';\n        } else {\n            jsonError(405, \\\'Method Not Allowed\\\');\n        }\n        break;\n\n    default:\n        jsonError(404, \\\'Not Found\\\');\n        break;\n}\n
+<?php
+declare(strict_types=1);
+
+// --- AGGRESSIVE CORS FIX for shared hosting --- (Place at very top of entry file)
+if (isset($_SERVER['REQUEST_METHOD'])) {
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    $allowedOrigins = [
+        'https://ss.wenxiuxiu.eu.org',
+        'http://localhost:5173'
+    ];
+
+    if (in_array($origin, $allowedOrigins)) {
+        header("Access-Control-Allow-Origin: {$origin}");
+    } else {
+        header("Access-Control-Allow-Origin: https://ss.wenxiuxiu.eu.org");
+    }
+
+    header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    header("Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With, X-Worker-Secret, Accept, Origin");
+    header("Access-Control-Allow-Credentials: true");
+    header("Access-Control-Max-Age: 86400");
+
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(204);
+        exit;
+    }
+}
+// --- END AGGRESSIVE CORS FIX ---
+
+// --- Global Error Handling ---
+set_exception_handler(function (Throwable $e) {
+    error_log("Uncaught Exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine() . "\n" . $e->getTraceAsString());
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+        http_response_code(500);
+    }
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'An unexpected error occurred on the server.',
+        // 'details' => $e->getMessage() // Uncomment for debugging, but hide in production
+    ]);
+    exit;
+});
+
+set_error_handler(function ($severity, $message, $file, $line) {
+    if (!(error_reporting() & $severity)) {
+        return false;
+    }
+    throw new ErrorException($message, 0, $severity, $file, $line);
+});
+
+register_shutdown_function(function () {
+    $lastError = error_get_last();
+    if ($lastError && ($lastError['type'] & (E_ERROR | E_PARSE | E_CORE_ERROR | E_CORE_WARNING | E_COMPILE_ERROR | E_COMPILE_WARNING))) {
+        // If a fatal error occurred that wasn't caught by the exception handler
+        if (!headers_sent()) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+        }
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'A fatal error occurred on the server.',
+            // 'details' => $lastError['message'] // Uncomment for debugging, but hide in production
+        ]);
+    }
+});
+
+// --- Database Connection (PDO) ---
+function getDbConnection(): PDO
+{
+    static $pdo = null;
+
+    if ($pdo === null) {
+        $dbHost = $_ENV['DB_HOST'] ?? 'localhost';
+        $dbName = $_ENV['DB_DATABASE'] ?? '';
+        $dbUser = $_ENV['DB_USERNAME'] ?? '';
+        $dbPass = $_ENV['DB_PASSWORD'] ?? '';
+
+        if (empty($dbName) || empty($dbUser)) {
+            error_log('Database credentials are not set in environment variables.');
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode(['status' => 'error', 'message' => 'Server configuration error.']);
+            exit;
+        }
+
+        $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ];
+        try {
+            $pdo = new PDO($dsn, $dbUser, $dbPass, $options);
+        } catch (PDOException $e) {
+            error_log("Database connection failed: " . $e->getMessage());
+            header('Content-Type: application/json');
+            http_response_code(503);
+            echo json_encode(['status' => 'error', 'message' => 'Database connection unavailable.']);
+            exit;
+        }
+    }
+    return $pdo;
+}
+
+// --- Simple Router ---
+$requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$requestMethod = $_SERVER['REQUEST_METHOD'];
+
+// All API routes are expected to be relative to /api/
+// Remove the /api prefix for internal routing
+$basePath = '/api';
+if (strpos($requestUri, $basePath) === 0) {
+    $requestUri = substr($requestUri, strlen($basePath));
+}
+
+function jsonResponse(int $statusCode, array $data): void
+{
+    http_response_code($statusCode);
+    header('Content-Type: application/json');
+    echo json_encode($data);
+    exit;
+}
+
+function jsonError(int $statusCode, string $message, array $details = []): void
+{
+    jsonResponse($statusCode, array_merge(['status' => 'error', 'message' => $message], $details));
+}
+
+// --- Route Definitions ---
+switch ($requestUri) {
+    case '/ping':
+        if ($requestMethod === 'GET') {
+            jsonResponse(200, ['status' => 'success', 'data' => 'Backend is running (Pure PHP)']);
+        } else {
+            jsonError(405, 'Method Not Allowed');
+        }
+        break;
+
+    case '/register':
+        if ($requestMethod === 'POST') {
+            require __DIR__ . '/src/handlers/register.php';
+        } else {
+            jsonError(405, 'Method Not Allowed');
+        }
+        break;
+
+    case '/login':
+        if ($requestMethod === 'POST') {
+            require __DIR__ . '/src/handlers/login.php';
+        } else {
+            jsonError(405, 'Method Not Allowed');
+        }
+        break;
+
+    case '/logout':
+        if ($requestMethod === 'POST') {
+            require __DIR__ . '/src/handlers/logout.php';
+        } else {
+            jsonError(405, 'Method Not Allowed');
+        }
+        break;
+
+    case '/users/is-registered':
+        if ($requestMethod === 'GET') {
+            require __DIR__ . '/src/handlers/is_user_registered.php';
+        } else {
+            jsonError(405, 'Method Not Allowed');
+        }
+        break;
+
+    case '/emails':
+        if ($requestMethod === 'POST') {
+            require __DIR__ . '/src/handlers/receive_email.php';
+        } else if ($requestMethod === 'GET') {
+            require __DIR__ . '/src/handlers/list_emails.php';
+        } else {
+            jsonError(405, 'Method Not Allowed');
+        }
+        break;
+
+    case (preg_match('/^\/emails\/(\d+)$/', $requestUri, $matches) ? true : false):
+        if ($requestMethod === 'GET') {
+            $_GET['id'] = $matches[1]; // Pass ID as GET param for handler
+            require __DIR__ . '/src/handlers/get_email.php';
+        } else {
+            jsonError(405, 'Method Not Allowed');
+        }
+        break;
+    
+    case '/lottery-results':
+        if ($requestMethod === 'GET') {
+            require __DIR__ . '/src/handlers/lottery_results.php';
+        } else {
+            jsonError(405, 'Method Not Allowed');
+        }
+        break;
+
+    default:
+        jsonError(404, 'Not Found');
+        break;
+}

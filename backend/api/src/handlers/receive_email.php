@@ -1,62 +1,57 @@
 <?php
-declare(strict_types=1);
+// Included from /api/index.php
 
-// Assumes jsonResponse and jsonError functions are available from index.php
-// Assumes getDbConnection() is available from index.php
+// This script handles the receiving of emails (e.g., from a webhook).
 
-$pdo = getDbConnection();
-
-// --- Authentication ---
-// Get the secret from the X-Worker-Secret header
-$workerSecret = $_SERVER['HTTP_X_WORKER_SECRET'] ?? null;
-$expectedSecret = $_ENV['WORKER_SECRET'] ?? null;
-
-if (!$workerSecret || !$expectedSecret || !hash_equals($expectedSecret, $workerSecret)) {
-    error_log("Unauthorized email worker request. Provided secret: {$workerSecret}");
-    jsonError(401, 'Unauthorized');
+// --- Security Check (Optional but Recommended) ---
+// Example: Verify a secret passed in headers to ensure the request is from a trusted source.
+/*
+$workerSecret = $_SERVER['HTTP_X_WORKER_SECRET'] ?? '';
+$expectedSecret = $_ENV['WORKER_SECRET'] ?? '';
+if (empty($workerSecret) || !
+hash_equals($expectedSecret, $workerSecret)) {
+    jsonError(403, 'Forbidden: Invalid or missing secret.');
 }
+*/
 
-// --- Input Processing ---
+// --- Input Validation ---
 $input = json_decode(file_get_contents('php://input'), true);
 
-if (json_last_error() !== JSON_ERROR_NONE) {
-    jsonError(400, 'Invalid JSON payload.');
+if (!isset($input['sender']) || !isset($input['subject']) || !isset($input['body'])) {
+    jsonError(400, 'Missing required email fields: sender, subject, and body.');
 }
 
-// Validate essential fields
-$from = $input['from'] ?? null;
-$to = $input['to'] ?? null;
-$subject = $input['subject'] ?? null;
-$body = $input['body'] ?? ''; // Default to empty string
-$raw = $input['raw'] ?? '';   // Default to empty string
+$sender = trim($input['sender']);
+$subject = trim($input['subject']);
+$body = trim($input['body']);
+$isPrivate = filter_var($input['is_private'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
-if (!$from || !$to || !$subject) {
-    jsonError(400, 'Missing required fields: from, to, subject.');
+if (empty($sender) || empty($subject) || empty($body)) {
+    jsonError(400, 'Sender, subject, and body cannot be empty.');
 }
 
-// --- Database Insertion ---
+// --- Database Interaction ---
 try {
+    $pdo = getDbConnection();
+
     $stmt = $pdo->prepare(
-        'INSERT INTO emails (`from`, `to`, `subject`, `body`, `raw`) VALUES (:from, :to, :subject, :body, :raw)'
+        "INSERT INTO emails (sender, subject, body, is_private) VALUES (?, ?, ?, ?)"
     );
-    $stmt->execute([
-        ':from' => $from,
-        ':to' => $to,
-        ':subject' => $subject,
-        ':body' => $body,
-        ':raw' => $raw,
-    ]);
+    $stmt->execute([$sender, $subject, $body, $isPrivate ? 1 : 0]);
 
     $emailId = $pdo->lastInsertId();
 
-} catch (PDOException $e) {
-    error_log('Database error saving email: ' . $e->getMessage());
-    jsonError(500, 'Failed to save email to database.');
-}
+    // --- Success Response ---
+    jsonResponse(201, [
+        'status' => 'success',
+        'message' => 'Email received and stored successfully.',
+        'data' => ['email_id' => $emailId]
+    ]);
 
-// --- Success Response ---
-jsonResponse(201, [
-    'status' => 'success',
-    'message' => 'Email received and stored successfully.',
-    'data' => ['email_id' => $emailId]
-]);
+} catch (PDOException $e) {
+    error_log("Receive-Email DB Error: " . $e->getMessage());
+    jsonError(500, 'Database error while storing the email.');
+} catch (Throwable $e) {
+    error_log("Receive-Email Error: " . $e->getMessage());
+    jsonError(500, 'An unexpected error occurred.');
+}

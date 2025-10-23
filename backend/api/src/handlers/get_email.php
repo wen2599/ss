@@ -1,42 +1,55 @@
 <?php
-declare(strict_types=1);
+// Included from /api/index.php
 
-// Assumes jsonResponse and jsonError functions are available from index.php
-// Assumes getDbConnection() is available from index.php
+// This script retrieves a single email by its ID.
 
+// --- Session Check for Authentication ---
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// 1. Authentication: Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    jsonError(401, 'Unauthorized. Please log in.');
+$isAuthenticated = isset($_SESSION['user_id']);
+
+// --- Input Validation ---
+if (!isset($_GET['id'])) {
+    jsonError(400, 'Email ID is required.');
 }
 
-// 2. Input Validation (ID from URL)
-$emailId = $_GET['id'] ?? null;
-if (!$emailId || !filter_var($emailId, FILTER_VALIDATE_INT)) {
-    jsonError(400, 'Invalid or missing email ID.');
+$emailId = (int)$_GET['id'];
+
+if ($emailId <= 0) {
+    jsonError(400, 'Invalid Email ID.');
 }
 
-$pdo = getDbConnection();
-
-// 3. Fetch the specific email from the database
+// --- Database Interaction ---
 try {
-    $stmt = $pdo->prepare('SELECT * FROM emails WHERE id = :id');
-    $stmt->execute(['id' => $emailId]);
-    $email = $stmt->fetch();
+    $pdo = getDbConnection();
 
+    // Fetch the email
+    $stmt = $pdo->prepare("SELECT * FROM emails WHERE id = ?");
+    $stmt->execute([$emailId]);
+    $email = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // --- Authorization Check ---
     if (!$email) {
         jsonError(404, 'Email not found.');
     }
-} catch (PDOException $e) {
-    error_log('Database error fetching email: ' . $e->getMessage());
-    jsonError(500, 'Failed to retrieve the email.');
-}
 
-// 4. Return response
-jsonResponse(200, [
-    'status' => 'success',
-    'data' => $email
-]);
+    // If the email is private, only authenticated users can see it.
+    if ($email['is_private'] && !$isAuthenticated) {
+        jsonError(403, 'Forbidden: You do not have permission to view this email.');
+    }
+
+    // --- Success Response ---
+    jsonResponse(200, [
+        'status' => 'success',
+        'data' => $email
+    ]);
+
+} catch (PDOException $e) {
+    error_log("Get-Email DB Error: " . $e->getMessage());
+    jsonError(500, 'Database error while retrieving the email.');
+} catch (Throwable $e) {
+    error_log("Get-Email Error: " . $e->getMessage());
+    jsonError(500, 'An unexpected error occurred.');
+}

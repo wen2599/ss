@@ -1,67 +1,57 @@
 <?php
-declare(strict_types=1);
+// Included from /api/index.php
 
-// Assumes jsonResponse and jsonError functions are available from index.php
-// Assumes getDbConnection() is available from index.php
+// This script handles user registration.
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-$pdo = getDbConnection();
+// --- Input Validation ---
 $input = json_decode(file_get_contents('php://input'), true);
 
-// 1. Basic Validation
-if (!isset($input['email']) || !isset($input['password']) || empty($input['email']) || empty($input['password'])) {
-    jsonError(400, '邮箱和密码不能为空。');
+if (!isset($input['username']) || !isset($input['password'])) {
+    jsonError(400, 'Username and password are required.');
 }
 
-$email = filter_var($input['email'], FILTER_VALIDATE_EMAIL);
-if (!$email) {
-    jsonError(400, '无效的邮箱格式。');
-}
-
+$username = trim($input['username']);
 $password = $input['password'];
-if (strlen($password) < 6) {
-    jsonError(400, '密码长度不能少于6位。');
+
+if (empty($username) || empty($password)) {
+    jsonError(400, 'Username and password cannot be empty.');
 }
 
-// 2. Check for existing user
+// Basic username validation (e.g., length, characters)
+if (strlen($username) < 3 || strlen($username) > 30 || !preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
+    jsonError(400, 'Invalid username. Must be 3-30 characters and contain only letters, numbers, and underscores.');
+}
+
+// Basic password validation (e.g., length)
+if (strlen($password) < 8) {
+    jsonError(400, 'Password must be at least 8 characters long.');
+}
+
+// --- Database Interaction ---
 try {
-    $stmt = $pdo->prepare('SELECT id FROM users WHERE email = :email');
-    $stmt->execute(['email' => $email]);
+    $pdo = getDbConnection();
+
+    // Check if username already exists
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+    $stmt->execute([$username]);
     if ($stmt->fetch()) {
-        jsonError(409, '该邮箱已被注册。');
+        jsonError(409, 'Username already exists.');
     }
+
+    // Hash the password
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+    // Insert the new user
+    $stmt = $pdo->prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)");
+    $stmt->execute([$username, $hashedPassword]);
+
+    // --- Success Response ---
+    jsonResponse(201, ['status' => 'success', 'message' => 'User registered successfully.']);
+
 } catch (PDOException $e) {
-    error_log('Database error checking existing user: ' . $e->getMessage());
-    jsonError(500, '注册失败，请稍后再试。');
+    error_log("Registration DB Error: " . $e->getMessage());
+    jsonError(500, 'Database error during registration.');
+} catch (Throwable $e) {
+    error_log("Registration Error: " . $e->getMessage());
+    jsonError(500, 'An unexpected error occurred during registration.');
 }
-
-// 3. Create and save the new user
-try {
-    $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-    $stmt = $pdo->prepare('INSERT INTO users (username, email, password) VALUES (:username, :email, :password)');
-    $stmt->execute([
-        'username' => $email, // Using email as username for now
-        'email' => $email,
-        'password' => $hashedPassword
-    ]);
-    $userId = $pdo->lastInsertId();
-} catch (PDOException $e) {
-    error_log('Database error creating user: ' . $e->getMessage());
-    jsonError(500, '注册失败，请稍后再试。');
-}
-
-// 4. Start session and log in the new user
-$_SESSION['user_id'] = $userId;
-$_SESSION['username'] = $email;
-
-// 5. Return success response
-jsonResponse(201, [
-    'status' => 'success',
-    'data' => [
-        'message' => '注册成功！',
-        'user_id' => $userId
-    ]
-]);

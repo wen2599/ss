@@ -1,58 +1,72 @@
 <?php
-declare(strict_types=1);
+// Included from /api/index.php
 
-// Assumes jsonResponse and jsonError functions are available from index.php
-// Assumes getDbConnection() is available from index.php
+// This script handles user login.
 
+// --- Session Configuration ---
+// It is crucial to start the session to maintain login state.
 if (session_status() === PHP_SESSION_NONE) {
+    // Configure session cookie parameters for security
+    session_set_cookie_params([
+        'lifetime' => 86400, // 24 hours
+        'path' => '/',
+        // 'domain' => '.yourdomain.com', // Set your domain
+        'samesite' => 'Lax' // Or 'Strict', depending on your needs
+        // 'secure' => true, // Only send cookie over HTTPS
+        // 'httponly' => true, // Prevent JavaScript access to the session cookie
+    ]);
     session_start();
 }
 
-$pdo = getDbConnection();
+// --- Input Validation ---
 $input = json_decode(file_get_contents('php://input'), true);
 
-// 1. Basic Validation
-if (!isset($input['email']) || !isset($input['password']) || empty($input['email']) || empty($input['password'])) {
-    jsonError(400, '邮箱和密码不能为空。');
+if (!isset($input['username']) || !isset($input['password'])) {
+    jsonError(400, 'Username and password are required.');
 }
 
-$email = filter_var($input['email'], FILTER_VALIDATE_EMAIL);
-if (!$email) {
-    jsonError(400, '无效的邮箱格式。');
-}
-
+$username = trim($input['username']);
 $password = $input['password'];
 
-// 2. Find user by email
+if (empty($username) || empty($password)) {
+    jsonError(400, 'Username and password cannot be empty.');
+}
+
+// --- Database Interaction ---
 try {
-    $stmt = $pdo->prepare('SELECT id, username, password FROM users WHERE email = :email');
-    $stmt->execute(['email' => $email]);
+    $pdo = getDbConnection();
+
+    // Find the user by username
+    $stmt = $pdo->prepare("SELECT id, username, password_hash FROM users WHERE username = ?");
+    $stmt->execute([$username]);
     $user = $stmt->fetch();
 
-    if (!$user) {
-        jsonError(401, '用户不存在或密码错误。'); // Use a generic message for security
+    // Verify password
+    if (!$user || !password_verify($password, $user['password_hash'])) {
+        jsonError(401, 'Invalid username or password.');
     }
+
+    // --- Session Regeneration & Login ---
+    // Regenerate session ID to prevent session fixation attacks
+    session_regenerate_id(true);
+
+    // Store user information in the session
+    $_SESSION['user_id'] = $user['id'];
+    $_SESSION['username'] = $user['username'];
+
+    // --- Success Response ---
+    jsonResponse(200, [
+        'status' => 'success',
+        'message' => 'Login successful.',
+        'data' => [
+            'username' => $user['username']
+        ]
+    ]);
+
 } catch (PDOException $e) {
-    error_log('Database error finding user: ' . $e->getMessage());
-    jsonError(500, '登录失败，请稍后再试。');
+    error_log("Login DB Error: " . $e->getMessage());
+    jsonError(500, 'Database error during login.');
+} catch (Throwable $e) {
+    error_log("Login Error: " . $e->getMessage());
+    jsonError(500, 'An unexpected error occurred during login.');
 }
-
-// 3. Verify password
-if (!password_verify($password, $user['password'])) {
-    jsonError(401, '用户不存在或密码错误。'); // Use a generic message for security
-}
-
-// 4. Start session and log in user
-session_regenerate_id(true); // Prevent session fixation
-$_SESSION['user_id'] = $user['id'];
-$_SESSION['username'] = $user['username'];
-
-// 5. Return success response
-jsonResponse(200, [
-    'status' => 'success',
-    'data' => [
-        'message' => '登录成功！',
-        'user_id' => $user['id'],
-        'username' => $user['username']
-    ]
-]);

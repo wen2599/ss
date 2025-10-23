@@ -1,12 +1,15 @@
 <?php
-declare(strict_types=1);
+// Included from /api/index.php
 
-// Assumes jsonResponse and jsonError functions are available from index.php
+// This script handles user logout.
 
+// --- Session Start ---
+// A session must be started to access and then destroy it.
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// --- Logout Logic ---
 // Unset all of the session variables.
 $_SESSION = [];
 
@@ -23,7 +26,5 @@ if (ini_get("session.use_cookies")) {
 // Finally, destroy the session.
 session_destroy();
 
-jsonResponse(200, [
-    'status' => 'success',
-    'data' => ['message' => '登出成功！']
-]);
+// --- Success Response ---
+jsonResponse(200, ['status' => 'success', 'message' => 'Logout successful.']);

@@ -1,5 +1,0 @@
-[2025-10-22 08:01:25] Successfully loaded .env file.
-[2025-10-22 08:01:25] Found Bot Token and Backend URL.
-[2025-10-22 08:01:25] Constructed Webhook URL: "https://your-public-backend-url.com"/api/telegram_webhook_handler.php
-[2025-10-22 08:01:25] Calling Telegram API: https://api.telegram.org/bot"YOUR_TELEGRAM_BOT_TOKEN"/setWebhook?url=%22https%3A%2F%2Fyour-public-backend-url.com%22%2Fapi%2Ftelegram_webhook_handler.php
-[2025-10-22 08:01:25] ❌ An error occurred: Telegram API returned an error (HTTP Code: 404). Error 404: Not Found
