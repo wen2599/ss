@@ -61,13 +61,8 @@ set_error_handler('handleError');
 register_shutdown_function(new ShutdownHandler());
 
 
-use Slim\Middleware\BasePathMiddleware;
-
 return function (App $app) {
     // This function will be called from index.php to configure the app
-
-    // Add the BasePathMiddleware to help Slim detect the correct base path
-    $app->add(new BasePathMiddleware($app));
 
     // Add CORS Middleware for actual API requests (preflight is handled above)
     $app->add(new CorsMiddleware([
