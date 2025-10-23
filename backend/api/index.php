@@ -6,13 +6,11 @@ if (isset($_SERVER['REQUEST_METHOD'])) {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
     $allowedOrigins = [
         'https://ss.wenxiuxiu.eu.org',
-        'http://localhost:5173'
+        'http://localhost:5173' // for local development
     ];
 
     if (in_array($origin, $allowedOrigins)) {
         header("Access-Control-Allow-Origin: {$origin}");
-    } else {
-        header("Access-Control-Allow-Origin: https://ss.wenxiuxiu.eu.org");
     }
 
     header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
@@ -21,11 +19,13 @@ if (isset($_SERVER['REQUEST_METHOD'])) {
     header("Access-Control-Max-Age: 86400");
 
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        // Respond with 204 No Content for preflight requests
         http_response_code(204);
         exit;
     }
 }
 // --- END AGGRESSIVE CORS FIX ---
+
 
 // --- Global Error Handling ---
 set_exception_handler(function (Throwable $e) {
