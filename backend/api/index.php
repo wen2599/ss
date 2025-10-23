@@ -1,6 +1,36 @@
 <?php
 declare(strict_types=1);
 
+// --- AGGRESSIVE CORS FIX for shared hosting --- (Place at very top of entry file)
+if (isset($_SERVER[\'REQUEST_METHOD\'])) {
+    // Get the origin of the request
+    $origin = $_SERVER[\'HTTP_ORIGIN\'] ?? \'\';
+    $allowedOrigins = [
+        \'https://ss.wenxiuxiu.eu.org\',
+        \'http://localhost:5173\'
+    ];
+
+    if (in_array($origin, $allowedOrigins)) {
+        header("Access-Control-Allow-Origin: {$origin}");
+    } else {
+        // Fallback or deny if not in allowed origins, or if origin is not sent
+        // In production, you might want to remove this fallback or restrict it further.
+        header("Access-Control-Allow-Origin: https://ss.wenxiuxiu.eu.org");
+    }
+
+    header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    header("Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With, X-Worker-Secret, Accept, Origin");
+    header("Access-Control-Allow-Credentials: true");
+    header("Access-Control-Max-Age: 86400"); // Cache for 1 day
+
+    if ($_SERVER[\'REQUEST_METHOD\'] === \'OPTIONS\') {
+        http_response_code(204); // No Content
+        exit; // Terminate for preflight requests
+    }
+}
+// --- END AGGRESSIVE CORS FIX ---
+
+
 // This file is the single entry point for the entire backend application.
 
 // Use Composer\'s autoloader
