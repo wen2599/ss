@@ -11,7 +11,7 @@ use Slim\Psr7\Response;
 return function (App $app) {
 
     // API group
-    $app->group('/api', function (\Slim\Routing\RouteCollectorProxy $group) {
+    $app->group('/api', function ($group) {
 
         // Health check endpoint
         $group->get('/ping', function (Request $request, Response $response) {
