@@ -117,3 +117,7 @@ storybook-static
 # IDEs
 .vscode/
 .idea/
+
+# Playwright test artifacts
+playwright-report/
+test-results/
