@@ -9,25 +9,28 @@ class LotteryController extends BaseController
     {
         try {
             $pdo = getDbConnection();
-            $stmt = $pdo->query("SELECT `username`, `prize`, `draw_date` FROM `lottery_winners` ORDER BY `draw_date` DESC");
-            $winners = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-            $this->jsonResponse(200, ['status' => 'success', 'data' => $winners]);
+            $sql = "
+                WITH ranked_results AS (
+                    SELECT
+                        *,
+                        ROW_NUMBER() OVER(PARTITION BY lottery_type ORDER BY draw_date DESC) as rn
+                    FROM
+                        lottery_results
+                )
+                SELECT
+                    id, lottery_type, issue_number, winning_numbers, number_colors_json, draw_date
+                FROM
+                    ranked_results
+                WHERE
+                    rn = 1
+                ORDER BY
+                    draw_date DESC";
+            $stmt = $pdo->query($sql);
+            $results = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            $this->jsonResponse(200, ['status' => 'success', 'data' => $results]);
         } catch (\PDOException $e) {
             error_log("Lottery Results DB Error: " . $e->getMessage());
             $this->jsonError(500, 'Database error while fetching lottery results.');
-        }
-    }
-
-    public function getWinners(): void
-    {
-        try {
-            $pdo = getDbConnection();
-            $stmt = $pdo->query("SELECT id, username, prize, draw_date FROM lottery_winners ORDER BY draw_date DESC");
-            $winners = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-            $this->jsonResponse(200, ['status' => 'success', 'data' => $winners]);
-        } catch (\PDOException $e) {
-            error_log("Lottery Winners DB Error: " . $e->getMessage());
-            $this->jsonError(500, 'Database error while fetching lottery winners.');
         }
     }
 }

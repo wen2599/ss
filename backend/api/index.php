@@ -34,7 +34,6 @@ $routes = [
         '/emails' => ['App\Controllers\EmailController', 'list'],
         '/emails/(\d+)' => ['App\Controllers\EmailController', 'get'],
         '/lottery-results' => ['App\Controllers\LotteryController', 'getResults'],
-        '/lottery-winners' => ['App\Controllers\LotteryController', 'getWinners'],
     ],
     'POST' => [
         '/register' => ['App\Controllers\UserController', 'register'],
