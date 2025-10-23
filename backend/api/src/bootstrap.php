@@ -4,9 +4,22 @@ declare(strict_types=1);
 // Immediately handle CORS preflight requests.
 // This ensures that even if the application crashes later, the preflight check succeeds.
 if (isset($_SERVER[\'REQUEST_METHOD\']) && $_SERVER[\'REQUEST_METHOD\'] === \'OPTIONS\') {
-    header("Access-Control-Allow-Origin: *"); // Be more specific in production
+    // Get the origin of the request
+    $origin = $_SERVER[\'HTTP_ORIGIN\'] ?? \'\';
+    $allowedOrigins = [
+        \'https://ss.wenxiuxiu.eu.org\',
+        \'http://localhost:5173\'
+    ];
+
+    if (in_array($origin, $allowedOrigins)) {
+        header("Access-Control-Allow-Origin: {$origin}");
+    } else {
+        // Fallback or deny if not in allowed origins, or if origin is not sent
+        header("Access-Control-Allow-Origin: https://ss.wenxiuxiu.eu.org"); // Default to main frontend
+    }
+
     header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    header("Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With, X-Worker-Secret, Accept, Origin"); // Added Accept, Origin
+    header("Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With, X-Worker-Secret, Accept, Origin");
     header("Access-Control-Allow-Credentials: true");
     header("Access-Control-Max-Age: 86400"); // Cache for 1 day
     http_response_code(204); // No Content
