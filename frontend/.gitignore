@@ -111,6 +111,9 @@ public
 # Storybook project generated files
 storybook-static
 
+# Playwright test results
+test-results/
+
 # Mac files
 .DS_Store
 

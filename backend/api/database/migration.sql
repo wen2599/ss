@@ -32,11 +32,25 @@ CREATE TABLE IF NOT EXISTS `lottery_winners` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Insert Dummy Data for `lottery_winners` (only if not already present)
-INSERT IGNORE INTO `lottery_winners` (`username`, `prize`)
+-- Create the `lottery_results` table
+-- This table stores the results of different lotteries.
+CREATE TABLE IF NOT EXISTS `lottery_results` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `lottery_type` VARCHAR(50) NOT NULL,
+    `issue_number` VARCHAR(50) NOT NULL,
+    `winning_numbers` VARCHAR(255) NOT NULL,
+    `number_colors_json` TEXT,
+    `draw_date` DATETIME NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `type_issue` (`lottery_type`, `issue_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Insert Dummy Data for `lottery_results`
+INSERT IGNORE INTO `lottery_results` (`lottery_type`, `issue_number`, `winning_numbers`, `number_colors_json`, `draw_date`)
 VALUES
-    ('john_doe', 'Grand Prize: A new car!'),
-    ('jane_smith', 'Second Prize: A new phone!'),
-    ('peter_pan', 'Third Prize: A new hat!');
+    ('老澳', '20240101', '01,02,03,04,05,06,07', '{"01":"red","02":"blue","03":"green","04":"red","05":"blue","06":"green","07":"red"}', '2024-01-01 21:30:00'),
+    ('新澳', '20240101', '08,09,10,11,12,13,14', '{"08":"blue","09":"green","10":"red","11":"blue","12":"green","13":"red","14":"blue"}', '2024-01-01 22:30:00'),
+    ('香港', '20240101', '15,16,17,18,19,20,21', '{"15":"green","16":"red","17":"blue","18":"green","19":"red","20":"blue","21":"green"}', '2024-01-01 23:30:00');
 
 
 -- Optional: Add an index to the is_private column for faster querying of public emails
