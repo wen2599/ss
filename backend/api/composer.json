@@ -1,0 +1,11 @@
+{
+    "name": "project/backend-api",
+    "description": "The API for the project.",
+    "type": "project",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    }
+}

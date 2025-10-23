@@ -8,7 +8,6 @@
         <template v-if="isAuthenticated">
           <RouterLink to="/">邮件列表</RouterLink>
           <RouterLink to="/lottery">彩票开奖</RouterLink>
-          <RouterLink to="/lottery-winners">中奖名单</RouterLink>
           <span class="username">欢迎, {{ username }}</span>
           <button @click="handleLogout" class="logout-button">注销</button>
         </template>

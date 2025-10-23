@@ -4,7 +4,6 @@ import EmailDetailView from '../views/EmailDetailView.vue';
 import LoginView from '../views/LoginView.vue';
 import RegisterView from '../views/RegisterView.vue';
 import LotteryView from '../views/LotteryView.vue';
-import LotteryWinnersView from '../views/LotteryWinnersView.vue';
 import { store } from '../store'; // Import the store
 
 const router = createRouter({
@@ -39,12 +38,6 @@ const router = createRouter({
       path: '/lottery',
       name: 'lottery',
       component: LotteryView,
-      meta: { requiresAuth: true } // Mark as a protected route
-    },
-    {
-      path: '/lottery-winners',
-      name: 'lottery-winners',
-      component: LotteryWinnersView,
       meta: { requiresAuth: true } // Mark as a protected route
     }
   ]
