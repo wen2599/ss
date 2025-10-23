@@ -33,8 +33,32 @@ if (isset($_SERVER[\'REQUEST_METHOD\'])) {
 
 // This file is the single entry point for the entire backend application.
 
+// --- Pre-flight Check: PDO Extension ---
+// Eloquent ORM relies on the PDO extension. If it's not installed/enabled,
+// PHP will throw a silent fatal error that bypasses all local error handlers,
+// resulting in an empty response and a CORS error on the frontend.
+// We check for it here to provide a clear error message instead.
+if (!class_exists('PDO') || !in_array('mysql', PDO::getAvailableDrivers())) {
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+        http_response_code(503); // Service Unavailable
+    }
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Critical Server Misconfiguration: The required PDO_MYSQL extension is not enabled. Please contact the server administrator.'
+    ]);
+    exit;
+}
+
+
 // Use Composer\'s autoloader
 require __DIR__ . \'/vendor/autoload.php\';
+
+// Start the session at the very beginning
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 
 use DI\\Container;
 use Slim\\Factory\\AppFactory;
