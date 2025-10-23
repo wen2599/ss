@@ -166,6 +166,14 @@ switch ($requestUri) {
         }
         break;
 
+    case '/lottery-winners':
+        if ($requestMethod === 'GET') {
+            require __DIR__ . '/src/handlers/get_lottery_winners.php';
+        } else {
+            jsonError(405, 'Method Not Allowed');
+        }
+        break;
+
     default:
         jsonError(404, 'Not Found');
         break;
