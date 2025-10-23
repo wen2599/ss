@@ -65,14 +65,13 @@ register_shutdown_function(function () {
     }
 });
 
-// --- Include Database Connection & Migration Functions ---
-require_once __DIR__ . '/database/migration.php';
-
-// --- Run Database Migrations (ensure schema is up-to-date) ---
-// This ensures all necessary tables are created/updated on each request.
-// In a production environment, you might run migrations as part of a deployment script
-// rather than on every request for performance, but for a simple app it's fine.
-runMigrations(getDbConnection());
+// --- Conditionally Include Database and Run Migrations ---
+// We wrap this in a check to ensure that lightweight preflight OPTIONS requests
+// don't needlessly try to connect to the database, which is a common source of failure.
+if ($_SERVER['REQUEST_METHOD'] !== 'OPTIONS') {
+    require_once __DIR__ . '/database/migration.php';
+    runMigrations(getDbConnection());
+}
 
 // --- Simple Router ---
 $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
