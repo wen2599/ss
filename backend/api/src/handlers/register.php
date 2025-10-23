@@ -6,36 +6,36 @@
 // --- Input Validation ---
 $input = json_decode(file_get_contents('php://input'), true);
 
-if (!isset($input['username']) || !isset($input['password'])) {
-    jsonError(400, 'Username and password are required.');
+if (!isset($input['email']) || !isset($input['password'])) {
+    jsonError(400, 'Email and password are required.');
 }
 
-$username = trim($input['username']);
+$email = trim($input['email']);
 $password = $input['password'];
 
-if (empty($username) || empty($password)) {
-    jsonError(400, 'Username and password cannot be empty.');
+if (empty($email) || empty($password)) {
+    jsonError(400, 'Email and password cannot be empty.');
 }
 
-// Basic username validation (e.g., length, characters)
-if (strlen($username) < 3 || strlen($username) > 30 || !preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
-    jsonError(400, 'Invalid username. Must be 3-30 characters and contain only letters, numbers, and underscores.');
+// Basic email validation
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    jsonError(400, 'Invalid email format.');
 }
 
 // Basic password validation (e.g., length)
-if (strlen($password) < 8) {
-    jsonError(400, 'Password must be at least 8 characters long.');
+if (strlen($password) < 6) {
+    jsonError(400, 'Password must be at least 6 characters long.');
 }
 
 // --- Database Interaction ---
 try {
     $pdo = getDbConnection();
 
-    // Check if username already exists
+    // Check if email already exists
     $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
-    $stmt->execute([$username]);
+    $stmt->execute([$email]);
     if ($stmt->fetch()) {
-        jsonError(409, 'Username already exists.');
+        jsonError(409, 'Email already exists.');
     }
 
     // Hash the password
@@ -43,7 +43,7 @@ try {
 
     // Insert the new user
     $stmt = $pdo->prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)");
-    $stmt->execute([$username, $hashedPassword]);
+    $stmt->execute([$email, $hashedPassword]);
 
     // --- Success Response ---
     jsonResponse(201, ['status' => 'success', 'message' => 'User registered successfully.']);

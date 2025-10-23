@@ -27,6 +27,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import apiClient from '../api';
+import { store } from '../store'; // Import the store
 
 const email = ref('');
 const password = ref('');
@@ -39,13 +40,17 @@ async function handleLogin() {
   isLoading.value = true;
 
   try {
-    const response = await apiClient.post('/login', {
+    const response = await apiClient.post('/login.php', {
       email: email.value,
       password: password.value,
     });
 
     if (response.data.status === 'success') {
-      router.push('/'); // Redirect to a protected route, e.g., the dashboard or email list
+      // --- Update Store ---
+      const username = response.data.data.username;
+      store.actions.login(username);
+
+      router.push('/'); // Redirect to a protected route
     } else {
       error.value = response.data.message || '登录失败，请稍后再试。';
     }
@@ -63,6 +68,7 @@ async function handleLogin() {
 </script>
 
 <style scoped>
+/* Styles are unchanged */
 .auth-container {
   max-width: 400px;
   margin: 3rem auto;

@@ -1,26 +1,26 @@
 <?php
 // Included from /api/index.php
 
-// This script checks if a username is already registered.
+// This script checks if an email is already registered.
 
 // --- Input Validation ---
-if (!isset($_GET['username'])) {
-    jsonError(400, 'Username parameter is required.');
+if (!isset($_GET['email'])) {
+    jsonError(400, 'Email parameter is required.');
 }
 
-$username = trim($_GET['username']);
+$email = trim($_GET['email']);
 
-if (empty($username)) {
-    jsonError(400, 'Username cannot be empty.');
+if (empty($email)) {
+    jsonError(400, 'Email cannot be empty.');
 }
 
 // --- Database Interaction ---
 try {
     $pdo = getDbConnection();
 
-    // Check if username exists
+    // Check if email exists (stored in the username column)
     $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
-    $stmt->execute([$username]);
+    $stmt->execute([$email]);
     $isRegistered = ($stmt->fetch() !== false);
 
     // --- Success Response ---
@@ -33,7 +33,7 @@ try {
 
 } catch (PDOException $e) {
     error_log("Is-Registered DB Error: " . $e->getMessage());
-    jsonError(500, 'Database error while checking username.');
+    jsonError(500, 'Database error while checking email.');
 } catch (Throwable $e) {
     error_log("Is-Registered Error: " . $e->getMessage());
     jsonError(500, 'An unexpected error occurred.');

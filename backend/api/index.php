@@ -65,43 +65,14 @@ register_shutdown_function(function () {
     }
 });
 
-// --- Database Connection (PDO) ---
-function getDbConnection(): PDO
-{
-    static $pdo = null;
+// --- Include Database Connection & Migration Functions ---
+require_once __DIR__ . '/database/migration.php';
 
-    if ($pdo === null) {
-        $dbHost = $_ENV['DB_HOST'] ?? 'localhost';
-        $dbName = $_ENV['DB_DATABASE'] ?? '';
-        $dbUser = $_ENV['DB_USERNAME'] ?? '';
-        $dbPass = $_ENV['DB_PASSWORD'] ?? '';
-
-        if (empty($dbName) || empty($dbUser)) {
-            error_log('Database credentials are not set in environment variables.');
-            header('Content-Type: application/json');
-            http_response_code(500);
-            echo json_encode(['status' => 'error', 'message' => 'Server configuration error.']);
-            exit;
-        }
-
-        $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
-        $options = [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
-        ];
-        try {
-            $pdo = new PDO($dsn, $dbUser, $dbPass, $options);
-        } catch (PDOException $e) {
-            error_log("Database connection failed: " . $e->getMessage());
-            header('Content-Type: application/json');
-            http_response_code(503);
-            echo json_encode(['status' => 'error', 'message' => 'Database connection unavailable.']);
-            exit;
-        }
-    }
-    return $pdo;
-}
+// --- Run Database Migrations (ensure schema is up-to-date) ---
+// This ensures all necessary tables are created/updated on each request.
+// In a production environment, you might run migrations as part of a deployment script
+// rather than on every request for performance, but for a simple app it's fine.
+runMigrations(getDbConnection());
 
 // --- Simple Router ---
 $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);

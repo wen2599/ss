@@ -21,29 +21,29 @@ if (session_status() === PHP_SESSION_NONE) {
 // --- Input Validation ---
 $input = json_decode(file_get_contents('php://input'), true);
 
-if (!isset($input['username']) || !isset($input['password'])) {
-    jsonError(400, 'Username and password are required.');
+if (!isset($input['email']) || !isset($input['password'])) {
+    jsonError(400, 'Email and password are required.');
 }
 
-$username = trim($input['username']);
+$email = trim($input['email']);
 $password = $input['password'];
 
-if (empty($username) || empty($password)) {
-    jsonError(400, 'Username and password cannot be empty.');
+if (empty($email) || empty($password)) {
+    jsonError(400, 'Email and password cannot be empty.');
 }
 
 // --- Database Interaction ---
 try {
     $pdo = getDbConnection();
 
-    // Find the user by username
+    // Find the user by email (stored in the username column)
     $stmt = $pdo->prepare("SELECT id, username, password_hash FROM users WHERE username = ?");
-    $stmt->execute([$username]);
+    $stmt->execute([$email]);
     $user = $stmt->fetch();
 
     // Verify password
     if (!$user || !password_verify($password, $user['password_hash'])) {
-        jsonError(401, 'Invalid username or password.');
+        jsonError(401, 'Invalid email or password.');
     }
 
     // --- Session Regeneration & Login ---

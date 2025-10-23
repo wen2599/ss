@@ -1,20 +1,20 @@
 <?php
 // Included from /api/index.php
 
-// This script is a placeholder for fetching lottery results.
+// This script fetches and returns lottery results.
 
-// In the future, this file could contain logic to:
-// 1. Scrape lottery results from an official source.
-// 2. Query a third-party lottery API.
-// 3. Read results from a local file or database that is updated periodically.
+// Establish a database connection (already available via index.php)
+$pdoconn = getDbConnection();
 
-// --- Placeholder Response ---
+// --- Fetch Lottery Winners ---
+$stmt_select = $pdoconn->prepare("SELECT `username`, `prize`, `draw_date` FROM `lottery_winners` ORDER BY `draw_date` DESC");
+$stmt_select->execute();
+$winners = $stmt_select->fetchAll(PDO::FETCH_ASSOC);
+
+// --- API Response ---
 jsonResponse(200, [
     'status' => 'success',
-    'message' => 'Lottery results are not yet implemented.',
-    'data' => [
-        'last_draw' => null,
-        'winning_numbers' => [],
-        'next_draw_date' => null
-    ]
+    'message' => 'Lottery results fetched successfully.',
+    'data' => $winners
 ]);
+?>
