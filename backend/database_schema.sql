@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS `emails` (
     `html_content` LONGTEXT DEFAULT NULL,
     `ai_parsed_json` JSON DEFAULT NULL,
     `worker_secret_provided` BOOLEAN DEFAULT FALSE,
+    `user_id` INT DEFAULT NULL, -- 添加此行
     `received_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

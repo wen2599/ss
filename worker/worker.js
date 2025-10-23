@@ -231,7 +231,12 @@ export default {
         backendUrl.search = url.search;
 
         // Forward the request as-is to the backend.
-        const backendRequest = new Request(backendUrl, request);
+        const backendRequest = new Request(backendUrl, {
+            method: request.method,
+            headers: request.headers,
+            body: request.body, // The original body is a stream
+            duplex: 'half' // Required for streaming bodies
+        });
         return fetch(backendRequest);
     }
 
