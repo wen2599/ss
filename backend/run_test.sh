@@ -15,7 +15,7 @@
 BACKEND_URL="https://wenge.cloudns.ch"
 # --- End of Configuration ---
 
-TARGET_URL="${BACKEND_URL}/api/test_post.php"
+TARGET_URL="${BACKEND_URL}/test_post.php"
 
 echo "Starting server diagnostics..."
 echo "Target URL: ${TARGET_URL}"
