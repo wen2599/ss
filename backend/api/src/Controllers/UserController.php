@@ -65,7 +65,6 @@ class UserController extends BaseController
 
             if ($user && password_verify($password, $user['password_hash'])) {
                 // Start session and regenerate ID
-                session_start();
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $email;
@@ -80,7 +79,6 @@ class UserController extends BaseController
 
     public function logout(): void
     {
-        session_start();
         session_unset();
         session_destroy();
         $this->jsonResponse(200, ['status' => 'success', 'message' => 'Logged out successfully.']);
@@ -88,7 +86,6 @@ class UserController extends BaseController
 
     public function checkAuth(): void
     {
-        session_start();
         if (isset($_SESSION['user_id'])) {
             $this->jsonResponse(200, ['status' => 'success', 'data' => ['isLoggedIn' => true, 'username' => $_SESSION['username']]]);
         } else {
