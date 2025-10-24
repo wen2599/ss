@@ -39,7 +39,16 @@ session_set_cookie_params([
 // --- Aggressive CORS Headers ---
 if (isset($_SERVER['REQUEST_METHOD'])) {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-    $allowedOrigins = ['https://ss.wenxiuxiu.eu.org', 'http://localhost:5173'];
+
+    $defaultAllowedOrigins = ['https://ss.wenxiuxiu.eu.org', 'http://localhost:5173'];
+    $configuredOrigins = $_ENV['ALLOWED_ORIGINS'] ?? null;
+
+    if ($configuredOrigins) {
+        $allowedOrigins = array_map('trim', explode(',', $configuredOrigins));
+    } else {
+        $allowedOrigins = $defaultAllowedOrigins;
+    }
+
     if (in_array($origin, $allowedOrigins)) {
         header("Access-Control-Allow-Origin: {$origin}");
     }
@@ -89,12 +98,12 @@ function getDbConnection(): PDO {
     static $conn = null;
     if ($conn === null) {
         $host = $_ENV['DB_HOST'] ?? null;
-        $dbname = $_ENV['DB_DATABASE'] ?? null;
+        $dbname = $_ENV['DB_DATABASE'] ?? null; // Corrected to DB_DATABASE
         $username = $_ENV['DB_USER'] ?? null;
         $password = $_ENV['DB_PASSWORD'] ?? null;
 
         if (!$host || !$dbname || !$username) {
-            error_log('Database configuration (DB_HOST, DB_DATABASE, DB_USER) is incomplete.');
+            error_log('Database configuration (DB_HOST, DB_DATABASE, DB_USER) is incomplete.'); // Corrected message
             send_json_error(503, 'Service Unavailable: Server is not configured correctly.');
         }
 

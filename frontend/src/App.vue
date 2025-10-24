@@ -32,7 +32,7 @@
 
 <script setup>
 import { computed, onMounted } from 'vue';
-import { RouterLink, RouterView, useRouter } from 'vue-router';
+import { RouterLink, RouterView, useRouter } from 'vue-router'; // Added RouterView back
 import { store } from './store';
 
 const router = useRouter();

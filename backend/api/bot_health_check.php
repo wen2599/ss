@@ -1,69 +1,58 @@
 <?php
-header('Content-Type: text/plain; charset=utf-8');
+// A simple CLI script to check the health of the Telegram Bot.
 
-echo "--- Telegram Bot Health Check ---\n\n";
-
-// --- 1. Bootstrap for Environment Variables ---
-// We need to load the .env file to get the bot token.
+// --- 1. Bootstrap the Application ---
+// This includes environment variables, database connection, and error handling.
 require_once __DIR__ . '/bootstrap.php';
+echo "--- Telegram Bot Health Check ---\n\n";
 echo "[INFO] Application bootstrapped.\n";
+
 
 // --- 2. Check Environment Variables ---
 echo "\n--- Checking Environment Variables ---\n";
 $botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
-$channelId = $_ENV['LOTTERY_CHANNEL_ID'] ?? null;
+$channelId = $_ENV['TELEGRAM_CHANNEL_ID'] ?? null; // CORRECTED from LOTTERY_CHANNEL_ID
 
 if ($botToken) {
     echo "[OK] TELEGRAM_BOT_TOKEN is set.\n";
 } else {
-    echo "[ERROR] TELEGRAM_BOT_TOKEN is NOT set. The bot cannot function without this.\n";
+    echo "[ERROR] TELEGRAM_BOT_TOKEN is NOT set. This is a fatal error.\n";
+    exit(1);
 }
 
 if ($channelId) {
-    echo "[OK] LOTTERY_CHANNEL_ID is set.\n";
+    echo "[OK] TELEGRAM_CHANNEL_ID is set.\n";
 } else {
-    echo "[WARNING] LOTTERY_CHANNEL_ID is NOT set. The bot will not be able to parse results from the channel.\n";
+    echo "[WARNING] TELEGRAM_CHANNEL_ID is NOT set. The bot will not be able to parse results from the channel.\n";
 }
 
-if (!$botToken) {
-    echo "\n[FATAL] Cannot proceed without a bot token. Please check your .env file.\n";
-    exit;
-}
 
-// --- 3. Check Webhook Status via Telegram API ---
+// --- 3. Check Telegram API Connection ---
 echo "\n--- Checking Telegram Webhook Status ---\n";
+$url = "https://api.telegram.org/bot{$botToken}/getWebhookInfo";
+$response = @file_get_contents($url);
 
-$apiUrl = "https://api.telegram.org/bot{$botToken}/getWebhookInfo";
+if ($response === false) {
+    echo "[ERROR] Could not connect to the Telegram API. Check network or firewall settings.\n";
+    exit(1);
+}
 
-try {
-    $responseJson = file_get_contents($apiUrl);
-    if ($responseJson === false) {
-        throw new Exception("Failed to connect to the Telegram API. Check server's internet connection or DNS settings.");
-    }
+$data = json_decode($response, true);
+if (!$data || ($data['ok'] ?? false) !== true) {
+    echo "[ERROR] Invalid response from Telegram API: " . ($data['description'] ?? 'Unknown error') . "\n";
+    exit(1);
+}
+echo "[SUCCESS] Successfully connected to the Telegram API.\n\n";
 
-    $response = json_decode($responseJson, true);
+// --- 4. Display Webhook Info ---
+$webhookInfo = $data['result'];
+echo "Webhook URL: " . ($webhookInfo['url'] ?: 'Not Set') . "\n";
+echo "Has Custom Certificate: " . ($webhookInfo['has_custom_certificate'] ? 'Yes' : 'No') . "\n";
+echo "Pending Update Count: " . ($webhookInfo['pending_update_count'] ?? 0) . "\n";
 
-    if (isset($response['ok']) && $response['ok'] === true) {
-        echo "[SUCCESS] Successfully connected to the Telegram API.\n\n";
-        $info = $response['result'];
-        echo "Webhook URL: " . ($info['url'] ?: "Not Set") . "\n";
-        echo "Has Custom Certificate: " . ($info['has_custom_certificate'] ? 'Yes' : 'No') . "\n";
-        echo "Pending Update Count: " . $info['pending_update_count'] . "\n";
-
-        if (isset($info['last_error_date'])) {
-            echo "Last Error Date: " . date('Y-m-d H:i:s', $info['last_error_date']) . "\n";
-            echo "Last Error Message: " . ($info['last_error_message'] ?? "N/A") . "\n";
-        } else {
-            echo "Last Error: None reported.\n";
-        }
-
-    } else {
-        echo "[ERROR] Telegram API returned an error.\n";
-        echo "Response: " . $responseJson . "\n";
-    }
-
-} catch (Exception $e) {
-    echo "[FATAL] An exception occurred while contacting the Telegram API: " . $e->getMessage() . "\n";
+if (isset($webhookInfo['last_error_date'])) {
+    echo "Last Error Date: " . date('Y-m-d H:i:s', $webhookInfo['last_error_date']) . "\n";
+    echo "Last Error Message: " . ($webhookInfo['last_error_message'] ?? 'None') . "\n";
 }
 
 echo "\n--- Health Check Complete ---\n";

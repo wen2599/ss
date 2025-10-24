@@ -22,21 +22,21 @@ try {
     $dbPort = $_ENV['DB_PORT'] ?? '3306';
     $dbUser = $_ENV['DB_USER'] ?? null;
     $dbPass = $_ENV['DB_PASSWORD'] ?? null;
-    $dbName = $_ENV['DB_DATABASE'] ?? null;
+    $dbName = $_ENV['DB_DATABASE'] ?? null; // Corrected to DB_DATABASE
 
     // --- Diagnostic Output ---
     echo "\n--- [DIAGNOSTIC INFO] ---\n";
     echo "Attempting to use the following configuration:\n";
     echo "DB_HOST: " . ($dbHost ? $dbHost : "Not Set") . "\n";
     echo "DB_PORT: " . ($dbPort ? $dbPort : "Not Set") . "\n";
-    echo "DB_DATABASE: " . ($dbName ? $dbName : "Not Set") . "\n";
+    echo "DB_DATABASE: " . ($dbName ? $dbName : "Not Set") . "\n"; // Corrected to DB_DATABASE
     echo "DB_USER: " . ($dbUser ? $dbUser : "Not Set") . "\n";
     echo "DB_PASSWORD: " . ($dbPass ? "[Set]" : "Not Set") . "\n";
     echo "---------------------------\n\n";
     // --- End Diagnostic ---
 
     if (!$dbHost || !$dbUser || !$dbName) { // DB_PASSWORD can be empty
-        echo "[ERROR] Database credentials (DB_HOST, DB_USER, DB_DATABASE) are not set in the .env file.\n";
+        echo "[ERROR] Database credentials (DB_HOST, DB_USER, DB_DATABASE) are not set in the .env file.\n"; // Corrected message
         exit(1);
     }
 

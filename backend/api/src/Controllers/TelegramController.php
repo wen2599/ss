@@ -21,8 +21,13 @@ class TelegramController extends BaseController {
     public function __construct()
     {
         $this->botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
-        $this->channelId = $_ENV['LOTTERY_CHANNEL_ID'] ?? null;
+        $this->channelId = $_ENV['TELEGRAM_CHANNEL_ID'] ?? null; // Corrected from LOTTERY_CHANNEL_ID
         $this->adminId = $_ENV['TELEGRAM_ADMIN_ID'] ?? null;
+
+        if (!$this->botToken || !$this->channelId || !$this->adminId) {
+            error_log('Telegram Bot configuration (TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL_ID, TELEGRAM_ADMIN_ID) is incomplete.');
+            send_json_error(503, 'Service Unavailable: Telegram Bot is not configured correctly.');
+        }
     }
 
     public function handleWebhook(array $update): void
@@ -46,7 +51,7 @@ class TelegramController extends BaseController {
             if ($this->adminId) {
                 $debugMessage = "Received a message from an unexpected channel.\n\n";
                 $debugMessage .= "Chat ID: `{$chatId}`\n";
-                $debugMessage .= "Configured LOTTERY_CHANNEL_ID: `{$this->channelId}`\n\n";
+                $debugMessage .= "Configured TELEGRAM_CHANNEL_ID: `{$this->channelId}`\n\n";
                 $debugMessage .= "Please update your .env file with the correct Chat ID if this is the lottery channel.";
                 $this->sendMessage($this->adminId, $debugMessage, 'MarkdownV2');
             }
@@ -98,9 +103,16 @@ class TelegramController extends BaseController {
 
     private function sendMessage(string $chatId, string $text, string $parseMode = null): void
     {
-        if (!$this->botToken) return;
+        if (!$this->botToken) {
+            error_log('Telegram Bot Token is not set. Cannot send message.');
+            return;
+        }
+
         $url = "https://api.telegram.org/bot{$this->botToken}/sendMessage";
-        $payload = ['chat_id' => $chatId, 'text' => $text];
+        $payload = [
+            'chat_id' => $chatId,
+            'text' => $text,
+        ];
         if ($parseMode) {
             $payload['parse_mode'] = $parseMode;
         }
@@ -110,11 +122,36 @@ class TelegramController extends BaseController {
                 'header' => "Content-type: application/json\r\n",
                 'method' => 'POST',
                 'content' => json_encode($payload),
-                'ignore_errors' => true
+                'ignore_errors' => true // This allows us to get the response even on HTTP errors.
             ]
         ];
         $context = stream_context_create($options);
-        file_get_contents($url, false, $context);
+
+        $result = @file_get_contents($url, false, $context);
+
+        if ($result === false) {
+            error_log("Failed to send Telegram message to chat ID {$chatId}: Network error or unreachable Telegram API.");
+            return;
+        }
+
+        // Check HTTP response headers for status code
+        if (isset($http_response_header)) {
+            $statusCode = 0;
+            foreach ($http_response_header as $header) {
+                if (preg_match('/^HTTP\/\d\.\d\s+(\d+)/i', $header, $matches)) {
+                    $statusCode = (int)$matches[1];
+                    break;
+                }
+            }
+
+            if ($statusCode !== 200) {
+                $responseContent = json_decode($result, true);
+                $errorMessage = $responseContent['description'] ?? 'Unknown Telegram API error';
+                error_log("Failed to send Telegram message to chat ID {$chatId}. HTTP Status: {$statusCode}. Error: {$errorMessage}");
+            }
+        } else {
+            error_log("Failed to send Telegram message to chat ID {$chatId}: Could not retrieve HTTP response headers.");
+        }
     }
 
     private function getZodiac(string $number): ?string
