@@ -6,7 +6,8 @@ declare(strict_types=1);
     if (defined('ENV_LOADED') && ENV_LOADED) {
         return;
     }
-    $envPath = __DIR__ . '/../.env';
+    // Correct the path to look in the project root, which is two levels up from __DIR__.
+    $envPath = __DIR__ . '/../../.env';
     if (file_exists($envPath)) {
         $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
