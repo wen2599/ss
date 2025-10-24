@@ -97,7 +97,7 @@ class UserController extends BaseController
     {
         // 1. Security Check: Verify worker secret
         $workerSecret = $_GET['worker_secret'] ?? null;
-        $expectedSecret = $_ENV['EMAIL_HANDLER_SECRET'] ?? null;
+        $expectedSecret = $_ENV['WORKER_SECRET'] ?? null;
 
         if (!$workerSecret || !$expectedSecret || $workerSecret !== $expectedSecret) {
             $this->jsonResponse(403, ['status' => 'error', 'message' => 'Forbidden: Invalid or missing secret.']);

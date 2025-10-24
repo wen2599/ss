@@ -32,13 +32,10 @@
     previews = {
       enable = true;
       previews = {
+        # This preview is now your public-facing test server for the PHP backend.
         web = {
-          command = ["npm", "--prefix", "frontend", "run", "dev"];
+          command = ["php", "-S", "0.0.0.0:$PORT", "-t", "backend/api"];
           manager = "web";
-        };
-        backend = {
-          command = ["php", "-S", "127.0.0.1:8080", "-t", "backend/api"];
-          manager = "process";
         };
       };
     };

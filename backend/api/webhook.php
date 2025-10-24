@@ -31,18 +31,18 @@ use App\Controllers\TelegramController;
 
 // --- Environment & Security ---
 $botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
-$secretToken = $_ENV['TELEGRAM_SECRET_TOKEN'] ?? null;
+$webhookSecret = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? null;
 $channelId = $_ENV['TELEGRAM_CHANNEL_ID'] ?? null;
 $adminId = $_ENV['TELEGRAM_ADMIN_ID'] ?? null;
 
-if (!$botToken || !$secretToken || !$channelId) {
-    error_log("FATAL: Missing required environment variables (TELEGRAM_BOT_TOKEN, TELEGRAM_SECRET_TOKEN, or TELEGRAM_CHANNEL_ID).");
+if (!$botToken || !$webhookSecret || !$channelId) {
+    error_log("FATAL: Missing required environment variables (TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, or TELEGRAM_CHANNEL_ID).");
     http_response_code(500);
     exit('Configuration Error');
 }
 
 $telegram_header = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
-if ($secretToken !== $telegram_header) {
+if ($webhookSecret !== $telegram_header) {
     error_log("CRITICAL: Unauthorized webhook access attempt.");
     http_response_code(403);
     exit('Forbidden');
