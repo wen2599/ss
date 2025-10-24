@@ -1,29 +1,69 @@
 <template>
-  <div class="auth-container">
-    <h2>创建新账户</h2>
-    <form @submit.prevent="handleRegister">
-      <div class="form-group">
-        <label for="reg-email">邮箱</label>
-        <input id="reg-email" v-model="email" type="email" placeholder="请输入您的邮箱" required autocomplete="email" />
-      </div>
-      <div class="form-group">
-        <label for="reg-password">密码</label>
-        <input id="reg-password" v-model="password" type="password" placeholder="请输入至少6位密码" required autocomplete="new-password" />
-      </div>
-      <div class="form-group">
-        <label for="reg-confirm-password">确认密码</label>
-        <input id="reg-confirm-password" v-model="confirmPassword" type="password" placeholder="请再次输入密码" required autocomplete="new-password" />
-      </div>
+  <div class="bg-gray-100 dark:bg-gray-900 min-h-screen flex flex-col items-center justify-center px-4">
+    <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 sm:p-8">
+      <h2 class="text-2xl font-bold text-center text-gray-900 dark:text-white mb-6">
+        创建新账户
+      </h2>
 
-      <div v-if="error" class="error-message">{{ error }}</div>
+      <form @submit.prevent="handleRegister" class="space-y-6">
+        <div>
+          <label for="reg-email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">邮箱</label>
+          <input 
+            id="reg-email" 
+            v-model="email" 
+            type="email" 
+            placeholder="name@example.com" 
+            required 
+            autocomplete="email"
+            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+          />
+        </div>
 
-      <button type="submit" :disabled="isLoading">
-        {{ isLoading ? '注册中...' : '注册' }}
-      </button>
-    </form>
-    <p class="auth-switch">
-      已有账户？ <router-link to="/login">立即登录</router-link>
-    </p>
+        <div>
+          <label for="reg-password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">密码</label>
+          <input 
+            id="reg-password" 
+            v-model="password" 
+            type="password" 
+            placeholder="请输入至少6位密码" 
+            required 
+            autocomplete="new-password"
+            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+          />
+        </div>
+
+        <div>
+          <label for="reg-confirm-password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">确认密码</label>
+          <input 
+            id="reg-confirm-password" 
+            v-model="confirmPassword" 
+            type="password" 
+            placeholder="请再次输入密码" 
+            required 
+            autocomplete="new-password"
+            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+          />
+        </div>
+
+        <!-- Display registration error message -->
+        <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative text-sm" role="alert">
+          {{ error }}
+        </div>
+
+        <button 
+          type="submit" 
+          :disabled="isLoading"
+          class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-3 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {{ isLoading ? '注册中...' : '注 册' }}
+        </button>
+
+        <p class="text-sm font-medium text-gray-500 dark:text-gray-400 text-center">
+          已有账户？ 
+          <router-link to="/login" class="text-blue-700 hover:underline dark:text-blue-500">立即登录</router-link>
+        </p>
+      </form>
+    </div>
   </div>
 </template>
 
@@ -80,80 +120,4 @@ async function handleRegister() {
 }
 </script>
 
-<style scoped>
-.auth-container {
-  max-width: 400px;
-  margin: 3rem auto;
-  padding: 2rem;
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e7e7e7;
-}
-h2 {
-  text-align: center;
-  color: #333;
-  margin-bottom: 1.5rem;
-}
-.form-group {
-  margin-bottom: 1.25rem;
-}
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  color: #555;
-  font-weight: 500;
-}
-input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box; /* Important for consistent sizing */
-  transition: border-color 0.2s;
-}
-input:focus {
-  border-color: #007bff;
-  outline: none;
-}
-button {
-  width: 100%;
-  padding: 0.85rem;
-  border: none;
-  background-color: #007bff;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 600;
-  transition: background-color 0.2s;
-}
-button:hover {
-  background-color: #0056b3;
-}
-button:disabled {
-  background-color: #a0a0a0;
-  cursor: not-allowed;
-}
-.error-message {
-  color: #e74c3c;
-  background-color: #fdd;
-  padding: 0.75rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-  text-align: center;
-}
-.auth-switch {
-  text-align: center;
-  margin-top: 1.5rem;
-  color: #555;
-}
-.auth-switch a {
-  color: #007bff;
-  text-decoration: none;
-  font-weight: 500;
-}
-.auth-switch a:hover {
-  text-decoration: underline;
-}
-</style>
+<!-- No <style> block is needed as all styles are handled by Tailwind CSS utility classes -->

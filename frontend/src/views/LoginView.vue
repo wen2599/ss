@@ -1,26 +1,61 @@
 <template>
-  <div class="auth-container">
-    <h2>登录</h2>
-    <form @submit.prevent="handleLogin">
-      <div class="form-group">
-        <label for="login-email">邮箱</label>
-        <input id="login-email" v-model="email" type="email" placeholder="请输入您的邮箱" required autocomplete="email" />
-      </div>
-      <div class="form-group">
-        <label for="login-password">密码</label>
-        <input id="login-password" v-model="password" type="password" placeholder="请输入您的密码" required autocomplete="current-password" />
+  <div class="bg-gray-100 dark:bg-gray-900 min-h-screen flex flex-col items-center justify-center px-4">
+    <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 sm:p-8">
+      <h2 class="text-2xl font-bold text-center text-gray-900 dark:text-white mb-6">
+        登录您的账户
+      </h2>
+
+      <!-- Display registration success message -->
+      <div v-if="successMessage" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg relative mb-6 text-sm" role="alert">
+        {{ successMessage }}
       </div>
 
-      <div v-if="error" class="error-message">{{ error }}</div>
-      <div v-if="successMessage" class="success-message">{{ successMessage }}</div>
+      <form @submit.prevent="handleLogin" class="space-y-6">
+        <div>
+          <label for="login-email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">邮箱</label>
+          <input 
+            id="login-email" 
+            v-model="email" 
+            type="email" 
+            placeholder="name@example.com" 
+            required 
+            autocomplete="email"
+            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+          />
+        </div>
 
-      <button type="submit" :disabled="isLoading">
-        {{ isLoading ? '登录中...' : '登录' }}
-      </button>
-    </form>
-    <p class="auth-switch">
-      还没有账户？ <router-link to="/register">立即注册</router-link>
-    </p>
+        <div>
+          <label for="login-password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">密码</label>
+          <input 
+            id="login-password" 
+            v-model="password" 
+            type="password" 
+            placeholder="••••••••" 
+            required 
+            autocomplete="current-password"
+            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+          />
+        </div>
+
+        <!-- Display login error message -->
+        <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative text-sm" role="alert">
+          {{ error }}
+        </div>
+
+        <button 
+          type="submit" 
+          :disabled="isLoading"
+          class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-3 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {{ isLoading ? '登录中...' : '登 录' }}
+        </button>
+
+        <p class="text-sm font-medium text-gray-500 dark:text-gray-400 text-center">
+          还没有账户？ 
+          <router-link to="/register" class="text-blue-700 hover:underline dark:text-blue-500">立即注册</router-link>
+        </p>
+      </form>
+    </div>
   </div>
 </template>
 
@@ -76,89 +111,4 @@ async function handleLogin() {
 }
 </script>
 
-<style scoped>
-/* Styles are unchanged */
-.auth-container {
-  max-width: 400px;
-  margin: 3rem auto;
-  padding: 2rem;
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e7e7e7;
-}
-h2 {
-  text-align: center;
-  color: #333;
-  margin-bottom: 1.5rem;
-}
-.form-group {
-  margin-bottom: 1.25rem;
-}
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  color: #555;
-  font-weight: 500;
-}
-input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-  transition: border-color 0.2s;
-}
-input:focus {
-  border-color: #007bff;
-  outline: none;
-}
-button {
-  width: 100%;
-  padding: 0.85rem;
-  border: none;
-  background-color: #007bff;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 600;
-  transition: background-color 0.2s;
-}
-button:hover {
-  background-color: #0056b3;
-}
-button:disabled {
-  background-color: #a0a0a0;
-  cursor: not-allowed;
-}
-.error-message {
-  color: #e74c3c;
-  background-color: #fdd;
-  padding: 0.75rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-  text-align: center;
-}
-.success-message {
-  color: #2ecc71;
-  background-color: #eafaf1;
-  padding: 0.75rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-  text-align: center;
-}
-.auth-switch {
-  text-align: center;
-  margin-top: 1.5rem;
-  color: #555;
-}
-.auth-switch a {
-  color: #007bff;
-  text-decoration: none;
-  font-weight: 500;
-}
-.auth-switch a:hover {
-  text-decoration: underline;
-}
-</style>
+<!-- No <style> block is needed as all styles are handled by Tailwind CSS utility classes -->

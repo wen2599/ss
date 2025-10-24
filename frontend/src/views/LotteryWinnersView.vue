@@ -1,29 +1,48 @@
 <template>
-  <div class="lottery-winners-view">
-    <h1>Lottery Winners</h1>
-    <div v-if="loading" class="loading">Loading...</div>
-    <div v-if="error" class="error">{{ error }}</div>
-    <div v-if="winners.length > 0" class="winners-list">
-      <table>
-        <thead>
-          <tr>
-            <th>Username</th>
-            <th>Prize</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="winner in winners" :key="winner.id">
-            <td>{{ winner.username }}</td>
-            <td>{{ winner.prize }}</td>
-            <td>{{ new Date(winner.draw_date).toLocaleString() }}</td>
-          </tr>
-        </tbody>
-      </table>
+  <div class="w-full max-w-4xl mx-auto">
+    
+    <!-- Page Title -->
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">中奖名单</h1>
+
+    <!-- Loading State -->
+    <div v-if="loading" class="text-center py-12">
+      <p class="text-lg text-gray-500 dark:text-gray-400">正在加载中奖名单...</p>
     </div>
-    <div v-else-if="!loading && !error">
-      <p>No lottery winners to display at the moment.</p>
+
+    <!-- Error State -->
+    <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-center">
+      {{ error }}
     </div>
+
+    <!-- No Winners State -->
+    <div v-if="!loading && winners.length === 0 && !error" class="text-center py-12">
+      <p class="text-lg text-gray-500 dark:text-gray-400">目前暂无中奖者信息。</p>
+    </div>
+
+    <!-- Winners Table -->
+    <div v-if="!loading && winners.length > 0" class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <!-- Table Head -->
+          <thead class="bg-gray-50 dark:bg-gray-700">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">用户名</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">奖项</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">中奖日期</th>
+            </tr>
+          </thead>
+          <!-- Table Body -->
+          <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+            <tr v-for="winner in winners" :key="winner.id" class="hover:bg-gray-100 dark:hover:bg-gray-700/50">
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ winner.username }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{{ winner.prize }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{{ new Date(winner.draw_date).toLocaleString() }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -45,63 +64,11 @@ onMounted(async () => {
     }
   } catch (err) {
     console.error('Error fetching lottery winners:', err);
-    error.value = 'Could not load lottery winners. Please try again later.';
+    error.value = '无法加载中奖名单，请稍后再试。';
   } finally {
     loading.value = false;
   }
 });
 </script>
 
-<style scoped>
-.lottery-winners-view {
-  max-width: 800px;
-  margin: 2rem auto;
-  padding: 2rem;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-h1 {
-  text-align: center;
-  margin-bottom: 2rem;
-  color: #333;
-}
-
-.loading, .error {
-  text-align: center;
-  font-size: 1.2rem;
-  padding: 1rem;
-}
-
-.error {
-  color: #d9534f;
-  background-color: #f2dede;
-  border: 1px solid #ebccd1;
-  border-radius: 4px;
-}
-
-.winners-list table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.winners-list th, .winners-list td {
-  border: 1px solid #ddd;
-  padding: 12px;
-  text-align: left;
-}
-
-.winners-list th {
-  background-color: #f2f2f2;
-  font-weight: bold;
-}
-
-.winners-list tr:nth-child(even) {
-  background-color: #f9f9f9;
-}
-
-.winners-list tr:hover {
-  background-color: #f1f1f1;
-}
-</style>
+<!-- No style block needed, all handled by Tailwind CSS -->

@@ -1,38 +1,73 @@
 <template>
-  <div id="app-container">
-    <header class="app-header">
-      <div class="logo">
-        <RouterLink to="/">🏆 开奖中心</RouterLink>
-      </div>
-      <nav class="main-nav">
-        <template v-if="isAuthenticated">
-          <RouterLink to="/lottery">开奖结果</RouterLink>
-          <RouterLink to="/lottery-winners">中奖名单</RouterLink>
-          <div class="user-info">
-            <span>{{ username }}</span>
-            <button @click="handleLogout" class="button-logout">注销</button>
+  <!-- Main container with a light/dark background -->
+  <div class="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+
+    <!-- Header/Navigation Bar -->
+    <header class="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-50">
+      <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <!-- Logo/Brand Name -->
+          <div class="flex-shrink-0">
+            <RouterLink to="/" class="text-2xl font-bold text-blue-600 dark:text-blue-500">
+              🏆 开奖中心
+            </RouterLink>
           </div>
-        </template>
-        <template v-else>
-          <RouterLink to="/login">登录</RouterLink>
-          <RouterLink to="/register">注册</RouterLink>
-        </template>
+
+          <!-- Desktop Navigation Links -->
+          <div class="hidden md:flex items-center space-x-8">
+            <template v-if="isAuthenticated">
+              <RouterLink to="/lottery" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700" active-class="font-semibold text-blue-600 dark:text-blue-500">开奖结果</RouterLink>
+              <RouterLink to="/lottery-winners" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700" active-class="font-semibold text-blue-600 dark:text-blue-500">中奖名单</RouterLink>
+              <div class="flex items-center space-x-4">
+                <span class="text-sm font-medium">欢迎, {{ username }}</span>
+                <button @click="handleLogout" class="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700">
+                  注销
+                </button>
+              </div>
+            </template>
+            <template v-else>
+              <RouterLink to="/login" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700" active-class="font-semibold text-blue-600 dark:text-blue-500">登录</RouterLink>
+              <RouterLink to="/register" class="px-4 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                注册
+              </RouterLink>
+            </template>
+          </div>
+          
+          <!-- Simplified Mobile Menu -->
+          <div class="md:hidden flex items-center">
+             <template v-if="isAuthenticated">
+                 <span class="text-sm mr-4">{{ username }}</span>
+                 <button @click="handleLogout" class="px-3 py-1.5 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700">
+                  注销
+                </button>
+             </template>
+             <template v-else>
+                <RouterLink to="/login" class="px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700">登录</RouterLink>
+             </template>
+          </div>
+
+        </div>
       </nav>
     </header>
 
-    <main class="main-content">
+    <!-- Main Content Area -->
+    <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <RouterView />
     </main>
 
-    <footer class="app-footer">
-      <p>&copy; {{ new Date().getFullYear() }} 开奖中心. All Rights Reserved.</p>
+    <!-- Footer -->
+    <footer class="bg-white dark:bg-gray-800 shadow-inner mt-auto">
+      <div class="container mx-auto py-4 px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-500 dark:text-gray-400">
+        <p>&copy; {{ new Date().getFullYear() }} 开奖中心. All Rights Reserved.</p>
+      </div>
     </footer>
+
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted } from 'vue';
-import { RouterLink, RouterView, useRouter } from 'vue-router'; // Added RouterView back
+import { RouterLink, RouterView, useRouter } from 'vue-router';
 import { store } from './store';
 
 const router = useRouter();
@@ -54,93 +89,4 @@ function handleLogout() {
 }
 </script>
 
-<style scoped>
-#app-container {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-.app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 2.5rem;
-  background-color: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.logo a {
-  font-size: 1.7rem;
-  font-weight: 700;
-  color: var(--color-primary);
-  text-decoration: none;
-}
-
-.main-nav {
-  display: flex;
-  align-items: center;
-  gap: 2rem;
-}
-
-.main-nav a {
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  font-size: 1rem;
-  font-weight: 500;
-  padding-bottom: 5px;
-  border-bottom: 2px solid transparent;
-  transition: color 0.3s ease, border-color 0.3s ease;
-}
-
-.main-nav a:hover {
-  color: var(--color-text-primary);
-}
-
-/* Style for the active route link */
-.main-nav a.router-link-exact-active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-left: 1rem;
-  color: var(--color-text-primary);
-}
-
-.button-logout {
-  background: transparent;
-  border: 1px solid var(--color-primary);
-  color: var(--color-primary);
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-.button-logout:hover {
-  background-color: var(--color-primary);
-  color: var(--color-background);
-}
-
-.main-content {
-  flex-grow: 1;
-}
-
-.app-footer {
-  padding: 1.5rem 2.5rem;
-  text-align: center;
-  color: var(--color-text-secondary);
-  background-color: var(--color-surface);
-  border-top: 1px solid var(--color-border);
-  font-size: 0.9rem;
-  margin-top: auto; /* Pushes footer to the bottom */
-}
-</style>
+<!-- No style block needed -->

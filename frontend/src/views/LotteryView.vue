@@ -1,31 +1,59 @@
 <template>
-  <div class="lottery-view">
-    <div v-if="isLoading" class="status-message loading">正在加载最新开奖结果...</div>
-    <div v-if="error" class="status-message error-message">{{ error }}</div>
+  <div class="w-full max-w-4xl mx-auto">
+    
+    <!-- Page Title -->
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">开奖结果</h1>
 
-    <div v-if="!isLoading && results.length === 0 && !error" class="status-message no-results">
-      暂无开奖结果可显示。
+    <!-- Loading State -->
+    <div v-if="isLoading" class="text-center py-12">
+      <p class="text-lg text-gray-500 dark:text-gray-400">正在加载最新开奖结果...</p>
     </div>
 
-    <div v-for="result in results" :key="result.id" class="lottery-banner">
-      <div class="banner-header">
-        <h1>{{ result.lottery_type }}</h1>
-        <p class="issue-number">第 {{ result.issue_number }} 期</p>
-      </div>
-      <div class="banner-body">
-        <div class="winning-numbers-grid">
-          <div v-for="number in result.winning_numbers.split(',')" :key="number" class="number-display">
-            <span class="number-value">{{ number }}</span>
-            <span class="number-details">
-              {{ getNumberDetails(result.number_colors_json, number) }}
-            </span>
+    <!-- Error State -->
+    <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-center">
+      {{ error }}
+    </div>
+
+    <!-- No Results State -->
+    <div v-if="!isLoading && results.length === 0 && !error" class="text-center py-12">
+      <p class="text-lg text-gray-500 dark:text-gray-400">暂无开奖结果可显示。</p>
+    </div>
+
+    <!-- Lottery Results Cards -->
+    <div v-if="!isLoading && results.length > 0" class="space-y-8">
+      <div v-for="result in results" :key="result.id" class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        
+        <!-- Card Header -->
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700">
+          <div class="flex justify-between items-center">
+            <h2 class="text-2xl font-semibold text-gray-800 dark:text-white">{{ result.lottery_type }}</h2>
+            <span class="px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-300">第 {{ result.issue_number }} 期</span>
           </div>
         </div>
-      </div>
-      <div class="banner-footer">
-        <p>开奖日期: {{ new Date(result.draw_date).toLocaleString() }}</p>
+
+        <!-- Card Body with Winning Numbers -->
+        <div class="p-5">
+          <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-4 text-center">
+            <div 
+              v-for="number in result.winning_numbers.split(',')" 
+              :key="number" 
+              class="flex flex-col items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg"
+            >
+              <span class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ number }}</span>
+              <span class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                {{ getNumberDetails(result.number_colors_json, number) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card Footer -->
+        <div class="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 text-right">
+          <p class="text-sm text-gray-500 dark:text-gray-400">开奖日期: {{ new Date(result.draw_date).toLocaleString() }}</p>
+        </div>
       </div>
     </div>
+
   </div>
 </template>
 
@@ -40,11 +68,15 @@ const error = ref(null);
 const getNumberDetails = (json, number) => {
   if (!json) return '';
   try {
-    const data = JSON.parse(json);
+    // In some cases, the JSON string might be wrapped in quotes, so we parse it twice.
+    const parsedOnce = JSON.parse(json);
+    const data = typeof parsedOnce === 'string' ? JSON.parse(parsedOnce) : parsedOnce;
+    
     const details = data[number];
     return details ? `${details.zodiac} / ${details.color}` : '';
   } catch (e) {
-    return '';
+    console.error("Failed to parse number details JSON:", e, "Original JSON:", json);
+    return ''; // Return empty string on parsing failure
   }
 };
 
@@ -64,65 +96,4 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped>
-.lottery-view {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2rem;
-  padding: 2rem;
-}
-.status-message {
-  text-align: center;
-  font-size: 1.2rem;
-  color: #888;
-}
-.error-message {
-  color: #e74c3c;
-}
-.lottery-banner {
-  width: 100%;
-  max-width: 800px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  padding: 1.5rem;
-}
-.banner-header {
-  text-align: center;
-  margin-bottom: 1rem;
-}
-.banner-header h1 {
-  font-size: 1.8rem;
-  margin: 0;
-}
-.issue-number {
-  font-size: 1rem;
-  color: #555;
-}
-.winning-numbers-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 0.5rem;
-  text-align: center;
-}
-.number-display {
-  background: #f0f0f0;
-  border-radius: 4px;
-  padding: 0.5rem;
-}
-.number-value {
-  font-size: 1.5rem;
-  font-weight: bold;
-}
-.number-details {
-  font-size: 0.8rem;
-  color: #555;
-}
-.banner-footer {
-  text-align: right;
-  font-size: 0.9rem;
-  color: #777;
-  margin-top: 1rem;
-}
-</style>
+<!-- No style block needed, all handled by Tailwind CSS -->
