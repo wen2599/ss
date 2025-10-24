@@ -40,7 +40,7 @@ async function handleLogin() {
   isLoading.value = true;
 
   try {
-    const response = await apiClient.post('/login.php', {
+    const response = await apiClient.post('/login', {
       email: email.value,
       password: password.value,
     });

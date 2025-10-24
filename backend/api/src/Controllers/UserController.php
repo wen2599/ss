@@ -5,16 +5,92 @@ namespace App\Controllers;
 
 class UserController extends BaseController
 {
-    // This is a temporary, simplified version for debugging.
-    // All original methods (register, login, logout, isRegistered) are removed.
-    // The 'ping' method is handled directly by the router in index.php for this test phase.
-    // The purpose is to check if merely loading this file (and its parent BaseController)
-    // causes a fatal error.
-
-    public function ping(): void
+    public function register(): void
     {
-        // This method will actually be called if we pass the autoloader/class_exists check.
-        // It's a placeholder to satisfy the router for /api/ping.
-        $this->jsonResponse(200, ['status' => 'success', 'message' => 'Ping response from simplified UserController.']);
+        $data = $this->getJsonBody();
+        $email = $data['email'] ?? null;
+        $password = $data['password'] ?? null;
+
+        if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->jsonResponse(400, ['status' => 'error', 'message' => 'Invalid or missing email.']);
+            return;
+        }
+
+        if (!$password || strlen($password) < 6) {
+            $this->jsonResponse(400, ['status' => 'error', 'message' => 'Password must be at least 6 characters long.']);
+            return;
+        }
+
+        try {
+            $pdo = $this->getDbConnection();
+
+            // Check if user already exists
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+            $stmt->execute([$email]);
+            if ($stmt->fetch()) {
+                $this->jsonResponse(409, ['status' => 'error', 'message' => 'Email already registered.']);
+                return;
+            }
+
+            // Hash password and insert user
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)");
+            if ($stmt->execute([$email, $passwordHash])) {
+                $this->jsonResponse(201, ['status' => 'success', 'message' => 'User registered successfully.']);
+            } else {
+                $this->jsonResponse(500, ['status' => 'error', 'message' => 'Failed to register user.']);
+            }
+        } catch (\PDOException $e) {
+            $this->jsonResponse(500, ['status' => 'error', 'message' => 'Database error during registration.']);
+        }
+    }
+
+    public function login(): void
+    {
+        $data = $this->getJsonBody();
+        $email = $data['email'] ?? null;
+        $password = $data['password'] ?? null;
+
+        if (!$email || !$password) {
+            $this->jsonResponse(400, ['status' => 'error', 'message' => 'Email and password are required.']);
+            return;
+        }
+
+        try {
+            $pdo = $this->getDbConnection();
+            $stmt = $pdo->prepare("SELECT id, password_hash FROM users WHERE username = ?");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            if ($user && password_verify($password, $user['password_hash'])) {
+                // Start session
+                session_start();
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $email;
+                $this->jsonResponse(200, ['status' => 'success', 'message' => 'Login successful.', 'data' => ['username' => $email]]);
+            } else {
+                $this->jsonResponse(401, ['status' => 'error', 'message' => 'Invalid credentials.']);
+            }
+        } catch (\PDOException $e) {
+            $this->jsonResponse(500, ['status' => 'error', 'message' => 'Database error during login.']);
+        }
+    }
+
+    public function logout(): void
+    {
+        session_start();
+        session_unset();
+        session_destroy();
+        $this->jsonResponse(200, ['status' => 'success', 'message' => 'Logged out successfully.']);
+    }
+
+    public function checkAuth(): void
+    {
+        session_start();
+        if (isset($_SESSION['user_id'])) {
+            $this->jsonResponse(200, ['status' => 'success', 'data' => ['isLoggedIn' => true, 'username' => $_SESSION['username']]]);
+        } else {
+            $this->jsonResponse(200, ['status' => 'success', 'data' => ['isLoggedIn' => false]]);
+        }
     }
 }
