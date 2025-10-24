@@ -35,34 +35,61 @@ class TelegramController extends BaseController {
 
     public function handleWebhook(array $update): void
     {
-        $message = $update['message'] ?? $update['edited_message'] ?? $update['channel_post'] ?? $update['edited_channel_post'] ?? null;
+        try {
+            // Enhanced check for configuration
+            if (empty($this->botToken) || empty($this->channelId) || empty($this->adminId)) {
+                throw new Exception("Bot configuration is incomplete. Please check TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL_ID, and TELEGRAM_ADMIN_ID in your .env file.");
+            }
 
-        if (!$message) {
-            return;
-        }
+            $message = $update['message'] ?? $update['edited_message'] ?? $update['channel_post'] ?? $update['edited_channel_post'] ?? null;
 
-        $chatId = $message['chat']['id'] ?? null;
-        $text = trim($message['text'] ?? '');
+            if (!$message) {
+                // Ignore updates that aren't messages we can process
+                return;
+            }
 
-        if (!$chatId || $text === '') {
-            return;
-        }
+            $chatId = $message['chat']['id'] ?? null;
+            $text = trim($message['text'] ?? '');
 
-        // Check if the message is a command
-        if (strpos($text, '/') === 0) {
-            $this->_handleCommand($chatId, $text);
-        } elseif ((string)$chatId === $this->channelId) {
-            // If it's not a command and it's from the designated channel, parse and save results
-            $this->_parseAndSaveLotteryResult($text);
-        } else {
-            // Message from an unexpected chat, notify admin if set
-            if ($this->adminId) {
+            if (!$chatId) {
+                // Ignore messages without a chat ID
+                return;
+            }
+
+            // Allow empty messages from the correct channel for media, etc., but we won't process them.
+            if ($text === '' && (string)$chatId !== $this->channelId) {
+                return;
+            }
+
+            // Check if the message is a command
+            if (strpos($text, '/') === 0) {
+                $this->_handleCommand((string)$chatId, $text);
+            } elseif ((string)$chatId === $this->channelId) {
+                // If it's not a command and it's from the designated channel, parse and save results
+                $this->_parseAndSaveLotteryResult($text);
+            } else {
+                // Message from an unexpected chat, notify admin
                 $debugMessage = "Received a message from an unexpected chat.\n\n";
                 $debugMessage .= "Chat ID: `{$chatId}`\n";
-                $debugMessage .= "Configured TELEGRAM_CHANNEL_ID: `{$this->channelId}`\n\n";
-                $debugMessage .= "Message: `{$text}`\n\n";
-                $debugMessage .= "Please update your .env file with the correct Chat ID if this is the lottery channel, or ignore if this is a direct message.";
+                $debugMessage .= "Configured Channel ID: `{$this->channelId}`\n\n";
+                $debugMessage .= "To fix, update the `TELEGRAM_CHANNEL_ID` in your `.env` file to match the Chat ID above if this is the correct channel.";
                 $this->sendMessage($this->adminId, $debugMessage, 'MarkdownV2');
+            }
+
+        } catch (Exception $e) {
+            // Log the error
+            error_log('FATAL ERROR in handleWebhook: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+
+            // Notify the admin of the critical failure
+            if (!empty($this->adminId)) {
+                $errorMessage = "🚨 *Bot Critical Error* 🚨\n\n";
+                $errorMessage .= "The bot encountered a fatal error while processing a webhook\. It may be unresponsive until this is fixed\.\n\n";
+                $errorMessage .= "*Error Message:*\n`" . htmlspecialchars($e->getMessage()) . "`\n\n";
+                $errorMessage .= "*File:*\n`" . htmlspecialchars($e->getFile()) . "` on line `" . $e->getLine() . "`\n\n";
+                $errorMessage .= "Check the server logs for more details.";
+
+                // Use a direct sendMessage call without MarkdownV2 to ensure it sends
+                $this->sendMessage($this->adminId, $errorMessage);
             }
         }
     }
