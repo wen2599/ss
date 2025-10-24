@@ -35,6 +35,11 @@ session_set_cookie_params([
     'samesite' => 'None' // Allow cross-origin requests.
 ]);
 
+// Start the session.
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 
 // --- Aggressive CORS Headers ---
 if (isset($_SERVER['REQUEST_METHOD'])) {
