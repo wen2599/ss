@@ -3,12 +3,11 @@
 **项目概述:**
 这个项目是一个包含前端（基于 Vue.js 和 Capacitor）、后端（基于 PHP）和 Telegram Bot 的应用程序。后端提供 RESTful API 用于用户管理、开奖结果查询和邮件处理。Telegram Bot 用于实时通知开奖结果和响应用户命令。
 
-**项目根目录 (假设部署在 `~/domains/wenge.cloudns.ch/public_html/`):**
-
+*服务器根目录在域名下 wenge.cloudns.ch
+项目backend目录下等同于服务器根目录
 ```
-~/domains/wenge.cloudns.ch/public_html/
+~/domains/wenge.cloudns.ch/public_html/ 
 ├── .env                  <-- 环境变量配置文件 (实际部署时应在此处)
-├── backend/              <-- 后端应用程序目录
 │   ├── api/              <-- API 端点和核心逻辑
 │   │   ├── bootstrap.php       <-- 应用程序启动、环境变量加载、CORS 和错误处理
 │   │   ├── bot_health_check.php<-- Telegram Bot 健康检查脚本
