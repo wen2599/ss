@@ -105,20 +105,48 @@ class UserController extends BaseController
 
     public function isRegistered(): void
     {
+        $workerSecret = $_GET['worker_secret'] ?? null;
+        $expectedSecret = getenv('EMAIL_HANDLER_SECRET');
+
+        // Security Check: Validate the secret from the worker
+        if (!$workerSecret || !$expectedSecret || !hash_equals($expectedSecret, $workerSecret)) {
+            $this->jsonError(403, 'Forbidden: Invalid worker secret.');
+            return;
+        }
+
         if (!isset($_GET['email'])) {
             $this->jsonError(400, 'Email parameter is required.');
+            return;
         }
+
         $email = trim($_GET['email']);
         if (empty($email)) {
             $this->jsonError(400, 'Email cannot be empty.');
+            return;
         }
 
         try {
             $pdo = getDbConnection();
             $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
             $stmt->execute([$email]);
-            $isRegistered = ($stmt->fetch() !== false);
-            $this->jsonResponse(200, ['status' => 'success', 'data' => ['isRegistered' => $isRegistered]]);
+            $user = $stmt->fetch();
+
+            if ($user) {
+                // User is found, return success with their ID
+                $this->jsonResponse(200, [
+                    'status' => 'success',
+                    'data' => [
+                        'is_registered' => true,
+                        'user_id' => $user['id']
+                    ]
+                ]);
+            } else {
+                // User is not found
+                $this->jsonResponse(200, [
+                    'status' => 'success',
+                    'data' => ['is_registered' => false]
+                ]);
+            }
         } catch (\PDOException $e) {
             error_log("Is-Registered DB Error: " . $e->getMessage());
             $this->jsonError(500, 'Database error while checking email.');

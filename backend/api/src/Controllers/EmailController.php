@@ -8,26 +8,53 @@ class EmailController extends BaseController
     public function receive(): void
     {
         $input = json_decode(file_get_contents('php://input'), true);
+        
+        // --- Security and Data Validation ---
+        $workerSecret = $input['worker_secret'] ?? null;
+        $expectedSecret = getenv('EMAIL_HANDLER_SECRET');
 
-        if (!isset($input['sender']) || !isset($input['subject']) || !isset($input['body'])) {
-            $this->jsonError(400, 'Missing required email fields: sender, subject, and body.');
+        if (!$workerSecret || !$expectedSecret || !hash_equals($expectedSecret, $workerSecret)) {
+            $this->jsonError(403, 'Forbidden: Invalid worker secret.');
+            return;
         }
 
-        $sender = trim($input['sender']);
+        $requiredFields = ['from', 'subject', 'body', 'user_id'];
+        foreach ($requiredFields as $field) {
+            if (!isset($input[$field])) {
+                $this->jsonError(400, "Missing required field: {$field}.");
+                return;
+            }
+        }
+
+        $sender = trim($input['from']);
         $subject = trim($input['subject']);
         $body = trim($input['body']);
+        $userId = $input['user_id'];
         $isPrivate = filter_var($input['is_private'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
-        if (empty($sender) || empty($subject) || empty($body)) {
-            $this->jsonError(400, 'Sender, subject, and body cannot be empty.');
+        if (empty($sender) || empty($subject) || empty($body) || !is_numeric($userId)) {
+            $this->jsonError(400, 'Sender, subject, body cannot be empty, and user_id must be a number.');
+            return;
         }
 
         try {
             $pdo = getDbConnection();
-            $stmt = $pdo->prepare("INSERT INTO emails (sender, subject, body, is_private) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$sender, $subject, $body, $isPrivate ? 1 : 0]);
+            
+            // --- Verify User Existence ---
+            $userStmt = $pdo->prepare("SELECT id FROM users WHERE id = ?");
+            $userStmt->execute([$userId]);
+            if (!$userStmt->fetch()) {
+                $this->jsonError(404, "User with ID {$userId} not found.");
+                return;
+            }
+
+            // --- Insert Email ---
+            $stmt = $pdo->prepare("INSERT INTO emails (sender, subject, body, user_id, is_private) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$sender, $subject, $body, $userId, $isPrivate ? 1 : 0]);
+            
             $emailId = $pdo->lastInsertId();
-            $this->jsonResponse(201, ['status' => 'success', 'message' => 'Email received successfully.', 'data' => ['email_id' => $emailId]]);
+            $this->jsonResponse(201, ['status' => 'success', 'message' => 'Email received and linked to user successfully.', 'data' => ['email_id' => $emailId]]);
+        
         } catch (\PDOException $e) {
             error_log("Receive-Email DB Error: " . $e->getMessage());
             $this->jsonError(500, 'Database error while storing the email.');
