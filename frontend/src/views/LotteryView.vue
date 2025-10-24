@@ -50,7 +50,7 @@ const getNumberDetails = (json, number) => {
 
 onMounted(async () => {
   try {
-    const response = await apiClient.get('/api/lottery-results');
+    const response = await apiClient.get('/lottery-results');
     if (response.data.status === 'success') {
       results.value = response.data.data;
     } else {
