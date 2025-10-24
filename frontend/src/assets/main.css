@@ -1,13 +1,57 @@
-/* Global Styles */
-body {
+
+/* 1. Define the Dark & Gold Theme Palette using CSS Variables */
+:root {
+  --color-background: #1a1a1a; /* A deep, dark grey */
+  --color-surface: #2c2c2c;   /* A slightly lighter grey for cards/surfaces */
+  --color-primary: #ffd700;    /* A vibrant, rich gold for accents */
+  --color-text-primary: #e0e0e0; /* A soft white for main text */
+  --color-text-secondary: #a0a0a0;/* A dimmer grey for secondary text */
+  --color-border: #444;       /* A subtle border color */
+  --font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --shadow-elevation-medium: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* 2. Global Styles & CSS Reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f4f4f4;
-  color: #333;
+  line-height: 1.6;
 }
 
 #app {
-  height: 100vh;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 1rem;
+}
+
+h1 {
+  font-size: 2.5rem;
+  letter-spacing: -1px;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: #fff;
 }

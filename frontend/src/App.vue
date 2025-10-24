@@ -1,16 +1,17 @@
 <template>
-  <div id="app-layout">
-    <header class="header">
+  <div id="app-container">
+    <header class="app-header">
       <div class="logo">
-        <h1>邮件查看器</h1>
+        <RouterLink to="/">🏆 开奖中心</RouterLink>
       </div>
-      <nav class="navigation">
+      <nav class="main-nav">
         <template v-if="isAuthenticated">
-          <RouterLink to="/">邮件列表</RouterLink>
-          <RouterLink to="/lottery">彩票开奖</RouterLink>
+          <RouterLink to="/lottery">开奖结果</RouterLink>
           <RouterLink to="/lottery-winners">中奖名单</RouterLink>
-          <span class="username">欢迎, {{ username }}</span>
-          <button @click="handleLogout" class="logout-button">注销</button>
+          <div class="user-info">
+            <span>{{ username }}</span>
+            <button @click="handleLogout" class="button-logout">注销</button>
+          </div>
         </template>
         <template v-else>
           <RouterLink to="/login">登录</RouterLink>
@@ -18,9 +19,14 @@
         </template>
       </nav>
     </header>
+
     <main class="main-content">
       <RouterView />
     </main>
+
+    <footer class="app-footer">
+      <p>&copy; {{ new Date().getFullYear() }} 开奖中心. All Rights Reserved.</p>
+    </footer>
   </div>
 </template>
 
@@ -49,67 +55,92 @@ function handleLogout() {
 </script>
 
 <style scoped>
-#app-layout {
+#app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
 }
 
-.header {
+.app-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 2rem;
-  background-color: #333;
-  color: white;
-  border-bottom: 1px solid #444;
+  padding: 1rem 2.5rem;
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
-.logo h1 {
-  margin: 0;
-  font-size: 1.5rem;
+.logo a {
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-decoration: none;
 }
 
-.navigation {
+.main-nav {
   display: flex;
   align-items: center;
+  gap: 2rem;
 }
 
-.navigation a {
-  color: #fff;
+.main-nav a {
+  color: var(--color-text-secondary);
   text-decoration: none;
-  margin-left: 1rem;
   font-size: 1rem;
-}
-
-.navigation a:hover, .navigation a.router-link-exact-active {
-  text-decoration: underline;
-}
-
-.username {
-  margin-left: 1.5rem;
   font-weight: 500;
+  padding-bottom: 5px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.3s ease, border-color 0.3s ease;
 }
 
-.logout-button {
+.main-nav a:hover {
+  color: var(--color-text-primary);
+}
+
+/* Style for the active route link */
+.main-nav a.router-link-exact-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
   margin-left: 1rem;
-  padding: 0.5rem 1rem;
-  background-color: #d9534f;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
+  color: var(--color-text-primary);
 }
 
-.logout-button:hover {
-  background-color: #c9302c;
+.button-logout {
+  background: transparent;
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.button-logout:hover {
+  background-color: var(--color-primary);
+  color: var(--color-background);
 }
 
 .main-content {
   flex-grow: 1;
-  padding: 2rem;
-  background-color: #f4f4f4;
-  overflow-y: auto;
+}
+
+.app-footer {
+  padding: 1.5rem 2.5rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+  background-color: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  font-size: 0.9rem;
+  margin-top: auto; /* Pushes footer to the bottom */
 }
 </style>
