@@ -1,68 +1,39 @@
 <template>
-  <div class="bg-gray-100 dark:bg-gray-900 min-h-screen flex flex-col items-center justify-center px-4">
-    <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 sm:p-8">
-      <h2 class="text-2xl font-bold text-center text-gray-900 dark:text-white mb-6">
-        创建新账户
-      </h2>
-
-      <form @submit.prevent="handleRegister" class="space-y-6">
-        <div>
-          <label for="reg-email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">邮箱</label>
-          <input 
-            id="reg-email" 
-            v-model="email" 
-            type="email" 
-            placeholder="name@example.com" 
-            required 
-            autocomplete="email"
-            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-          />
-        </div>
-
-        <div>
-          <label for="reg-password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">密码</label>
-          <input 
-            id="reg-password" 
-            v-model="password" 
-            type="password" 
-            placeholder="请输入至少6位密码" 
-            required 
-            autocomplete="new-password"
-            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-          />
-        </div>
-
-        <div>
-          <label for="reg-confirm-password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">确认密码</label>
-          <input 
-            id="reg-confirm-password" 
-            v-model="confirmPassword" 
-            type="password" 
-            placeholder="请再次输入密码" 
-            required 
-            autocomplete="new-password"
-            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-          />
-        </div>
-
-        <!-- Display registration error message -->
-        <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative text-sm" role="alert">
-          {{ error }}
-        </div>
-
-        <button 
-          type="submit" 
-          :disabled="isLoading"
-          class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-3 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {{ isLoading ? '注册中...' : '注 册' }}
-        </button>
-
-        <p class="text-sm font-medium text-gray-500 dark:text-gray-400 text-center">
-          已有账户？ 
-          <router-link to="/login" class="text-blue-700 hover:underline dark:text-blue-500">立即登录</router-link>
+  <div class="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+      <div class="card">
+        <h2 class="text-2xl font-bold text-center mb-6">Create a New Account</h2>
+        
+        <form @submit.prevent="handleRegister" class="space-y-6">
+          <div>
+            <label for="email" class="block text-sm font-medium">Email</label>
+            <input id="email" v-model="email" type="email" required autocomplete="email" class="form-input mt-1">
+          </div>
+          
+          <div>
+            <label for="password" class="block text-sm font-medium">Password</label>
+            <input id="password" v-model="password" type="password" required autocomplete="new-password" class="form-input mt-1">
+          </div>
+          
+          <div>
+            <label for="confirm-password" class="block text-sm font-medium">Confirm Password</label>
+            <input id="confirm-password" v-model="confirmPassword" type="password" required autocomplete="new-password" class="form-input mt-1">
+          </div>
+          
+          <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {{ error }}
+          </div>
+          
+          <button type="submit" :disabled="isLoading" class="w-full btn btn-primary">
+            {{ isLoading ? 'Registering...' : 'Register' }}
+          </button>
+        </form>
+        
+        <p class="text-center mt-4">
+          Already have an account? 
+          <RouterLink to="/login" class="text-blue-600 hover:underline">Login</RouterLink>
         </p>
-      </form>
+      </div>
     </div>
   </div>
 </template>
@@ -80,14 +51,13 @@ const isLoading = ref(false);
 const router = useRouter();
 
 async function handleRegister() {
-  // --- Frontend Validation ---
   error.value = null;
   if (password.value.length < 6) {
-    error.value = '密码长度不能少于6位。';
+    error.value = 'Password must be at least 6 characters long.';
     return;
   }
   if (password.value !== confirmPassword.value) {
-    error.value = '两次输入的密码不一致。';
+    error.value = 'Passwords do not match.';
     return;
   }
 
@@ -99,25 +69,19 @@ async function handleRegister() {
       password: password.value,
     });
 
-    // On success, redirect to the login page with a success message
     if (response.data.status === 'success') {
-      router.push({ name: 'login', query: { registered: 'true' } });
+      router.push({ path: '/login', query: { registered: 'true' } });
     } else {
-      // This case might not be reached if the API uses proper status codes, but is good for robustness
-      error.value = response.data.message || '注册失败，请稍后再试。';
+      error.value = response.data.message || 'Registration failed. Please try again.';
     }
-
   } catch (err) {
-    // Handle errors from the API (e.g., email already exists, validation failed)
     if (err.response && err.response.data && err.response.data.message) {
       error.value = err.response.data.message;
     } else {
-      error.value = '发生未知错误，请检查网络连接或稍后再试。';
+      error.value = 'An unknown error occurred. Please try again.';
     }
   } finally {
     isLoading.value = false;
   }
 }
 </script>
-
-<!-- No <style> block is needed as all styles are handled by Tailwind CSS utility classes -->

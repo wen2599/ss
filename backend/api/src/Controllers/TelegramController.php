@@ -39,6 +39,12 @@ class TelegramController extends BaseController
 
     public function handleWebhook(array $update): void
     {
+        $botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
+        if (empty($botToken) || $botToken === 'YOUR_TELEGRAM_BOT_TOKEN') {
+            $this->logError('Webhook received, but TELEGRAM_BOT_TOKEN is not configured. Ignoring request.');
+            return;
+        }
+
         try {
             $message = $update['message'] ?? $update['edited_message'] ?? $update['channel_post'] ?? $update['edited_channel_post'] ?? null;
             if (!$message) {
@@ -220,7 +226,7 @@ class TelegramController extends BaseController
         // Escape characters for Telegram MarkdownV2
         return str_replace(
             ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'],
-            [\'_\', \'*\', \'[\', \'\]\', \'(\', \'\)\', \'~\', \'`\', \' >\', \'#\', \'+\', \'-\', \'=\', \'|\', \'{\', \'}\', \'\.\', \'!\'],
+            [\'_\', \'*\', \'[\', \'\]\', \'(\', \')\', \'~\', \'`\', \' >\', \'#\', \'+\', \'-\', \'=\', \'|\', \'{\', \'}\', \'\.\', \'!\'],
             $text
         );
     }

@@ -10,6 +10,8 @@ class UserController extends BaseController
         $data = $this->getJsonBody();
         $email = $data['email'] ?? null;
         $password = $data['password'] ?? null;
+        $telegramChatId = $data['telegram_chat_id'] ?? null;
+        $telegramUsername = $data['telegram_username'] ?? null;
 
         if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->jsonResponse(400, ['status' => 'error', 'message' => 'Invalid or missing email.']);
@@ -24,7 +26,6 @@ class UserController extends BaseController
         try {
             $pdo = $this->getDbConnection();
 
-            // Check if user already exists
             $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
             $stmt->execute([$email]);
             if ($stmt->fetch()) {
@@ -32,10 +33,11 @@ class UserController extends BaseController
                 return;
             }
 
-            // Hash password and insert user
             $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)");
-            if ($stmt->execute([$email, $passwordHash])) {
+            $sql = "INSERT INTO users (username, password_hash, telegram_chat_id, telegram_username) VALUES (?, ?, ?, ?)";
+            $stmt = $pdo->prepare($sql);
+            
+            if ($stmt->execute([$email, $passwordHash, $telegramChatId, $telegramUsername])) {
                 $this->jsonResponse(201, ['status' => 'success', 'message' => 'User registered successfully.']);
             } else {
                 $this->jsonResponse(500, ['status' => 'error', 'message' => 'Failed to register user.']);
@@ -64,7 +66,6 @@ class UserController extends BaseController
             $user = $stmt->fetch(\PDO::FETCH_ASSOC);
 
             if ($user && password_verify($password, $user['password_hash'])) {
-                // Start session and regenerate ID
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $email;
@@ -95,7 +96,6 @@ class UserController extends BaseController
 
     public function isRegistered(): void
     {
-        // 1. Security Check: Verify worker secret
         $workerSecret = $_GET['worker_secret'] ?? null;
         $expectedSecret = $_ENV['WORKER_SECRET'] ?? null;
 
@@ -104,7 +104,6 @@ class UserController extends BaseController
             return;
         }
 
-        // 2. Input Validation
         $email = $_GET['email'] ?? null;
         if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->jsonResponse(400, ['status' => 'error', 'message' => 'Invalid or missing email parameter.']);
@@ -112,19 +111,18 @@ class UserController extends BaseController
         }
 
         try {
-            // 3. Database Lookup
             $pdo = $this->getDbConnection();
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+            $stmt = $pdo->prepare("SELECT id, telegram_chat_id FROM users WHERE username = ?");
             $stmt->execute([$email]);
             $user = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-            // 4. JSON Response
             if ($user) {
                 $this->jsonResponse(200, [
                     'status' => 'success',
                     'data' => [
                         'is_registered' => true,
-                        'user_id' => $user['id']
+                        'user_id' => $user['id'],
+                        'telegram_chat_id' => $user['telegram_chat_id'],
                     ]
                 ]);
             } else {
