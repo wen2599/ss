@@ -54,7 +54,7 @@ async function handleRegister() {
   isLoading.value = true;
 
   try {
-    const response = await apiClient.post('/register', {
+    const response = await apiClient.post('/api/register', {
       email: email.value,
       password: password.value,
     });
