@@ -1,6 +1,9 @@
 <?php
 namespace App\Controllers;
 
+use App\Controllers\LotteryController;
+use Exception;
+
 class TelegramController extends BaseController {
 
     private $botToken;
@@ -21,7 +24,7 @@ class TelegramController extends BaseController {
     public function __construct()
     {
         $this->botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
-        $this->channelId = $_ENV['TELEGRAM_CHANNEL_ID'] ?? null; // Corrected from LOTTERY_CHANNEL_ID
+        $this->channelId = $_ENV['TELEGRAM_CHANNEL_ID'] ?? null;
         $this->adminId = $_ENV['TELEGRAM_ADMIN_ID'] ?? null;
 
         if (!$this->botToken || !$this->channelId || !$this->adminId) {
@@ -39,23 +42,126 @@ class TelegramController extends BaseController {
         }
 
         $chatId = $message['chat']['id'] ?? null;
-        $text = $message['text'] ?? null;
+        $text = trim($message['text'] ?? '');
 
-        if (!$chatId || !$text) {
+        if (!$chatId || $text === '') {
             return;
         }
 
-        if ((string)$chatId === $this->channelId) {
+        // Check if the message is a command
+        if (strpos($text, '/') === 0) {
+            $this->_handleCommand($chatId, $text);
+        } elseif ((string)$chatId === $this->channelId) {
+            // If it's not a command and it's from the designated channel, parse and save results
             $this->_parseAndSaveLotteryResult($text);
         } else {
+            // Message from an unexpected chat, notify admin if set
             if ($this->adminId) {
-                $debugMessage = "Received a message from an unexpected channel.\n\n";
+                $debugMessage = "Received a message from an unexpected chat.\n\n";
                 $debugMessage .= "Chat ID: `{$chatId}`\n";
                 $debugMessage .= "Configured TELEGRAM_CHANNEL_ID: `{$this->channelId}`\n\n";
-                $debugMessage .= "Please update your .env file with the correct Chat ID if this is the lottery channel.";
+                $debugMessage .= "Message: `{$text}`\n\n";
+                $debugMessage .= "Please update your .env file with the correct Chat ID if this is the lottery channel, or ignore if this is a direct message.";
                 $this->sendMessage($this->adminId, $debugMessage, 'MarkdownV2');
             }
         }
+    }
+
+    private function _handleCommand(string $chatId, string $commandText): void
+    {
+        // Extract command and arguments
+        $parts = explode(' ', $commandText, 2);
+        $command = strtolower($parts[0]); // e.g., /start
+        $args = $parts[1] ?? '';
+
+        switch ($command) {
+            case '/start':
+                $this->_handleStartCommand($chatId);
+                break;
+            case '/lottery':
+                $this->_handleLotteryCommand($chatId);
+                break;
+            default:
+                $this->sendMessage($chatId, "抱歉，我不认识这个命令。你可以尝试 /start 或 /lottery。", 'MarkdownV2');
+                break;
+        }
+    }
+
+    private function _handleStartCommand(string $chatId): void
+    {
+        $welcomeMessage = "欢迎使用开奖中心Bot！\n\n";
+        $welcomeMessage .= "我可以为您提供最新的开奖结果。\n";
+        $welcomeMessage .= "您可以尝试以下命令：\n";
+        $welcomeMessage .= "/lottery - 获取最新开奖结果\n";
+        $welcomeMessage .= "/start - 再次查看此欢迎信息\n\n";
+        $welcomeMessage .= "如果您是管理员，请确保本Bot已被添加到开奖结果发布频道，并且已正确配置webhook。";
+
+        $this->sendMessage($chatId, $welcomeMessage, 'MarkdownV2');
+    }
+
+    private function _handleLotteryCommand(string $chatId): void
+    {
+        try {
+            $lotteryController = new LotteryController();
+            $results = $lotteryController->fetchLatestResultsData();
+
+            if (empty($results)) {
+                $this->sendMessage($chatId, "抱歉，目前没有最新的开奖结果。", 'MarkdownV2');
+                return;
+            }
+
+            $formattedResults = $this->_formatLotteryResults($results);
+            $this->sendMessage($chatId, $formattedResults, 'MarkdownV2');
+
+        } catch (Exception $e) {
+            error_log('Error fetching lottery results for command: ' . $e->getMessage());
+            $this->sendMessage($chatId, "抱歉，获取开奖结果时发生错误，请稍后再试。", 'MarkdownV2');
+            if ($this->adminId) {
+                $this->sendMessage($this->adminId, "Bot在处理 /lottery 命令时发生错误: " . $e->getMessage(), 'MarkdownV2');
+            }
+        }
+    }
+
+    private function _formatLotteryResults(array $results): string
+    {
+        $message = "*最新开奖结果*\n\n";
+        foreach ($results as $result) {
+            $message .= "*" . htmlspecialchars($result['lottery_type']) . "* - 第 " . htmlspecialchars($result['issue_number']) . " 期\n";
+            $message .= "开奖号码: ";
+            $numbers = explode(',', $result['winning_numbers']);
+            foreach ($numbers as $number) {
+                $message .= "`" . htmlspecialchars(trim($number)) . "` ";
+            }
+            $message .= "\n";
+            
+            // Attempt to decode number_colors_json and display zodiac/color if available
+            if (!empty($result['number_colors_json'])) {
+                try {
+                    $numberDetails = json_decode($result['number_colors_json'], true);
+                    if (is_array($numberDetails)) {
+                        $detailsText = [];
+                        foreach ($numbers as $number) {
+                            $num = trim($number);
+                            if (isset($numberDetails[$num])) {
+                                $detail = $numberDetails[$num];
+                                if (isset($detail['zodiac']) && isset($detail['color'])) {
+                                    $detailsText[] = "`{$num}`: {$detail['zodiac']}/{$detail['color']}";
+                                }
+                            }
+                        }
+                        if (!empty($detailsText)) {
+                            $message .= "详情: " . implode(", ", $detailsText) . "\n";
+                        }
+                    }
+                } catch (Exception $e) {
+                    error_log("Error decoding number_colors_json: " . $e->getMessage());
+                }
+            }
+
+            $message .= "开奖日期: " . date('Y-m-d H:i:s', strtotime($result['draw_date'])) . "\n";
+            $message .= "\n";
+        }
+        return $message;
     }
 
     private function _parseAndSaveLotteryResult(string $text): void
@@ -74,9 +180,10 @@ class TelegramController extends BaseController {
 
                 $numberDetails = [];
                 foreach ($numbers as $number) {
-                    $numberDetails[$number] = [
-                        'zodiac' => $this->getZodiac($number),
-                        'color' => $this->getColor($number)
+                    $numStr = str_pad((string)(int)$number, 2, '0', STR_PAD_LEFT); // Ensure two-digit format
+                    $numberDetails[$numStr] = [
+                        'zodiac' => $this->getZodiac($numStr),
+                        'color' => $this->getColor($numStr)
                     ];
                 }
                 $numberColorsJson = json_encode($numberDetails, JSON_UNESCAPED_UNICODE);
@@ -89,8 +196,9 @@ class TelegramController extends BaseController {
                          ON DUPLICATE KEY UPDATE winning_numbers = VALUES(winning_numbers), number_colors_json = VALUES(number_colors_json), draw_date = NOW()"
                     );
                     $stmt->execute([$type, $issueNumber, $winningNumbers, $numberColorsJson]);
+                    error_log("Lottery result saved for type {$type}, issue {$issueNumber}.");
+
                 } catch (\PDOException $e) {
-                    // Log to file, and optionally send a message to admin
                     error_log('Failed to save lottery result: ' . $e->getMessage());
                     if ($this->adminId) {
                         $this->sendMessage($this->adminId, 'Failed to save lottery result: ' . $e->getMessage());
@@ -122,7 +230,7 @@ class TelegramController extends BaseController {
                 'header' => "Content-type: application/json\r\n",
                 'method' => 'POST',
                 'content' => json_encode($payload),
-                'ignore_errors' => true // This allows us to get the response even on HTTP errors.
+                'ignore_errors' => true
             ]
         ];
         $context = stream_context_create($options);
@@ -134,7 +242,6 @@ class TelegramController extends BaseController {
             return;
         }
 
-        // Check HTTP response headers for status code
         if (isset($http_response_header)) {
             $statusCode = 0;
             foreach ($http_response_header as $header) {
@@ -147,7 +254,9 @@ class TelegramController extends BaseController {
             if ($statusCode !== 200) {
                 $responseContent = json_decode($result, true);
                 $errorMessage = $responseContent['description'] ?? 'Unknown Telegram API error';
-                error_log("Failed to send Telegram message to chat ID {$chatId}. HTTP Status: {$statusCode}. Error: {$errorMessage}");
+                error_log("Failed to send Telegram message to chat ID {$chatId}. HTTP Status: {$statusCode}. Error: {$errorMessage}. Response: {$result}");
+            } else {
+                error_log("Telegram message sent successfully to chat ID {$chatId}. Response: {$result}");
             }
         } else {
             error_log("Failed to send Telegram message to chat ID {$chatId}: Could not retrieve HTTP response headers.");
