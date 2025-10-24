@@ -41,7 +41,7 @@ function getDbConnection(): PDO {
 }
 
 // Function to run database migrations
-function runMigrations(PDO $pdo):
+function runMigrations(PDO $pdo)
 {
     $sql = file_get_contents(__DIR__ . '/migration.sql');
     if ($sql === false) {
