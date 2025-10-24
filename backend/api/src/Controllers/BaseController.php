@@ -51,4 +51,19 @@ abstract class BaseController
     {
         $this->jsonResponse(200, ['status' => 'success', 'data' => 'Backend is running (Pure PHP)']);
     }
+
+    /**
+     * Gets the JSON body from the request.
+     *
+     * @return array The decoded JSON body.
+     */
+    protected function getJsonBody(): array
+    {
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->jsonResponse(400, ['status' => 'error', 'message' => 'Invalid JSON body.']);
+        }
+        return $data ?? [];
+    }
 }
