@@ -6,6 +6,18 @@ namespace App\Controllers;
 abstract class BaseController
 {
     /**
+     * Provides access to the database connection.
+     * This is a wrapper around the global getDbConnection() function from bootstrap.php
+     * to make it available to all controllers in a structured way.
+     *
+     * @return \PDO
+     */
+    protected function getDbConnection(): \PDO
+    {
+        return getDbConnection();
+    }
+
+    /**
      * Sends a JSON response.
      *
      * @param int $statusCode The HTTP status code.
