@@ -6,10 +6,28 @@ declare(strict_types=1);
     if (defined('ENV_LOADED') && ENV_LOADED) {
         return;
     }
-    // Correct the path to look in the project root, which is two levels up from __DIR__.
-    $envPath = __DIR__ . '/../../.env';
-    if (file_exists($envPath)) {
-        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    
+    // Attempt to locate .env file based on current execution context
+    // Test common paths relative to bootstrap.php
+
+    $possiblePaths = [
+        __DIR__ . '/../.env',      // .env in the "server root" (public_html) if api is in public_html/api
+        __DIR__ . '/../../.env',   // .env in the directory above "server root" if api is in public_html/api
+        __DIR__ . '/.env',         // .env directly in api/ (less likely but possible)
+    ];
+
+    $foundEnvPath = null;
+    foreach ($possiblePaths as $path) {
+        error_log("Trying .env path: " . $path); // Debug output
+        if (file_exists($path)) {
+            $foundEnvPath = $path;
+            break;
+        }
+    }
+
+    if ($foundEnvPath) {
+        error_log("Found .env at: " . $foundEnvPath); // Debug output
+        $lines = file($foundEnvPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
             if (strpos(trim($line), '#') === 0) continue;
             list($name, $value) = explode('=', $line, 2);
@@ -21,6 +39,8 @@ declare(strict_types=1);
                 $_SERVER[$name] = $value;
             }
         }
+    } else {
+        error_log("ERROR: .env file not found in any expected location."); // Debug output
     }
     define('ENV_LOADED', true);
 })();
