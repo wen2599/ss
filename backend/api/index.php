@@ -28,6 +28,7 @@ $routes = [
     '/api/login' => ['controller' => 'App\\Controllers\\UserController', 'method' => 'login'],
     '/api/logout' => ['controller' => 'App\\Controllers\\UserController', 'method' => 'logout'],
     '/api/check-auth' => ['controller' => 'App\\Controllers\\UserController', 'method' => 'checkAuth'],
+    '/api/lottery-results' => ['controller' => 'App\\Controllers\\LotteryController', 'method' => 'getLatestResults'],
 ];
 
 if (isset($routes[$path])) {

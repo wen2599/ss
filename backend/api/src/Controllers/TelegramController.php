@@ -1,160 +1,100 @@
 <?php
 namespace App\Controllers;
 
-// Since we are now using a controller, we need to make sure the bootstrap file is included.
-// It should be included by the entry point script (e.g., webhook.php) that uses this controller.
-
-class TelegramController {
+class TelegramController extends BaseController {
 
     private $botToken;
     private $channelId;
+    private $zodiacMap = [
+        '鼠' => ['06', '18', '30', '42'], '牛' => ['05', '17', '29', '41'], '虎' => ['04', '16', '28', '40'],
+        '兔' => ['03', '15', '27', '39'], '龙' => ['02', '14', '26', '38'], '蛇' => ['01', '13', '25', '37', '49'],
+        '马' => ['12', '24', '36', '48'], '羊' => ['11', '23', '35', '47'], '猴' => ['10', '22', '34', '46'],
+        '鸡' => ['09', '21', '33', '45'], '狗' => ['08', '20', '32', '44'], '猪' => ['07', '19', '31', '43']
+    ];
+    private $colorMap = [
+        '红' => ['01', '02', '07', '08', '12', '13', '18', '19', '23', '24', '29', '30', '34', '35', '40', '45', '46'],
+        '蓝' => ['03', '04', '09', '10', '14', '15', '20', '25', '26', '31', '36', '37', '41', '42', '47', '48'],
+        '绿' => ['05', '06', '11', '16', '17', '21', '22', '27', '28', '32', '33', '38', '39', '43', '44', '49']
+    ];
 
     public function __construct()
     {
-        // Fetch the bot token and channel ID from environment variables.
         $this->botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
-        // Correctly read the channel ID from the LOTTERY_CHANNEL_ID environment variable.
         $this->channelId = $_ENV['LOTTERY_CHANNEL_ID'] ?? null;
-
-        if (!$this->botToken || !$this->channelId) {
-            error_log('Telegram Bot Token or Lottery Channel ID is not configured correctly in .env file.');
-            // We don't exit here, to avoid exposing internal errors via HTTP responses.
-        }
     }
 
-    /**
-     * Handles incoming webhook requests from Telegram.
-     */
     public function handleWebhook()
     {
         $input = file_get_contents('php://input');
         $update = json_decode($input, true);
 
-        if (!isset($update['message']['text'])) {
-            return; // Not a text message, ignore.
-        }
+        if (isset($update['channel_post']['text'])) {
+            $message = $update['channel_post'];
+            $chatId = $message['chat']['id'];
+            $text = $message['text'];
 
-        $message = $update['message'];
-        $chatId = $message['chat']['id'];
-        $text = $message['text'];
-
-        // Command and text routing.
-        switch ($text) {
-            case '/start':
-                $this->handleStartCommand($chatId);
-                break;
-            
-            // Also handle the text from the keyboard button.
-            case '获取最新开奖结果':
-            case '/lottery':
-                // Notify the user that the request is being processed.
-                $this->sendMessage($chatId, "正在获取最新开奖结果并发送到频道...");
-                $this->handleLotteryCommand($chatId);
-                break;
-
-            // You can add more commands here.
-            default:
-                // Send a default message if the command is not recognized.
-                $this->sendMessage($chatId, "抱歉，我无法识别该命令。请使用下方的菜单或输入 /start。", 'HTML', $this->getMainMenuKeyboard());
-                break;
+            if ((string)$chatId === $this->channelId) {
+                $this->_parseAndSaveLotteryResult($text);
+            }
         }
     }
 
-    /**
-     * Creates the main reply keyboard markup.
-     * @return array The reply keyboard markup.
-     */
-    private function getMainMenuKeyboard()
+    private function _parseAndSaveLotteryResult(string $text): void
     {
-        return [
-            'keyboard' => [
-                ['获取最新开奖结果'] // First row with one button
-            ],
-            'resize_keyboard' => true, // Make the keyboard smaller
-            'one_time_keyboard' => false // Keep the keyboard open
-        ];
-    }
-
-    /**
-     * Sends a message to a specific Telegram chat.
-     *
-     * @param string $chatId The ID of the chat to send the message to.
-     * @param string $text The message text.
-     * @param string|null $parseMode Optional. 'HTML' or 'MarkdownV2'.
-     * @param array|null $replyMarkup Optional. A ReplyKeyboardMarkup array.
-     */
-    private function sendMessage(string $chatId, string $text, string $parseMode = 'HTML', ?array $replyMarkup = null)
-    {
-        if (!$this->botToken) {
-            error_log('Attempted to send message but Bot Token is missing.');
-            return;
-        }
-
-        $url = "https://api.telegram.org/bot" . $this->botToken . "/sendMessage";
-        
-        $payload = [
-            'chat_id' => $chatId,
-            'text' => $text,
-            'parse_mode' => $parseMode
+        $patterns = [
+            '新澳' => '/新澳门六合彩第:(\d+)期开奖结果:\s*([\d\s]+)/',
+            '香港' => '/香港六合彩第:(\d+)期开奖结果:\s*([\d\s]+)/',
+            '老澳' => '/老澳\d{2}\.\d{2}第:(\d+)\s*期开奖结果:\s*([\d\s]+)/'
         ];
 
-        // Add the keyboard to the payload if it's provided.
-        if ($replyMarkup) {
-            $payload['reply_markup'] = json_encode($replyMarkup);
-        }
+        foreach ($patterns as $type => $pattern) {
+            if (preg_match($pattern, $text, $matches)) {
+                $issueNumber = $matches[1];
+                $numbers = preg_split('/\s+/', trim($matches[2]));
+                $winningNumbers = implode(',', $numbers);
 
-        $options = [
-            'http' => [
-                'header' => "Content-type: application/json\r\n",
-                'method' => 'POST',
-                'content' => json_encode($payload),
-                'ignore_errors' => true
-            ]
-        ];
+                $numberDetails = [];
+                foreach ($numbers as $number) {
+                    $numberDetails[$number] = [
+                        'zodiac' => $this->getZodiac($number),
+                        'color' => $this->getColor($number)
+                    ];
+                }
+                $numberColorsJson = json_encode($numberDetails);
 
-        $context = stream_context_create($options);
-        $result = file_get_contents($url, false, $context);
-        $response = json_decode($result, true);
-
-        if ($result === FALSE || (isset($response['ok']) && !$response['ok'])) {
-            error_log("Failed to send message to Telegram API. Response: " . $result);
+                try {
+                    $pdo = $this->getDbConnection();
+                    $stmt = $pdo->prepare(
+                        "INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers, number_colors_json, draw_date)
+                         VALUES (?, ?, ?, ?, NOW())
+                         ON DUPLICATE KEY UPDATE winning_numbers = VALUES(winning_numbers), number_colors_json = VALUES(number_colors_json), draw_date = NOW()"
+                    );
+                    $stmt->execute([$type, $issueNumber, $winningNumbers, $numberColorsJson]);
+                } catch (\PDOException $e) {
+                    error_log('Failed to save lottery result: ' . $e->getMessage());
+                }
+                break;
+            }
         }
     }
 
-    /**
-     * Handles the /start command.
-     *
-     * @param string $chatId The chat ID to send the welcome message to.
-     */
-    private function handleStartCommand(string $chatId)
+    private function getZodiac(string $number): ?string
     {
-        $welcomeMessage = "<b>👋 欢迎使用开奖结果机器人!</b>\n\n";
-        $welcomeMessage .= "点击下方的按钮来获取最新的开奖结果，结果会自动发布到指定频道。";
-        
-        // Send the welcome message along with the main menu keyboard.
-        $this->sendMessage($chatId, $welcomeMessage, 'HTML', $this->getMainMenuKeyboard());
+        foreach ($this->zodiacMap as $zodiac => $numbers) {
+            if (in_array($number, $numbers)) {
+                return $zodiac;
+            }
+        }
+        return null;
     }
 
-    /**
-     * Handles the /lottery command by fetching results and posting to the channel.
-     * @param string $chatId The chat ID of the user who initiated the command.
-     */
-    private function handleLotteryCommand(string $chatId)
+    private function getColor(string $number): ?string
     {
-        if (!$this->channelId) {
-            error_log('Cannot handle /lottery, LOTTERY_CHANNEL_ID is not set.');
-            // Inform the user about the configuration error.
-            $this->sendMessage($chatId, "抱歉，机器人后台配置不正确，无法找到目标频道。请联系管理员。");
-            return;
+        foreach ($this->colorMap as $color => $numbers) {
+            if (in_array($number, $numbers)) {
+                return $color;
+            }
         }
-        
-        // Get the formatted lottery results string.
-        $resultsMessage = LotteryController::getLatestLotteryResultsFormatted();
-        
-        // Send the message to the configured channel.
-        $this->sendMessage($this->channelId, $resultsMessage, 'HTML');
-
-        // Confirm to the user that the message has been sent.
-        $this->sendMessage($chatId, "✅ 最新结果已成功发送到频道！");
+        return null;
     }
 }
