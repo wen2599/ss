@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', '1'); // Temporarily enable display errors for debugging
+error_reporting(E_ALL); // Report all PHP errors
+
 error_log("--- [BOOTSTRAP LOG] webhook.php execution started ---");
 
 if (isset($_GET['ping']) && $_GET['ping'] === '1') {
@@ -11,6 +14,9 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/bootstrap.php';
 error_log("--- [INFO] bootstrap.php included ---");
+
+// Temporarily override APP_DEBUG for debugging purposes
+$_ENV['APP_DEBUG'] = 'true';
 
 spl_autoload_register(function ($class) {
     $prefix = 'App\\';
@@ -66,9 +72,10 @@ try {
     http_response_code(500);
     
     $response = ['status' => 'error', 'message' => 'An error occurred while processing the request.'];
-    if (($_ENV['APP_DEBUG'] ?? 'false') === 'true') { // Only expose details in debug mode
-        $response['details'] = $e->getMessage();
-        $response['trace'] = explode("\n", $e->getTraceAsString());
-    }
+    // In debug mode, provide full error details
+    $response['details'] = $e->getMessage();
+    $response['file'] = $e->getFile();
+    $response['line'] = $e->getLine();
+    $response['trace'] = explode("\n", $e->getTraceAsString());
     echo json_encode($response);
 }
