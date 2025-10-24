@@ -12,8 +12,8 @@ export default {
         headers: request.headers,
       };
 
-      // Only include body and duplex for methods that support it
-      if (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH' || request.method === 'DELETE') {
+      // Only include body and duplex if a body is present
+      if (request.body) {
         requestOptions.body = request.body;
         requestOptions.duplex = 'half';
       }
