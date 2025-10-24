@@ -26,19 +26,16 @@ class TelegramController extends BaseController {
         $this->botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
         $this->channelId = $_ENV['TELEGRAM_CHANNEL_ID'] ?? null;
         $this->adminId = $_ENV['TELEGRAM_ADMIN_ID'] ?? null;
-
-        if (!$this->botToken || !$this->channelId || !$this->adminId) {
-            error_log('Telegram Bot configuration (TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL_ID, TELEGRAM_ADMIN_ID) is incomplete.');
-            send_json_error(503, 'Service Unavailable: Telegram Bot is not configured correctly.');
-        }
     }
 
     public function handleWebhook(array $update): void
     {
         try {
-            // Enhanced check for configuration
-            if (empty($this->botToken) || empty($this->channelId) || empty($this->adminId)) {
-                throw new Exception("Bot configuration is incomplete. Please check TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL_ID, and TELEGRAM_ADMIN_ID in your .env file.");
+            // The bot token is absolutely required to send any message back.
+            if (empty($this->botToken)) {
+                error_log('CRITICAL: TELEGRAM_BOT_TOKEN is not set. The bot cannot function.');
+                // We can't even send an error message back without the token.
+                return;
             }
 
             $message = $update['message'] ?? $update['edited_message'] ?? $update['channel_post'] ?? $update['edited_channel_post'] ?? null;
@@ -64,12 +61,15 @@ class TelegramController extends BaseController {
             // Check if the message is a command
             if (strpos($text, '/') === 0) {
                 $this->_handleCommand((string)$chatId, $text);
-            } elseif ((string)$chatId === $this->channelId) {
-                // If it's not a command and it's from the designated channel, parse and save results
+
+            } elseif (!empty($this->channelId) && (string)$chatId === $this->channelId) {
+                // If it's not a command and it's from the designated channel, parse and save results.
+                // This requires channelId to be set.
                 $this->_parseAndSaveLotteryResult($text);
-            } else {
-                // Message from an unexpected chat, notify admin
-                $debugMessage = "Received a message from an unexpected chat.\n\n";
+
+            } elseif (!empty($this->adminId)) {
+                // For any other message, if the admin ID is configured, notify the admin.
+                $debugMessage = "Received a message from an unexpected chat or the bot is not fully configured\.\n\n";
                 $debugMessage .= "Chat ID: `{$chatId}`\n";
                 $debugMessage .= "Configured Channel ID: `{$this->channelId}`\n\n";
                 $debugMessage .= "To fix, update the `TELEGRAM_CHANNEL_ID` in your `.env` file to match the Chat ID above if this is the correct channel.";
