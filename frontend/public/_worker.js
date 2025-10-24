@@ -7,12 +7,18 @@ export default {
       const backendUrl = new URL(url.pathname, backendServer);
       backendUrl.search = url.search;
 
-      const backendRequest = new Request(backendUrl, {
+      const requestOptions = {
         method: request.method,
         headers: request.headers,
-        body: request.body,
-        duplex: 'half',
-      });
+      };
+
+      // Only include body and duplex for methods that support it
+      if (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH' || request.method === 'DELETE') {
+        requestOptions.body = request.body;
+        requestOptions.duplex = 'half';
+      }
+
+      const backendRequest = new Request(backendUrl, requestOptions);
 
       return fetch(backendRequest);
     }
