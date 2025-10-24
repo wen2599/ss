@@ -29,6 +29,8 @@ $routes = [
     '/api/logout' => ['controller' => 'App\\Controllers\\UserController', 'method' => 'logout'],
     '/api/check-auth' => ['controller' => 'App\\Controllers\\UserController', 'method' => 'checkAuth'],
     '/api/lottery-results' => ['controller' => 'App\\Controllers\\LotteryController', 'method' => 'getLatestResults'],
+    '/api/emails' => ['controller' => 'App\\Controllers\\EmailController', 'method' => 'saveEmail'],
+    '/api/users/is-registered' => ['controller' => 'App\\Controllers\\UserController', 'method' => 'isRegistered'],
 ];
 
 if (isset($routes[$path])) {

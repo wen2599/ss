@@ -92,4 +92,50 @@ class UserController extends BaseController
             $this->jsonResponse(200, ['status' => 'success', 'data' => ['isLoggedIn' => false]]);
         }
     }
+
+    public function isRegistered(): void
+    {
+        // 1. Security Check: Verify worker secret
+        $workerSecret = $_GET['worker_secret'] ?? null;
+        $expectedSecret = $_ENV['EMAIL_HANDLER_SECRET'] ?? null;
+
+        if (!$workerSecret || !$expectedSecret || $workerSecret !== $expectedSecret) {
+            $this->jsonResponse(403, ['status' => 'error', 'message' => 'Forbidden: Invalid or missing secret.']);
+            return;
+        }
+
+        // 2. Input Validation
+        $email = $_GET['email'] ?? null;
+        if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->jsonResponse(400, ['status' => 'error', 'message' => 'Invalid or missing email parameter.']);
+            return;
+        }
+
+        try {
+            // 3. Database Lookup
+            $pdo = $this->getDbConnection();
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            // 4. JSON Response
+            if ($user) {
+                $this->jsonResponse(200, [
+                    'status' => 'success',
+                    'data' => [
+                        'is_registered' => true,
+                        'user_id' => $user['id']
+                    ]
+                ]);
+            } else {
+                $this->jsonResponse(200, [
+                    'status' => 'success',
+                    'data' => ['is_registered' => false]
+                ]);
+            }
+        } catch (\PDOException $e) {
+            error_log('Database error in isRegistered: ' . $e->getMessage());
+            $this->jsonResponse(500, ['status' => 'error', 'message' => 'Database error.']);
+        }
+    }
 }
