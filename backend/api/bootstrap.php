@@ -24,6 +24,17 @@ declare(strict_types=1);
     define('ENV_LOADED', true);
 })();
 
+// --- Session Configuration ---
+session_set_cookie_params([
+    'lifetime' => 0, // Session cookie lasts until the browser is closed.
+    'path' => '/',
+    'domain' => '', // Let the browser decide based on the request host. Avoid hardcoding.
+    'secure' => true, // Only send over HTTPS.
+    'httponly' => true, // Prevent JavaScript access.
+    'samesite' => 'None' // Allow cross-origin requests.
+]);
+
+
 // --- Aggressive CORS Headers ---
 if (isset($_SERVER['REQUEST_METHOD'])) {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
