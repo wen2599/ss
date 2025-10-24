@@ -3,22 +3,17 @@ declare(strict_types=1);
 
 // --- Environment Variable Loading ---
 (function() {
-    // Prevent this from running more than once
     if (defined('ENV_LOADED') && ENV_LOADED) {
         return;
     }
-
-    $envPath = __DIR__ . '/../.env'; // Look for .env in the parent directory (server root)
+    $envPath = __DIR__ . '/../.env';
     if (file_exists($envPath)) {
         $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) {
-                continue;
-            }
+            if (strpos(trim($line), '#') === 0) continue;
             list($name, $value) = explode('=', $line, 2);
             $name = trim($name);
             $value = trim($value, '"');
-
             if (!empty($name)) {
                 putenv(sprintf('%s=%s', $name, $value));
                 $_ENV[$name] = $value;
@@ -29,13 +24,10 @@ declare(strict_types=1);
     define('ENV_LOADED', true);
 })();
 
-// --- AGGRESSIVE CORS FIX for shared hosting ---
+// --- Aggressive CORS Headers ---
 if (isset($_SERVER['REQUEST_METHOD'])) {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-    $allowedOrigins = [
-        'https://ss.wenxiuxiu.eu.org',
-        'http://localhost:5173'
-    ];
+    $allowedOrigins = ['https://ss.wenxiuxiu.eu.org', 'http://localhost:5173'];
     if (in_array($origin, $allowedOrigins)) {
         header("Access-Control-Allow-Origin: {$origin}");
     }
@@ -49,46 +41,51 @@ if (isset($_SERVER['REQUEST_METHOD'])) {
     }
 }
 
-// --- Global Error Handling ---
-set_exception_handler(function (Throwable $e) {
-    error_log("Uncaught Exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine() . "\n" . $e->getTraceAsString());
+// --- Unified JSON Error Response Function ---
+function send_json_error(int $statusCode, string $message, ?Throwable $e = null): void {
     if (!headers_sent()) {
         header('Content-Type: application/json');
-        http_response_code(500);
+        http_response_code($statusCode);
     }
-    echo json_encode(['status' => 'error', 'message' => 'An unexpected error occurred on the server.']);
+    $response = ['status' => 'error', 'message' => $message];
+    if ($e && ($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
+        $response['details'] = $e->getMessage();
+    }
+    echo json_encode($response);
     exit;
+}
+
+// --- Global Error & Exception Handling ---
+set_exception_handler(function (Throwable $e) {
+    error_log("Uncaught Exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
+    send_json_error(500, 'An unexpected server error occurred.', $e);
 });
 set_error_handler(function ($severity, $message, $file, $line) {
-    if (!(error_reporting() & $severity)) {
-        return false;
-    }
+    if (!(error_reporting() & $severity)) return false;
     throw new ErrorException($message, 0, $severity, $file, $line);
 });
 register_shutdown_function(function () {
     $lastError = error_get_last();
-    if ($lastError && ($lastError['type'] & (E_ERROR | E_PARSE | E_CORE_ERROR | E_CORE_WARNING | E_COMPILE_ERROR | E_COMPILE_WARNING))) {
-        if (!headers_sent()) {
-            header('Content-Type: application/json');
-            http_response_code(500);
-        }
-        echo json_encode(['status' => 'error', 'message' => 'A fatal error occurred on the server.']);
+    if ($lastError && ($lastError['type'] & (E_ERROR | E_PARSE))) {
+        error_log("Fatal Error: {$lastError['message']} in {$lastError['file']}:{$lastError['line']}");
+        send_json_error(500, 'A fatal server error occurred.');
     }
 });
 
-// --- Database Connection & Migration ---
+// --- Database Connection ---
 function getDbConnection(): PDO {
     static $conn = null;
     if ($conn === null) {
-        $host = $_ENV['DB_HOST'] ?? '127.0.0.1';
-        $dbname = $_ENV['DB_DATABASE'] ?? 'email_viewer';
-        $username = $_ENV['DB_USER'] ?? 'root';
-        $password = $_ENV['DB_PASSWORD'] ?? '';
+        $host = $_ENV['DB_HOST'] ?? null;
+        $dbname = $_ENV['DB_DATABASE'] ?? null;
+        $username = $_ENV['DB_USER'] ?? null;
+        $password = $_ENV['DB_PASSWORD'] ?? null;
 
-        if (empty($dbname) || empty($username)) {
-            error_log('Database credentials (DB_DATABASE or DB_USER) are not set in the .env file.');
-            die("Server configuration error: Database credentials missing.");
+        if (!$host || !$dbname || !$username) {
+            error_log('Database configuration (DB_HOST, DB_DATABASE, DB_USER) is incomplete.');
+            send_json_error(503, 'Service Unavailable: Server is not configured correctly.');
         }
+
         $dsn = "mysql:host={$host};dbname={$dbname};charset=utf8mb4";
         $options = [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -99,10 +96,8 @@ function getDbConnection(): PDO {
             $conn = new PDO($dsn, $username, $password, $options);
         } catch (PDOException $e) {
             error_log("Database connection failed: " . $e->getMessage());
-            die("Database connection unavailable: " . $e->getMessage());
+            send_json_error(503, 'Service Unavailable: Could not connect to the database.', $e);
         }
     }
     return $conn;
 }
-
-// Migrations are handled by the setup.php script and should not be run on every request.
