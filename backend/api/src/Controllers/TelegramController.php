@@ -1,198 +1,156 @@
 <?php
 namespace App\Controllers;
 
+use App\Services\TelegramService;
 use App\Controllers\LotteryController;
-use Exception;
+use PDO;
+use Throwable;
+use Psr\Log\LoggerInterface;
 
-class TelegramController extends BaseController {
+class TelegramController extends BaseController
+{
+    private TelegramService $telegramService;
+    private ?PDO $pdo;
+    private ?LoggerInterface $logger;
+    private ?string $channelId;
+    private ?string $adminId;
 
-    private $botToken;
-    private $channelId;
-    private $adminId;
-    private $zodiacMap = [
+    // --- Data Maps ---
+    private const ZODIAC_MAP = [
         '鼠' => ['06', '18', '30', '42'], '牛' => ['05', '17', '29', '41'], '虎' => ['04', '16', '28', '40'],
         '兔' => ['03', '15', '27', '39'], '龙' => ['02', '14', '26', '38'], '蛇' => ['01', '13', '25', '37', '49'],
         '马' => ['12', '24', '36', '48'], '羊' => ['11', '23', '35', '47'], '猴' => ['10', '22', '34', '46'],
         '鸡' => ['09', '21', '33', '45'], '狗' => ['08', '20', '32', '44'], '猪' => ['07', '19', '31', '43']
     ];
-    private $colorMap = [
+    private const COLOR_MAP = [
         '红' => ['01', '02', '07', '08', '12', '13', '18', '19', '23', '24', '29', '30', '34', '35', '40', '45', '46'],
         '蓝' => ['03', '04', '09', '10', '14', '15', '20', '25', '26', '31', '36', '37', '41', '42', '47', '48'],
         '绿' => ['05', '06', '11', '16', '17', '21', '22', '27', '28', '32', '33', '38', '39', '43', '44', '49']
     ];
 
-    public function __construct()
+    public function __construct(TelegramService $telegramService, ?PDO $pdo, ?LoggerInterface $logger, ?string $channelId, ?string $adminId)
     {
-        $this->botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
-        $this->channelId = $_ENV['TELEGRAM_CHANNEL_ID'] ?? null;
-        $this->adminId = $_ENV['TELEGRAM_ADMIN_ID'] ?? null;
+        $this->telegramService = $telegramService;
+        $this->pdo = $pdo;
+        $this->logger = $logger;
+        $this->channelId = $channelId;
+        $this->adminId = $adminId;
     }
 
     public function handleWebhook(array $update): void
     {
         try {
-            // The bot token is absolutely required to send any message back.
-            if (empty($this->botToken)) {
-                error_log('CRITICAL: TELEGRAM_BOT_TOKEN is not set. The bot cannot function.');
-                // We can't even send an error message back without the token.
-                return;
-            }
-
             $message = $update['message'] ?? $update['edited_message'] ?? $update['channel_post'] ?? $update['edited_channel_post'] ?? null;
-
             if (!$message) {
-                // Ignore updates that aren't messages we can process
+                $this->logInfo('Ignoring non-message update.');
                 return;
             }
 
-            $chatId = $message['chat']['id'] ?? null;
+            $chatId = (string)($message['chat']['id'] ?? '');
             $text = trim($message['text'] ?? '');
 
-            if (!$chatId) {
-                // Ignore messages without a chat ID
+            if (empty($chatId)) {
+                $this->logInfo('Ignoring message without chat ID.');
                 return;
             }
 
-            // Allow empty messages from the correct channel for media, etc., but we won't process them.
-            if ($text === '' && (string)$chatId !== $this->channelId) {
+            if ($text === '' && $chatId !== $this->channelId) {
+                $this->logInfo('Ignoring empty message from non-channel chat.');
                 return;
             }
 
-            // Check if the message is a command
-            if (strpos($text, '/') === 0) {
-                $this->_handleCommand((string)$chatId, $text);
-
-            } elseif (!empty($this->channelId) && (string)$chatId === $this->channelId) {
-                // If it's not a command and it's from the designated channel, parse and save results.
-                // This requires channelId to be set.
-                $this->_parseAndSaveLotteryResult($text);
-
-            } elseif (!empty($this->adminId)) {
-                // For any other message, if the admin ID is configured, notify the admin.
-                $debugMessage = "Received a message from an unexpected chat or the bot is not fully configured\.\n\n";
-                $debugMessage .= "Chat ID: `{$chatId}`\n";
-                $debugMessage .= "Configured Channel ID: `{$this->channelId}`\n\n";
-                $debugMessage .= "To fix, update the `TELEGRAM_CHANNEL_ID` in your `.env` file to match the Chat ID above if this is the correct channel.";
-                $this->sendMessage($this->adminId, $debugMessage, 'MarkdownV2');
+            // Route the message to the appropriate handler
+            if (str_starts_with($text, '/')) {
+                $this->handleCommand($chatId, $text);
+            } elseif ($chatId === $this->channelId) {
+                $this->parseAndSaveLotteryResult($text);
             }
 
-        } catch (Exception $e) {
-            // Log the error
-            error_log('FATAL ERROR in handleWebhook: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-
-            // Notify the admin of the critical failure
-            if (!empty($this->adminId)) {
-                $errorMessage = "🚨 *Bot Critical Error* 🚨\n\n";
-                $errorMessage .= "The bot encountered a fatal error while processing a webhook\. It may be unresponsive until this is fixed\.\n\n";
-                $errorMessage .= "*Error Message:*\n`" . htmlspecialchars($e->getMessage()) . "`\n\n";
-                $errorMessage .= "*File:*\n`" . htmlspecialchars($e->getFile()) . "` on line `" . $e->getLine() . "`\n\n";
-                $errorMessage .= "Check the server logs for more details.";
-
-                // Use a direct sendMessage call without MarkdownV2 to ensure it sends
-                $this->sendMessage($this->adminId, $errorMessage);
-            }
+        } catch (Throwable $e) {
+            $this->handleFatalError($e);
         }
     }
 
-    private function _handleCommand(string $chatId, string $commandText): void
+    private function handleCommand(string $chatId, string $commandText): void
     {
-        // Extract command and arguments
         $parts = explode(' ', $commandText, 2);
-        $command = strtolower($parts[0]); // e.g., /start
-        $args = $parts[1] ?? '';
+        $command = strtolower($parts[0]);
 
         switch ($command) {
             case '/start':
-                $this->_handleStartCommand($chatId);
+                $this->handleStartCommand($chatId);
                 break;
             case '/lottery':
-                $this->_handleLotteryCommand($chatId);
+                $this->handleLotteryCommand($chatId);
                 break;
             default:
-                $this->sendMessage($chatId, "抱歉，我不认识这个命令。你可以尝试 /start 或 /lottery。", 'MarkdownV2');
+                $this->telegramService->sendMessage($chatId, "抱歉，我不认识这个命令。请尝试 /start 或 /lottery。");
                 break;
         }
     }
 
-    private function _handleStartCommand(string $chatId): void
+    private function handleStartCommand(string $chatId): void
     {
-        $welcomeMessage = "欢迎使用开奖中心Bot！\n\n";
-        $welcomeMessage .= "我可以为您提供最新的开奖结果。\n";
-        $welcomeMessage .= "您可以尝试以下命令：\n";
-        $welcomeMessage .= "/lottery - 获取最新开奖结果\n";
-        $welcomeMessage .= "/start - 再次查看此欢迎信息\n\n";
-        $welcomeMessage .= "如果您是管理员，请确保本Bot已被添加到开奖结果发布频道，并且已正确配置webhook。";
-
-        $this->sendMessage($chatId, $welcomeMessage, 'MarkdownV2');
+        $welcomeMessage = "欢迎使用开奖中心Bot！\n\n"
+            . "我可以为您提供最新的开奖结果。\n"
+            . "请使用以下命令：\n"
+            . "/lottery - 获取最新开奖结果\n"
+            . "/start - 查看此欢迎信息";
+        $this->telegramService->sendMessage($chatId, $welcomeMessage);
     }
 
-    private function _handleLotteryCommand(string $chatId): void
+    private function handleLotteryCommand(string $chatId): void
     {
+        if (!$this->pdo) {
+            $this->logError('Database connection is not available. Cannot handle /lottery command.');
+            $this->telegramService->sendMessage($chatId, "抱歉，服务暂时不可用，无法查询开奖结果。");
+            return;
+        }
+
         try {
-            $lotteryController = new LotteryController();
+            $lotteryController = new LotteryController($this->pdo);
             $results = $lotteryController->fetchLatestResultsData();
 
             if (empty($results)) {
-                $this->sendMessage($chatId, "抱歉，目前没有最新的开奖结果。", 'MarkdownV2');
+                $this->telegramService->sendMessage($chatId, "抱歉，目前没有最新的开奖结果。");
                 return;
             }
 
-            $formattedResults = $this->_formatLotteryResults($results);
-            $this->sendMessage($chatId, $formattedResults, 'MarkdownV2');
+            $formattedResults = $this->formatLotteryResultsForTelegram($results);
+            $this->telegramService->sendMessage($chatId, $formattedResults, 'MarkdownV2');
 
-        } catch (Exception $e) {
-            error_log('Error fetching lottery results for command: ' . $e->getMessage());
-            $this->sendMessage($chatId, "抱歉，获取开奖结果时发生错误，请稍后再试。", 'MarkdownV2');
-            if ($this->adminId) {
-                $this->sendMessage($this->adminId, "Bot在处理 /lottery 命令时发生错误: " . $e->getMessage(), 'MarkdownV2');
-            }
+        } catch (Throwable $e) {
+            $this->logError('Error during /lottery command execution.', ['exception' => $e]);
+            $this->telegramService->sendMessage($chatId, "抱歉，获取开奖结果时发生错误，请稍后再试。");
+            $this->notifyAdmin("Bot在处理 /lottery 命令时发生错误: " . $e->getMessage());
         }
     }
 
-    private function _formatLotteryResults(array $results): string
+    private function formatLotteryResultsForTelegram(array $results): string
     {
         $message = "*最新开奖结果*\n\n";
         foreach ($results as $result) {
-            $message .= "*" . htmlspecialchars($result['lottery_type']) . "* - 第 " . htmlspecialchars($result['issue_number']) . " 期\n";
+            $safeType = $this->escapeMarkdownV2($result['lottery_type']);
+            $safeIssue = $this->escapeMarkdownV2($result['issue_number']);
+            $message .= "*" . $safeType . "* \- 第 " . $safeIssue . " 期\n";
             $message .= "开奖号码: ";
             $numbers = explode(',', $result['winning_numbers']);
             foreach ($numbers as $number) {
-                $message .= "`" . htmlspecialchars(trim($number)) . "` ";
+                $message .= "`" . $this->escapeMarkdownV2(trim($number)) . "` ";
             }
             $message .= "\n";
-            
-            // Attempt to decode number_colors_json and display zodiac/color if available
-            if (!empty($result['number_colors_json'])) {
-                try {
-                    $numberDetails = json_decode($result['number_colors_json'], true);
-                    if (is_array($numberDetails)) {
-                        $detailsText = [];
-                        foreach ($numbers as $number) {
-                            $num = trim($number);
-                            if (isset($numberDetails[$num])) {
-                                $detail = $numberDetails[$num];
-                                if (isset($detail['zodiac']) && isset($detail['color'])) {
-                                    $detailsText[] = "`{$num}`: {$detail['zodiac']}/{$detail['color']}";
-                                }
-                            }
-                        }
-                        if (!empty($detailsText)) {
-                            $message .= "详情: " . implode(", ", $detailsText) . "\n";
-                        }
-                    }
-                } catch (Exception $e) {
-                    error_log("Error decoding number_colors_json: " . $e->getMessage());
-                }
-            }
-
-            $message .= "开奖日期: " . date('Y-m-d H:i:s', strtotime($result['draw_date'])) . "\n";
-            $message .= "\n";
+            $message .= "开奖日期: " . $this->escapeMarkdownV2(date('Y-m-d H:i:s', strtotime($result['draw_date']))) . "\n\n";
         }
         return $message;
     }
 
-    private function _parseAndSaveLotteryResult(string $text): void
+    private function parseAndSaveLotteryResult(string $text): void
     {
+        if (!$this->pdo) {
+            $this->logError('Database connection is not available. Cannot parse lottery result.');
+            return;
+        }
+        // Regex patterns for different lottery types
         $patterns = [
             '新澳' => '/新澳门六合彩第:(\d+)期开奖结果:\s*([\d\s]+)/',
             '香港' => '/香港六合彩第:(\d+)期开奖结果:\s*([\d\s]+)/',
@@ -203,11 +161,12 @@ class TelegramController extends BaseController {
             if (preg_match($pattern, $text, $matches)) {
                 $issueNumber = $matches[1];
                 $numbers = preg_split('/\s+/', trim($matches[2]));
-                $winningNumbers = implode(',', $numbers);
+                $winningNumbers = implode(',', array_filter($numbers)); // Filter empty values
 
                 $numberDetails = [];
                 foreach ($numbers as $number) {
-                    $numStr = str_pad((string)(int)$number, 2, '0', STR_PAD_LEFT); // Ensure two-digit format
+                    $numStr = str_pad((string)(int)$number, 2, '0', STR_PAD_LEFT);
+                    if ($numStr === '00') continue;
                     $numberDetails[$numStr] = [
                         'zodiac' => $this->getZodiac($numStr),
                         'color' => $this->getColor($numStr)
@@ -216,84 +175,30 @@ class TelegramController extends BaseController {
                 $numberColorsJson = json_encode($numberDetails, JSON_UNESCAPED_UNICODE);
 
                 try {
-                    $pdo = $this->getDbConnection();
-                    $stmt = $pdo->prepare(
+                    $stmt = $this->pdo->prepare(
                         "INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers, number_colors_json, draw_date)
                          VALUES (?, ?, ?, ?, NOW())
                          ON DUPLICATE KEY UPDATE winning_numbers = VALUES(winning_numbers), number_colors_json = VALUES(number_colors_json), draw_date = NOW()"
                     );
                     $stmt->execute([$type, $issueNumber, $winningNumbers, $numberColorsJson]);
-                    error_log("Lottery result saved for type {$type}, issue {$issueNumber}.");
+                    $this->logInfo("Lottery result saved.", ['type' => $type, 'issue' => $issueNumber]);
 
                 } catch (\PDOException $e) {
-                    error_log('Failed to save lottery result: ' . $e->getMessage());
-                    if ($this->adminId) {
-                        $this->sendMessage($this->adminId, 'Failed to save lottery result: ' . $e->getMessage());
-                    }
+                    $this->logError('Failed to save lottery result to database.', ['exception' => $e]);
+                    $this->notifyAdmin('数据库错误：保存开奖结果失败: ' . $e->getMessage());
                 }
-                break;
+                return; // Stop after first match
             }
         }
+         $this->logInfo('No lottery result pattern matched.', ['text' => $text]);
     }
 
-    private function sendMessage(string $chatId, string $text, string $parseMode = null): void
-    {
-        if (!$this->botToken) {
-            error_log('Telegram Bot Token is not set. Cannot send message.');
-            return;
-        }
-
-        $url = "https://api.telegram.org/bot{$this->botToken}/sendMessage";
-        $payload = [
-            'chat_id' => $chatId,
-            'text' => $text,
-        ];
-        if ($parseMode) {
-            $payload['parse_mode'] = $parseMode;
-        }
-
-        $options = [
-            'http' => [
-                'header' => "Content-type: application/json\r\n",
-                'method' => 'POST',
-                'content' => json_encode($payload),
-                'ignore_errors' => true
-            ]
-        ];
-        $context = stream_context_create($options);
-
-        $result = @file_get_contents($url, false, $context);
-
-        if ($result === false) {
-            error_log("Failed to send Telegram message to chat ID {$chatId}: Network error or unreachable Telegram API.");
-            return;
-        }
-
-        if (isset($http_response_header)) {
-            $statusCode = 0;
-            foreach ($http_response_header as $header) {
-                if (preg_match('/^HTTP\/\d\.\d\s+(\d+)/i', $header, $matches)) {
-                    $statusCode = (int)$matches[1];
-                    break;
-                }
-            }
-
-            if ($statusCode !== 200) {
-                $responseContent = json_decode($result, true);
-                $errorMessage = $responseContent['description'] ?? 'Unknown Telegram API error';
-                error_log("Failed to send Telegram message to chat ID {$chatId}. HTTP Status: {$statusCode}. Error: {$errorMessage}. Response: {$result}");
-            } else {
-                error_log("Telegram message sent successfully to chat ID {$chatId}. Response: {$result}");
-            }
-        } else {
-            error_log("Failed to send Telegram message to chat ID {$chatId}: Could not retrieve HTTP response headers.");
-        }
-    }
+    // --- Utility and Helper Methods ---
 
     private function getZodiac(string $number): ?string
     {
-        foreach ($this->zodiacMap as $zodiac => $numbers) {
-            if (in_array($number, $numbers)) {
+        foreach (self::ZODIAC_MAP as $zodiac => $numbers) {
+            if (in_array($number, $numbers, true)) {
                 return $zodiac;
             }
         }
@@ -302,11 +207,57 @@ class TelegramController extends BaseController {
 
     private function getColor(string $number): ?string
     {
-        foreach ($this->colorMap as $color => $numbers) {
-            if (in_array($number, $numbers)) {
+        foreach (self::COLOR_MAP as $color => $numbers) {
+            if (in_array($number, $numbers, true)) {
                 return $color;
             }
         }
         return null;
+    }
+
+    private function escapeMarkdownV2(string $text): string
+    {
+        // Escape characters for Telegram MarkdownV2
+        return str_replace(
+            ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'],
+            [\'_\', \'*\', \'[\', \'\]\', \'(\', \'\)\', \'~\', \'`\', \' >\', \'#\', \'+\', \'-\', \'=\', \'|\', \'{\', \'}\', \'\.\', \'!\'],
+            $text
+        );
+    }
+
+    private function notifyAdmin(string $message): void
+    {
+        if ($this->adminId) {
+            $this->telegramService->sendMessage($this->adminId, $message);
+        }
+    }
+
+    private function logInfo(string $message, array $context = []): void
+    {
+        if ($this->logger) {
+            $this->logger->info($message, $context);
+        }
+    }
+
+    private function logError(string $message, array $context = []): void
+    {
+        if ($this->logger) {
+            $this->logger->error($message, $context);
+        }
+    }
+    
+    private function handleFatalError(Throwable $e): void
+    {
+        $this->logError('Fatal Error in Webhook Handler', ['exception' => $e]);
+        $errorMessage = sprintf(
+            "🚨 *Bot Critical Error* 🚨\n\n"
+            . "The bot encountered a fatal error\. It may be unresponsive\.\n\n"
+            . "*Error:*\n`%s`\n\n"
+            . "*File:*\n`%s` on line `%d`",
+            $this->escapeMarkdownV2($e->getMessage()),
+            $this->escapeMarkdownV2($e->getFile()),
+            $e->getLine()
+        );
+        $this->notifyAdmin($errorMessage);
     }
 }
