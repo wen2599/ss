@@ -1,4 +1,15 @@
 <?php
+// --- [BOOTSTRAP LOG] ---
+// This is the absolute first line. If this log appears, the script is being executed.
+error_log("--- [BOOTSTRAP LOG] webhook.php execution started ---");
+
+// --- [PING ENDPOINT] ---
+// A simple diagnostic check. If you access /webhook.php?ping=1, it should respond with "pong".
+if (isset($_GET['ping']) && $_GET['ping'] === '1') {
+    header('Content-Type: text/plain');
+    echo 'pong';
+    exit;
+}
 
 // Set the content type to JSON, as is common for API endpoints.
 header('Content-Type: application/json');
