@@ -102,6 +102,12 @@ register_shutdown_function(function () {
 function getDbConnection(): PDO {
     static $conn = null;
     if ($conn === null) {
+        // --- Pre-condition Check: Ensure PDO extension is loaded ---
+        if (!class_exists('PDO')) {
+            error_log('FATAL: PDO class not found. The pdo_mysql extension is likely missing.');
+            send_json_error(503, 'Service Unavailable: A required server extension is missing.');
+        }
+
         $host = $_ENV['DB_HOST'] ?? null;
         $dbname = $_ENV['DB_DATABASE'] ?? null; // Corrected to DB_DATABASE
         $username = $_ENV['DB_USER'] ?? null;
