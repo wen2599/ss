@@ -13,10 +13,11 @@ class TelegramController {
     {
         // Fetch the bot token and channel ID from environment variables.
         $this->botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
-        $this->channelId = $_ENV['TELEGRAM_CHANNEL_ID'] ?? null;
+        // Correctly read the channel ID from the LOTTERY_CHANNEL_ID environment variable.
+        $this->channelId = $_ENV['LOTTERY_CHANNEL_ID'] ?? null;
 
         if (!$this->botToken || !$this->channelId) {
-            error_log('Telegram Bot Token or Channel ID is not configured in .env file.');
+            error_log('Telegram Bot Token or Lottery Channel ID is not configured correctly in .env file.');
             // We don't exit here, to avoid exposing internal errors via HTTP responses.
         }
     }
@@ -108,7 +109,7 @@ class TelegramController {
     private function handleLotteryCommand()
     {
         if (!$this->channelId) {
-            error_log('Cannot handle /lottery, TELEGRAM_CHANNEL_ID is not set.');
+            error_log('Cannot handle /lottery, LOTTERY_CHANNEL_ID is not set.');
             return;
         }
         

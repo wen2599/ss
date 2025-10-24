@@ -39,10 +39,10 @@ spl_autoload_register(function ($class) {
 // All incoming webhook traffic is directed to the TelegramController.
 use App\Controllers\TelegramController;
 
-// Check if the bot token and channel ID are set before proceeding.
-if (!isset($_ENV['TELEGRAM_BOT_TOKEN']) || !isset($_ENV['TELEGRAM_CHANNEL_ID'])) {
+// Check if the bot token and the specific lottery channel ID are set before proceeding.
+if (!isset($_ENV['TELEGRAM_BOT_TOKEN']) || !isset($_ENV['LOTTERY_CHANNEL_ID'])) {
     // Use error_log for server-side logging. Avoid echoing sensitive details.
-    error_log('FATAL: Telegram bot credentials are not set in the .env file.');
+    error_log('FATAL: TELEGRAM_BOT_TOKEN or LOTTERY_CHANNEL_ID are not set in the .env file.');
     // Send a generic, non-informative error response to the public.
     http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => 'Server configuration error.']);
