@@ -82,11 +82,11 @@ function getDbConnection(): PDO {
     if ($conn === null) {
         $host = $_ENV['DB_HOST'] ?? '127.0.0.1';
         $dbname = $_ENV['DB_DATABASE'] ?? 'email_viewer';
-        $username = $_ENV['DB_USERNAME'] ?? 'root';
+        $username = $_ENV['DB_USER'] ?? 'root';
         $password = $_ENV['DB_PASSWORD'] ?? '';
 
         if (empty($dbname) || empty($username)) {
-            error_log('Database credentials (DB_DATABASE or DB_USERNAME) are not set in the .env file.');
+            error_log('Database credentials (DB_DATABASE or DB_USER) are not set in the .env file.');
             die("Server configuration error: Database credentials missing.");
         }
         $dsn = "mysql:host={$host};dbname={$dbname};charset=utf8mb4";
