@@ -7,51 +7,37 @@ class UserController extends BaseController
 {
     public function register(): void
     {
-        error_log('Register method called');
         $data = $this->getJsonBody();
-        error_log('Request body: ' . json_encode($data));
         $email = $data['email'] ?? null;
         $password = $data['password'] ?? null;
 
         if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            error_log('Invalid or missing email');
             $this->jsonResponse(400, ['status' => 'error', 'message' => 'Invalid or missing email.']);
             return;
         }
 
         if (!$password || strlen($password) < 6) {
-            error_log('Password too short');
             $this->jsonResponse(400, ['status' => 'error', 'message' => 'Password must be at least 6 characters long.']);
             return;
         }
 
         try {
-            error_log('Connecting to database');
             $pdo = $this->getDbConnection();
-            error_log('Database connection successful');
 
             // Check if user already exists
-            error_log('Checking if user exists');
             $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
             $stmt->execute([$email]);
             if ($stmt->fetch()) {
-                error_log('User already exists');
                 $this->jsonResponse(409, ['status' => 'error', 'message' => 'Email already registered.']);
                 return;
             }
-            error_log('User does not exist');
 
             // Hash password and insert user
-            error_log('Hashing password');
             $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-            error_log('Password hashed');
             $stmt = $pdo->prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)");
-            error_log('Executing insert');
             if ($stmt->execute([$email, $passwordHash])) {
-                error_log('User registered successfully');
                 $this->jsonResponse(201, ['status' => 'success', 'message' => 'User registered successfully.']);
             } else {
-                error_log('Failed to register user');
                 $this->jsonResponse(500, ['status' => 'error', 'message' => 'Failed to register user.']);
             }
         } catch (\PDOException $e) {
@@ -78,8 +64,9 @@ class UserController extends BaseController
             $user = $stmt->fetch(\PDO::FETCH_ASSOC);
 
             if ($user && password_verify($password, $user['password_hash'])) {
-                // Start session
+                // Start session and regenerate ID
                 session_start();
+                session_regenerate_id(true);
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $email;
                 $this->jsonResponse(200, ['status' => 'success', 'message' => 'Login successful.', 'data' => ['username' => $email]]);

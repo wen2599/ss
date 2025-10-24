@@ -12,6 +12,7 @@
       </div>
 
       <div v-if="error" class="error-message">{{ error }}</div>
+      <div v-if="successMessage" class="success-message">{{ successMessage }}</div>
 
       <button type="submit" :disabled="isLoading">
         {{ isLoading ? '登录中...' : '登录' }}
@@ -24,16 +25,24 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import apiClient from '../api';
 import { store } from '../store'; // Import the store
 
 const email = ref('');
 const password = ref('');
 const error = ref(null);
+const successMessage = ref('');
 const isLoading = ref(false);
 const router = useRouter();
+const route = useRoute();
+
+onMounted(() => {
+  if (route.query.registered === 'true') {
+    successMessage.value = '注册成功！现在您可以登录了。';
+  }
+});
 
 async function handleLogin() {
   error.value = null;
@@ -126,6 +135,14 @@ button:disabled {
 .error-message {
   color: #e74c3c;
   background-color: #fdd;
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+.success-message {
+  color: #2ecc71;
+  background-color: #eafaf1;
   padding: 0.75rem;
   border-radius: 4px;
   margin-bottom: 1rem;

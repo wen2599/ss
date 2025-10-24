@@ -59,9 +59,9 @@ async function handleRegister() {
       password: password.value,
     });
 
-    // On success, redirect to the main page (or a login success page)
+    // On success, redirect to the login page with a success message
     if (response.data.status === 'success') {
-      router.push('/');
+      router.push({ name: 'login', query: { registered: 'true' } });
     } else {
       // This case might not be reached if the API uses proper status codes, but is good for robustness
       error.value = response.data.message || '注册失败，请稍后再试。';
