@@ -54,7 +54,7 @@ async function fetchEmails() {
   error.value = null;
   try {
     // The backend automatically filters emails based on authentication, so no change is needed here.
-    const response = await apiClient.get('/list_emails.php');
+    const response = await apiClient.get('/emails');
     if (response && response.data && Array.isArray(response.data.data)) {
       emails.value = response.data.data;
     } else {

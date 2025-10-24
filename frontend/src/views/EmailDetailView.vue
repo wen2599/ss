@@ -60,7 +60,7 @@ async function fetchEmail() {
   loading.value = true;
   error.value = null;
   try {
-    const response = await apiClient.get(`/get_email.php?id=${emailId.value}`);
+    const response = await apiClient.get(`/emails/${emailId.value}`);
     if (response && response.data && response.data.status === 'success') {
       email.value = response.data.data;
       activeTab.value = email.value.body_html ? 'html' : 'text';
