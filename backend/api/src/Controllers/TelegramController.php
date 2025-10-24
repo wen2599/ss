@@ -21,21 +21,37 @@ class TelegramController extends BaseController {
     {
         $this->botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
         $this->channelId = $_ENV['LOTTERY_CHANNEL_ID'] ?? null;
+        if (!$this->channelId) {
+            error_log("[ERROR] LOTTERY_CHANNEL_ID is not set. The bot will not be able to identify the correct channel.");
+        }
     }
 
-    public function handleWebhook()
+    public function handleWebhook(array $update): void
     {
-        $input = file_get_contents('php://input');
-        $update = json_decode($input, true);
+        error_log("[INFO] Handling webhook update: " . json_encode($update));
 
-        if (isset($update['channel_post']['text'])) {
-            $message = $update['channel_post'];
-            $chatId = $message['chat']['id'];
-            $text = $message['text'];
+        $message = $update['message'] ?? $update['edited_message'] ?? $update['channel_post'] ?? $update['edited_channel_post'] ?? null;
 
-            if ((string)$chatId === $this->channelId) {
-                $this->_parseAndSaveLotteryResult($text);
-            }
+        if (!$message) {
+            error_log("[INFO] Webhook update is not a processable message type. Skipping.");
+            return;
+        }
+
+        $chatId = $message['chat']['id'] ?? null;
+        $text = $message['text'] ?? null;
+
+        if (!$chatId || !$text) {
+            error_log("[INFO] Message does not contain a chat ID or text. Skipping.");
+            return;
+        }
+
+        error_log("[INFO] Received message from chat ID: {$chatId}. Configured channel ID: {$this->channelId}");
+
+        if ((string)$chatId === $this->channelId) {
+            error_log("[INFO] Message is from the target lottery channel. Attempting to parse.");
+            $this->_parseAndSaveLotteryResult($text);
+        } else {
+            error_log("[INFO] Message is not from the target lottery channel. Skipping.");
         }
     }
 
@@ -47,11 +63,18 @@ class TelegramController extends BaseController {
             '老澳' => '/老澳\d{2}\.\d{2}第:(\d+)\s*期开奖结果:\s*([\d\s]+)/'
         ];
 
+        $found = false;
         foreach ($patterns as $type => $pattern) {
             if (preg_match($pattern, $text, $matches)) {
+                $found = true;
                 $issueNumber = $matches[1];
                 $numbers = preg_split('/\s+/', trim($matches[2]));
                 $winningNumbers = implode(',', $numbers);
+
+                if (empty($numbers) || empty($issueNumber)) {
+                    error_log("[WARNING] Regex matched, but failed to extract issue number or winning numbers for type '{$type}'.");
+                    continue;
+                }
 
                 $numberDetails = [];
                 foreach ($numbers as $number) {
@@ -60,7 +83,9 @@ class TelegramController extends BaseController {
                         'color' => $this->getColor($number)
                     ];
                 }
-                $numberColorsJson = json_encode($numberDetails);
+                $numberColorsJson = json_encode($numberDetails, JSON_UNESCAPED_UNICODE);
+
+                error_log("[INFO] Parsed lottery result for '{$type}': Issue {$issueNumber}, Numbers: {$winningNumbers}");
 
                 try {
                     $pdo = $this->getDbConnection();
@@ -70,11 +95,15 @@ class TelegramController extends BaseController {
                          ON DUPLICATE KEY UPDATE winning_numbers = VALUES(winning_numbers), number_colors_json = VALUES(number_colors_json), draw_date = NOW()"
                     );
                     $stmt->execute([$type, $issueNumber, $winningNumbers, $numberColorsJson]);
+                    error_log("[SUCCESS] Successfully saved lottery result for '{$type}' Issue {$issueNumber} to the database.");
                 } catch (\PDOException $e) {
-                    error_log('Failed to save lottery result: ' . $e->getMessage());
+                    error_log("[ERROR] Failed to save lottery result for '{$type}' Issue {$issueNumber}: " . $e->getMessage());
                 }
                 break;
             }
+        }
+        if (!$found) {
+            error_log("[INFO] No lottery result pattern matched the message text.");
         }
     }
 

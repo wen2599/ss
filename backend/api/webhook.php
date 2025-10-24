@@ -50,9 +50,19 @@ if (!isset($_ENV['TELEGRAM_BOT_TOKEN']) || !isset($_ENV['LOTTERY_CHANNEL_ID'])) 
 }
 
 // All good, let's handle the webhook request.
+// Add a top-level log to confirm the webhook is being triggered.
+error_log("--- [INFO] Telegram webhook received ---");
+$input = file_get_contents('php://input');
+error_log("Raw input: " . $input); // Log the raw payload for inspection.
+
 try {
+    $update = json_decode($input, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        throw new \Exception("Invalid JSON received: " . json_last_error_msg());
+    }
+
     $controller = new TelegramController();
-    $controller->handleWebhook();
+    $controller->handleWebhook($update); // Pass the decoded update to the controller.
     
     // Respond to Telegram to acknowledge receipt of the update.
     echo json_encode(['status' => 'success', 'message' => 'Webhook processed.']);
