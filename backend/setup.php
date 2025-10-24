@@ -45,7 +45,7 @@ try {
     echo "[OK] Successfully connected to the MySQL server.\n";
 
     // Create the database if it doesn't exist
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS \`{$dbName}\`");
+    $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$dbName}`");
     echo "[OK] Ensured that database '{$dbName}' exists.\n";
 
     // Now, get the connection *through the application's function*, which will connect to the specific database
