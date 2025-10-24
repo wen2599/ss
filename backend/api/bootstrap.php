@@ -18,9 +18,14 @@ declare(strict_types=1);
 
     $foundEnvPath = null;
     foreach ($possiblePaths as $path) {
-        error_log("Trying .env path: " . $path); // Debug output
-        if (file_exists($path)) {
+        error_log("[ENV Loader] Checking path: " . $path);
+        // Use fopen to check for readability, as file_exists can be unreliable
+        // in some server environments with strict permissions.
+        $handle = @fopen($path, 'r');
+        if ($handle !== false) {
+            fclose($handle);
             $foundEnvPath = $path;
+            error_log("[ENV Loader] Found readable .env at: " . $foundEnvPath);
             break;
         }
     }
