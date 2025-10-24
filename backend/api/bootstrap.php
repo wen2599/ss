@@ -105,17 +105,4 @@ function getDbConnection(): PDO {
     return $conn;
 }
 
-function runMigrations(PDO $pdo): void {
-    $sql = file_get_contents(__DIR__ . '/database/migration.sql');
-    if ($sql === false) {
-        error_log("Failed to read migration.sql file.");
-        return;
-    }
-    try {
-        $pdo->exec($sql);
-    } catch (PDOException $e) {
-        error_log("Database migration failed: " . $e->getMessage());
-    }
-}
-
 // Migrations are handled by the setup.php script and should not be run on every request.
