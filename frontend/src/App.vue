@@ -1,53 +1,37 @@
 <template>
-  <div id="app" class="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900">
-    <header class="bg-white dark:bg-gray-800 shadow-md">
-      <div class="container mx-auto px-4">
-        <nav class="flex justify-between items-center py-4">
-          <RouterLink to="/" class="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            🏆 开奖中心
-          </RouterLink>
+  <div id="app-layout" class="min-h-screen bg-gray-100 text-gray-800">
+    <!-- Top Banner Header -->
+    <header class="bg-white shadow-md sticky top-0 z-40">
+      <div class="container mx-auto px-6 py-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <RouterLink to="/" class="text-2xl font-bold text-gray-800">
+              🏆 <span class="hidden sm:inline">开奖中心</span>
+            </RouterLink>
+          </div>
 
-          <!-- Mobile Menu Button -->
-          <button
-            @click="toggleMenu"
-            class="md:hidden btn btn-secondary"
-            :aria-expanded="isMenuOpen"
-            aria-controls="mobile-menu"
-          >
-            菜单
-          </button>
+          <!-- Unified Navigation -->
+          <nav class="flex items-center space-x-5">
+            <RouterLink to="/lottery" class="text-gray-600 hover:text-primary font-medium transition-colors">開獎結果</RouterLink>
+            <RouterLink v-if="isAuthenticated" to="/lottery-winners" class="text-gray-600 hover:text-primary font-medium transition-colors">中獎名单</RouterLink>
 
-          <!-- Desktop Menu -->
-          <div class="hidden md:flex items-center space-x-6">
-            <div v-if="isAuthenticated" class="flex items-center space-x-4">
-              <RouterLink to="/lottery" class="hover:text-blue-500">开奖结果</RouterLink>
-              <RouterLink to="/lottery-winners" class="hover:text-blue-500">中奖名单</RouterLink>
-              <span class="font-medium">欢迎, {{ username }}</span>
-              <button @click="handleLogout" class="btn btn-primary">登出</button>
+            <div v-if="authCheckCompleted">
+              <div v-if="isAuthenticated" class="flex items-center space-x-4">
+                <span class="text-sm font-medium">欢迎, {{ username }}</span>
+                <button @click="handleLogout" class="px-4 py-2 rounded-md font-semibold text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-400">登出</button>
+              </div>
+              <div v-else class="flex items-center space-x-2">
+                <button @click="openAuthModal('login')" class="px-4 py-2 rounded-md font-semibold text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-400">登录</button>
+                <button @click="openAuthModal('register')" class="px-4 py-2 rounded-md font-semibold text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-primary text-white hover:bg-primary-hover focus:ring-primary">注册</button>
+              </div>
             </div>
-            <div v-else class="flex flex-center space-x-4">
-              <button @click="openAuthModal('login')" class="hover:text-blue-500">登录</button>
-              <button @click="openAuthModal('register')" class="btn btn-primary">注册</button>
-            </div>
-          </div>
-        </nav>
-
-        <!-- Mobile Menu -->
-        <div v-if="isMenuOpen" id="mobile-menu" class="md:hidden mt-2">
-          <div v-if="isAuthenticated" class="flex flex-col space-y-2">
-            <RouterLink to="/lottery" @click="closeMenu" class="block py-2 hover:text-blue-500">开奖结果</RouterLink>
-            <RouterLink to="/lottery-winners" @click="closeMenu" class="block py-2 hover:text-blue-500">中奖名单</RouterLink>
-            <button @click="handleLogoutAndCloseMenu" class="btn btn-primary">登出</button>
-          </div>
-          <div v-else class="flex flex-col space-y-2">
-            <button @click="openAuthModal('login'); closeMenu();" class="block py-2 hover:text-blue-500">登录</button>
-            <button @click="openAuthModal('register'); closeMenu();" class="btn btn-primary">注册</button>
-          </div>
+          </nav>
         </div>
       </div>
     </header>
 
-    <main class="flex-grow container mx-auto px-4 py-8">
+    <!-- Main Content -->
+    <main class="flex-grow">
       <RouterView />
     </main>
 
@@ -71,7 +55,6 @@ import AuthModal from './components/AuthModal.vue';
 const router = useRouter();
 const authStore = useAuthStore(); // Initialize Pinia store
 
-const isMenuOpen = ref(false);
 const isAuthModalOpen = ref(false);
 const authModalView = ref('login'); // or 'register'
 
@@ -83,21 +66,8 @@ onMounted(() => {
   authStore.checkAuth(); // Call Pinia action
 });
 
-function toggleMenu() {
-  isMenuOpen.value = !isMenuOpen.value;
-}
-
-function closeMenu() {
-  isMenuOpen.value = false;
-}
-
 function handleLogout() {
   authStore.logout(); // Call Pinia action
-}
-
-function handleLogoutAndCloseMenu() {
-  handleLogout();
-  closeMenu();
 }
 
 function openAuthModal(view) {

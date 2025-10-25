@@ -7,6 +7,7 @@ export const useAuthStore = defineStore('auth', {
     isAuthenticated: false,
     username: null,
     authCheckCompleted: false, // New state to track if the initial auth check is done
+    isLoading: false, // To track loading state for login/register
   }),
   getters: {
     // isAuthenticated: (state) => state.isAuthenticated,
@@ -35,6 +36,7 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async login(email, password) {
+      this.isLoading = true;
       try {
         const response = await apiClient.post('/login', { email, password });
         if (response.data.status === 'success') {
@@ -49,10 +51,13 @@ export const useAuthStore = defineStore('auth', {
         console.error('Login error:', error);
         // Specific handling for 401 might be done by response interceptor in api.js
         return { success: false, message: error.response?.data?.message || 'An error occurred during login.' };
+      } finally {
+        this.isLoading = false;
       }
     },
 
     async register(email, password, telegramChatId = null, telegramUsername = null) {
+      this.isLoading = true;
       try {
         const response = await apiClient.post('/register', { email, password, telegram_chat_id: telegramChatId, telegram_username: telegramUsername });
         if (response.data.status === 'success') {
@@ -67,6 +72,8 @@ export const useAuthStore = defineStore('auth', {
       } catch (error) {
         console.error('Registration error:', error);
         return { success: false, message: error.response?.data?.message || 'An error occurred during registration.' };
+      } finally {
+        this.isLoading = false;
       }
     },
 
