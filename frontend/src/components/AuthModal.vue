@@ -44,7 +44,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
 
 const props = defineProps({
