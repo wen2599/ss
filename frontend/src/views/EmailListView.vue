@@ -4,13 +4,13 @@
 
     <!-- Unauthenticated User Message -->
     <div v-if="!isAuthenticated" class="unauthenticated-message">
-      <p>您当前未登录。只显示公开的邮件。 <router-link to="/login">登录</router-link> 以查看所有邮件。</p>
+      <p>请登录或注册以查看您的邮件。</p>
     </div>
 
-    <div v-if="loading" class="loading-message">加载中...</div>
-    <div v-if="error" class="error-message">{{ error }}</div>
+    <div v-if="loading && isAuthenticated" class="loading-message">加载中...</div>
+    <div v-if="error && isAuthenticated" class="error-message">{{ error }}</div>
     
-    <div v-if="emails.length > 0" class="email-table-wrapper">
+    <div v-if="emails.length > 0 && isAuthenticated" class="email-table-wrapper">
       <table class="email-table">
         <thead>
           <tr>
@@ -29,7 +29,7 @@
       </table>
     </div>
     
-    <div v-else-if="!loading" class="no-emails-message">
+    <div v-if="emails.length === 0 && !loading && isAuthenticated" class="no-emails-message">
       <p>未找到邮件。</p>
     </div>
   </div>
@@ -39,21 +39,27 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import apiClient from '../api';
-import { store } from '../store'; // Import the store
+import { useAuthStore } from '../stores/auth'; // Import the new Pinia store
 
 const router = useRouter();
+const authStore = useAuthStore(); // Initialize Pinia store
+
 const emails = ref([]);
 const loading = ref(true);
 const error = ref(null);
 
-// Get authentication status from the store
-const isAuthenticated = computed(() => store.state.isAuthenticated);
+// Get authentication status from the Pinia store
+const isAuthenticated = computed(() => authStore.isAuthenticated);
 
 async function fetchEmails() {
+  if (!isAuthenticated.value) {
+    emails.value = [];
+    loading.value = false;
+    return;
+  }
   loading.value = true;
   error.value = null;
   try {
-    // The backend automatically filters emails based on authentication, so no change is needed here.
     const response = await apiClient.get('/emails');
     if (response && response.data && Array.isArray(response.data.data)) {
       emails.value = response.data.data;
@@ -81,20 +87,18 @@ function formatDate(dateString) {
 
 // --- Lifecycle and Watchers ---
 onMounted(() => {
-  fetchEmails();
+  // The watcher will call fetchEmails on mount because of `immediate: true`
 });
 
 // Watch for changes in authentication status and re-fetch emails
-watch(isAuthenticated, (newAuthStatus, oldAuthStatus) => {
-  // Re-fetch only if the status actually changes
-  if (newAuthStatus !== oldAuthStatus) {
-    fetchEmails();
-  }
-});
+watch(isAuthenticated, (newAuthStatus) => {
+  fetchEmails();
+}, { immediate: true }); // Use immediate to run on initial mount
 
 </script>
 
 <style scoped>
+/* Styles remain the same */
 .email-list-container {
   font-family: Arial, sans-serif;
 }
@@ -106,11 +110,6 @@ watch(isAuthenticated, (newAuthStatus, oldAuthStatus) => {
   border-radius: 4px;
   margin-bottom: 1.5rem;
   text-align: center;
-}
-
-.unauthenticated-message a {
-  font-weight: bold;
-  color: #007bff;
 }
 
 .loading-message, .error-message, .no-emails-message {

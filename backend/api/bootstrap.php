@@ -18,20 +18,26 @@ declare(strict_types=1);
 
     $foundEnvPath = null;
     foreach ($possiblePaths as $path) {
-        error_log("[ENV Loader] Checking path: " . $path);
+        if (($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
+            error_log("[ENV Loader] Checking path: " . $path);
+        }
         // Use fopen to check for readability, as file_exists can be unreliable
         // in some server environments with strict permissions.
         $handle = @fopen($path, 'r');
         if ($handle !== false) {
             fclose($handle);
             $foundEnvPath = $path;
-            error_log("[ENV Loader] Found readable .env at: " . $foundEnvPath);
+            if (($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
+                error_log("[ENV Loader] Found readable .env at: " . $foundEnvPath);
+            }
             break;
         }
     }
 
     if ($foundEnvPath) {
-        error_log("Found .env at: " . $foundEnvPath); // Debug output
+        if (($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
+            error_log("Found .env at: " . $foundEnvPath); // Debug output
+        }
         $lines = file($foundEnvPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
             if (strpos(trim($line), '#') === 0) continue;
@@ -101,6 +107,9 @@ function send_json_error(int $statusCode, string $message, ?Throwable $e = null)
     $response = ['status' => 'error', 'message' => $message];
     if ($e && ($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
         $response['details'] = $e->getMessage();
+        $response['file'] = $e->getFile();
+        $response['line'] = $e->getLine();
+        $response['trace'] = explode("\n", $e->getTraceAsString());
     }
     echo json_encode($response);
     exit;
@@ -108,7 +117,7 @@ function send_json_error(int $statusCode, string $message, ?Throwable $e = null)
 
 // --- Global Error & Exception Handling ---
 set_exception_handler(function (Throwable $e) {
-    error_log("Uncaught Exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
+    error_log("Uncaught Exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine() . " Request: " . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
     send_json_error(500, 'An unexpected server error occurred.', $e);
 });
 set_error_handler(function ($severity, $message, $file, $line) {
@@ -118,12 +127,19 @@ set_error_handler(function ($severity, $message, $file, $line) {
 register_shutdown_function(function () {
     $lastError = error_get_last();
     if ($lastError && ($lastError['type'] & (E_ERROR | E_PARSE))) {
-        error_log("Fatal Error: {$lastError['message']} in {$lastError['file']}:{$lastError['line']}");
+        error_log("Fatal Error: {$lastError['message']} in {$lastError['file']}:{$lastError['line']} Request: " . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
         send_json_error(500, 'A fatal server error occurred.');
     }
 });
 
 // --- Database Connection ---
+/**
+ * Establishes and returns a PDO database connection.
+ * Uses a singleton pattern to ensure only one connection is made.
+ * Environment variables DB_HOST, DB_PORT, DB_DATABASE, DB_USER, DB_PASSWORD are required.
+ * @return PDO The PDO database connection object.
+ * @throws PDOException If the database connection fails.
+ */
 function getDbConnection(): PDO {
     static $conn = null;
     if ($conn === null) {
@@ -134,16 +150,17 @@ function getDbConnection(): PDO {
         }
 
         $host = $_ENV['DB_HOST'] ?? null;
-        $dbname = $_ENV['DB_DATABASE'] ?? null; // Corrected to DB_DATABASE
+        $port = (int)($_ENV['DB_PORT'] ?? '3306'); // Explicit type conversion for port
+        $dbname = $_ENV['DB_DATABASE'] ?? null;
         $username = $_ENV['DB_USER'] ?? null;
         $password = $_ENV['DB_PASSWORD'] ?? null;
 
         if (!$host || !$dbname || !$username) {
-            error_log('Database configuration (DB_HOST, DB_DATABASE, DB_USER) is incomplete.'); // Corrected message
+            error_log('Database configuration (DB_HOST, DB_DATABASE, DB_USER) is incomplete.');
             send_json_error(503, 'Service Unavailable: Server is not configured correctly.');
         }
 
-        $dsn = "mysql:host={$host};dbname={$dbname};charset=utf8mb4";
+        $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
         $options = [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,

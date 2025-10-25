@@ -1,9 +1,11 @@
 import { reactive, readonly } from 'vue';
+import api from '../api'; // Import the api utility
 
 // --- State ---
 const state = reactive({
   isAuthenticated: false,
   username: null,
+  token: localStorage.getItem('token') || null,
 });
 
 // --- Getters ---
@@ -13,34 +15,52 @@ const getters = {
 
 // --- Actions ---
 const actions = {
-  login(username) {
-    state.isAuthenticated = true;
-    state.username = username;
-    // In a real app, you would also store the session token securely (e.g., in an HttpOnly cookie)
-    localStorage.setItem('isAuthenticated', 'true');
-    localStorage.setItem('username', username);
+  async login(email, password) {
+    const response = await api.post('/login', { email, password });
+    if (response && response.data && response.data.token) {
+      state.isAuthenticated = true;
+      state.username = response.data.user.username;
+      state.token = response.data.token;
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('username', response.data.user.username);
+      api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+    } else {
+      throw new Error(response.data.message || 'Login failed');
+    }
+  },
+
+  async register(username, email, password) {
+    const response = await api.post('/register', { username, email, password });
+    if (!response || response.status !== 201) {
+      throw new Error(response.data.message || 'Registration failed');
+    }
   },
 
   logout() {
     state.isAuthenticated = false;
     state.username = null;
-    localStorage.removeItem('isAuthenticated');
+    state.token = null;
+    localStorage.removeItem('token');
     localStorage.removeItem('username');
-    // Here you would also make an API call to invalidate the session on the server
+    delete api.defaults.headers.common['Authorization'];
+    // Optionally, notify the backend to invalidate the token
   },
 
-  // This action should be called when the app initializes
   checkAuth() {
-    const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+    const token = localStorage.getItem('token');
     const username = localStorage.getItem('username');
-    if (isAuthenticated && username) {
-      this.login(username);
+    if (token && username) {
+      state.isAuthenticated = true;
+      state.username = username;
+      state.token = token;
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+        this.logout();
     }
   },
 };
 
 // --- Store Export ---
-// We are not using a formal library like Vuex or Pinia, so we export a simple store object.
 export const store = {
   state: readonly(state),
   getters,

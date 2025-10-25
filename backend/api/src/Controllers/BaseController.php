@@ -26,25 +26,25 @@ abstract class BaseController
     protected function jsonResponse(int $statusCode, array $data): void
     {
         http_response_code($statusCode);
-        header('Content-Type: application/json');
+        if (!headers_sent()) {
+            header('Content-Type: application/json');
+        }
         echo json_encode($data);
         exit;
     }
 
     /**
-     * Sends a JSON error response.
+     * Sends a JSON error response by delegating to the global error handler.
      *
      * @param int $statusCode The HTTP status code.
      * @param string $message The error message.
-     * @param array $details Additional error details.
+     * @param \Throwable|null $e The exception that caused the error (optional).
      */
-    protected function jsonError(int $statusCode, string $message, array $details = []): void
+    protected function jsonError(int $statusCode, string $message, ?\Throwable $e = null): void
     {
-        $payload = ['status' => 'error', 'message' => $message];
-        if (!empty($details)) {
-            $payload['details'] = $details;
-        }
-        $this->jsonResponse($statusCode, $payload);
+        // Delegate to the global send_json_error function defined in bootstrap.php
+        // This ensures consistent error handling including APP_DEBUG details.
+        send_json_error($statusCode, $message, $e);
     }
 
     public function ping(): void
@@ -56,13 +56,14 @@ abstract class BaseController
      * Gets the JSON body from the request.
      *
      * @return array The decoded JSON body.
+     * @throws \InvalidArgumentException If the request body is not valid JSON.
      */
     protected function getJsonBody(): array
     {
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->jsonResponse(400, ['status' => 'error', 'message' => 'Invalid JSON body.']);
+            throw new \InvalidArgumentException('Invalid JSON body: ' . json_last_error_msg());
         }
         return $data ?? [];
     }

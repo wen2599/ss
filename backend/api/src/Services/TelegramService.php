@@ -1,7 +1,9 @@
 <?php
+declare(strict_types=1);
+
 namespace App\Services;
 
-use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Handles all communication with the Telegram Bot API.
@@ -11,12 +13,15 @@ class TelegramService
     private const API_BASE_URL = 'https://api.telegram.org/bot';
 
     private string $botToken;
-    private ?LoggerInterface $logger;
+    // LoggerInterface removed as per pure PHP requirements
 
-    public function __construct(string $botToken, ?LoggerInterface $logger = null)
+    /**
+     * TelegramService constructor.
+     * @param string $botToken The Telegram bot token.
+     */
+    public function __construct(string $botToken)
     {
         $this->botToken = $botToken;
-        $this->logger = $logger;
     }
 
     /**
@@ -30,7 +35,7 @@ class TelegramService
     public function sendMessage(string $chatId, string $text, ?string $parseMode = null): bool
     {
         if (empty($this->botToken)) {
-            $this->logError('Bot Token is not configured. Cannot send message.');
+            $this->logError('Bot Token is not configured. Cannot send message.', ['chat_id' => $chatId]);
             return false;
         }
 
@@ -60,10 +65,10 @@ class TelegramService
             $this->logInfo('Message sent successfully.', ['chat_id' => $chatId]);
             return true;
 
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             $this->logError('Exception during sendMessage request.', [
                 'chat_id' => $chatId,
-                'exception_message' => $e->getMessage(),
+                'exception' => $e,
             ]);
             return false;
         }
@@ -75,7 +80,7 @@ class TelegramService
      * @param string $url The full URL to send the request to.
      * @param array $payload The data to be sent in the request body.
      * @return array The decoded JSON response from the API.
-     * @throws \Exception If the request fails or the response is invalid.
+     * @throws \RuntimeException If the request fails or the response is invalid.
      */
     private function executeRequest(string $url, array $payload): array
     {
@@ -94,35 +99,58 @@ class TelegramService
         ];
 
         $context = stream_context_create($options);
-        $result = @file_get_contents($url, false, $context);
+        
+        // Remove @ error suppression and explicitly handle false return
+        $result = file_get_contents($url, false, $context);
 
         if ($result === false) {
-            throw new \Exception('Failed to execute request. Network error or API unreachable.');
+            $error = error_get_last();
+            $errorMessage = 'Failed to execute request. Network error or API unreachable.';
+            if (isset($error['message'])) {
+                $errorMessage .= ' PHP Error: ' . $error['message'];
+            }
+            throw new \RuntimeException($errorMessage);
         }
 
         $response = json_decode($result, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \Exception('Invalid JSON response from Telegram API. Raw response: ' . $result);
+            throw new \RuntimeException('Invalid JSON response from Telegram API. Raw response: ' . $result . ' JSON Error: ' . json_last_error_msg());
         }
 
         return $response;
     }
 
+    /**
+     * Logs an informational message.
+     * Output is controlled by APP_DEBUG environment variable.
+     * @param string $message The message to log.
+     * @param array $context Additional context for the log entry.
+     */
     private function logInfo(string $message, array $context = []): void
     {
-        if ($this->logger) {
-            $this->logger->info($message, $context);
-        } else {
-            error_log("INFO: " . $message . " " . json_encode($context));
+        if (($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
+            error_log('INFO: ' . $message . (empty($context) ? '' : ' ' . json_encode($context, JSON_UNESCAPED_UNICODE)));
         }
     }
 
+    /**
+     * Logs an error message.
+     * @param string $message The message to log.
+     * @param array $context Additional context for the log entry.
+     */
     private function logError(string $message, array $context = []): void
     {
-        if ($this->logger) {
-            $this->logger->error($message, $context);
-        } else {
-            error_log("ERROR: " . $message . " " . json_encode($context));
+        $logMessage = 'ERROR: ' . $message;
+        if (isset($context['exception']) && $context['exception'] instanceof Throwable) {
+            $e = $context['exception'];
+            $logMessage .= sprintf(
+                ' Exception: %s in %s:%d',
+                $e->getMessage(),
+                $e->getFile(),
+                $e->getLine()
+            );
         }
+        $logMessage .= (empty($context) ? '' : ' ' . json_encode($context, JSON_UNESCAPED_UNICODE));
+        error_log($logMessage);
     }
 }

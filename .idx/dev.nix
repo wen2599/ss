@@ -1,4 +1,3 @@
-
 # To learn more about how to use Nix to configure your environment
 # see: https://firebase.google.com/docs/studio/customize-workspace
 { pkgs, ... }: {
@@ -10,7 +9,6 @@
     pkgs.php
     pkgs.mariadb
     pkgs.phpHttpd
-    pkgs.composer
   ];
 
   # Sets environment variables in the workspace
@@ -45,7 +43,6 @@
       # Runs when a workspace is first created
       onCreate = {
         npm-install = "npm --prefix frontend install";
-        composer-install = "composer --working-dir=backend install";
         # Initialize the database directory
         init-db = ''
           mkdir -p $HOME/mysql_data

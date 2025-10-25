@@ -9,7 +9,7 @@
       <p>{{ error.message }}</p>
       <!-- Provide a login link if the error is related to authentication -->
       <p v-if="error.showLoginLink">
-        <router-link to="/login">请登录</router-link> 以查看这封邮件。
+        请在主页登录后重试。
       </p>
     </div>
 
@@ -42,18 +42,19 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import apiClient from '../api';
-import { store } from '../store'; // Import store to check auth status
+import { useAuthStore } from '../stores/auth'; // Import the new Pinia store
 
 const route = useRoute();
 const router = useRouter();
+const authStore = useAuthStore(); // Initialize Pinia store
 
 const email = ref(null);
 const loading = ref(true);
-const error = ref(null); // Will now be an object { message: string, showLoginLink: bool }
+const error = ref(null); // Will be an object { message: string, showLoginLink: bool }
 const activeTab = ref('html');
 
 const emailId = computed(() => route.params.id);
-const isAuthenticated = computed(() => store.state.isAuthenticated);
+const isAuthenticated = computed(() => authStore.isAuthenticated); // Use Pinia store
 
 async function fetchEmail() {
   if (!emailId.value) return;
@@ -71,10 +72,10 @@ async function fetchEmail() {
     console.error(`获取邮件 ${emailId.value} 时出错：`, err);
     const status = err.response ? err.response.status : null;
     
-    if (status === 403) {
+    if (status === 403 || status === 401) { // Handle both 401 and 403
       error.value = {
-        message: '禁止访问：您无权查看此邮件。',
-        showLoginLink: !isAuthenticated.value // Show login link if the user is not logged in
+        message: '禁止访问：您需要登录才能查看此邮件。',
+        showLoginLink: !isAuthenticated.value // Show message if the user is not logged in
       };
     } else if (status === 404) {
       error.value = { message: '找不到邮件：无法在服务器上找到具有此ID的邮件。' };
@@ -86,8 +87,7 @@ async function fetchEmail() {
 }
 
 function goBack() {
-  // Go back to the email list, or to the home page if history is not available.
-  router.go(-1);
+  router.push({ name: 'email-list' }); // Navigate to a consistent location
 }
 
 function formatDate(dateString) {
@@ -111,6 +111,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Styles remain the same */
 .email-detail-container {
   font-family: Arial, sans-serif;
 }
@@ -199,6 +200,10 @@ onMounted(() => {
   border: 1px solid #f5c6cb;
   border-radius: 8px;
   margin: 1rem;
+}
+
+.error-message p {
+    margin: 0;
 }
 
 .error-message a {
