@@ -26,6 +26,12 @@ if ($client_secret_token !== $secret_token) {
 // --- Main Logic ---
 $update = json_decode(file_get_contents('php://input'), true);
 
+if (!$update) {
+    http_response_code(400);
+    log_message('ERROR', 'Received empty or invalid update from Telegram.');
+    exit;
+}
+
 // 1. 处理频道消息 (用于自动保存开奖记录)
 if (isset($update['channel_post']['text'])) {
     $message_text = $update['channel_post']['text'];
@@ -33,6 +39,9 @@ if (isset($update['channel_post']['text'])) {
     
     if ($parsed_data) {
         save_lottery_draw($parsed_data);
+        log_message('INFO', "Successfully parsed and saved lottery draw: " . json_encode($parsed_data));
+    } else {
+        log_message('ERROR', "Failed to parse lottery message: " . $message_text);
     }
     // 频道消息不回复，静默处理
 }
@@ -44,6 +53,7 @@ else if (isset($update['message']['text'])) {
 
     // 检查是否是管理员
     if (!empty($admin_id) && $chat_id == $admin_id) {
+        log_message('INFO', "Admin command received: " . $message_text);
         // 是管理员，解析命令
         if (strpos($message_text, '/') === 0) {
             $command_parts = explode(' ', $message_text, 2);
@@ -52,13 +62,28 @@ else if (isset($update['message']['text'])) {
             switch ($command) {
                 case '/start':
                 case '/help':
-                    $reply_text = "您好, 管理员！\n可用的命令有:\n/stats - 查看系统统计数据";
+                    $reply_text = "您好, 管理员！\n可用的命令有:\n/stats - 查看系统统计数据\n/user [email] - 查询用户信息";
                     send_telegram_message($chat_id, $reply_text);
                     break;
                 
                 case '/stats':
                     $stats = get_system_stats();
                     $reply_text = "系统统计数据:\n- 注册用户数: {$stats['users']}\n- 已保存邮件数: {$stats['emails']}";
+                    send_telegram_message($chat_id, $reply_text);
+                    break;
+
+                case '/user':
+                    $email_to_lookup = $command_parts[1] ?? '';
+                    if (empty($email_to_lookup)) {
+                        send_telegram_message($chat_id, "请输入要查询的邮箱地址. 用法: /user [email]");
+                        break;
+                    }
+                    $user = get_user_by_email($email_to_lookup);
+                    if ($user) {
+                        $reply_text = "用户信息:\n- ID: {$user['id']}\n- Email: {$user['email']}\n- 注册时间: {$user['created_at']}";
+                    } else {
+                        $reply_text = "未找到该用户.";
+                    }
                     send_telegram_message($chat_id, $reply_text);
                     break;
 
@@ -159,3 +184,32 @@ function save_lottery_draw($data) {
     $stmt->close();
 }
 
+/**
+ * Gets a user by email.
+ *
+ * @param string $email
+ * @return array|null
+ */
+function get_user_by_email($email) {
+    global $db_connection;
+    $stmt = $db_connection->prepare("SELECT * FROM users WHERE email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+    $stmt->close();
+    return $user;
+}
+
+/**
+ * Logs a message to the bot log file.
+ *
+ * @param string $level The log level (e.g., INFO, ERROR).
+ * @param string $message The log message.
+ */
+function log_message($level, $message) {
+    $timestamp = date('Y-m-d H:i:s');
+    $log_file = __DIR__ . '/../logs/bot.log';
+    $log_entry = "[{$timestamp}] [{$level}] {$message}\n";
+    file_put_contents($log_file, $log_entry, FILE_APPEND);
+}
