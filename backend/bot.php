@@ -11,94 +11,191 @@ $admin_id = getenv('TELEGRAM_ADMIN_ID');
 
 if (!$bot_token || !$secret_token) {
     http_response_code(500);
-    echo "Bot token or secret token is not configured.";
-    exit;
+    error_log("Bot token or secret token is not configured.");
+    exit("Bot token or secret token is not configured.");
 }
 
-// Check if the request is from Telegram
+// Authenticate the request
 $client_secret_token = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 if ($client_secret_token !== $secret_token) {
     http_response_code(403);
-    echo "Forbidden.";
-    exit;
+    exit("Forbidden.");
 }
 
 // --- Main Logic ---
 $update = json_decode(file_get_contents('php://input'), true);
 
-// 1. 处理频道消息 (用于自动保存开奖记录)
+if (!$update) {
+    http_response_code(200);
+    exit("OK. No update.");
+}
+
+// 1. Handle Channel Post (for automatic lottery data saving)
 if (isset($update['channel_post']['text'])) {
     $message_text = $update['channel_post']['text'];
     $parsed_data = parse_lottery_message($message_text);
     
-    if ($parsed_data) {
-        save_lottery_draw($parsed_data);
+    if ($parsed_data && save_lottery_draw($parsed_data)) {
+        // Optionally log success
     }
-    // 频道消息不回复，静默处理
+    // Channel posts are processed silently
 }
 
-// 2. 处理私人消息 (用于管理员命令)
+// 2. Handle Private Message (for admin commands)
 else if (isset($update['message']['text'])) {
     $chat_id = $update['message']['chat']['id'];
     $message_text = $update['message']['text'];
 
-    // 检查是否是管理员
-    if (!empty($admin_id) && $chat_id == $admin_id) {
-        // 是管理员，解析命令
-        if (strpos($message_text, '/') === 0) {
-            $command_parts = explode(' ', $message_text, 2);
-            $command = $command_parts[0];
+    // Respond to non-admins with a polite message
+    if (!empty($admin_id) && $chat_id != $admin_id) {
+        send_telegram_message($chat_id, "您好！这是一个私人机器人，感谢您的关注。");
+        http_response_code(200);
+        exit("OK. Message sent to non-admin.");
+    }
+    
+    // Process admin commands
+    if (strpos($message_text, '/') === 0) {
+        $command_parts = explode(' ', $message_text, 3);
+        $command = $command_parts[0];
 
-            switch ($command) {
-                case '/start':
-                case '/help':
-                    $reply_text = "您好, 管理员！\n可用的命令有:\n/stats - 查看系统统计数据";
-                    send_telegram_message($chat_id, $reply_text);
-                    break;
-                
-                case '/stats':
-                    $stats = get_system_stats();
-                    $reply_text = "系统统计数据:\n- 注册用户数: {$stats['users']}\n- 已保存邮件数: {$stats['emails']}";
-                    send_telegram_message($chat_id, $reply_text);
-                    break;
+        switch ($command) {
+            case '/start':
+            case '/help':
+                handle_help_command($chat_id);
+                break;
+            
+            case '/stats':
+                handle_stats_command($chat_id);
+                break;
 
-                default:
-                    send_telegram_message($chat_id, "未知命令: {$command}");
-                    break;
-            }
-        } else {
-             send_telegram_message($chat_id, "您好, 管理员。请输入一个命令来开始，例如 /help");
+            case '/latest':
+                handle_latest_command($chat_id);
+                break;
+            
+            case '/add':
+                handle_add_command($chat_id, $command_parts);
+                break;
+
+            default:
+                send_telegram_message($chat_id, "未知命令: {$command}。 输入 /help 查看可用命令。");
+                break;
         }
     } else {
-        // 不是管理员，发送友好提示
-        send_telegram_message($chat_id, "您好！这是一个私人机器人，感谢您的关注。");
+         send_telegram_message($chat_id, "您好, 管理员。请输入一个命令来开始，例如 /help");
     }
 }
 
-http_response_code(200); // 响应Telegram以确认接收
-echo "OK";
+// Respond to Telegram to acknowledge receipt of the update
+http_response_code(200);
+echo "OK. Update processed.";
 
-// --- Function Implementations ---
+// --- Command Handler Functions ---
 
 /**
- * 发送消息到指定的Telegram聊天
- * @param int $chat_id 
- * @param string $text 
+ * Handles the /help and /start command.
+ */
+function handle_help_command($chat_id) {
+    $reply_text = "您好, 管理员！可用的命令有:\n\n" .
+                  "/help - 显示此帮助信息\n" .
+                  "/stats - 查看系统统计数据\n" .
+                  "/latest - 查询最新一条开奖记录\n" .
+                  "/add [期号] [号码] - 手动添加开奖记录\n" .
+                  "  (例如: /add 2023-01-01-001 01,02,03,04,05)";
+    send_telegram_message($chat_id, $reply_text);
+}
+
+/**
+ * Handles the /stats command.
+ */
+function handle_stats_command($chat_id) {
+    $stats = get_system_stats();
+    $reply_text = "📊 系统统计数据:\n" .
+                  "  - 注册用户数: {$stats['users']}\n" .
+                  "  - 已保存邮件数: {$stats['emails']}\n" .
+                  "  - 开奖记录数: {$stats['lottery_draws']}";
+    send_telegram_message($chat_id, $reply_text);
+}
+
+/**
+ * Handles the /latest command.
+ */
+function handle_latest_command($chat_id) {
+    global $db_connection;
+    $query = "SELECT draw_date, draw_period, numbers, created_at FROM lottery_draws ORDER BY id DESC LIMIT 1";
+    
+    if ($result = $db_connection->query($query)) {
+        if ($row = $result->fetch_assoc()) {
+            $reply_text = "🔍 最新开奖记录:\n" .
+                          "  - 日期: {$row['draw_date']}\n" .
+                          "  - 期号: {$row['draw_period']}\n" .
+                          "  - 号码: {$row['numbers']}\n" .
+                          "  - 记录时间: {$row['created_at']}";
+        } else {
+            $reply_text = "数据库中暂无开奖记录。";
+        }
+        $result->free();
+    } else {
+        $reply_text = "查询最新记录时出错: " . $db_connection->error;
+        error_log("DB Error in /latest: " . $db_connection->error);
+    }
+    
+    send_telegram_message($chat_id, $reply_text);
+}
+
+/**
+ * Handles the /add command.
+ */
+function handle_add_command($chat_id, $command_parts) {
+    if (count($command_parts) < 3) {
+        send_telegram_message($chat_id, "格式错误。请使用: /add [期号] [号码]\n例如: /add 2023-01-01-001 01,02,03,04,05");
+        return;
+    }
+
+    $period = $command_parts[1];
+    $numbers = $command_parts[2];
+    
+    // Basic validation
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}-\d{3,4}$/', $period) && !preg_match('/^\d+$/', $period)) {
+        send_telegram_message($chat_id, "期号格式似乎不正确。应类似于 '2023-01-01-001' 或一串数字。");
+        return;
+    }
+    if (!preg_match('/^(\d{1,2},)+\d{1,2}$/', $numbers)) {
+        send_telegram_message($chat_id, "号码格式似乎不正确。应为以逗号分隔的数字，例如 '01,02,03'");
+        return;
+    }
+
+    $data = [
+        'draw_date' => date('Y-m-d'), // Use current date for manual entries
+        'draw_period' => $period,
+        'numbers' => $numbers
+    ];
+
+    if (save_lottery_draw($data)) {
+        send_telegram_message($chat_id, "✅ 记录已成功添加:\n  - 日期: {$data['draw_date']}\n  - 期号: {$data['draw_period']}\n  - 号码: {$data['numbers']}");
+    } else {
+        global $db_connection;
+        send_telegram_message($chat_id, "❌ 添加记录失败。可能是数据库错误或该期号已存在。");
+        error_log("DB Error in /add: " . $db_connection->error);
+    }
+}
+
+
+// --- Core Helper Functions ---
+
+/**
+ * Sends a message to a specified Telegram chat.
  */
 function send_telegram_message($chat_id, $text) {
     global $bot_token;
     $url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
-    $data = [
-        'chat_id' => $chat_id,
-        'text' => $text,
-    ];
+    $data = ['chat_id' => $chat_id, 'text' => $text];
     
     $options = [
         'http' => [
             'header'  => "Content-type: application/json\r\n",
             'method'  => 'POST',
             'content' => json_encode($data),
-            'ignore_errors' => true // so we can see error responses
+            'ignore_errors' => true
         ],
     ];
     $context  = stream_context_create($options);
@@ -106,22 +203,25 @@ function send_telegram_message($chat_id, $text) {
 }
 
 /**
- * 从数据库获取系统统计信息
- * @return array
+ * Retrieves system statistics from the database.
  */
 function get_system_stats() {
     global $db_connection;
-    $stats = ['users' => 0, 'emails' => 0];
+    $stats = ['users' => 0, 'emails' => 0, 'lottery_draws' => 0];
 
-    // 获取用户数
+    // Get user count
     if ($result = $db_connection->query("SELECT COUNT(*) as count FROM users")) {
-        $stats['users'] = $result->fetch_assoc()['count'];
+        $stats['users'] = $result->fetch_assoc()['count'] ?? 0;
         $result->free();
     }
-
-    // 获取邮件数
+    // Get email count
     if ($result = $db_connection->query("SELECT COUNT(*) as count FROM emails")) {
-        $stats['emails'] = $result->fetch_assoc()['count'];
+        $stats['emails'] = $result->fetch_assoc()['count'] ?? 0;
+        $result->free();
+    }
+    // Get lottery draws count
+    if ($result = $db_connection->query("SELECT COUNT(*) as count FROM lottery_draws")) {
+        $stats['lottery_draws'] = $result->fetch_assoc()['count'] ?? 0;
         $result->free();
     }
     
@@ -129,9 +229,7 @@ function get_system_stats() {
 }
 
 /**
- * 解析彩票开奖信息
- * @param string $text
- * @return array|null
+ * Parses lottery information from a channel message.
  */
 function parse_lottery_message($text) {
     $data = [];
@@ -148,14 +246,21 @@ function parse_lottery_message($text) {
 }
 
 /**
- * 保存彩票开奖记录到数据库
- * @param array $data 
+ * Saves or updates a lottery draw record in the database.
+ * Returns true on success, false on failure.
  */
 function save_lottery_draw($data) {
     global $db_connection;
     $stmt = $db_connection->prepare("INSERT INTO lottery_draws (draw_date, draw_period, numbers) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE numbers = VALUES(numbers)");
+    if (!$stmt) {
+        error_log("DB Prepare Error in save_lottery_draw: " . $db_connection->error);
+        return false;
+    }
     $stmt->bind_param("sss", $data['draw_date'], $data['draw_period'], $data['numbers']);
-    $stmt->execute();
+    $success = $stmt->execute();
+    if(!$success) {
+        error_log("DB Execute Error in save_lottery_draw: " . $stmt->error);
+    }
     $stmt->close();
+    return $success;
 }
-

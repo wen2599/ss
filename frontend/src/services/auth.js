@@ -17,6 +17,14 @@ const authService = {
       email: user.email,
       password: user.password
     });
+  },
+  isLoggedIn() {
+    return !!localStorage.getItem('authToken');
+  },
+  logout() {
+    localStorage.removeItem('authToken');
+    // Force a page reload to clear all state and redirect to login
+    window.location.reload();
   }
 };
 
