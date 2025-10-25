@@ -65,25 +65,32 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // --- CORS Configuration ---
-if (isset($_SERVER['REQUEST_METHOD'])) {
+// This must be placed before any potential point of failure to ensure preflight requests succeed.
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     $allowed_origins = isset($_ENV['ALLOWED_ORIGINS']) ? explode(',', $_ENV['ALLOWED_ORIGINS']) : [];
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
     if (!empty($origin) && in_array($origin, $allowed_origins)) {
         header("Access-Control-Allow-Origin: {$origin}");
-    } else if (empty($allowed_origins)) {
-        // Fallback for development if no origins are specified, but log a warning.
-        header("Access-Control-Allow-Origin: *");
-        error_log("Warning: ALLOWED_ORIGINS is not set. Defaulting to '*' for CORS. This is insecure for production.");
+    } else {
+        header("Access-Control-Allow-Origin: *"); // Fallback for safety
     }
 
     header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
     header("Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With, X-Worker-Secret, Accept, Origin");
     header("Access-Control-Allow-Credentials: true");
     header("Access-Control-Max-Age: 86400");
-    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-        http_response_code(204);
-        exit;
+    http_response_code(204);
+    exit;
+}
+
+// For non-OPTIONS requests, set CORS headers as well to support actual API calls.
+if (isset($_SERVER['REQUEST_METHOD'])) {
+    $allowed_origins = isset($_ENV['ALLOWED_ORIGINS']) ? explode(',', $_ENV['ALLOWED_ORIGINS']) : [];
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    if (!empty($origin) && in_array($origin, $allowed_origins)) {
+        header("Access-Control-Allow-Origin: {$origin}");
+        header("Access-Control-Allow-Credentials: true");
     }
 }
 

@@ -1,89 +1,49 @@
 <?php
-// ===== Webhook Entry Point for Telegram Bot =====
+declare(strict_types=1);
 
-// --- Error Reporting & Logging Setup ---
-// ini_set('display_errors', '0'); // REMOVED/COMMENTED OUT for debugging
-error_reporting(E_ALL);
+// This is the entry point for the Telegram Bot Webhook.
+error_log("webhook.php: Received a request.");
 
-// Basic logging until bootstrap is complete
-error_log("--- [BOOTSTRAP] Webhook execution started ---");
-
-// --- Bootstrap Application ---
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/src/Services/TelegramService.php';
+require_once __DIR__ . '/src/Controllers/BaseController.php';
+require_once __DIR__ . '/src/Controllers/LotteryController.php';
+require_once __DIR__ . '/src/Controllers/TelegramController.php';
 
-// --- PSR-4 Autoloader ---
-spl_autoload_register(function ($class) {
-    $prefix = 'App\\';
-    $base_dir = __DIR__ . '/src/';
-    $len = strlen($prefix);
-    if (strncmp($prefix, $class, $len) !== 0) {
-        return;
-    }
-    $relative_class = substr($class, $len);
-    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
-    if (file_exists($file)) {
-        require $file;
-    }
-});
+// Security Check: Verify the secret token to ensure the request is from Telegram.
+$secretToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
+$expectedToken = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? '';
 
-use App\Services\TelegramService;
-use App\Controllers\TelegramController;
-
-// --- Environment & Security ---
-$botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
-$webhookSecret = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? null;
-$channelId = $_ENV['TELEGRAM_CHANNEL_ID'] ?? null;
-$adminId = $_ENV['TELEGRAM_ADMIN_ID'] ?? null;
-
-if (!$botToken || !$webhookSecret || !$channelId) {
-    error_log("FATAL: Missing required environment variables (TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, or TELEGRAM_CHANNEL_ID).");
-    http_response_code(500);
-    exit('Configuration Error');
-}
-
-$telegram_header = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
-if ($webhookSecret !== $telegram_header) {
-    error_log("CRITICAL: Unauthorized webhook access attempt.");
+if (empty($secretToken) || empty($expectedToken) || !hash_equals($expectedToken, $secretToken)) {
+    error_log("webhook.php: Unauthorized access attempt. Secret token did not match.");
     http_response_code(403);
-    exit('Forbidden');
+    echo 'Forbidden';
+    exit;
 }
+error_log("webhook.php: Secret token verified.");
 
-// --- Dependency Injection Setup ---
+// Get the JSON payload from the request.
+$update = json_decode(file_get_contents('php://input'), true);
+
+if (!$update) {
+    error_log("webhook.php: Failed to decode JSON update or update was empty.");
+    http_response_code(400);
+    echo 'Bad Request';
+    exit;
+}
+error_log("webhook.php: JSON update decoded successfully.");
+
+// Instantiate the controller and handle the webhook.
 try {
-    $pdo = get_db_connection();
-    $telegramService = new TelegramService($botToken);
-    // Note: The third argument for a logger is null as we don't have a formal logger implemented.
-    $controller = new TelegramController($telegramService, $pdo, null, $channelId, $adminId);
-} catch (\PDOException $e) {
-    error_log("CRITICAL: Failed to establish database connection: " . $e->getMessage());
-    // Notify admin even if DB is down
-    if ($botToken && $adminId) {
-        $emergencyService = new TelegramService($botToken);
-        $emergencyService->sendMessage($adminId, "🚨 CRITICAL: Bot failed to connect to the database. Please check the server logs.");
-    }
+    $telegramController = new \App\Controllers\TelegramController();
+    $telegramController->handleWebhook($update);
+    error_log("webhook.php: Webhook handled successfully.");
+    // Acknowledge receipt to Telegram.
+    echo 'OK';
+} catch (Throwable $e) {
+    // Use the global error logging from bootstrap.php.
+    error_log('webhook.php: A fatal error occurred: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    // Return a 500 status to let Telegram know something went wrong.
     http_response_code(500);
-    exit('Database Connection Error');
+    echo 'Internal Server Error';
 }
-
-// --- Process Request ---
-$input = file_get_contents('php://input');
-if (!$input) {
-    http_response_code(400);
-    exit('Empty Request Body');
-}
-
-$update = json_decode($input, true);
-if (json_last_error() !== JSON_ERROR_NONE) {
-    error_log("ERROR: Invalid JSON received. " . json_last_error_msg());
-    http_response_code(400);
-    exit('Invalid JSON');
-}
-
-// --- Handle Webhook ---
-$controller->handleWebhook($update);
-
-// Respond to Telegram to acknowledge receipt
-http_response_code(200);
-echo json_encode(['status' => 'success']);
-
-error_log("--- [SUCCESS] Webhook execution finished ---");
