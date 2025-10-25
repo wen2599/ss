@@ -6,12 +6,17 @@
  * This version uses highly compatible, simple string functions to support very old PHP versions.
  */
 function load_environment_variables_compat() {
-    // Use dirname(__FILE__) for maximum compatibility.
-    $env_file_path = dirname(__FILE__) . '/../.env';
+    // Corrected path: Look for .env in the same directory as this script.
+    $env_file_path = dirname(__FILE__) . '/.env';
 
     if (!file_exists($env_file_path) || !is_readable($env_file_path)) {
         http_response_code(500);
-        echo "[FATAL] Configuration error: Environment file not found or is not readable.";
+        // Construct a more informative error message
+        $error_message = sprintf(
+            "[FATAL] Configuration error: Environment file not found or is not readable. Script was looking for it at: %s",
+            $env_file_path
+        );
+        echo $error_message;
         exit;
     }
 
