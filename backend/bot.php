@@ -2,7 +2,7 @@
 // backend/bot.php
 
 // --- Bootstrap aplication ---
-require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/bootstrap.php';
 
 // --- BLACK BOX DEBUGGING ---
 // Log the raw input from Telegram to a file for debugging.
