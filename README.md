@@ -1,3 +1,30 @@
+# Project Core Configuration
+
+**IMPORTANT: This project has specific setup requirements. Read this section carefully before deploying or developing.**
+
+### 1. No Composer Allowed
+This project is intentionally designed to be **dependency-free**. 
+
+- **DO NOT** run `composer install` or `composer update`.
+- **DO NOT** add a `composer.json` file to the project.
+
+All necessary functionalities, including environment variable loading, are handled by native PHP scripts included in the repository.
+
+### 2. Environment Configuration (`.env`)
+All environment-specific settings (like database credentials and API keys) are managed through a single `.env` file.
+
+- This file **MUST** be placed in the **project root directory** (the same level as the `backend` and `frontend` folders).
+- The backend scripts automatically look for this file one level above their own directory (e.g., `backend/../.env`).
+
+### 3. Backend Bootstrapping
+All PHP scripts in the `backend/` directory are initialized through a unified bootstrap file:
+
+- **File Path**: `backend/bootstrap.php`
+- **Function**: This script handles loading the `.env` file (using the native loader at `backend/load_env.php`) and establishes the global database connection (`$db_connection`).
+- **Rule**: Any new PHP script you create in the backend should start by including this file: `require_once __DIR__ . '/bootstrap.php';`
+
+---
+
 # Project API Documentation
 
 This document outlines all the available API endpoints for the backend application.
