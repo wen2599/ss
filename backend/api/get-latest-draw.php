@@ -6,7 +6,7 @@ header("Content-Type: application/json; charset=UTF-8");
 global $db_connection;
 
 try {
-    $stmt = $db_connection->prepare("SELECT draw_number, draw_date, numbers FROM lottery_draws ORDER BY draw_date DESC LIMIT 1");
+    $stmt = $db_connection->prepare("SELECT draw_number, draw_date, numbers FROM lottery_draws ORDER BY draw_date DESC, draw_period DESC LIMIT 1");
     if (!$stmt) {
         throw new Exception("Failed to prepare statement: " . $db_connection->error);
     }
