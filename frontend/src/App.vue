@@ -4,25 +4,25 @@
       <div class="container mx-auto px-4">
         <nav class="flex justify-between items-center py-4">
           <RouterLink to="/" class="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            🏆 Lottery Center
+            🏆 开奖中心
           </RouterLink>
           
           <!-- Mobile Menu Button -->
           <button @click="toggleMenu" class="md:hidden btn btn-secondary">
-            Menu
+            菜单
           </button>
 
           <!-- Desktop Menu -->
           <div class="hidden md:flex items-center space-x-6">
             <div v-if="isAuthenticated" class="flex items-center space-x-4">
-              <RouterLink to="/lottery" class="hover:text-blue-500">Lottery Results</RouterLink>
-              <RouterLink to="/lottery-winners" class="hover:text-blue-500">Winners</RouterLink>
-              <span class="font-medium">Welcome, {{ username }}</span>
-              <button @click="handleLogout" class="btn btn-primary">Logout</button>
+              <RouterLink to="/lottery" class="hover:text-blue-500">开奖结果</RouterLink>
+              <RouterLink to="/lottery-winners" class="hover:text-blue-500">中奖名单</RouterLink>
+              <span class="font-medium">欢迎, {{ username }}</span>
+              <button @click="handleLogout" class="btn btn-primary">登出</button>
             </div>
             <div v-else class="flex items-center space-x-4">
-              <RouterLink to="/login" class="hover:text-blue-500">Login</RouterLink>
-              <RouterLink to="/register" class="btn btn-primary">Register</RouterLink>
+              <RouterLink to="/login" class="hover:text-blue-500">登录</RouterLink>
+              <RouterLink to="/register" class="btn btn-primary">注册</RouterLink>
             </div>
           </div>
         </nav>
@@ -30,13 +30,13 @@
         <!-- Mobile Menu -->
         <div v-if="isMenuOpen" class="md:hidden mt-2">
           <div v-if="isAuthenticated" class="flex flex-col space-y-2">
-            <RouterLink to="/lottery" @click="closeMenu" class="block py-2 hover:text-blue-500">Lottery Results</RouterLink>
-            <RouterLink to="/lottery-winners" @click="closeMenu" class="block py-2 hover:text-blue-500">Winners</RouterLink>
-            <button @click="handleLogoutAndCloseMenu" class="btn btn-primary">Logout</button>
+            <RouterLink to="/lottery" @click="closeMenu" class="block py-2 hover:text-blue-500">开奖结果</RouterLink>
+            <RouterLink to="/lottery-winners" @click="closeMenu" class="block py-2 hover:text-blue-500">中奖名单</RouterLink>
+            <button @click="handleLogoutAndCloseMenu" class="btn btn-primary">登出</button>
           </div>
           <div v-else class="flex flex-col space-y-2">
-            <RouterLink to="/login" @click="closeMenu" class="block py-2 hover:text-blue-500">Login</RouterLink>
-            <RouterLink to="/register" @click="closeMenu" class="btn btn-primary">Register</RouterLink>
+            <RouterLink to="/login" @click="closeMenu" class="block py-2 hover:text-blue-500">登录</RouterLink>
+            <RouterLink to="/register" @click="closeMenu" class="btn btn-primary">注册</RouterLink>
           </div>
         </div>
       </div>
@@ -48,7 +48,7 @@
 
     <footer class="bg-white dark:bg-gray-800 shadow-inner py-4">
       <div class="container mx-auto text-center text-gray-500 dark:text-gray-400">
-        &copy; {{ new Date().getFullYear() }} Lottery Center. All Rights Reserved.
+        &copy; {{ new Date().getFullYear() }} 开奖中心. 版权所有.
       </div>
     </footer>
   </div>
