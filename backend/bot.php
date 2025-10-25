@@ -4,6 +4,15 @@
 // --- Bootstrap aplication ---
 require_once __DIR__ . '/../bootstrap.php';
 
+// --- BLACK BOX DEBUGGING ---
+// Log the raw input from Telegram to a file for debugging.
+// This allows us to see exactly what data the bot is receiving.
+$raw_input = file_get_contents('php://input');
+if (!empty($raw_input)) {
+    $log_entry = "[" . date('Y-m-d H:i:s') . "] ===== INCOMING REQUEST =====\n" . $raw_input . "\n\n";
+    file_put_contents(__DIR__ . '/debug_log.txt', $log_entry, FILE_APPEND);
+}
+
 // --- Configuration & Security ---
 $bot_token = getenv('TELEGRAM_BOT_TOKEN');
 $secret_token = getenv('TELEGRAM_SECRET_TOKEN');
@@ -25,7 +34,8 @@ if ($client_secret_token !== $secret_token) {
 }
 
 // --- Main Logic ---
-$update = json_decode(file_get_contents('php://input'), true);
+// We use the $raw_input variable we captured earlier for logging
+$update = json_decode($raw_input, true);
 
 if (!$update) {
     http_response_code(200);
