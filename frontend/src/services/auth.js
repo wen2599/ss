@@ -18,6 +18,12 @@ const authService = {
       password: user.password
     });
   },
+  logout() {
+    return axios.post(API_URL + 'logout.php').then(() => {
+      // After successful logout, reload the page to clear the state
+      window.location.reload();
+    });
+  },
   isLoggedIn() {
     // Check if the session cookie exists. This is a simple check.
     // A more robust solution might involve a dedicated endpoint to check session status.
