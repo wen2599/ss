@@ -61,6 +61,7 @@ const authModalView = ref('login'); // or 'register'
 // Use Pinia store state and getters
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const username = computed(() => authStore.username);
+const authCheckCompleted = computed(() => authStore.authCheckCompleted);
 
 onMounted(() => {
   authStore.checkAuth(); // Call Pinia action
