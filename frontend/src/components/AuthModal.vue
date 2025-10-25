@@ -1,47 +1,43 @@
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" @click.self="$emit('close')">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-sm w-full">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold">{{ isLoginView ? '登录' : '注册' }}</h2>
-        <button @click="$emit('close')" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" aria-label="Close">&times;</button>
+  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-75" @click.self="$emit('close')">
+    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full m-4">
+      <div class="flex justify-between items-start mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">{{ isLoginView ? '登录您的账户' : '创建新账户' }}</h2>
+        <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600 transition-colors" aria-label="Close">
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
-      <!-- Login Form -->
-      <form v-if="isLoginView" @submit.prevent="handleLogin">
-        <div class="mb-4">
-          <label for="login-email" class="block text-sm font-medium mb-1">邮箱</label>
-          <input type="email" id="login-email" v-model="loginForm.email" class="w-full input" required>
+      <!-- Shared Form Fields -->
+      <form @submit.prevent="isLoginView ? handleLogin() : handleRegister()">
+        <div class="space-y-4">
+          <div>
+            <label for="auth-email" class="block text-sm font-medium text-gray-600 mb-1">邮箱</label>
+            <input type="email" id="auth-email" v-model="form.email" class="input" required placeholder="you@example.com">
+          </div>
+          <div>
+            <label for="auth-password" class="block text-sm font-medium text-gray-600 mb-1">密码</label>
+            <input type="password" id="auth-password" v-model="form.password" class="input" required placeholder="••••••••">
+          </div>
         </div>
-        <div class="mb-6">
-          <label for="login-password" class="block text-sm font-medium mb-1">密码</label>
-          <input type="password" id="login-password" v-model="loginForm.password" class="w-full input" required>
-        </div>
-        <button type="submit" class="btn btn-primary w-full mb-4">登录</button>
-        <p class="text-center text-sm">
-          没有账户? <button @click.prevent="isLoginView = false" class="text-blue-500 hover:underline">创建一个</button>
-        </p>
-      </form>
 
-      <!-- Registration Form -->
-      <form v-else @submit.prevent="handleRegister">
-        <div class="mb-4">
-          <label for="register-email" class="block text-sm font-medium mb-1">邮箱</label>
-          <input type="email" id="register-email" v-model="registerForm.email" class="w-full input" required>
+        <div v-if="error" class="mt-4 text-red-600 text-sm font-medium">
+          {{ error }}
         </div>
-        <div class="mb-6">
-          <label for="register-password" class="block text-sm font-medium mb-1">密码</label>
-          <input type="password" id="register-password" v-model="registerForm.password" class="w-full input" required>
-        </div>
-        <!-- Optional Telegram fields can be added here if needed -->
-        <button type="submit" class="btn btn-primary w-full mb-4">注册</button>
-        <p class="text-center text-sm">
-          已有账户? <button @click.prevent="isLoginView = true" class="text-blue-500 hover:underline">在此登录</button>
+
+        <button type="submit" class="btn btn-primary w-full mt-6">
+          {{ isLoginView ? '登录' : '注册' }}
+        </button>
+
+        <p class="text-center text-sm text-gray-500 mt-6">
+          {{ isLoginView ? '没有账户?' : '已有账户?' }}
+          <button @click.prevent="toggleView" class="font-semibold text-primary hover:underline">
+            {{ isLoginView ? '创建一个' : '在此登录' }}
+          </button>
         </p>
       </form>
-      
-      <div v-if="error" class="mt-4 text-red-500 text-sm">
-        {{ error }}
-      </div>
     </div>
   </div>
 </template>
@@ -59,21 +55,29 @@ const emit = defineEmits(['close']);
 const authStore = useAuthStore();
 
 const isLoginView = ref(props.initialView === 'login');
-const loginForm = ref({ email: '', password: '' });
-const registerForm = ref({ email: '', password: '' }); // Username removed
+const form = ref({ email: '', password: '' });
 const error = ref(null);
 
+// Watch for prop changes to switch views
 watch(() => props.initialView, (newView) => {
   isLoginView.value = newView === 'login';
-  error.value = null; // Reset error on view change
-  // Reset forms
-  loginForm.value = { email: '', password: '' };
-  registerForm.value = { email: '', password: '' };
+  resetFormAndError();
 });
+
+// Function to switch between login and register views
+function toggleView() {
+  isLoginView.value = !isLoginView.value;
+  resetFormAndError();
+}
+
+function resetFormAndError() {
+  form.value = { email: '', password: '' };
+  error.value = null;
+}
 
 async function handleLogin() {
   error.value = null;
-  const result = await authStore.login(loginForm.value.email, loginForm.value.password);
+  const result = await authStore.login(form.value.email, form.value.password);
   if (result.success) {
     emit('close');
   } else {
@@ -83,25 +87,21 @@ async function handleLogin() {
 
 async function handleRegister() {
   error.value = null;
-  const registerResult = await authStore.register(registerForm.value.email, registerForm.value.password);
+  const registerResult = await authStore.register(form.value.email, form.value.password);
   
   if (registerResult.success) {
-    // Auto-login after successful registration
-    const loginResult = await authStore.login(registerForm.value.email, registerForm.value.password);
-    if (loginResult.success) {
-      emit('close');
-    } else {
-      // This might happen if registration succeeds but login fails, which is rare.
-      // Guide user to log in manually.
-      error.value = '注册成功! 请手动登录.';
-      isLoginView.value = true; // Switch to login view
-    }
+    // On successful registration, show a success message and switch to the login view
+    // This provides clearer user feedback than auto-logging in.
+    isLoginView.value = true;
+    resetFormAndError();
+    // A temporary success message could be implemented here if desired
+    alert('注册成功! 请登录.'); // Using alert for simplicity, could be a custom notification
+    // Or, attempt to auto-login
+    // const loginResult = await authStore.login(form.value.email, form.value.password);
+    // if (loginResult.success) emit('close');
+    // else error.value = '注册成功，但自动登录失败. 请手动登录.';
   } else {
     error.value = registerResult.message || '注册失败. 请重试.';
   }
 }
 </script>
-
-<style scoped>
-/* Styles are minimal and rely on global styles from main.css */
-</style>
