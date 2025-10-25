@@ -1,47 +1,78 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-@layer components {
-  .btn {
-    @apply px-4 py-2 rounded-md font-semibold text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
-  }
-  .btn-primary {
-    @apply bg-primary text-white hover:bg-primary-hover focus:ring-primary;
-  }
-  .btn-secondary {
-    @apply bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-400;
-  }
-
-  .nav-link {
-    @apply text-gray-600 hover:text-primary font-medium transition-colors;
-  }
-
-  .nav-link-mobile {
-    @apply block w-full text-left px-4 py-2 text-base text-gray-700 hover:bg-gray-100 rounded-md;
-  }
-
-  .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary;
-  }
-
-  .card {
-    @apply bg-white rounded-lg shadow-md overflow-hidden;
-  }
-}
-
-/* Add some global styles for the body */
 body {
-  @apply bg-gray-100 text-gray-800;
+  font-family: 'Inter', sans-serif;
+  background-color: #f3f4f6;
+  color: #1f2937;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Spinner Animation */
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+.dark body {
+  background-color: #111827;
+  color: #d1d5db;
 }
-.loader {
-  border-top-color: #3B82F6; /* Use primary color */
-  animation: spin 1s linear infinite;
+
+/* Additional utility classes for layout and spacing */
+.container {
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 1.5rem;
+}
+
+/* Base button styles */
+.btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: background-color 0.2s;
+  cursor: pointer;
+  text-align: center;
+}
+
+.btn-primary {
+  background-color: #2563eb;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #1d4ed8;
+}
+
+.btn-secondary {
+  background-color: #e5e7eb;
+  color: #1f2937;
+}
+
+.btn-secondary:hover {
+  background-color: #d1d5db;
+}
+
+/* Form styles */
+.form-input {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  background-color: #fff;
+}
+
+.dark .form-input {
+  background-color: #1f2937;
+  border-color: #4b5563;
+  color: #d1d5db;
+}
+
+/* Card styles */
+.card {
+  background-color: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+}
+
+.dark .card {
+  background-color: #1f2937;
 }

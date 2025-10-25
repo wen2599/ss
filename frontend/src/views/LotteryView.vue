@@ -1,59 +1,59 @@
 <template>
-  <div>
-    <!-- Page Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-800">最新开奖</h1>
-      <p class="text-gray-500 mt-1">查看最新的官方开奖结果</p>
-    </div>
+  <div class="w-full max-w-4xl mx-auto">
+
+    <!-- Page Title -->
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">开奖结果</h1>
 
     <!-- Loading State -->
-    <div v-if="isLoading" class="flex justify-center items-center py-20">
-      <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12"></div>
+    <div v-if="isLoading" class="text-center py-12">
+      <p class="text-lg text-gray-500 dark:text-gray-400">正在加载最新开奖结果...</p>
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="card text-center p-8 bg-red-50 border-red-200">
-      <h3 class="text-lg font-semibold text-red-700">加载失败</h3>
-      <p class="text-red-600 mt-2">{{ error }}</p>
+    <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-center">
+      {{ error }}
     </div>
 
     <!-- No Results State -->
-    <div v-else-if="results.length === 0" class="card text-center p-8">
-      <h3 class="text-lg font-semibold text-gray-700">暂无结果</h3>
-      <p class="text-gray-500 mt-2">目前没有最新的开奖结果可供显示。</p>
+    <div v-if="!isLoading && results.length === 0 && !error" class="text-center py-12">
+      <p class="text-lg text-gray-500 dark:text-gray-400">暂无开奖结果可显示。</p>
     </div>
 
-    <!-- Results Grid -->
-    <div v-else class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-      <div v-for="result in results" :key="result.id" class="card hover:shadow-xl transition-shadow duration-300">
+    <!-- Lottery Results Cards -->
+    <div v-if="!isLoading && results.length > 0" class="space-y-8">
+      <div v-for="result in results" :key="result.id" class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+
         <!-- Card Header -->
-        <div class="p-5 border-b">
-          <h2 class="text-xl font-bold text-gray-800">{{ result.lottery_type }}</h2>
-          <p class="text-sm text-gray-500">第 {{ result.issue_number }} 期</p>
+        <div class="p-5 border-b border-gray-200 dark:border-gray-700">
+          <div class="flex justify-between items-center">
+            <h2 class="text-2xl font-semibold text-gray-800 dark:text-white">{{ result.lottery_type }}</h2>
+            <span class="px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded-full dark:bg-blue-900 dark:text-blue-300">第 {{ result.issue_number }} 期</span>
+          </div>
         </div>
 
-        <!-- Numbers Grid -->
+        <!-- Card Body with Winning Numbers -->
         <div class="p-5">
-          <div class="grid grid-cols-4 gap-3 text-center">
-            <div v-for="number in result.winning_numbers.split(',')" :key="number" class="relative">
-              <div class="aspect-square flex flex-col items-center justify-center bg-gray-100 rounded-full shadow-inner">
-                <span class="text-2xl font-bold text-primary">{{ number }}</span>
-              </div>
-              <div class="text-xs text-gray-500 mt-1 truncate">
+          <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-4 text-center">
+            <div
+              v-for="number in result.winning_numbers.split(',')"
+              :key="number"
+              class="flex flex-col items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg"
+            >
+              <span class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ number }}</span>
+              <span class="text-xs text-gray-600 dark:text-gray-400 mt-1">
                 {{ getNumberDetails(result.number_colors_json, number) }}
-              </div>
+              </span>
             </div>
           </div>
         </div>
 
         <!-- Card Footer -->
-        <div class="p-4 bg-gray-50 border-t">
-          <p class="text-xs text-gray-500 text-right">
-            开奖日期: {{ new Date(result.draw_date).toLocaleString('zh-CN') }}
-          </p>
+        <div class="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 text-right">
+          <p class="text-sm text-gray-500 dark:text-gray-400">开奖日期: {{ new Date(result.draw_date).toLocaleString() }}</p>
         </div>
       </div>
     </div>
+
   </div>
 </template>
 

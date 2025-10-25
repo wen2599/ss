@@ -1,73 +1,58 @@
 <template>
-  <div id="app-layout" class="min-h-screen bg-gray-100 text-gray-800">
-    <!-- Top Banner Header -->
-    <header class="bg-white shadow-md sticky top-0 z-40">
-      <div class="container mx-auto px-6 py-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center">
-            <RouterLink to="/" class="text-2xl font-bold text-gray-800">
-              🏆 <span class="hidden sm:inline">开奖中心</span>
-            </RouterLink>
-          </div>
-
-          <!-- Desktop Navigation -->
-          <nav class="hidden md:flex items-center space-x-5">
-            <RouterLink to="/lottery" class="nav-link">开奖结果</RouterLink>
-            <RouterLink v-if="isAuthenticated" to="/lottery-winners" class="nav-link">中奖名单</RouterLink>
-
-            <div v-if="authCheckCompleted">
-              <div v-if="isAuthenticated" class="flex items-center space-x-4">
-                <span class="text-sm font-medium">欢迎, {{ username }}</span>
-                <button @click="handleLogout" class="btn btn-secondary">登出</button>
-              </div>
-              <div v-else class="flex items-center space-x-2">
-                <button @click="openAuthModal('login')" class="btn btn-secondary">登录</button>
-                <button @click="openAuthModal('register')" class="btn btn-primary">注册</button>
-              </div>
-            </div>
-          </nav>
+  <div id="app" class="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900">
+    <header class="bg-white dark:bg-gray-800 shadow-md">
+      <div class="container mx-auto px-4">
+        <nav class="flex justify-between items-center py-4">
+          <RouterLink to="/" class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+            🏆 开奖中心
+          </RouterLink>
 
           <!-- Mobile Menu Button -->
-          <div class="md:hidden">
-            <button @click="isMenuOpen = !isMenuOpen" class="text-gray-600 hover:text-gray-800 focus:outline-none">
-              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
-              </svg>
-            </button>
+          <button
+            @click="toggleMenu"
+            class="md:hidden btn btn-secondary"
+            :aria-expanded="isMenuOpen"
+            aria-controls="mobile-menu"
+          >
+            菜单
+          </button>
+
+          <!-- Desktop Menu -->
+          <div class="hidden md:flex items-center space-x-6">
+            <div v-if="isAuthenticated" class="flex items-center space-x-4">
+              <RouterLink to="/lottery" class="hover:text-blue-500">开奖结果</RouterLink>
+              <RouterLink to="/lottery-winners" class="hover:text-blue-500">中奖名单</RouterLink>
+              <span class="font-medium">欢迎, {{ username }}</span>
+              <button @click="handleLogout" class="btn btn-primary">登出</button>
+            </div>
+            <div v-else class="flex flex-center space-x-4">
+              <button @click="openAuthModal('login')" class="hover:text-blue-500">登录</button>
+              <button @click="openAuthModal('register')" class="btn btn-primary">注册</button>
+            </div>
           </div>
-        </div>
+        </nav>
 
         <!-- Mobile Menu -->
-        <div v-if="isMenuOpen" class="md:hidden mt-4">
-          <nav class="flex flex-col space-y-2">
-            <RouterLink to="/lottery" class="nav-link-mobile" @click="isMenuOpen = false">开奖结果</RouterLink>
-            <RouterLink v-if="isAuthenticated" to="/lottery-winners" class="nav-link-mobile" @click="isMenuOpen = false">中奖名单</RouterLink>
-
-            <div v-if="authCheckCompleted" class="border-t pt-4 mt-4">
-              <div v-if="isAuthenticated" class="flex flex-col space-y-3">
-                <span class="text-sm font-medium text-center">欢迎, {{ username }}</span>
-                <button @click="handleLogoutAndCloseMenu" class="btn btn-secondary w-full">登出</button>
-              </div>
-              <div v-else class="flex flex-col space-y-3">
-                <button @click="openAuthModal('login'); isMenuOpen = false;" class="btn btn-secondary w-full">登录</button>
-                <button @click="openAuthModal('register'); isMenuOpen = false;" class="btn btn-primary w-full">注册</button>
-              </div>
-            </div>
-          </nav>
+        <div v-if="isMenuOpen" id="mobile-menu" class="md:hidden mt-2">
+          <div v-if="isAuthenticated" class="flex flex-col space-y-2">
+            <RouterLink to="/lottery" @click="closeMenu" class="block py-2 hover:text-blue-500">开奖结果</RouterLink>
+            <RouterLink to="/lottery-winners" @click="closeMenu" class="block py-2 hover:text-blue-500">中奖名单</RouterLink>
+            <button @click="handleLogoutAndCloseMenu" class="btn btn-primary">登出</button>
+          </div>
+          <div v-else class="flex flex-col space-y-2">
+            <button @click="openAuthModal('login'); closeMenu();" class="block py-2 hover:text-blue-500">登录</button>
+            <button @click="openAuthModal('register'); closeMenu();" class="btn btn-primary">注册</button>
+          </div>
         </div>
       </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="flex-grow">
-      <div class="container mx-auto px-6 py-8">
-        <RouterView />
-      </div>
+    <main class="flex-grow container mx-auto px-4 py-8">
+      <RouterView />
     </main>
 
-    <!-- Footer -->
-    <footer class="bg-white border-t">
-      <div class="container mx-auto px-6 py-4 text-center text-sm text-gray-500">
+    <footer class="bg-white dark:bg-gray-800 shadow-inner py-4">
+      <div class="container mx-auto text-center text-gray-500 dark:text-gray-400">
         &copy; {{ new Date().getFullYear() }} 开奖中心. 版权所有.
       </div>
     </footer>
@@ -93,7 +78,6 @@ const authModalView = ref('login'); // or 'register'
 // Use Pinia store state and getters
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const username = computed(() => authStore.username);
-const authCheckCompleted = computed(() => authStore.authCheckCompleted);
 
 onMounted(() => {
   authStore.checkAuth(); // Call Pinia action
