@@ -34,27 +34,21 @@ if (!$update) {
 }
 
 // 1. Handle Channel Post (for automatic lottery data saving)
-// Check if it's a channel post and if the channel ID matches the configured one.
 if (isset($update['channel_post'])) {
-    // IMPORTANT: Only process posts from the designated channel ID.
-    // This prevents the bot from parsing messages if added to other channels.
     if (!empty($channel_id) && $update['channel_post']['chat']['id'] == $channel_id) {
         if (isset($update['channel_post']['text'])) {
             $message_text = $update['channel_post']['text'];
             $parsed_data = parse_lottery_message($message_text);
             
             if ($parsed_data) {
-                // The function returns true on success, false on failure.
                 save_lottery_draw($parsed_data);
             }
         }
     } else {
-        // Optional: Log that a post from a different/unspecified channel was received.
         if (!empty($update['channel_post']['chat']['id'])) {
             error_log("Received channel post from an unsubscribed or incorrect channel ID: " . $update['channel_post']['chat']['id']);
         }
     }
-    // Always return a 200 OK to Telegram for channel posts to prevent repeated delivery attempts.
     http_response_code(200);
     exit("OK: Channel post processed.");
 }
@@ -64,14 +58,12 @@ if (isset($update['message']['text'])) {
     $chat_id = $update['message']['chat']['id'];
     $message_text = $update['message']['text'];
 
-    // If admin ID is set, and the message is from a non-admin, send a polite rejection.
     if (!empty($admin_id) && $chat_id != $admin_id) {
         send_telegram_message($chat_id, "您好！这是一个私人机器人，感谢您的关注。");
         http_response_code(200);
         exit("OK: Message sent to non-admin.");
     }
     
-    // At this point, the user is the admin. Process their commands.
     if (strpos($message_text, '/') === 0) {
         $command_parts = explode(' ', $message_text, 3);
         $command = $command_parts[0];
@@ -93,13 +85,16 @@ if (isset($update['message']['text'])) {
             case '/add':
                 handle_add_command($chat_id, $command_parts);
                 break;
+            
+            case '/delete':
+                handle_delete_command($chat_id, $command_parts);
+                break;
 
             default:
                 send_telegram_message($chat_id, "未知命令: {$command}。 输入 /help 查看可用命令。");
                 break;
         }
     } else {
-         // Respond if the admin sends a text message that is not a command.
          send_telegram_message($chat_id, "您好, 管理员。请输入一个命令来开始，例如 /help");
     }
     http_response_code(200);
@@ -107,9 +102,7 @@ if (isset($update['message']['text'])) {
 }
 
 // 3. Handle other update types
-// (e.g., edited_message, callback_query, etc.)
-// error_log("Unhandled update type: " . json_encode($update));
-http_response_code(200); // Respond OK to avoid Telegram re-sending these updates.
+http_response_code(200);
 exit("OK: Unhandled update type received.");
 
 
@@ -124,7 +117,9 @@ function handle_help_command($chat_id) {
                   "/stats - 查看系统统计数据\n" .
                   "/latest - 查询最新一条开奖记录\n" .
                   "/add [期号] [号码] - 手动添加开奖记录\n" .
-                  "  (例如: /add 2023-01-01-001 01,02,03,04,05)";
+                  "  (例如: /add 2023001 01,02,03,04,05)\n" .
+                  "/delete [期号] - 删除一条开奖记录\n" .
+                  "  (例如: /delete 2023001)";
     send_telegram_message($chat_id, $reply_text);
 }
 
@@ -171,16 +166,15 @@ function handle_latest_command($chat_id) {
  */
 function handle_add_command($chat_id, $command_parts) {
     if (count($command_parts) < 3) {
-        send_telegram_message($chat_id, "格式错误。请使用: /add [期号] [号码]\n例如: /add 2023-01-01-001 01,02,03,04,05");
+        send_telegram_message($chat_id, "格式错误。请使用: /add [期号] [号码]\n例如: /add 2023001 01,02,03,04,05");
         return;
     }
 
     $period = $command_parts[1];
     $numbers = $command_parts[2];
     
-    // Basic validation
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}-\d{3,4}$/', $period) && !preg_match('/^\d+$/', $period)) {
-        send_telegram_message($chat_id, "期号格式似乎不正确。应类似于 '2023-01-01-001' 或一串数字。");
+    if (!preg_match('/^\d+$/', $period)) {
+        send_telegram_message($chat_id, "期号格式似乎不正确。应为一串数字，例如 '2023001'。");
         return;
     }
     if (!preg_match('/^(\d{1,2},)+\d{1,2}$/', $numbers)) {
@@ -198,8 +192,47 @@ function handle_add_command($chat_id, $command_parts) {
         send_telegram_message($chat_id, "✅ 记录已成功添加:\n  - 日期: {$data['draw_date']}\n  - 期号: {$data['draw_period']}\n  - 号码: {$data['numbers']}");
     } else {
         send_telegram_message($chat_id, "❌ 添加记录失败。可能是数据库错误或该期号已存在。");
-        // The error is already logged inside save_lottery_draw()
     }
+}
+
+/**
+ * Handles the /delete command.
+ */
+function handle_delete_command($chat_id, $command_parts) {
+    global $db_connection;
+    if (count($command_parts) < 2) {
+        send_telegram_message($chat_id, "格式错误。请使用: /delete [期号]\n例如: /delete 2023001");
+        return;
+    }
+
+    $period = $command_parts[1];
+
+    if (!preg_match('/^\d+$/', $period)) {
+        send_telegram_message($chat_id, "期号格式似乎不正确。应为一串数字，例如 '2023001'。");
+        return;
+    }
+
+    $stmt = $db_connection->prepare("DELETE FROM lottery_draws WHERE draw_period = ?");
+    if (!$stmt) {
+        error_log("DB Prepare Error in /delete: " . $db_connection->error);
+        send_telegram_message($chat_id, "❌ 删除记录时发生数据库错误。");
+        return;
+    }
+
+    $stmt->bind_param("s", $period);
+    
+    if ($stmt->execute()) {
+        if ($stmt->affected_rows > 0) {
+            send_telegram_message($chat_id, "✅ 已成功删除期号为 {$period} 的记录。");
+        } else {
+            send_telegram_message($chat_id, "🤷 未找到期号为 {$period} 的记录。");
+        }
+    } else {
+        error_log("DB Execute Error in /delete: " . $stmt->error);
+        send_telegram_message($chat_id, "❌ 执行删除操作时出错。");
+    }
+    
+    $stmt->close();
 }
 
 
@@ -224,7 +257,6 @@ function send_telegram_message($chat_id, $text) {
     $context  = stream_context_create($options);
     $result = file_get_contents($url, false, $context);
 
-    // Log failures from Telegram API
     if ($result === FALSE) {
         error_log("Failed to send message to chat_id: {$chat_id}");
     }
@@ -237,17 +269,14 @@ function get_system_stats() {
     global $db_connection;
     $stats = ['users' => 0, 'emails' => 0, 'lottery_draws' => 0];
 
-    // Get user count
     if ($result = $db_connection->query("SELECT COUNT(*) as count FROM users")) {
         $stats['users'] = $result->fetch_assoc()['count'] ?? 0;
         $result->free();
     }
-    // Get email count
     if ($result = $db_connection->query("SELECT COUNT(*) as count FROM emails")) {
         $stats['emails'] = $result->fetch_assoc()['count'] ?? 0;
         $result->free();
     }
-    // Get lottery draws count
     if ($result = $db_connection->query("SELECT COUNT(*) as count FROM lottery_draws")) {
         $stats['lottery_draws'] = $result->fetch_assoc()['count'] ?? 0;
         $result->free();
@@ -262,11 +291,8 @@ function get_system_stats() {
 function parse_lottery_message($text) {
     $data = [];
     $lines = explode("\n", $text);
-
-    // Default to current date if no date is found in the message
     $data['draw_date'] = date('Y-m-d');
 
-    // Attempt to extract date from the first line, e.g., "[2025/10/25 21:34]"
     if (preg_match('/\[(\d{4})\/(\d{2})\/(\d{2})/', $lines[0], $date_matches)) {
         $data['draw_date'] = "{$date_matches[1]}-{$date_matches[2]}-{$date_matches[3]}";
     }
@@ -275,29 +301,20 @@ function parse_lottery_message($text) {
     $numbers_found = false;
 
     foreach ($lines as $index => $line) {
-        // --- Find the Period ---
-        // Looks for "第:<period>期开奖结果:" or "第:<period> 期开奖结果:"
         if (!$period_found && preg_match('/第:?(\d+)\s?期开奖结果:/', $line, $period_matches)) {
             $data['draw_period'] = $period_matches[1];
             $period_found = true;
             
-            // --- Find the Numbers ---
-            // The numbers are expected on the very next line.
-            // The line should consist of digits and spaces.
             if (isset($lines[$index + 1]) && preg_match('/^[\d\s]+$/', trim($lines[$index + 1]))) {
-                // Trim whitespace from the start and end of the line
                 $numbers_line = trim($lines[$index + 1]);
-                // Replace multiple spaces with a single comma
                 $numbers_comma_separated = preg_replace('/\s+/', ',', $numbers_line);
                 $data['numbers'] = $numbers_comma_separated;
                 $numbers_found = true;
-                // We found what we need, break the loop
                 break; 
             }
         }
     }
 
-    // If both period and numbers are found, return the data. Otherwise, return null.
     if (isset($data['draw_period']) && isset($data['numbers'])) {
         return $data;
     }
@@ -305,16 +322,12 @@ function parse_lottery_message($text) {
     return null;
 }
 
-
 /**
  * Saves or updates a lottery draw record in the database.
- * Uses ON DUPLICATE KEY UPDATE to prevent errors if a draw for the same period is sent twice.
- * Returns true on success, false on failure.
  */
 function save_lottery_draw($data) {
     global $db_connection;
     
-    // Using draw_period as the unique key to check for duplicates.
     $stmt = $db_connection->prepare("INSERT INTO lottery_draws (draw_date, draw_period, numbers) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE numbers = VALUES(numbers), draw_date = VALUES(draw_date)");
     
     if (!$stmt) {
