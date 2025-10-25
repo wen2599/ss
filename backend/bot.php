@@ -2,12 +2,13 @@
 // backend/bot.php
 
 // --- Bootstrap aplication ---
-require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../bootstrap.php';
 
 // --- Configuration & Security ---
 $bot_token = getenv('TELEGRAM_BOT_TOKEN');
 $secret_token = getenv('TELEGRAM_SECRET_TOKEN');
 $admin_id = getenv('TELEGRAM_ADMIN_ID');
+$channel_id = getenv('TELEGRAM_CHANNEL_ID'); // The ID of the channel to monitor
 
 if (!$bot_token || !$secret_token) {
     http_response_code(500);
@@ -19,7 +20,6 @@ if (!$bot_token || !$secret_token) {
 $client_secret_token = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 if ($client_secret_token !== $secret_token) {
     http_response_code(403);
-    // CRITICAL: Log this error. This is the most likely reason for an unresponsive bot.
     error_log("Secret Token Mismatch! Expected: '{$secret_token}', but got: '{$client_secret_token}'. Check your webhook settings.");
     exit("Forbidden: Secret token mismatch.");
 }
@@ -27,20 +27,33 @@ if ($client_secret_token !== $secret_token) {
 // --- Main Logic ---
 $update = json_decode(file_get_contents('php://input'), true);
 
-// Exit if the update is empty or invalid
 if (!$update) {
     http_response_code(200);
     exit("OK: No valid update received.");
 }
 
 // 1. Handle Channel Post (for automatic lottery data saving)
-if (isset($update['channel_post']['text'])) {
-    $message_text = $update['channel_post']['text'];
-    $parsed_data = parse_lottery_message($message_text);
-    
-    if ($parsed_data) {
-        save_lottery_draw($parsed_data);
+// Check if it's a channel post and if the channel ID matches the configured one.
+if (isset($update['channel_post'])) {
+    // IMPORTANT: Only process posts from the designated channel ID.
+    // This prevents the bot from parsing messages if added to other channels.
+    if (!empty($channel_id) && $update['channel_post']['chat']['id'] == $channel_id) {
+        if (isset($update['channel_post']['text'])) {
+            $message_text = $update['channel_post']['text'];
+            $parsed_data = parse_lottery_message($message_text);
+            
+            if ($parsed_data) {
+                // The function returns true on success, false on failure.
+                save_lottery_draw($parsed_data);
+            }
+        }
+    } else {
+        // Optional: Log that a post from a different/unspecified channel was received.
+        if (!empty($update['channel_post']['chat']['id'])) {
+            error_log("Received channel post from an unsubscribed or incorrect channel ID: " . $update['channel_post']['chat']['id']);
+        }
     }
+    // Always return a 200 OK to Telegram for channel posts to prevent repeated delivery attempts.
     http_response_code(200);
     exit("OK: Channel post processed.");
 }
@@ -93,8 +106,9 @@ if (isset($update['message']['text'])) {
 }
 
 // 3. Handle other update types
-error_log("Unhandled update type: " . json_encode($update));
-http_response_code(200);
+// (e.g., edited_message, callback_query, etc.)
+// error_log("Unhandled update type: " . json_encode($update));
+http_response_code(200); // Respond OK to avoid Telegram re-sending these updates.
 exit("OK: Unhandled update type received.");
 
 
@@ -242,40 +256,80 @@ function get_system_stats() {
 }
 
 /**
- * Parses lottery information from a channel message.
+ * Parses lottery information from a multi-format channel message.
  */
 function parse_lottery_message($text) {
     $data = [];
-    // Example: 2024-03-15 第 240315050 期
-    if (preg_match('/(\d{4}-\d{2}-\d{2}) 第 (\w+) 期/', $text, $matches)) {
-        $data['draw_date'] = $matches[1];
-        $data['draw_period'] = $matches[2];
-    } else { return null; }
+    $lines = explode("\n", $text);
 
-    // Example: 开奖号码: 02,08,03,05,06
-    if (preg_match('/开奖号码: ([\d,]+)/', $text, $matches)) {
-        $data['numbers'] = str_replace(' ', '', $matches[1]);
-    } else { return null; }
-    
-    return $data;
+    // Default to current date if no date is found in the message
+    $data['draw_date'] = date('Y-m-d');
+
+    // Attempt to extract date from the first line, e.g., "[2025/10/25 21:34]"
+    if (preg_match('/\[(\d{4})\/(\d{2})\/(\d{2})/', $lines[0], $date_matches)) {
+        $data['draw_date'] = "{$date_matches[1]}-{$date_matches[2]}-{$date_matches[3]}";
+    }
+
+    $period_found = false;
+    $numbers_found = false;
+
+    foreach ($lines as $index => $line) {
+        // --- Find the Period ---
+        // Looks for "第:<period>期开奖结果:" or "第:<period> 期开奖结果:"
+        if (!$period_found && preg_match('/第:?(\d+)\s?期开奖结果:/', $line, $period_matches)) {
+            $data['draw_period'] = $period_matches[1];
+            $period_found = true;
+            
+            // --- Find the Numbers ---
+            // The numbers are expected on the very next line.
+            // The line should consist of digits and spaces.
+            if (isset($lines[$index + 1]) && preg_match('/^[\d\s]+$/', trim($lines[$index + 1]))) {
+                // Trim whitespace from the start and end of the line
+                $numbers_line = trim($lines[$index + 1]);
+                // Replace multiple spaces with a single comma
+                $numbers_comma_separated = preg_replace('/\s+/', ',', $numbers_line);
+                $data['numbers'] = $numbers_comma_separated;
+                $numbers_found = true;
+                // We found what we need, break the loop
+                break; 
+            }
+        }
+    }
+
+    // If both period and numbers are found, return the data. Otherwise, return null.
+    if (isset($data['draw_period']) && isset($data['numbers'])) {
+        return $data;
+    }
+
+    return null;
 }
+
 
 /**
  * Saves or updates a lottery draw record in the database.
+ * Uses ON DUPLICATE KEY UPDATE to prevent errors if a draw for the same period is sent twice.
  * Returns true on success, false on failure.
  */
 function save_lottery_draw($data) {
     global $db_connection;
-    $stmt = $db_connection->prepare("INSERT INTO lottery_draws (draw_date, draw_period, numbers) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE numbers = VALUES(numbers)");
+    
+    // Using draw_period as the unique key to check for duplicates.
+    $stmt = $db_connection->prepare("INSERT INTO lottery_draws (draw_date, draw_period, numbers) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE numbers = VALUES(numbers), draw_date = VALUES(draw_date)");
+    
     if (!$stmt) {
         error_log("DB Prepare Error in save_lottery_draw: " . $db_connection->error);
         return false;
     }
+    
     $stmt->bind_param("sss", $data['draw_date'], $data['draw_period'], $data['numbers']);
     $success = $stmt->execute();
+    
     if(!$success) {
         error_log("DB Execute Error in save_lottery_draw: " . $stmt->error);
     }
+    
     $stmt->close();
     return $success;
 }
+
+?>

@@ -1,7 +1,36 @@
-CREATE TABLE lottery_draws (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    draw_date DATE NOT NULL,
-    draw_period VARCHAR(255) NOT NULL,
-    numbers VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- This script sets up the initial database structure.
+-- It is intended to be run once during the initial setup of the application.
+
+-- Table for storing lottery draw results
+CREATE TABLE IF NOT EXISTS `lottery_draws` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `draw_date` date NOT NULL,
+  `lottery_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `draw_period` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `numbers` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_type_period` (`lottery_type`,`draw_period`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table for storing registered users
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table for storing emails sent by users from the frontend
+CREATE TABLE IF NOT EXISTS `emails` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `subject` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `content` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `user_id_fk` (`user_id`),
+  CONSTRAINT `user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
