@@ -11,6 +11,7 @@ class UserController extends BaseController
 {
     /**
      * Handles user registration.
+     * After successful registration, the user is automatically logged in.
      * Expects 'email', 'password', 'telegram_chat_id' (optional), 'telegram_username' (optional) in JSON body.
      */
     public function register(): void
@@ -31,10 +32,10 @@ class UserController extends BaseController
                 throw new InvalidArgumentException('Password must be at least 6 characters long.');
             }
 
+            // Optional fields validation
             if (!is_null($telegramChatId) && (!is_string($telegramChatId) || empty($telegramChatId))) {
                 throw new InvalidArgumentException('Invalid telegram_chat_id.');
             }
-
             if (!is_null($telegramUsername) && (!is_string($telegramUsername) || empty($telegramUsername))) {
                 throw new InvalidArgumentException('Invalid telegram_username.');
             }
@@ -46,23 +47,41 @@ class UserController extends BaseController
             $stmt->execute([$email]);
             if ($stmt->fetch()) {
                 $this->jsonError(409, 'Email already registered.');
+                return; // Stop execution
             }
 
+            // Hash password and insert user
             $passwordHash = password_hash($password, PASSWORD_DEFAULT);
             $sql = "INSERT INTO users (username, password_hash, telegram_chat_id, telegram_username) VALUES (?, ?, ?, ?)";
             $stmt = $pdo->prepare($sql);
             
-            if ($stmt->execute([$email, $passwordHash, $telegramChatId, $telegramUsername])) {
-                $this->jsonResponse(201, ['status' => 'success', 'message' => 'User registered successfully.']);
-            } else {
-                // This should ideally not be reached if PDO::ATTR_ERRMODE is EXCEPTION
-                $this->jsonError(500, 'Failed to register user.');
-            }
+            $stmt->execute([$email, $passwordHash, $telegramChatId, $telegramUsername]);
+            
+            // Automatically log in the user after registration
+            $userId = $pdo->lastInsertId();
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = $userId;
+            $_SESSION['username'] = $email;
+
+            $this->jsonResponse(201, [
+                'status' => 'success', 
+                'message' => 'User registered and logged in successfully.',
+                'data' => [
+                    'user_id' => $userId,
+                    'username' => $email
+                ]
+            ]);
+
         } catch (InvalidArgumentException $e) {
             $this->jsonError(400, $e->getMessage(), $e);
         } catch (PDOException $e) {
-            error_log('Database error during registration: ' . $e->getMessage());
-            $this->jsonError(500, 'Database error during registration.', $e);
+            // Check for unique constraint violation (error code 23000)
+            if ($e->getCode() == 23000) {
+                 $this->jsonError(409, 'Email already registered.', $e);
+            } else {
+                error_log('Database error during registration: ' . $e->getMessage());
+                $this->jsonError(500, 'Database error during registration.', $e);
+            }
         } catch (Throwable $e) {
             $this->jsonError(500, 'An unexpected error occurred during registration.', $e);
         }
@@ -88,15 +107,22 @@ class UserController extends BaseController
             }
 
             $pdo = $this->getDbConnection();
-            $stmt = $pdo->prepare("SELECT id, password_hash FROM users WHERE username = ?");
+            $stmt = $pdo->prepare("SELECT id, username, password_hash FROM users WHERE username = ?");
             $stmt->execute([$email]);
             $user = $stmt->fetch(\PDO::FETCH_ASSOC);
 
             if ($user && password_verify($password, $user['password_hash'])) {
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = $user['id'];
-                $_SESSION['username'] = $email;
-                $this->jsonResponse(200, ['status' => 'success', 'message' => 'Login successful.', 'data' => ['username' => $email]]);
+                $_SESSION['username'] = $user['username'];
+                $this->jsonResponse(200, [
+                    'status' => 'success', 
+                    'message' => 'Login successful.', 
+                    'data' => [
+                        'user_id' => $user['id'],
+                        'username' => $user['username']
+                    ]
+                ]);
             } else {
                 $this->jsonError(401, 'Invalid credentials.');
             }
@@ -118,18 +144,35 @@ class UserController extends BaseController
     {
         session_unset();
         session_destroy();
+        // Ensure the session cookie is also cleared
+        if (ini_get("session.use_cookies")) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000,
+                $params["path"], $params["domain"],
+                $params["secure"], $params["httponly"]
+            );
+        }
         $this->jsonResponse(200, ['status' => 'success', 'message' => 'Logged out successfully.']);
     }
 
     /**
-     * Checks if a user is currently authenticated.
+     * Checks if a user is currently authenticated and returns user data.
+     * Returns 401 if not authenticated.
      */
     public function checkAuth(): void
     {
-        if (isset($_SESSION['user_id'])) {
-            $this->jsonResponse(200, ['status' => 'success', 'data' => ['isLoggedIn' => true, 'username' => $_SESSION['username']]]);
+        if (isset($_SESSION['user_id']) && isset($_SESSION['username'])) {
+            $this->jsonResponse(200, [
+                'status' => 'success', 
+                'data' => [
+                    'isLoggedIn' => true, 
+                    'user_id' => $_SESSION['user_id'],
+                    'username' => $_SESSION['username']
+                ]
+            ]);
         } else {
-            $this->jsonResponse(200, ['status' => 'success', 'data' => ['isLoggedIn' => false]]);
+            // More RESTful to send a 401 if the resource/state requires authentication
+            $this->jsonError(401, 'User is not authenticated.');
         }
     }
 
@@ -141,12 +184,12 @@ class UserController extends BaseController
     public function isRegistered(): void
     {
         try {
-            // Security Check: Verify worker secret using hash_equals for timing attack prevention
+            // Security Check: Verify worker secret
             $workerSecret = $_GET['worker_secret'] ?? '';
             $expectedSecret = $_ENV['WORKER_SECRET'] ?? '';
-
             if (empty($workerSecret) || empty($expectedSecret) || !hash_equals($expectedSecret, $workerSecret)) {
                 $this->jsonError(403, 'Forbidden: Invalid or missing secret.');
+                return;
             }
 
             $email = $_GET['email'] ?? null;
