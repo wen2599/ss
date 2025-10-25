@@ -2,7 +2,7 @@
 // ===== Webhook Entry Point for Telegram Bot =====
 
 // --- Error Reporting & Logging Setup ---
-ini_set('display_errors', '0');
+// ini_set('display_errors', '0'); // REMOVED/COMMENTED OUT for debugging
 error_reporting(E_ALL);
 
 // Basic logging until bootstrap is complete

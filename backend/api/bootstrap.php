@@ -64,15 +64,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// --- Aggressive CORS Headers ---
+// --- Aggressive CORS Headers (FORCED FOR DEBUGGING) ---
 if (isset($_SERVER['REQUEST_METHOD'])) {
-    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-    $allowedOrigins = explode(',', $_ENV['ALLOWED_ORIGINS'] ?? 'https://ss.wenxiuxiu.eu.org,http://localhost:5173');
-
-    if (in_array($origin, array_map('trim', $allowedOrigins))) {
-        header("Access-Control-Allow-Origin: {$origin}");
-    }
+    // Force allow all origins for debugging. In production, use specific origins.
+    header("Access-Control-Allow-Origin: *"); 
     header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    // Ensure all necessary headers are allowed
     header("Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With, X-Worker-Secret, Accept, Origin");
     header("Access-Control-Allow-Credentials: true");
     header("Access-Control-Max-Age: 86400");
