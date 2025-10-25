@@ -9,9 +9,11 @@
         {{ error }}
       </div>
       <div v-if="draw" class="draw-details">
-        <p><strong>期号:</strong> {{ draw.draw_number }}</p>
+        <p><strong>期号:</strong> {{ draw.draw_period }}</p>
         <p><strong>开奖日期:</strong> {{ draw.draw_date }}</p>
         <p><strong>开奖号码:</strong> {{ draw.numbers }}</p>
+        <p><strong>生肖:</strong> {{ draw.zodiacs }}</p>
+        <p><strong>颜色:</strong> {{ draw.colors }}</p>
       </div>
     </div>
   </div>
