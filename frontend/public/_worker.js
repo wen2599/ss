@@ -7,9 +7,12 @@ export default {
       const backendUrl = new URL(url.pathname, backendServer);
       backendUrl.search = url.search;
 
+      const newHeaders = new Headers(request.headers);
+      newHeaders.delete('host'); // VERY IMPORTANT: Remove the original host header
+
       const requestOptions = {
         method: request.method,
-        headers: request.headers,
+        headers: newHeaders,
       };
 
       // Only include body and duplex if a body is present

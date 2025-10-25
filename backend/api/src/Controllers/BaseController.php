@@ -21,14 +21,14 @@ abstract class BaseController
      * @param int $statusCode The HTTP status code.
      * @param array $data The data to encode as JSON.
      */
-    protected function jsonResponse(int $statusCode, array $data): void
+    protected function jsonResponse(array $data, int $statusCode = 200): void
     {
-        http_response_code($statusCode);
         if (!headers_sent()) {
             header('Content-Type: application/json');
+            http_response_code($statusCode);
         }
         echo json_encode($data);
-        exit;
+        exit; // Ensure script termination
     }
 
     /**

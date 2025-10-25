@@ -39,14 +39,15 @@ export const useAuthStore = defineStore('auth', {
       this.isLoading = true;
       try {
         const response = await apiClient.post('/login', { email, password });
-        if (response.data.status === 'success') {
-          this.isAuthenticated = true;
-          this.username = email;
-          router.push('/lottery'); // Redirect to a protected route after login
-          return { success: true, message: response.data.message };
-        } else {
-          return { success: false, message: response.data.message || 'Login failed.' };
-        }
+        // Assuming a successful login always returns a 2xx status and the user data.
+        this.isAuthenticated = true;
+        this.username = response.data.data.username; // Use username from response
+
+        // Let the component handle the redirect. The store's job is to manage state.
+        // router.push('/lottery');
+
+        return { success: true, message: response.data.message };
+
       } catch (error) {
         console.error('Login error:', error);
         // Specific handling for 401 might be done by response interceptor in api.js
@@ -60,15 +61,13 @@ export const useAuthStore = defineStore('auth', {
       this.isLoading = true;
       try {
         const response = await apiClient.post('/register', { email, password, telegram_chat_id: telegramChatId, telegram_username: telegramUsername });
-        if (response.data.status === 'success') {
-          // Optionally auto-login or guide user to login after registration
-          // this.isAuthenticated = true;
-          // this.username = email;
-          // router.push('/lottery');
-          return { success: true, message: response.data.message };
-        } else {
-          return { success: false, message: response.data.message || 'Registration failed.' };
-        }
+        // After registration, the backend now automatically logs the user in.
+        // Let's update the state accordingly.
+        this.isAuthenticated = true;
+        this.username = email;
+
+        // Let the component decide what to do next (e.g., close modal, show message).
+        return { success: true, message: response.data.message };
       } catch (error) {
         console.error('Registration error:', error);
         return { success: false, message: error.response?.data?.message || 'An error occurred during registration.' };

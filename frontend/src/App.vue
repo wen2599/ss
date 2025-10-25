@@ -47,12 +47,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { RouterLink, RouterView, useRouter } from 'vue-router';
+import { RouterLink, RouterView } from 'vue-router';
 // import { store } from './store'; // Removed direct import of old store
 import { useAuthStore } from './stores/auth'; // Import new Pinia store
 import AuthModal from './components/AuthModal.vue';
 
-const router = useRouter();
 const authStore = useAuthStore(); // Initialize Pinia store
 
 const isAuthModalOpen = ref(false);

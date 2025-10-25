@@ -91,7 +91,7 @@ onMounted(() => {
 });
 
 // Watch for changes in authentication status and re-fetch emails
-watch(isAuthenticated, (newAuthStatus) => {
+watch(isAuthenticated, () => {
   fetchEmails();
 }, { immediate: true }); // Use immediate to run on initial mount
 

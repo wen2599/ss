@@ -46,7 +46,7 @@ class LotteryController extends BaseController {
     {
         try {
             $results = $this->fetchLatestResultsData();
-            $this->jsonResponse(200, ['status' => 'success', 'data' => $results]);
+            $this->jsonResponse(['status' => 'success', 'data' => $results]);
         } catch (PDOException $e) {
             // Delegate to unified error handler from BaseController
             $this->jsonError(500, 'Failed to fetch lottery results.', $e);

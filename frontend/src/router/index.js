@@ -45,17 +45,27 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
 
-  // Ensure the user's authentication status is checked before navigating.
-  if (!authStore.isAuthenticated) {
+  // Ensure the initial auth check is complete before proceeding.
+  if (!authStore.authCheckCompleted) {
     await authStore.checkAuth();
   }
 
-  // The decision to show/hide content is now handled by each view component
-  // based on the authStore.isAuthenticated state. The guard's only job is
-  // to ensure the auth state is resolved before the component loads.
-  // This approach works well with modal-based authentication, as it avoids
-  // redirecting the user away from their intended page.
-  next();
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+
+  if (requiresAuth && !authStore.isAuthenticated) {
+    // For protected routes, we can prevent navigation if the user is not logged in.
+    // Optionally, you could trigger the login modal here, but preventing navigation
+    // is a simpler and more secure default.
+    console.warn(`Navigation to "${to.path}" blocked. User is not authenticated.`);
+    // You could redirect to a public page like '/lottery' or just stop the navigation
+    if (from.name !== 'lottery') {
+      next({ name: 'lottery' });
+    } else {
+      next(false); // Stop navigation
+    }
+  } else {
+    next(); // Proceed as normal
+  }
 });
 
 export default router;

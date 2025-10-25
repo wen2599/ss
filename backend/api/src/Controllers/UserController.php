@@ -60,17 +60,15 @@ class UserController extends BaseController
             // Automatically log in the user after registration
             $userId = $pdo->lastInsertId();
             session_regenerate_id(true);
-            $_SESSION['user_id'] = $userId;
+            $_SESSION['user_id'] = (int)$userId;
             $_SESSION['username'] = $email;
 
-            $this->jsonResponse(201, [
-                'status' => 'success', 
-                'message' => 'User registered and logged in successfully.',
-                'data' => [
-                    'user_id' => $userId,
-                    'username' => $email
-                ]
-            ]);
+            // Standard practice is to return 200 OK on register/login, not 201.
+            // Let the client redirect to a login flow.
+            $this->jsonResponse([
+                'status' => 'success',
+                'message' => 'User registered successfully. Please log in.'
+            ], 200);
 
         } catch (InvalidArgumentException $e) {
             $this->jsonError(400, $e->getMessage(), $e);
@@ -113,18 +111,20 @@ class UserController extends BaseController
 
             if ($user && password_verify($password, $user['password_hash'])) {
                 session_regenerate_id(true);
-                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['user_id'] = (int)$user['id'];
                 $_SESSION['username'] = $user['username'];
-                $this->jsonResponse(200, [
-                    'status' => 'success', 
-                    'message' => 'Login successful.', 
+
+                $this->jsonResponse([
+                    'status' => 'success',
+                    'message' => 'Login successful.',
                     'data' => [
-                        'user_id' => $user['id'],
+                        'user_id' => (int)$user['id'],
                         'username' => $user['username']
                     ]
                 ]);
             } else {
-                $this->jsonError(401, 'Invalid credentials.');
+                // To prevent user enumeration, use a generic error message for both non-existent user and wrong password.
+                $this->jsonError(401, 'Login failed. Please check your email and password.');
             }
         } catch (InvalidArgumentException $e) {
             $this->jsonError(400, $e->getMessage(), $e);
@@ -161,18 +161,21 @@ class UserController extends BaseController
      */
     public function checkAuth(): void
     {
-        if (isset($_SESSION['user_id']) && isset($_SESSION['username'])) {
-            $this->jsonResponse(200, [
-                'status' => 'success', 
+        if (isset($_SESSION['user_id']) && is_int($_SESSION['user_id']) && isset($_SESSION['username'])) {
+            $this->jsonResponse([
+                'status' => 'success',
                 'data' => [
-                    'isLoggedIn' => true, 
+                    'isLoggedIn' => true,
                     'user_id' => $_SESSION['user_id'],
                     'username' => $_SESSION['username']
                 ]
             ]);
         } else {
-            // More RESTful to send a 401 if the resource/state requires authentication
-            $this->jsonError(401, 'User is not authenticated.');
+            // A check endpoint should return a 200 OK with the auth status, not a 401.
+            $this->jsonResponse([
+                'status' => 'success',
+                'data' => ['isLoggedIn' => false]
+            ]);
         }
     }
 

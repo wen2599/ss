@@ -64,12 +64,20 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// --- Aggressive CORS Headers (FORCED FOR DEBUGGING) ---
+// --- CORS Configuration ---
 if (isset($_SERVER['REQUEST_METHOD'])) {
-    // Force allow all origins for debugging. In production, use specific origins.
-    header("Access-Control-Allow-Origin: *"); 
+    $allowed_origins = isset($_ENV['ALLOWED_ORIGINS']) ? explode(',', $_ENV['ALLOWED_ORIGINS']) : [];
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+    if (!empty($origin) && in_array($origin, $allowed_origins)) {
+        header("Access-Control-Allow-Origin: {$origin}");
+    } else if (empty($allowed_origins)) {
+        // Fallback for development if no origins are specified, but log a warning.
+        header("Access-Control-Allow-Origin: *");
+        error_log("Warning: ALLOWED_ORIGINS is not set. Defaulting to '*' for CORS. This is insecure for production.");
+    }
+
     header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    // Ensure all necessary headers are allowed
     header("Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With, X-Worker-Secret, Accept, Origin");
     header("Access-Control-Allow-Credentials: true");
     header("Access-Control-Max-Age: 86400");

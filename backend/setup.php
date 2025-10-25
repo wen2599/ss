@@ -51,7 +51,7 @@ try {
     echo "[OK] Ensured that database '{$dbName}' exists.\n";
 
     // Now, get the connection *through the application's function*, which will connect to the specific database
-    $pdo = getDbConnection();
+    $pdo = get_db_connection();
     echo "[OK] Successfully connected to the '{$dbName}' database.\n";
 
 } catch (PDOException $e) {

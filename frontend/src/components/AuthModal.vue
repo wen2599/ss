@@ -92,18 +92,13 @@ async function handleRegister() {
   const registerResult = await authStore.register(form.value.email, form.value.password);
   
   if (registerResult.success) {
-    // On successful registration, show a success message and switch to the login view
-    // This provides clearer user feedback than auto-logging in.
-    isLoginView.value = true;
-    resetFormAndError();
-    // A temporary success message could be implemented here if desired
-    alert('注册成功! 请登录.'); // Using alert for simplicity, could be a custom notification
-    // Or, attempt to auto-login
-    // const loginResult = await authStore.login(form.value.email, form.value.password);
-    // if (loginResult.success) emit('close');
-    // else error.value = '注册成功，但自动登录失败. 请手动登录.';
-  } else {
-    error.value = registerResult.message || '注册失败. 请重试.';
+    // On successful registration, the user is now automatically logged in by the backend.
+    // We can simply close the modal.
+    if (registerResult.success) {
+      emit('close');
+    } else {
+      error.value = registerResult.message || '注册失败. 请重试.';
+    }
   }
 }
 </script>

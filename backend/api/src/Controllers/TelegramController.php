@@ -12,12 +12,12 @@ use Throwable;
 
 class TelegramController extends BaseController
 {
-    private TelegramService $telegramService;
+    private ?\App\Services\TelegramService $telegramService = null;
     private PDO $pdo;
-    private ?LoggerInterface $logger;
     private ?string $channelId;
     private ?string $adminId;
 
+    // ... (ZODIAC_MAP and COLOR_MAP constants remain the same)
     private const ZODIAC_MAP = [
         '鼠' => ['06', '18', '30', '42'], '牛' => ['05', '17', '29', '41'], '虎' => ['04', '16', '28', '40'],
         '兔' => ['03', '15', '27', '39'], '龙' => ['02', '14', '26', '38'], '蛇' => ['01', '13', '25', '37', '49'],
@@ -30,18 +30,23 @@ class TelegramController extends BaseController
         '绿' => ['05', '06', '11', '16', '17', '21', '22', '27', '28', '32', '33', '38', '39', '43', '44', '49']
     ];
 
-    public function __construct(
-        TelegramService $telegramService,
-        PDO $pdo,
-        ?LoggerInterface $logger = null,
-        ?string $channelId = null,
-        ?string $adminId = null
-    ) {
-        $this->telegramService = $telegramService;
-        $this->pdo = $pdo;
-        $this->logger = $logger;
-        $this->channelId = $channelId;
-        $this->adminId = $adminId;
+
+    /**
+     * Constructor for TelegramController.
+     * Initializes database connection, Telegram service, and configuration from environment variables.
+     */
+    public function __construct()
+    {
+        $this->pdo = $this->getDbConnection();
+        $botToken = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
+
+        // Only initialize the Telegram service if the token is present.
+        if (!empty($botToken) && $botToken !== 'YOUR_TELEGRAM_BOT_TOKEN') {
+            $this->telegramService = new \App\Services\TelegramService($botToken);
+        }
+
+        $this->channelId = $_ENV['TELEGRAM_CHANNEL_ID'] ?? null;
+        $this->adminId = $_ENV['TELEGRAM_ADMIN_ID'] ?? null;
     }
 
     /**

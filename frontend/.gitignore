@@ -111,6 +111,8 @@ public
 # Storybook project generated files
 storybook-static
 
+# Playwright test reports
+playwright-report/
 # Playwright test results
 test-results/
 
