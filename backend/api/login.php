@@ -8,16 +8,24 @@ if (isset($data['email']) && isset($data['password'])) {
     $password = $data['password'];
 
     global $db_connection;
-    $stmt = $db_connection->prepare("SELECT id, password FROM users WHERE email = ?");
+    $stmt = $db_connection->prepare("SELECT id, email, password FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $result = $stmt->get_result();
 
     if ($user = $result->fetch_assoc()) {
         if (password_verify($password, $user['password'])) {
+            session_regenerate_id(true);
             $_SESSION['user_id'] = $user['id'];
+
             http_response_code(200);
-            echo json_encode(["message" => "Login successful"]);
+            echo json_encode([
+                "message" => "Login successful",
+                "user" => [
+                    "id" => $user['id'],
+                    "email" => $user['email']
+                ]
+            ]);
         } else {
             http_response_code(401);
             echo json_encode(["message" => "Invalid credentials"]);

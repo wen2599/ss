@@ -19,9 +19,6 @@
         <div v-if="error" class="error-message">
           {{ error }}
         </div>
-        <div v-if="successMessage" class="success-message">
-          {{ successMessage }}
-        </div>
         <button type="submit" :disabled="loading" class="submit-btn">
           {{ loading ? '创建中...' : '创建账户' }}
         </button>
@@ -34,7 +31,7 @@
 </template>
 
 <script>
-import auth from '@/services/auth.js'; // 导入认证服务
+import auth from '@/services/auth.js';
 
 export default {
   name: 'RegisterView',
@@ -45,39 +42,29 @@ export default {
       confirmPassword: '',
       loading: false,
       error: null,
-      successMessage: null,
     };
+  },
+  created() {
+    if (auth.isLoggedIn()) {
+      this.$router.push('/');
+    }
   },
   methods: {
     async handleRegister() {
       this.loading = true;
       this.error = null;
-      this.successMessage = null;
 
       if (this.password !== this.confirmPassword) {
         this.error = '两次输入的密码不一致。';
         this.loading = false;
         return;
       }
-      if (this.password.length < 8) {
-        this.error = '密码必须至少为8位。';
-        this.loading = false;
-        return;
-      }
 
       try {
-        await auth.register(this.email, this.password);
-        this.loading = false;
-        this.successMessage = '账户创建成功！您现在可以登录了。';
-        // 清空表单
-        this.email = '';
-        this.password = '';
-        this.confirmPassword = '';
-        // 几秒后跳转到登录页
-        setTimeout(() => {
-          this.$router.push('/login');
-        }, 2000);
-
+        await auth.register({ email: this.email, password: this.password });
+        this.$router.push('/').then(() => {
+          window.location.reload();
+        });
       } catch (err) {
         this.loading = false;
         if (err.response && err.response.data && err.response.data.message) {
@@ -92,7 +79,7 @@ export default {
 </script>
 
 <style scoped>
-/* 样式保持不变 */
+/* Styles remain the same */
 .auth-container {
   display: flex;
   justify-content: center;
@@ -154,20 +141,14 @@ input {
 .submit-btn:hover:not(:disabled) {
   background-color: #4338ca;
 }
-.error-message, .success-message {
+.error-message {
   margin-top: 1rem;
   margin-bottom: 1rem;
   font-size: 0.875rem;
   padding: 0.75rem;
   border-radius: 4px;
-}
-.error-message {
   color: #991b1b;
   background-color: #fde2e2;
-}
-.success-message {
-    color: #166534;
-    background-color: #dcfce7;
 }
 .switch-link {
   margin-top: 1.5rem;

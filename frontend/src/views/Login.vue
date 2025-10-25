@@ -27,7 +27,7 @@
 </template>
 
 <script>
-import auth from '@/services/auth.js'; // 导入认证服务
+import auth from '@/services/auth.js';
 
 export default {
   name: 'LoginView',
@@ -39,14 +39,17 @@ export default {
       error: null,
     };
   },
+  created() {
+    if (auth.isLoggedIn()) {
+      this.$router.push('/');
+    }
+  },
   methods: {
     async handleLogin() {
       this.loading = true;
       this.error = null;
       try {
-        await auth.login(this.email, this.password);
-        // 登录成功后，路由守卫会自动处理跳转，但我们也可以手动跳转
-        // 为了更好的用户体验，直接跳转到根路径，然后让页面重新加载以应用状态
+        await auth.login({ email: this.email, password: this.password });
         this.$router.push('/').then(() => {
           window.location.reload();
         });
@@ -64,7 +67,7 @@ export default {
 </script>
 
 <style scoped>
-/* 样式保持不变 */
+/* Styles remain the same */
 .auth-container {
   display: flex;
   justify-content: center;

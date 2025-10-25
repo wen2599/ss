@@ -1,25 +1,38 @@
 import apiClient from './api';
 
 const authService = {
-  register(user) {
-    return apiClient.post('/api/register.php', {
+  user: null,
+
+  async register(user) {
+    const response = await apiClient.post('/api/register.php', {
       email: user.email,
       password: user.password
     });
+    this.user = response.data.user;
+    return response;
   },
-  login(user) {
-    return apiClient.post('/api/login.php', {
+
+  async login(user) {
+    const response = await apiClient.post('/api/login.php', {
       email: user.email,
       password: user.password
     });
+    this.user = response.data.user;
+    return response;
   },
+
   isLoggedIn() {
     return document.cookie.includes('PHPSESSID');
   },
-  logout() {
-    return apiClient.post('/api/logout.php').then(() => {
-      window.location.reload();
-    });
+
+  async logout() {
+    await apiClient.post('/api/logout.php');
+    this.user = null;
+    window.location.reload();
+  },
+
+  getCurrentUser() {
+    return this.user;
   }
 };
 
