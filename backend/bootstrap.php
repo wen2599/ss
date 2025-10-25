@@ -3,6 +3,12 @@ declare(strict_types=1);
 
 // backend/bootstrap.php
 
+// --- Session Initialization ---
+// Must be called before any output is sent to the browser.
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // --- CORS Configuration ---
 $allowed_origins = [
     'https://ss.wenxiuxiu.eu.org',
@@ -20,11 +26,6 @@ header("Access-Control-Allow-Headers: Content-Type, Authorization");
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
-}
-
-// --- Session Initialization ---
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
 }
 
 // --- Environment and Database Initialization ---

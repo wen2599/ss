@@ -4,7 +4,8 @@ const authService = {
   user: null,
 
   async register(user) {
-    const response = await apiClient.post('/api/register.php', {
+    const response = await apiClient.post('/api/auth.php', {
+      action: 'register',
       email: user.email,
       password: user.password
     });
@@ -13,7 +14,8 @@ const authService = {
   },
 
   async login(user) {
-    const response = await apiClient.post('/api/login.php', {
+    const response = await apiClient.post('/api/auth.php', {
+      action: 'login',
       email: user.email,
       password: user.password
     });
@@ -26,7 +28,9 @@ const authService = {
   },
 
   async logout() {
-    await apiClient.post('/api/logout.php');
+    await apiClient.post('/api/auth.php', {
+      action: 'logout'
+    });
     this.user = null;
     window.location.reload();
   },
