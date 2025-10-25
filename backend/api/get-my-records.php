@@ -1,48 +1,33 @@
 <?php
-
 require_once __DIR__ . '/../bootstrap.php';
-require_once __DIR__ . '/jwt_helper.php';
 
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
+$headers = getallheaders();
+$auth_header = $headers['Authorization'] ?? null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
+if ($auth_header) {
+    list($type, $token) = explode(" ", $auth_header, 2);
+    if (strcasecmp($type, "Bearer") == 0) {
+        $user_id = verify_jwt($token);
+        if ($user_id) {
+            // Fetch records for the user
+            global $db_connection;
+            $stmt = $db_connection->prepare("SELECT id, record_name, record_value FROM records WHERE user_id = ?");
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $records = $result->fetch_all(MYSQLI_ASSOC);
 
-$authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-$token = str_replace('Bearer ', '', $authHeader);
-
-if (!$token) {
-    http_response_code(401);
-    echo json_encode(["message" => "Authentication token not provided."]);
-    exit;
-}
-
-try {
-    $decoded = validate_jwt($token);
-    $userId = $decoded['data']['userId'];
-
-    global $db_connection;
-    $stmt = $db_connection->prepare("SELECT id, from_address, subject, body, received_at, extracted_data FROM emails WHERE user_id = ? ORDER BY received_at DESC");
-    $stmt->bind_param("i", $userId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $records = [];
-    while ($row = $result->fetch_assoc()) {
-        $records[] = $row;
+            http_response_code(200);
+            echo json_encode($records);
+        } else {
+            http_response_code(401);
+            echo json_encode(["message" => "Invalid or expired token"]);
+        }
+    } else {
+        http_response_code(401);
+        echo json_encode(["message" => "Unsupported authentication type"]);
     }
-    
-    $stmt->close();
-    $db_connection->close();
-
-    http_response_code(200);
-    echo json_encode($records);
-
-} catch (Exception $e) {
+} else {
     http_response_code(401);
-    echo json_encode(["message" => "Authentication failed: " . $e->getMessage()]);
+    echo json_encode(["message" => "Authentication token not provided"]);
 }
