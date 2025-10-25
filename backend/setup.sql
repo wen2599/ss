@@ -1,0 +1,7 @@
+CREATE TABLE lottery_draws (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    draw_date DATE NOT NULL,
+    draw_period VARCHAR(255) NOT NULL,
+    numbers VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

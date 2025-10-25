@@ -1,93 +1,143 @@
-
 <template>
   <div id="app">
-    <div class="container">
-      <h1>邮件数据</h1>
-      <div v-if="loading" class="loading">正在加载数据...</div>
-      <div v-if="error" class="error">{{ error }}</div>
-      <div v-if="!loading && !error && records.length === 0" class="loading">暂无数据。</div>
-      <div v-if="records.length > 0" class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>接收时间</th>
-              <th>发件人</th>
-              <th>主题</th>
-              <th v-for="header in extractedHeaders" :key="header">{{ headerMapping[header] || header }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(record, index) in records" :key="index">
-              <td>{{ formatDateTime(record.received_at) }}</td>
-              <td>{{ record.from || 'N/A' }}</td>
-              <td>{{ record.subject || 'N/A' }}</td>
-              <td v-for="header in extractedHeaders" :key="header">
-                {{ record.extracted_data ? (record.extracted_data[header] || 'N/A') : 'N/A' }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    <header class="app-header">
+      <div class="container">
+        <div class="logo-container">
+          <router-link to="/" class="logo">邮件仪表盘</router-link>
+        </div>
+        <nav class="app-nav">
+          <template v-if="isLoggedIn">
+            <button @click="handleLogout" class="nav-button">登出</button>
+          </template>
+          <template v-else>
+            <router-link to="/login" class="nav-link">登录</router-link>
+            <router-link to="/register" class="nav-link primary">注册</router-link>
+          </template>
+        </nav>
       </div>
-    </div>
+    </header>
+    <main>
+      <router-view/>
+    </main>
   </div>
 </template>
 
 <script>
+import auth from '@/services/auth.js';
+
 export default {
+  name: 'App',
   data() {
     return {
-      records: [],
-      loading: true,
-      error: null,
-      apiUrl: 'https://wenge.cloudns.ch/api/get-records', 
-      headerMapping: {
-          'vendor': '供应商',
-          'invoice_number': '账单号',
-          'amount': '金额',
-          'due_date': '截止日期'
-      }
+      isLoggedIn: false,
     };
   },
-  computed: {
-    extractedHeaders() {
-      if (this.records.length === 0) {
-        return [];
-      }
-      // Dynamically get headers from the first record's extracted_data
-      return this.records[0].extracted_data ? Object.keys(this.records[0].extracted_data) : [];
-    }
+  created() {
+    // 组件创建时检查登录状态
+    this.isLoggedIn = auth.isLoggedIn();
   },
   methods: {
-    fetchData() {
-      fetch(this.apiUrl)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`网络错误: ${response.statusText}`);
-          }
-          return response.json();
-        })
-        .then(data => {
-          // Sort data by received_at date in descending order
-          this.records = data.sort((a, b) => new Date(b.received_at) - new Date(a.received_at));
-          this.loading = false;
-        })
-        .catch(error => {
-          console.error('Fetch error:', error);
-          this.error = '无法加载数据。请检查后端服务是否正常以及API路径是否正确。';
-          this.loading = false;
-        });
+    handleLogout() {
+      auth.logout();
+      // logout方法会自动刷新页面，这里不需要额外操作
     },
-    formatDateTime(dateTimeString) {
-        if (!dateTimeString) return 'N/A';
-        return new Date(dateTimeString).toLocaleString('zh-CN');
-    }
   },
-  created() {
-    this.fetchData();
+  watch: {
+    // 监听路由变化，以在导航后更新登录状态（例如，从登录页跳转后）
+    '$route': function() {
+      this.isLoggedIn = auth.isLoggedIn();
+    }
   }
 };
 </script>
 
 <style>
-/* Global styles are now in src/assets/main.css */
+/* 全局样式 */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #f8fafc;
+  color: #1a202c;
+}
+
+#app {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* 头部样式 */
+.app-header {
+  background-color: white;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1rem 0;
+}
+
+.app-header .container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2d3748;
+  text-decoration: none;
+}
+
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-link, .nav-button {
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  transition: all 0.2s ease-in-out;
+}
+
+.nav-link {
+  color: #4a5568;
+}
+.nav-link:hover {
+  background-color: #edf2f7;
+}
+
+.nav-link.primary {
+  background-color: #4f46e5;
+  color: white;
+}
+.nav-link.primary:hover {
+  background-color: #4338ca;
+}
+
+.nav-button {
+  border: 1px solid #cbd5e0;
+  background-color: transparent;
+  color: #4a5568;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.nav-button:hover {
+  background-color: #edf2f7;
+}
+
+/* 主体内容区域 */
+main {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
 </style>
