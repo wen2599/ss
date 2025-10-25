@@ -1,19 +1,6 @@
 <?php
-// setup.php
+// backend/install.php
 
-// FORCED DEBUGGING: Immediately check for .env file and display its path.
-echo "[DEBUG] Starting forced diagnosis...\n";
-$env_path = __DIR__ . '/.env';
-echo "[DEBUG] Script is looking for .env file at the absolute path: " . realpath(dirname(__FILE__)) . "/.env\n";
-echo "[DEBUG] Does the file exist? (1 for yes, empty for no): " . (file_exists($env_path) ? '1' : '') . "\n";
-echo "[DEBUG] Is the file readable? (1 for yes, empty for no): " . (is_readable($env_path) ? '1' : '') . "\n";
-
-// FORCED DEBUGGING: Display the content of load_env.php to confirm its version.
-echo "[DEBUG] Content of 'load_env.php':\n--------------------\n";
-echo file_get_contents(__DIR__ . '/load_env.php');
-echo "\n--------------------\n[DEBUG] Finished forced diagnosis.\n\n";
-
-// The original script logic starts here.
 echo "[INFO] Starting database setup...\n";
 
 // Include the environment loader
