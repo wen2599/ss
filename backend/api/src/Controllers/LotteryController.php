@@ -4,9 +4,16 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use PDO;
-use PDOException; // Use specific PDOException
+use PDOException;
 
 class LotteryController extends BaseController {
+
+    private PDO $pdo;
+
+    public function __construct(PDO $pdo)
+    {
+        $this->pdo = $pdo;
+    }
 
     /**
      * Fetches the latest lottery results from the database, grouped by lottery type.
@@ -18,7 +25,6 @@ class LotteryController extends BaseController {
     public function fetchLatestResultsData(): array
     {
         try {
-            $pdo = $this->getDbConnection();
             $sql = "
                 SELECT r1.*
                 FROM lottery_results r1
@@ -29,7 +35,7 @@ class LotteryController extends BaseController {
                 ) r2 ON r1.lottery_type = r2.lottery_type AND r1.draw_date = r2.max_draw_date
                 ORDER BY r1.draw_date DESC;
             ";
-            $stmt = $pdo->query($sql);
+            $stmt = $this->pdo->query($sql);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             // Log the error and re-throw to be handled by the caller, using specific exception type.

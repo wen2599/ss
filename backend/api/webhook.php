@@ -50,8 +50,9 @@ if ($webhookSecret !== $telegram_header) {
 
 // --- Dependency Injection Setup ---
 try {
-    $pdo = getDbConnection(); // This function comes from bootstrap.php
+    $pdo = get_db_connection();
     $telegramService = new TelegramService($botToken);
+    // Note: The third argument for a logger is null as we don't have a formal logger implemented.
     $controller = new TelegramController($telegramService, $pdo, null, $channelId, $adminId);
 } catch (\PDOException $e) {
     error_log("CRITICAL: Failed to establish database connection: " . $e->getMessage());
