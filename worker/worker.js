@@ -181,16 +181,9 @@ export default {
         const backendUrl = new URL(url.pathname, backendServer);
         backendUrl.search = url.search;
 
-        // Create a mutable copy of the request headers
-        const newHeaders = new Headers(request.headers);
-        // ** THE FIX: Delete the Host header **
-        // The Host header is automatically set by the fetch call to the backend's hostname.
-        // Forwarding the original Host from the client can cause firewall/routing issues.
-        newHeaders.delete('Host');
-
         const backendRequest = new Request(backendUrl, {
             method: request.method,
-            headers: newHeaders, // Use the modified headers
+            headers: request.headers,
             body: request.body,
             duplex: 'half'
         });
@@ -206,56 +199,51 @@ export default {
    * Handles incoming email messages.
    */
   async email(message, env, ctx) {
-      // ... (email handling logic remains the same) ...
-      const { PUBLIC_API_ENDPOINT, EMAIL_HANDLER_SECRET } = env;
-      if (!PUBLIC_API_ENDPOINT || !EMAIL_HANDLER_SECRET) {
-          console.error("Worker Email Handler: Missing required environment variables.");
-          return;
+    const { PUBLIC_API_ENDPOINT, EMAIL_HANDLER_SECRET } = env;
+
+    if (!PUBLIC_API_ENDPOINT || !EMAIL_HANDLER_SECRET) {
+      console.error("Worker Email Handler: Missing required environment variables.");
+      return;
+    }
+
+    const senderEmail = message.from;
+    console.log(`Worker Email Handler: Received email from: ${senderEmail}`);
+
+    try {
+      const rawEmail = await streamToString(message.raw);
+      const headers = parseHeaders(rawEmail.split(/\r\n\r\n/)[0]);
+      const subject = decodeSubject(headers['subject']);
+      const body = extractHTMLBody(rawEmail);
+
+      const postData = {
+          worker_secret: EMAIL_HANDLER_SECRET,
+          from: senderEmail,
+          to: message.to,
+          subject: subject,
+          body: body,
+      };
+
+      const postUrl = `${PUBLIC_API_ENDPOINT}/api/save-email.php`;
+      console.log(`Worker Email Handler: Posting email content to: ${postUrl}`);
+
+      const postResponse = await fetch(postUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(postData),
+      });
+
+      if (!postResponse.ok) {
+        const errorText = await postResponse.text();
+        console.error(`Worker Email Handler: Failed to forward email content. Status: ${postResponse.status}, Body: ${errorText}`);
+        throw new Error(`Failed to post email with status ${postResponse.status}`);
       }
-      const senderEmail = message.from;
-      try {
-          const verificationUrl = `${PUBLIC_API_ENDPOINT}/api/users/is-registered?worker_secret=${EMAIL_HANDLER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
-          const verificationResponse = await fetch(verificationUrl);
-          if (!verificationResponse.ok) {
-              if (verificationResponse.status >= 400 && verificationResponse.status < 500) return;
-              throw new Error(`Verification failed with status ${verificationResponse.status}`);
-          }
-          const verificationData = await verificationResponse.json();
-          if (verificationData.status !== 'success' || !verificationData.data.is_registered) {
-              console.log(`Worker Email Handler: User ${senderEmail} is not registered. Discarding email.`);
-              return;
-          }
-          const userId = verificationData.data.user_id;
-          if (!userId) {
-              console.error(`Worker Email Handler: No user_id returned for ${senderEmail}.`);
-              return;
-          }
-          const rawEmail = await streamToString(message.raw);
-          const headers = parseHeaders(rawEmail.split(/\r\n\r\n/)[0]);
-          const subject = decodeSubject(headers['subject']);
-          const body = extractHTMLBody(rawEmail);
-          const postData = {
-              worker_secret: EMAIL_HANDLER_SECRET,
-              from: senderEmail,
-              to: message.to,
-              subject: subject,
-              body: body,
-              user_id: userId,
-          };
-          const postUrl = `${PUBLIC_API_ENDPOINT}/api/emails`;
-          const postResponse = await fetch(postUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(postData),
-          });
-          if (!postResponse.ok) {
-              const errorText = await postResponse.text();
-              throw new Error(`Failed to post email with status ${postResponse.status}: ${errorText}`);
-          }
-          console.log('Worker Email Handler: Email forwarded successfully.');
-      } catch (error) {
-          console.error('Worker Email Handler: An unexpected error occurred:', error.message);
-          throw error;
-      }
+
+      const responseData = await postResponse.json();
+      console.log('Worker Email Handler: Email forwarded successfully. Backend response:', JSON.stringify(responseData));
+
+    } catch (error) {
+      console.error('Worker Email Handler: An unexpected error occurred:', error.message);
+      throw error;
+    }
   }
 };

@@ -1,63 +1,50 @@
 <template>
   <div class="lottery-container">
-    <h1>开奖公告</h1>
-    <div v-if="loading" class="loading">正在加载...</div>
-    <div v-if="error" class="error">{{ error }}</div>
-    <div v-if="draws.length" class="results-table">
-      <table>
-        <thead>
-          <tr>
-            <th>日期</th>
-            <th>期数</th>
-            <th>开奖号码</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="draw in draws" :key="draw.draw_period">
-            <td>{{ draw.draw_date }}</td>
-            <td>{{ draw.draw_period }}</td>
-            <td class="numbers">
-              <span v-for="(number, index) in draw.numbers.split(',')" :key="index" class="number-ball">{{ number }}</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div v-else-if="!loading && !error">
-      <p>目前没有开奖记录。</p>
+    <div class="lottery-card">
+      <h2>最新开奖号码</h2>
+      <div v-if="loading" class="loading-message">
+        正在加载...
+      </div>
+      <div v-if="error" class="error-message">
+        {{ error }}
+      </div>
+      <div v-if="draw" class="draw-details">
+        <p><strong>期号:</strong> {{ draw.draw_number }}</p>
+        <p><strong>开奖日期:</strong> {{ draw.draw_date }}</p>
+        <p><strong>开奖号码:</strong> {{ draw.numbers }}</p>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
+import axios from 'axios';
+
 export default {
   name: 'LotteryView',
   data() {
     return {
-      loading: true,
+      draw: null,
+      loading: false,
       error: null,
-      draws: [],
     };
   },
   created() {
-    this.fetchLotteryDraws();
+    this.fetchLatestDraw();
   },
   methods: {
-    async fetchLotteryDraws() {
+    async fetchLatestDraw() {
       this.loading = true;
+      this.error = null;
       try {
-        const response = await fetch('https://ss.wenxiuxiu.eu.org/api.php?request=lottery-draws');
-        if (!response.ok) {
-          throw new Error('网络响应错误');
-        }
-        const result = await response.json();
-        if (result.status === 'success') {
-          this.draws = result.data;
+        const response = await axios.get('/api/get-latest-draw.php');
+        this.draw = response.data;
+      } catch (err) {
+        if (err.response && err.response.data && err.response.data.message) {
+          this.error = err.response.data.message;
         } else {
-          throw new Error(result.message || '获取数据失败');
+          this.error = '无法加载开奖号码，请稍后再试。';
         }
-      } catch (e) {
-        this.error = e.message;
       } finally {
         this.loading = false;
       }
@@ -68,56 +55,35 @@ export default {
 
 <style scoped>
 .lottery-container {
-  max-width: 800px;
-  margin: 2rem auto;
-  padding: 1rem;
-  text-align: center;
-}
-
-.loading, .error {
-  margin-top: 1rem;
-  font-size: 1.2rem;
-  color: #888;
-}
-
-.error {
-  color: #e74c3c;
-}
-
-.results-table table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
-}
-
-thead {
-  background-color: #f2f2f2;
-}
-
-th, td {
-  border: 1px solid #ddd;
-  padding: 12px;
-  text-align: center;
-}
-
-.numbers {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 5px;
-  flex-wrap: wrap;
+  min-height: calc(100vh - 80px);
+  background-color: #f3f4f6;
 }
-
-.number-ball {
-  display: inline-block;
-  width: 35px;
-  height: 35px;
-  line-height: 35px;
-  border-radius: 50%;
-  background-color: #3498db;
-  color: white;
-  font-weight: bold;
-  font-size: 1rem;
+.lottery-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 2rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   text-align: center;
+}
+h2 {
+  margin-bottom: 1.5rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+.loading-message, .error-message {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}
+.error-message {
+  color: #ef4444;
+}
+.draw-details {
+  font-size: 1.25rem;
 }
 </style>
