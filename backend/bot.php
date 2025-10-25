@@ -42,6 +42,7 @@ if (isset($update['channel_post']['text'])) {
         log_message('INFO', "Successfully parsed and saved lottery draw: " . json_encode($parsed_data));
     } else {
         log_message('ERROR', "Failed to parse lottery message: " . $message_text);
+        save_unparsed_message($message_text, "Parsing failed");
     }
     // 频道消息不回复，静默处理
 }
@@ -212,4 +213,18 @@ function log_message($level, $message) {
     $log_file = __DIR__ . '/../logs/bot.log';
     $log_entry = "[{$timestamp}] [{$level}] {$message}\n";
     file_put_contents($log_file, $log_entry, FILE_APPEND);
+}
+
+/**
+ * Saves an unparsed message to the database.
+ *
+ * @param string $message_text The unparsed message text.
+ * @param string $reason The reason why the message could not be parsed.
+ */
+function save_unparsed_message($message_text, $reason) {
+    global $db_connection;
+    $stmt = $db_connection->prepare("INSERT INTO unparsed_messages (message_text, reason) VALUES (?, ?)");
+    $stmt->bind_param("ss", $message_text, $reason);
+    $stmt->execute();
+    $stmt->close();
 }

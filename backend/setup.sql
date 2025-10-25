@@ -12,3 +12,10 @@ CREATE TABLE lottery_draws (
     numbers VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE unparsed_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    message_text TEXT NOT NULL,
+    reason VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

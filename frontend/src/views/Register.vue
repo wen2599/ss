@@ -34,59 +34,61 @@
 </template>
 
 <script>
-import auth from '@/services/auth.js'; // 导入认证服务
+import { ref } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router';
 
 export default {
   name: 'RegisterView',
-  data() {
-    return {
-      email: '',
-      password: '',
-      confirmPassword: '',
-      loading: false,
-      error: null,
-      successMessage: null,
-    };
-  },
-  methods: {
-    async handleRegister() {
-      this.loading = true;
-      this.error = null;
-      this.successMessage = null;
+  setup() {
+    const auth = useAuthStore();
+    const router = useRouter();
+    const email = ref('');
+    const password = ref('');
+    const confirmPassword = ref('');
+    const loading = ref(false);
+    const error = ref(null);
+    const successMessage = ref(null);
 
-      if (this.password !== this.confirmPassword) {
-        this.error = '两次输入的密码不一致。';
-        this.loading = false;
+    const handleRegister = async () => {
+      loading.value = true;
+      error.value = null;
+      successMessage.value = null;
+
+      if (password.value !== confirmPassword.value) {
+        error.value = '两次输入的密码不一致。';
+        loading.value = false;
         return;
       }
-      if (this.password.length < 8) {
-        this.error = '密码必须至少为8位。';
-        this.loading = false;
+      if (password.value.length < 8) {
+        error.value = '密码必须至少为8位。';
+        loading.value = false;
         return;
       }
 
       try {
-        await auth.register(this.email, this.password);
-        this.loading = false;
-        this.successMessage = '账户创建成功！您现在可以登录了。';
-        // 清空表单
-        this.email = '';
-        this.password = '';
-        this.confirmPassword = '';
-        // 几秒后跳转到登录页
-        setTimeout(() => {
-          this.$router.push('/login');
-        }, 2000);
-
+        await auth.register(email.value, password.value);
+        router.push('/');
       } catch (err) {
-        this.loading = false;
         if (err.response && err.response.data && err.response.data.message) {
-          this.error = err.response.data.message;
+          error.value = err.response.data.message;
         } else {
-          this.error = '发生未知错误，请稍后再试。';
+          error.value = '发生未知错误，请稍后再试。';
         }
+      } finally {
+        loading.value = false;
       }
-    },
+    };
+
+    return {
+      email,
+      password,
+      confirmPassword,
+      loading,
+      error,
+      successMessage,
+      handleRegister,
+    };
   },
 };
 </script>

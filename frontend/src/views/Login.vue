@@ -27,38 +27,44 @@
 </template>
 
 <script>
-import auth from '@/services/auth.js'; // 导入认证服务
+import { ref } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router';
 
 export default {
   name: 'LoginView',
-  data() {
-    return {
-      email: '',
-      password: '',
-      loading: false,
-      error: null,
-    };
-  },
-  methods: {
-    async handleLogin() {
-      this.loading = true;
-      this.error = null;
+  setup() {
+    const auth = useAuthStore();
+    const router = useRouter();
+    const email = ref('');
+    const password = ref('');
+    const loading = ref(false);
+    const error = ref(null);
+
+    const handleLogin = async () => {
+      loading.value = true;
+      error.value = null;
       try {
-        await auth.login(this.email, this.password);
-        // 登录成功后，路由守卫会自动处理跳转，但我们也可以手动跳转
-        // 为了更好的用户体验，直接跳转到根路径，然后让页面重新加载以应用状态
-        this.$router.push('/').then(() => {
-          window.location.reload();
-        });
+        await auth.login(email.value, password.value);
+        router.push('/');
       } catch (err) {
-        this.loading = false;
         if (err.response && err.response.data && err.response.data.message) {
-          this.error = err.response.data.message;
+          error.value = err.response.data.message;
         } else {
-          this.error = '发生未知错误，请稍后再试。';
+          error.value = '发生未知错误，请稍后再试。';
         }
+      } finally {
+        loading.value = false;
       }
-    },
+    };
+
+    return {
+      email,
+      password,
+      loading,
+      error,
+      handleLogin,
+    };
   },
 };
 </script>

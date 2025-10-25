@@ -6,7 +6,7 @@
           <router-link to="/" class="logo">邮件仪表盘</router-link>
         </div>
         <nav class="app-nav">
-          <template v-if="isLoggedIn">
+          <template v-if="auth.isLoggedIn">
             <button @click="handleLogout" class="nav-button">登出</button>
           </template>
           <template v-else>
@@ -23,31 +23,28 @@
 </template>
 
 <script>
-import auth from '@/services/auth.js';
+import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router';
 
 export default {
   name: 'App',
-  data() {
+  setup() {
+    const auth = useAuthStore();
+    const router = useRouter();
+
+    const handleLogout = async () => {
+      await auth.logout();
+      router.push('/login');
+    };
+
+    // Ensure auth state is checked when the app loads
+    auth.checkAuth();
+
     return {
-      isLoggedIn: false,
+      auth,
+      handleLogout,
     };
   },
-  created() {
-    // 组件创建时检查登录状态
-    this.isLoggedIn = auth.isLoggedIn();
-  },
-  methods: {
-    handleLogout() {
-      auth.logout();
-      // logout方法会自动刷新页面，这里不需要额外操作
-    },
-  },
-  watch: {
-    // 监听路由变化，以在导航后更新登录状态（例如，从登录页跳转后）
-    '$route': function() {
-      this.isLoggedIn = auth.isLoggedIn();
-    }
-  }
 };
 </script>
 
