@@ -1,42 +1,24 @@
-import apiClient from './api';
+import axios from 'axios';
 
 const authService = {
-  user: null,
-
-  async register(user) {
-    const response = await apiClient.post('/api/auth.php', {
-      action: 'register',
+  register(user) {
+    return axios.post('/api/register.php', {
       email: user.email,
       password: user.password
     });
-    this.user = response.data.user;
-    return response;
   },
-
-  async login(user) {
-    const response = await apiClient.post('/api/auth.php', {
-      action: 'login',
+  login(user) {
+    return axios.post('/api/login.php', {
       email: user.email,
       password: user.password
     });
-    this.user = response.data.user;
-    return response;
   },
-
   isLoggedIn() {
-    return document.cookie.includes('PHPSESSID');
+    return !!localStorage.getItem('authToken');
   },
-
-  async logout() {
-    await apiClient.post('/api/auth.php', {
-      action: 'logout'
-    });
-    this.user = null;
+  logout() {
+    localStorage.removeItem('authToken');
     window.location.reload();
-  },
-
-  getCurrentUser() {
-    return this.user;
   }
 };
 
