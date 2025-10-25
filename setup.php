@@ -1,0 +1,71 @@
+<?php
+// setup.php
+
+// FORCED DEBUGGING: Immediately check for .env file and display its path.
+echo "[DEBUG] Starting forced diagnosis...\n";
+$env_path = __DIR__ . '/.env';
+echo "[DEBUG] Script is looking for .env file at the absolute path: " . realpath(dirname(__FILE__)) . "/.env\n";
+echo "[DEBUG] Does the file exist? (1 for yes, empty for no): " . (file_exists($env_path) ? '1' : '') . "\n";
+echo "[DEBUG] Is the file readable? (1 for yes, empty for no): " . (is_readable($env_path) ? '1' : '') . "\n";
+
+// FORCED DEBUGGING: Display the content of load_env.php to confirm its version.
+echo "[DEBUG] Content of 'load_env.php':\n--------------------\n";
+echo file_get_contents(__DIR__ . '/load_env.php');
+echo "\n--------------------\n[DEBUG] Finished forced diagnosis.\n\n";
+
+// The original script logic starts here.
+echo "[INFO] Starting database setup...\n";
+
+// Include the environment loader
+require_once __DIR__ . '/load_env.php';
+
+// Now, access database credentials from the environment
+$db_host = getenv('DB_HOST');
+$db_user = getenv('DB_USER');
+$db_pass = getenv('DB_PASS');
+$db_name = getenv('DB_NAME');
+
+// Check if all required variables are loaded
+if (!$db_host || !$db_user || !$db_pass || !$db_name) {
+    die("[FATAL] Database configuration is incomplete. Please check your .env file.\n");
+}
+
+// Establish a connection to the database server (without selecting a database)
+$conn = new mysqli($db_host, $db_user, $db_pass);
+
+// Check connection
+if ($conn->connect_error) {
+    die("[FATAL] Connection failed: " . $conn->connect_error . "\n");
+}
+
+echo "[SUCCESS] Connected to the MySQL server.\n";
+
+// Create the database if it doesn't exist
+$sql_create_db = "CREATE DATABASE IF NOT EXISTS `$db_name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
+if ($conn->query($sql_create_db) === TRUE) {
+    echo "[INFO] Database '$db_name' created or already exists.\n";
+} else {
+    die("[FATAL] Error creating database: " . $conn->error . "\n");
+}
+
+// Select the database
+$conn->select_db($db_name);
+
+// Read the SQL setup file
+$sql_file = file_get_contents(__DIR__ . '/setup.sql');
+if ($sql_file === false) {
+    die("[FATAL] Could not read setup.sql file.\n");
+}
+
+// Execute the multi-query SQL
+if ($conn->multi_query($sql_file)) {
+    // Wait for all queries to finish
+    while ($conn->next_result()) {;}
+    echo "[SUCCESS] Executed SQL script from setup.sql.\n";
+    echo "[INFO] Setup complete! The database and tables should be ready.\n";
+} else {
+    die("[FATAL] Error executing SQL script: " . $conn->error . "\n");
+}
+
+// Close the connection
+$conn->close();
