@@ -4,101 +4,53 @@
 // This script is designed to be run from the command line (CLI) via SSH.
 // It connects to the database and creates the necessary 'lottery_draws' table.
 
-// --- Main Execution Logic ---
+echo "[INFO] Starting database setup...\n";
 
-// Set the timezone to avoid potential warnings
-date_default_timezone_set('UTC');
+// Use the centralized bootstrap file to handle environment loading and DB connection.
+// This ensures consistency across the application.
+require_once __DIR__ . '/bootstrap.php';
 
-// Define the expected path for the .env file (one directory up from this script)
-$env_path = __DIR__ . '/../.env';
-
-/**
- * Loads environment variables from a .env file.
- * @param string $path The path to the .env file.
- * @throws Exception if the file is not found.
- */
-function load_environment_variables($path)
-{
-    if (!file_exists($path) || !is_readable($path)) {
-        throw new Exception("Error: .env file not found or is not readable at '{$path}'.");
-    }
-
-    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        // Skip comments
-        if (strpos(trim($line), '#') === 0) {
-            continue;
-        }
-
-        // Split into name and value
-        list($name, $value) = explode('=', $line, 2);
-        $name = trim($name);
-        $value = trim($value);
-
-        // Set environment variable
-        if (!empty($name)) {
-            putenv("{$name}={$value}");
-            $_ENV[$name] = $value;
-            $_SERVER[$name] = $value;
-        }
-    }
-}
+// The $db_connection variable is now available from bootstrap.php
 
 try {
-    echo "[INFO] Starting database setup...\n";
+    // --- Table Creation Logic ---
+    $table_name = 'lottery_draws';
 
-    // 1. Load environment variables
-    load_environment_variables($env_path);
-    echo "[OK] Loaded environment variables from: {$env_path}\n";
-
-    // 2. Get database credentials from environment
-    $db_host = getenv('DB_HOST');
-    $db_name = getenv('DB_DATABASE');
-    $db_user = getenv('DB_USERNAME');
-    $db_pass = getenv('DB_PASSWORD');
-
-    if (empty($db_host) || empty($db_name) || empty($db_user)) {
-        throw new Exception("Error: Database credentials (DB_HOST, DB_DATABASE, DB_USERNAME) are not fully set in the .env file.");
-    }
-
-    echo "[INFO] Connecting to database '{$db_name}' on host '{$db_host}'...\n";
-
-    // 3. Establish database connection
-    $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
-    if ($conn->connect_error) {
-        throw new Exception("Connection failed: " . $conn->connect_error);
-    }
-    echo "[OK] Database connection successful.\n";
-
-    // 4. Define the SQL for creating the table
-    $sql = "
-    CREATE TABLE IF NOT EXISTS lottery_draws (
+    // SQL statement to create the table
+    $sql = "CREATE TABLE IF NOT EXISTS {$table_name} (
         id INT AUTO_INCREMENT PRIMARY KEY,
         draw_date DATE NOT NULL,
-        draw_period VARCHAR(255) NOT NULL,
-        numbers VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY (draw_period)
-    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
+        number1 TINYINT NOT NULL,
+        number2 TINYINT NOT NULL,
+        number3 TINYINT NOT NULL,
+        number4 TINYINT NOT NULL,
+        number5 TINYINT NOT NULL,
+        number6 TINYINT NOT NULL,
+        special_number TINYINT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 
-    echo "[INFO] Executing SQL to create 'lottery_draws' table...\n";
-
-    // 5. Execute the query
-    if ($conn->query($sql) === TRUE) {
-        echo "[OK] Table 'lottery_draws' created successfully or already exists.\n";
+    // Execute the query
+    if ($db_connection->query($sql) === TRUE) {
+        echo "[SUCCESS] Table '{$table_name}' created successfully or already exists.\n";
     } else {
-        throw new Exception("Error creating table: " . $conn->error);
+        // Provide a more detailed error message
+        throw new Exception("Error creating table '{$table_name}': " . $db_connection->error);
     }
 
-    // 6. Close the connection
-    $conn->close();
-    echo "[SUCCESS] Database setup is complete.\n";
-
 } catch (Exception $e) {
-    // Catch any errors and display them
+    // Catch any exception and print a fatal error
     echo "[FATAL] An error occurred during setup:\n";
     echo $e->getMessage() . "\n";
-    exit(1); // Exit with a non-zero status code to indicate failure
+    // Exit with a non-zero status code to indicate failure
+    exit(1);
+
+} finally {
+    // Always close the connection
+    if ($db_connection) {
+        $db_connection->close();
+    }
 }
 
-exit(0); // Exit with status 0 for success
+// Exit with a zero status code to indicate success
+exit(0);
