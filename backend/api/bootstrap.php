@@ -5,7 +5,7 @@ declare(strict_types=1);
 // Prevent displaying errors to the user, and ensure all errors are logged.
 // This is the first thing to run to catch any and all errors during startup.
 error_reporting(E_ALL);
-ini_set('display_errors', '0');
+ini_set('display_errors', '1'); // Changed from '0' to '1' for debugging
 ini_set('log_errors', '1');
 
 // --- Environment Variable Loading ---
@@ -134,7 +134,8 @@ function send_json_error(int $statusCode, string $message, ?Throwable $e = null)
         http_response_code($statusCode);
     }
     $response = ['status' => 'error', 'message' => $message];
-    if ($e && ($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
+    // This condition now uses $_ENV['APP_DEBUG'] directly
+    if ($e && ($_ENV['APP_DEBUG'] ?? 'false') === 'true') { 
         $response['details'] = $e->getMessage();
         $response['file'] = $e->getFile();
         $response['line'] = $e->getLine();
