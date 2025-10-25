@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SS</string>
+    <string name="title_activity_main">SS</string>
+    <string name="package_name">com.wenxiuxiu.ss</string>
+    <string name="custom_url_scheme">com.wenxiuxiu.ss</string>
+</resources>
