@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'https://wenge.cloudns.ch/backend/api/';
+const API_URL = 'https://wenge.cloudns.ch/api/';
 
 const recordsService = {
     getMyRecords(token) {

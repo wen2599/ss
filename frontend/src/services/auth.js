@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Define the absolute base URL for your backend API
-const API_URL = 'https://wenge.cloudns.ch/backend/api/';
+const API_URL = 'https://wenge.cloudns.ch/api/';
 
 const authService = {
   register(user) {
