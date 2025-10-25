@@ -1,26 +1,4 @@
-
 <?php
-
-// --- CORS Configuration ---
-// This section handles Cross-Origin Resource Sharing (CORS) preflight requests and sets headers.
-
-// Allow requests from your specific frontend origin.
-// IMPORTANT: Replace * with your actual frontend domain in production, e.g., 'https://ss.wenxiuxiu.eu.org'
-$allowed_origin = 'https://ss.wenxiuxiu.eu.org';
-
-header("Access-Control-Allow-Origin: " . $allowed_origin);
-header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
-
-// Handle the browser's preflight 'OPTIONS' request.
-// This is crucial for CORS to work correctly with methods like POST.
-if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-    // Respond with a 204 No Content status, indicating success and that no further action is needed.
-    http_response_code(204);
-    // Stop script execution, as this was just a preflight check.
-    exit;
-}
-
 require_once __DIR__ . '/../bootstrap.php';
 
 $data = json_decode(file_get_contents("php://input"), true);

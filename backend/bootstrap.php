@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 // backend/bootstrap.php
 
+// --- Session Initialization ---
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // --- CORS Configuration ---
 $allowed_origin = 'https://ss.wenxiuxiu.eu.org';
 

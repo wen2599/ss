@@ -1,24 +1,25 @@
-import axios from 'axios';
+import apiClient from './api';
 
 const authService = {
   register(user) {
-    return axios.post('/api/register.php', {
+    return apiClient.post('/api/register.php', {
       email: user.email,
       password: user.password
     });
   },
   login(user) {
-    return axios.post('/api/login.php', {
+    return apiClient.post('/api/login.php', {
       email: user.email,
       password: user.password
     });
   },
   isLoggedIn() {
-    return !!localStorage.getItem('authToken');
+    return document.cookie.includes('PHPSESSID');
   },
   logout() {
-    localStorage.removeItem('authToken');
-    window.location.reload();
+    return apiClient.post('/api/logout.php').then(() => {
+      window.location.reload();
+    });
   }
 };
 
