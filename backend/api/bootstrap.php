@@ -81,6 +81,51 @@ if (isset($_SERVER['REQUEST_METHOD'])) {
     }
 }
 
+// --- Database Connection ---
+function get_db_connection(): \PDO {
+    static $conn = null;
+    if ($conn === null) {
+        if (!class_exists('PDO')) {
+            // If PDO is missing, we can't use the nice JSON error handler yet, so die with a plain message.
+            http_response_code(503);
+            error_log('FATAL: PDO extension is not installed or enabled.');
+            exit(json_encode(['status' => 'error', 'message' => 'Service Unavailable: A required server extension (PDO) is missing.']));
+        }
+
+        $host = $_ENV['DB_HOST'] ?? null;
+        $port = (int)($_ENV['DB_PORT'] ?? '3306');
+        $dbname = $_ENV['DB_DATABASE'] ?? null;
+        $username = $_ENV['DB_USER'] ?? null;
+        $password = $_ENV['DB_PASSWORD'] ?? null;
+
+        if (!$host || !$dbname || !$username) {
+            // Can't use send_json_error yet if it's not defined.
+            http_response_code(503);
+            error_log('CRITICAL: Database environment variables are not configured.');
+            exit(json_encode(['status' => 'error', 'message' => 'Service Unavailable: Server database is not configured correctly.']));
+        }
+
+        $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
+        $options = [
+            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+            \PDO::ATTR_EMULATE_PREPARES => false,
+        ];
+        try {
+            $conn = new \PDO($dsn, $username, $password, $options);
+        } catch (\PDOException $e) {
+            error_log("Database connection failed: " . $e->getMessage());
+            // Can't use send_json_error yet, keep it simple.
+            http_response_code(503);
+            exit(json_encode([
+                'status' => 'error',
+                'message' => 'Service Unavailable: Could not connect to the database.'
+            ]));
+        }
+    }
+    return $conn;
+}
+
 // --- Unified JSON Error Response Function ---
 function send_json_error(int $statusCode, string $message, ?Throwable $e = null): void {
     if (!headers_sent()) {
