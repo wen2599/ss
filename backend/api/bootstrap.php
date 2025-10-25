@@ -14,10 +14,12 @@ ini_set('log_errors', '1');
         return;
     }
     
+    // Add the production server path to the list of possible .env locations.
     $possiblePaths = [
-        __DIR__ . '/../.env',
-        __DIR__ . '/../../.env',
-        __DIR__ . '/.env',
+        __DIR__ . '/../.env',       // Path for local dev if backend is document root
+        __DIR__ . '/../../.env',    // Path for local dev if project root is document root
+        __DIR__ . '/.env',          // Path if .env is inside the api folder
+        '/usr/home/wenge95222/domains/wenge.cloudns.ch/private_html/.env', // Specific path for production server
     ];
 
     $foundEnvPath = null;

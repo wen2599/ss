@@ -19,12 +19,31 @@ if (version_compare(PHP_VERSION, '7.4.0', '>=')) {
 
 // --- 2. Environment Variable Loading ---
 echo "[2/5] Loading Environment Variables...\n";
-$envPath = __DIR__ . '/../../.env';
-if (!file_exists($envPath)) {
-    echo "  [ERROR] .env file not found at: {$envPath}\n";
-    echo "  Please ensure the .env file exists in the project root.\n\n";
+
+// List of possible paths for the .env file
+$possibleEnvPaths = [
+    __DIR__ . '/../../.env', // Standard project root from /api
+    '/usr/home/wenge95222/domains/wenge.cloudns.ch/private_html/.env' // Production server path
+];
+
+$envPath = null;
+foreach ($possibleEnvPaths as $path) {
+    if (file_exists($path)) {
+        $envPath = $path;
+        break;
+    }
+}
+
+if (is_null($envPath)) {
+    echo "  [ERROR] .env file not found in any of the expected locations.\n";
+    echo "  Checked paths:\n";
+    foreach ($possibleEnvPaths as $path) {
+        echo "    - {$path}\n";
+    }
+    echo "\n";
     exit;
 }
+echo "  [OK] Found .env file at: {$envPath}\n";
 
 $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 if ($lines === false) {
