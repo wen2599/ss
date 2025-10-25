@@ -5,6 +5,7 @@ namespace App\Controllers;
 
 use InvalidArgumentException;
 use PDOException;
+use Throwable;
 
 class UserController extends BaseController
 {

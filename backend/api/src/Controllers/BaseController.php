@@ -6,15 +6,43 @@ namespace App\Controllers;
 abstract class BaseController
 {
     /**
-     * Provides access to the database connection.
-     * This is a wrapper around the global getDbConnection() function from bootstrap.php
-     * to make it available to all controllers in a structured way.
-     *
-     * @return \PDO
+     * Establishes and returns a PDO database connection.
+     * Uses a singleton pattern to ensure only one connection is made per request.
+     * @return \PDO The PDO database connection object.
      */
     protected function getDbConnection(): \PDO
     {
-        return getDbConnection();
+        static $conn = null;
+        if ($conn === null) {
+            // Pre-condition Check: Ensure PDO extension is loaded
+            if (!class_exists('PDO')) {
+                $this->jsonError(503, 'Service Unavailable: A required server extension (PDO) is missing.');
+            }
+
+            $host = $_ENV['DB_HOST'] ?? null;
+            $port = (int)($_ENV['DB_PORT'] ?? '3306');
+            $dbname = $_ENV['DB_DATABASE'] ?? null;
+            $username = $_ENV['DB_USER'] ?? null;
+            $password = $_ENV['DB_PASSWORD'] ?? null;
+
+            if (!$host || !$dbname || !$username) {
+                $this->jsonError(503, 'Service Unavailable: Server database is not configured correctly.');
+            }
+
+            $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
+            $options = [
+                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+                \PDO::ATTR_EMULATE_PREPARES => false,
+            ];
+            try {
+                $conn = new \PDO($dsn, $username, $password, $options);
+            } catch (\PDOException $e) {
+                error_log("Database connection failed: " . $e->getMessage());
+                $this->jsonError(503, 'Service Unavailable: Could not connect to the database.', $e);
+            }
+        }
+        return $conn;
     }
 
     /**

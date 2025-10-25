@@ -1,43 +1,36 @@
 <?php
 declare(strict_types=1);
 
+// --- Production-Grade Error Handling ---
+// Prevent displaying errors to the user, and ensure all errors are logged.
+// This is the first thing to run to catch any and all errors during startup.
+error_reporting(E_ALL);
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+
 // --- Environment Variable Loading ---
 (function() {
     if (defined('ENV_LOADED') && ENV_LOADED) {
         return;
     }
     
-    // Attempt to locate .env file based on current execution context
-    // Test common paths relative to bootstrap.php
-
     $possiblePaths = [
-        __DIR__ . '/../.env',      // .env in the "server root" (public_html) if api is in public_html/api
-        __DIR__ . '/../../.env',   // .env in the directory above "server root" if api is in public_html/api
-        __DIR__ . '/.env',         // .env directly in api/ (less likely but possible)
+        __DIR__ . '/../.env',
+        __DIR__ . '/../../.env',
+        __DIR__ . '/.env',
     ];
 
     $foundEnvPath = null;
     foreach ($possiblePaths as $path) {
-        if (($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
-            error_log("[ENV Loader] Checking path: " . $path);
-        }
-        // Use fopen to check for readability, as file_exists can be unreliable
-        // in some server environments with strict permissions.
         $handle = @fopen($path, 'r');
         if ($handle !== false) {
             fclose($handle);
             $foundEnvPath = $path;
-            if (($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
-                error_log("[ENV Loader] Found readable .env at: " . $foundEnvPath);
-            }
             break;
         }
     }
 
     if ($foundEnvPath) {
-        if (($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
-            error_log("Found .env at: " . $foundEnvPath); // Debug output
-        }
         $lines = file($foundEnvPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
             if (strpos(trim($line), '#') === 0) continue;
@@ -51,41 +44,31 @@ declare(strict_types=1);
             }
         }
     } else {
-        error_log("ERROR: .env file not found in any expected location."); // Debug output
+        error_log("CRITICAL: .env file not found in any expected location.");
     }
     define('ENV_LOADED', true);
 })();
 
 // --- Session Configuration ---
 session_set_cookie_params([
-    'lifetime' => 0, // Session cookie lasts until the browser is closed.
+    'lifetime' => 0,
     'path' => '/',
-    'domain' => '', // Let the browser decide based on the request host. Avoid hardcoding.
-    'secure' => true, // Only send over HTTPS.
-    'httponly' => true, // Prevent JavaScript access.
-    'samesite' => 'None' // Allow cross-origin requests.
+    'domain' => '',
+    'secure' => true,
+    'httponly' => true,
+    'samesite' => 'None'
 ]);
 
-// Start the session.
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-
 // --- Aggressive CORS Headers ---
 if (isset($_SERVER['REQUEST_METHOD'])) {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    $allowedOrigins = explode(',', $_ENV['ALLOWED_ORIGINS'] ?? 'https://ss.wenxiuxiu.eu.org,http://localhost:5173');
 
-    $defaultAllowedOrigins = ['https://ss.wenxiuxiu.eu.org', 'http://localhost:5173'];
-    $configuredOrigins = $_ENV['ALLOWED_ORIGINS'] ?? null;
-
-    if ($configuredOrigins) {
-        $allowedOrigins = array_map('trim', explode(',', $configuredOrigins));
-    } else {
-        $allowedOrigins = $defaultAllowedOrigins;
-    }
-
-    if (in_array($origin, $allowedOrigins)) {
+    if (in_array($origin, array_map('trim', $allowedOrigins))) {
         header("Access-Control-Allow-Origin: {$origin}");
     }
     header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
@@ -127,51 +110,13 @@ set_error_handler(function ($severity, $message, $file, $line) {
 register_shutdown_function(function () {
     $lastError = error_get_last();
     if ($lastError && ($lastError['type'] & (E_ERROR | E_PARSE))) {
-        error_log("Fatal Error: {$lastError['message']} in {$lastError['file']}:{$lastError['line']} Request: " . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
-        send_json_error(500, 'A fatal server error occurred.');
+        // Use a separate, simpler error log here to avoid circular dependencies if send_json_error fails
+        error_log("Fatal Error (Shutdown): {$lastError['message']} in {$lastError['file']}:{$lastError['line']} Request: " . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
+        // Don't call send_json_error here as the response stream might be broken
+        if (!headers_sent()) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+        }
+        echo json_encode(['status' => 'error', 'message' => 'A fatal server error occurred.']);
     }
 });
-
-// --- Database Connection ---
-/**
- * Establishes and returns a PDO database connection.
- * Uses a singleton pattern to ensure only one connection is made.
- * Environment variables DB_HOST, DB_PORT, DB_DATABASE, DB_USER, DB_PASSWORD are required.
- * @return PDO The PDO database connection object.
- * @throws PDOException If the database connection fails.
- */
-function getDbConnection(): PDO {
-    static $conn = null;
-    if ($conn === null) {
-        // --- Pre-condition Check: Ensure PDO extension is loaded ---
-        if (!class_exists('PDO')) {
-            error_log('FATAL: PDO class not found. The pdo_mysql extension is likely missing.');
-            send_json_error(503, 'Service Unavailable: A required server extension is missing.');
-        }
-
-        $host = $_ENV['DB_HOST'] ?? null;
-        $port = (int)($_ENV['DB_PORT'] ?? '3306'); // Explicit type conversion for port
-        $dbname = $_ENV['DB_DATABASE'] ?? null;
-        $username = $_ENV['DB_USER'] ?? null;
-        $password = $_ENV['DB_PASSWORD'] ?? null;
-
-        if (!$host || !$dbname || !$username) {
-            error_log('Database configuration (DB_HOST, DB_DATABASE, DB_USER) is incomplete.');
-            send_json_error(503, 'Service Unavailable: Server is not configured correctly.');
-        }
-
-        $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
-        $options = [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ];
-        try {
-            $conn = new PDO($dsn, $username, $password, $options);
-        } catch (PDOException $e) {
-            error_log("Database connection failed: " . $e->getMessage());
-            send_json_error(503, 'Service Unavailable: Could not connect to the database.', $e);
-        }
-    }
-    return $conn;
-}
