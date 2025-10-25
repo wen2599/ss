@@ -5,13 +5,18 @@ namespace App\Controllers;
 
 use App\Services\TelegramService;
 use App\Controllers\LotteryController;
+use PDO;
 use PDOException;
+use Psr\Log\LoggerInterface;
 use Throwable;
 
 class TelegramController extends BaseController
 {
     private TelegramService $telegramService;
-    // Removed PDO, LoggerInterface, channelId, adminId properties as they are now handled differently
+    private PDO $pdo;
+    private ?LoggerInterface $logger;
+    private ?string $channelId;
+    private ?string $adminId;
 
     private const ZODIAC_MAP = [
         '鼠' => ['06', '18', '30', '42'], '牛' => ['05', '17', '29', '41'], '虎' => ['04', '16', '28', '40'],
@@ -25,13 +30,18 @@ class TelegramController extends BaseController
         '绿' => ['05', '06', '11', '16', '17', '21', '22', '27', '28', '32', '33', '38', '39', '43', '44', '49']
     ];
 
-    /**
-     * TelegramController constructor.
-     * @param TelegramService $telegramService The Telegram service instance.
-     */
-    public function __construct(TelegramService $telegramService)
-    {
+    public function __construct(
+        TelegramService $telegramService,
+        PDO $pdo,
+        ?LoggerInterface $logger = null,
+        ?string $channelId = null,
+        ?string $adminId = null
+    ) {
         $this->telegramService = $telegramService;
+        $this->pdo = $pdo;
+        $this->logger = $logger;
+        $this->channelId = $channelId;
+        $this->adminId = $adminId;
     }
 
     /**
@@ -61,9 +71,7 @@ class TelegramController extends BaseController
                 return;
             }
             
-            $channelId = $_ENV['TELEGRAM_CHANNEL_ID'] ?? null; // Get channelId from ENV
-
-            if ($text === '' && $chatId !== $channelId) {
+            if ($text === '' && $chatId !== $this->channelId) {
                 $this->logInfo('Ignoring empty message from non-channel chat.');
                 return;
             }
@@ -71,7 +79,7 @@ class TelegramController extends BaseController
             // Route the message to the appropriate handler
             if (str_starts_with($text, '/')) {
                 $this->handleCommand($chatId, $text);
-            } elseif ($chatId === $channelId) {
+            } elseif ($chatId === $this->channelId) {
                 $this->parseAndSaveLotteryResult($text);
             }
 
@@ -124,8 +132,8 @@ class TelegramController extends BaseController
     private function handleLotteryCommand(string $chatId): void
     {
         try {
-            // LotteryController automatically gets PDO from BaseController
-            $lotteryController = new LotteryController(); 
+            // The PDO dependency is now passed from the injected property.
+            $lotteryController = new LotteryController($this->pdo);
             $results = $lotteryController->fetchLatestResultsData();
 
             if (empty($results)) {
@@ -177,14 +185,7 @@ class TelegramController extends BaseController
      */
     private function parseAndSaveLotteryResult(string $text): void
     {
-        // PDO is available via BaseController::getDbConnection()
-        try {
-            $pdo = $this->getDbConnection();
-        } catch (PDOException $e) {
-            $this->logError('Database connection is not available for parsing lottery result.', ['exception' => $e]);
-            $this->notifyAdmin('数据库连接错误：无法解析并保存开奖结果: ' . $e->getMessage(), $e);
-            return;
-        }
+        // The PDO connection is now injected via the constructor.
         
         // Regex patterns for different lottery types
         $patterns = [
@@ -211,7 +212,7 @@ class TelegramController extends BaseController
                 $numberColorsJson = json_encode($numberDetails, JSON_UNESCAPED_UNICODE);
 
                 try {
-                    $stmt = $pdo->prepare(
+                    $stmt = $this->pdo->prepare(
                         "INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers, number_colors_json, draw_date)
                          VALUES (?, ?, ?, ?, NOW())
                          ON DUPLICATE KEY UPDATE winning_numbers = VALUES(winning_numbers), number_colors_json = VALUES(number_colors_json), draw_date = NOW()"
@@ -284,8 +285,7 @@ class TelegramController extends BaseController
      */
     private function notifyAdmin(string $message, ?Throwable $e = null): void
     {
-        $adminId = $_ENV['TELEGRAM_ADMIN_ID'] ?? null; // Get adminId from ENV
-        if ($adminId) {
+        if ($this->adminId) {
             if ($e && ($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
                 $message .= sprintf(
                     "\n\n*Debug Info:*\nError: `%s`\nFile: `%s` on line `%d`\nTrace: `...`",
@@ -295,7 +295,7 @@ class TelegramController extends BaseController
                 ); 
                  // Simplified trace to avoid excessively long messages in Telegram
             }
-            $this->telegramService->sendMessage($adminId, $message, 'MarkdownV2');
+             $this->telegramService->sendMessage($this->adminId, $message, 'MarkdownV2');
         }
     }
 
