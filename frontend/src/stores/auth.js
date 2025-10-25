@@ -6,6 +6,7 @@ export const useAuthStore = defineStore('auth', {
   state: () => ({
     isAuthenticated: false,
     username: null,
+    authCheckCompleted: false, // New state to track if the initial auth check is done
   }),
   getters: {
     // isAuthenticated: (state) => state.isAuthenticated,
@@ -22,10 +23,14 @@ export const useAuthStore = defineStore('auth', {
           this.isAuthenticated = false;
           this.username = null;
         }
+        return { success: true };
       } catch (error) {
         console.error('Error checking authentication:', error);
         this.isAuthenticated = false;
         this.username = null;
+        return { success: false };
+      } finally {
+        this.authCheckCompleted = true;
       }
     },
 

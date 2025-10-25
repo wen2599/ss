@@ -1,6 +1,6 @@
 <template>
   <div class="w-full max-w-4xl mx-auto">
-    
+
     <!-- Page Title -->
     <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">开奖结果</h1>
 
@@ -22,7 +22,7 @@
     <!-- Lottery Results Cards -->
     <div v-if="!isLoading && results.length > 0" class="space-y-8">
       <div v-for="result in results" :key="result.id" class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-        
+
         <!-- Card Header -->
         <div class="p-5 border-b border-gray-200 dark:border-gray-700">
           <div class="flex justify-between items-center">
@@ -34,9 +34,9 @@
         <!-- Card Body with Winning Numbers -->
         <div class="p-5">
           <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-4 text-center">
-            <div 
-              v-for="number in result.winning_numbers.split(',')" 
-              :key="number" 
+            <div
+              v-for="number in result.winning_numbers.split(',')"
+              :key="number"
               class="flex flex-col items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg"
             >
               <span class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ number }}</span>

@@ -6,9 +6,9 @@
           <RouterLink to="/" class="text-2xl font-bold text-blue-600 dark:text-blue-400">
             🏆 开奖中心
           </RouterLink>
-          
+
           <!-- Mobile Menu Button -->
-          <button 
+          <button
             @click="toggleMenu"
             class="md:hidden btn btn-secondary"
             :aria-expanded="isMenuOpen"

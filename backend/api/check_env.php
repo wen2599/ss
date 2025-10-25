@@ -23,7 +23,6 @@ echo "[2/5] Loading Environment Variables...\n";
 // List of possible paths for the .env file
 $possibleEnvPaths = [
     __DIR__ . '/../../.env', // Standard project root from /api
-    '/usr/home/wenge95222/domains/wenge.cloudns.ch/private_html/.env' // Production server path
 ];
 
 $envPath = null;

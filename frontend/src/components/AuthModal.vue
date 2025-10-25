@@ -38,7 +38,7 @@
           已有账户? <button @click.prevent="isLoginView = true" class="text-blue-500 hover:underline">在此登录</button>
         </p>
       </form>
-      
+
       <div v-if="error" class="mt-4 text-red-500 text-sm">
         {{ error }}
       </div>
