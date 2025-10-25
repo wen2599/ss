@@ -15,19 +15,22 @@ if (!$bot_token || !$secret_token) {
     exit("Bot token or secret token is not configured.");
 }
 
-// Authenticate the request
+// Authenticate the request from Telegram
 $client_secret_token = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
 if ($client_secret_token !== $secret_token) {
     http_response_code(403);
-    exit("Forbidden.");
+    // CRITICAL: Log this error. This is the most likely reason for an unresponsive bot.
+    error_log("Secret Token Mismatch! Expected: '{$secret_token}', but got: '{$client_secret_token}'. Check your webhook settings.");
+    exit("Forbidden: Secret token mismatch.");
 }
 
 // --- Main Logic ---
 $update = json_decode(file_get_contents('php://input'), true);
 
+// Exit if the update is empty or invalid
 if (!$update) {
     http_response_code(200);
-    exit("OK. No update.");
+    exit("OK: No valid update received.");
 }
 
 // 1. Handle Channel Post (for automatic lottery data saving)
@@ -35,25 +38,26 @@ if (isset($update['channel_post']['text'])) {
     $message_text = $update['channel_post']['text'];
     $parsed_data = parse_lottery_message($message_text);
     
-    if ($parsed_data && save_lottery_draw($parsed_data)) {
-        // Optionally log success
+    if ($parsed_data) {
+        save_lottery_draw($parsed_data);
     }
-    // Channel posts are processed silently
+    http_response_code(200);
+    exit("OK: Channel post processed.");
 }
 
 // 2. Handle Private Message (for admin commands)
-else if (isset($update['message']['text'])) {
+if (isset($update['message']['text'])) {
     $chat_id = $update['message']['chat']['id'];
     $message_text = $update['message']['text'];
 
-    // Respond to non-admins with a polite message
+    // If admin ID is set, and the message is from a non-admin, send a polite rejection.
     if (!empty($admin_id) && $chat_id != $admin_id) {
         send_telegram_message($chat_id, "您好！这是一个私人机器人，感谢您的关注。");
         http_response_code(200);
-        exit("OK. Message sent to non-admin.");
+        exit("OK: Message sent to non-admin.");
     }
     
-    // Process admin commands
+    // At this point, the user is the admin. Process their commands.
     if (strpos($message_text, '/') === 0) {
         $command_parts = explode(' ', $message_text, 3);
         $command = $command_parts[0];
@@ -81,13 +85,18 @@ else if (isset($update['message']['text'])) {
                 break;
         }
     } else {
+         // Respond if the admin sends a text message that is not a command.
          send_telegram_message($chat_id, "您好, 管理员。请输入一个命令来开始，例如 /help");
     }
+    http_response_code(200);
+    exit("OK: Admin command processed.");
 }
 
-// Respond to Telegram to acknowledge receipt of the update
+// 3. Handle other update types
+error_log("Unhandled update type: " . json_encode($update));
 http_response_code(200);
-echo "OK. Update processed.";
+exit("OK: Unhandled update type received.");
+
 
 // --- Command Handler Functions ---
 
@@ -135,7 +144,7 @@ function handle_latest_command($chat_id) {
         }
         $result->free();
     } else {
-        $reply_text = "查询最新记录时出错: " . $db_connection->error;
+        $reply_text = "查询最新记录时出错。";
         error_log("DB Error in /latest: " . $db_connection->error);
     }
     
@@ -173,9 +182,8 @@ function handle_add_command($chat_id, $command_parts) {
     if (save_lottery_draw($data)) {
         send_telegram_message($chat_id, "✅ 记录已成功添加:\n  - 日期: {$data['draw_date']}\n  - 期号: {$data['draw_period']}\n  - 号码: {$data['numbers']}");
     } else {
-        global $db_connection;
         send_telegram_message($chat_id, "❌ 添加记录失败。可能是数据库错误或该期号已存在。");
-        error_log("DB Error in /add: " . $db_connection->error);
+        // The error is already logged inside save_lottery_draw()
     }
 }
 
@@ -199,7 +207,12 @@ function send_telegram_message($chat_id, $text) {
         ],
     ];
     $context  = stream_context_create($options);
-    file_get_contents($url, false, $context);
+    $result = file_get_contents($url, false, $context);
+
+    // Log failures from Telegram API
+    if ($result === FALSE) {
+        error_log("Failed to send message to chat_id: {$chat_id}");
+    }
 }
 
 /**
@@ -233,13 +246,15 @@ function get_system_stats() {
  */
 function parse_lottery_message($text) {
     $data = [];
+    // Example: 2024-03-15 第 240315050 期
     if (preg_match('/(\d{4}-\d{2}-\d{2}) 第 (\w+) 期/', $text, $matches)) {
         $data['draw_date'] = $matches[1];
         $data['draw_period'] = $matches[2];
     } else { return null; }
 
+    // Example: 开奖号码: 02,08,03,05,06
     if (preg_match('/开奖号码: ([\d,]+)/', $text, $matches)) {
-        $data['numbers'] = $matches[1];
+        $data['numbers'] = str_replace(' ', '', $matches[1]);
     } else { return null; }
     
     return $data;
