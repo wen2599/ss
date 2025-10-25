@@ -17,6 +17,11 @@ const authService = {
       email: user.email,
       password: user.password
     });
+  },
+  isLoggedIn() {
+    // Check if the session cookie exists. This is a simple check.
+    // A more robust solution might involve a dedicated endpoint to check session status.
+    return document.cookie.includes('PHPSESSID');
   }
 };
 

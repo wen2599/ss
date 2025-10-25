@@ -7,7 +7,7 @@
         </div>
         <nav class="app-nav">
           <template v-if="isLoggedIn">
-            <button @click="handleLogout" class="nav-button">登出</button>
+            <!-- The logout button has been removed for now -->
           </template>
           <template v-else>
             <router-link to="/login" class="nav-link">登录</router-link>
@@ -35,12 +35,6 @@ export default {
   created() {
     // 组件创建时检查登录状态
     this.isLoggedIn = auth.isLoggedIn();
-  },
-  methods: {
-    handleLogout() {
-      auth.logout();
-      // logout方法会自动刷新页面，这里不需要额外操作
-    },
   },
   watch: {
     // 监听路由变化，以在导航后更新登录状态（例如，从登录页跳转后）

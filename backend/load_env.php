@@ -6,14 +6,14 @@
  * This script is designed to be included by other PHP files within the backend directory.
  */
 function load_environment_variables_compat() {
-    // Corrected path: Look for .env in the same directory as this script (the backend directory).
-    $env_file_path = dirname(__FILE__) . '/.env';
+    // Corrected path: Look for .env in the parent directory (the project root).
+    $env_file_path = dirname(__FILE__) . '/../.env';
 
     if (!file_exists($env_file_path) || !is_readable($env_file_path)) {
         http_response_code(500);
         $error_message = sprintf(
             "[FATAL] Configuration error: Environment file not found or is not readable. The script expected it at: %s",
-            realpath(dirname(__FILE__))
+            realpath(dirname(__FILE__) . '/../')
         );
         echo $error_message;
         exit;
