@@ -15,10 +15,9 @@ if (isset($data['email']) && isset($data['password'])) {
 
     if ($user = $result->fetch_assoc()) {
         if (password_verify($password, $user['password'])) {
-            // Generate JWT token
-            $token = create_jwt($user['id']);
+            $_SESSION['user_id'] = $user['id'];
             http_response_code(200);
-            echo json_encode(["token" => $token]);
+            echo json_encode(["message" => "Login successful"]);
         } else {
             http_response_code(401);
             echo json_encode(["message" => "Invalid credentials"]);
