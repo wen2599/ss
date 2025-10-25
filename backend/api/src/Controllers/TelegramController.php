@@ -132,8 +132,8 @@ class TelegramController extends BaseController
     private function handleLotteryCommand(string $chatId): void
     {
         try {
-            // The PDO dependency is now passed from the injected property.
-            $lotteryController = new LotteryController($this->pdo);
+            // LotteryController automatically gets PDO from BaseController
+            $lotteryController = new LotteryController();
             $results = $lotteryController->fetchLatestResultsData();
 
             if (empty($results)) {
