@@ -4,8 +4,7 @@ const authService = {
   user: null,
 
   async register(user) {
-    const response = await axios.post('/api/auth', {
-      action: 'register',
+    const response = await axios.post('/api/register.php', {
       email: user.email,
       password: user.password
     });
@@ -14,8 +13,7 @@ const authService = {
   },
 
   async login(user) {
-    const response = await axios.post('/api/auth', {
-      action: 'login',
+    const response = await axios.post('/api/login.php', {
       email: user.email,
       password: user.password
     });
@@ -24,17 +22,13 @@ const authService = {
   },
 
   isLoggedIn() {
-    // This is a simple check. A more robust solution might involve
-    // a dedicated endpoint to verify the session on the server.
     return document.cookie.includes('PHPSESSID');
   },
 
   async logout() {
-    await axios.post('/api/auth', {
-      action: 'logout'
-    });
+    await axios.post('/api/logout.php');
     this.user = null;
-    window.location.href = '/login'; // Redirect to login
+    window.location.href = '/login';
   },
 
   getCurrentUser() {

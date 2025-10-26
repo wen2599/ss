@@ -1,6 +1,0 @@
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-
-  # Redirect all requests for /api/* to api.php
-  RewriteRule ^api/(.*)$ api.php [L,QSA]
-</IfModule>
