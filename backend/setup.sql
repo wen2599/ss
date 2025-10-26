@@ -8,8 +8,6 @@ CREATE TABLE IF NOT EXISTS `lottery_draws` (
   `lottery_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `draw_period` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `numbers` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `zodiacs` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `colors` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_type_period` (`lottery_type`,`draw_period`)
