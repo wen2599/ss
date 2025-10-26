@@ -5,6 +5,9 @@
         <div class="logo-container">
           <router-link to="/" class="logo">开奖号码</router-link>
         </div>
+        <nav class="app-nav">
+          <router-link to="/emails" class="nav-link">邮件</router-link>
+        </nav>
       </div>
     </header>
     <main>
@@ -59,6 +62,24 @@ body {
   font-weight: 700;
   color: #2d3748;
   text-decoration: none;
+}
+
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-link {
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  transition: all 0.2s ease-in-out;
+  color: #4a5568;
+}
+.nav-link:hover {
+  background-color: #edf2f7;
 }
 
 main {
