@@ -7,13 +7,15 @@
       <table>
         <thead>
           <tr>
+            <th>彩票类型</th>
             <th>日期</th>
             <th>期数</th>
             <th>开奖号码</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="draw in draws" :key="draw.draw_period">
+          <tr v-for="draw in draws" :key="draw.draw_period + draw.lottery_type">
+            <td>{{ draw.lottery_type }}</td>
             <td>{{ draw.draw_date }}</td>
             <td>{{ draw.draw_period }}</td>
             <td class="numbers">
@@ -30,6 +32,8 @@
 </template>
 
 <script>
+import axios from 'axios'; // 使用 axios 替代 fetch
+
 export default {
   name: 'LotteryView',
   data() {
@@ -46,18 +50,16 @@ export default {
     async fetchLotteryDraws() {
       this.loading = true;
       try {
-        const response = await fetch('https://ss.wenxiuxiu.eu.org/api.php?request=lottery-draws');
-        if (!response.ok) {
-          throw new Error('网络响应错误');
-        }
-        const result = await response.json();
-        if (result.status === 'success') {
-          this.draws = result.data;
+        // 修改为使用 route 参数，并使用 axios
+        const response = await axios.get('/api.php?route=lottery-draws');
+        if (response.data.status === 'success') {
+          this.draws = response.data.data;
         } else {
-          throw new Error(result.message || '获取数据失败');
+          throw new Error(response.data.message || '获取数据失败');
         }
       } catch (e) {
-        this.error = e.message;
+        console.error("Error fetching lottery draws:", e);
+        this.error = e.message || '无法获取开奖记录。';
       } finally {
         this.loading = false;
       }

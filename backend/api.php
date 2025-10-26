@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/helpers.php'; // Ensure helpers are included for new functions
 
 // --- Simple Request Router ---
 $route = $_GET['route'] ?? null;
@@ -44,6 +45,52 @@ switch ($route) {
             require_once __DIR__ . '/api/EmailController.php';
             $controller = new EmailController();
             $controller->handleRequest();
+        } else {
+            http_response_code(405); // Method Not Allowed
+            echo json_encode(["message" => "Method Not Allowed"]);
+        }
+        break;
+
+    case 'lottery-draws': // New route for all lottery draws
+        if ($request_method === 'GET') {
+            header("Content-Type: application/json; charset=UTF-8");
+            global $db_connection;
+            $query = "SELECT draw_date, lottery_type, draw_period, numbers, created_at FROM lottery_draws ORDER BY draw_date DESC, draw_period DESC";
+            $response = [];
+            try {
+                if ($result = $db_connection->query($query)) {
+                    $draws = $result->fetch_all(MYSQLI_ASSOC);
+                    if (!empty($draws)) {
+                        http_response_code(200);
+                        $response = [
+                            'status' => 'success',
+                            'data' => $draws
+                        ];
+                    } else {
+                        http_response_code(404);
+                        $response = [
+                            'status' => 'error',
+                            'message' => 'No lottery records found.'
+                        ];
+                    }
+                    $result->free();
+                } else {
+                    http_response_code(500);
+                    $response = [
+                        'status' => 'error',
+                        'message' => 'Database query failed.'
+                    ];
+                    error_log("DB Error in lottery-draws route: " . $db_connection->error);
+                }
+            } catch (Exception $e) {
+                http_response_code(500);
+                $response = [
+                    'status' => 'error',
+                    'message' => 'An unexpected server error occurred.'
+                ];
+                error_log("Exception in lottery-draws route: " . $e->getMessage());
+            }
+            echo json_encode($response);
         } else {
             http_response_code(405); // Method Not Allowed
             echo json_encode(["message" => "Method Not Allowed"]);

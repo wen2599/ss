@@ -83,9 +83,10 @@ class AuthController {
             return;
         }
 
-        if (strlen($password) < 8) {
+        // Modified password length validation to exactly 6 characters
+        if (strlen($password) !== 6) {
             http_response_code(400);
-            echo json_encode(["message" => "Password must be at least 8 characters long"]);
+            echo json_encode(["message" => "Password must be exactly 6 characters long"]);
             return;
         }
 

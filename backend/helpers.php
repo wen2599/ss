@@ -61,51 +61,44 @@ function parse_lottery_message($text): ?array
     $data = [];
     $lines = explode("\n", $text);
 
-    // 提取日期和彩票类型 (从第一行或第二行)
-    $first_line = $lines[0] ?? '';
-    $second_line = $lines[1] ?? '';
+    // Default draw date to today
+    $data['draw_date'] = date('Y-m-d');
 
-    // 尝试从第一行获取彩票类型和日期
-    if (preg_match('/(.*?)\,\s*\[(\d{4})\/(\d{2})\/(\d{2})/', $first_line, $matches)) {
-        $data['lottery_type'] = trim($matches[1]);
-        $data['draw_date'] = "{$matches[2]}-{$matches[3]}-{$matches[4]}";
-    } else {
-        // 如果第一行没有，尝试从第二行获取日期 (彩票类型会在期号行获取)
-        if (preg_match('/\[(\d{4})\/(\d{2})\/(\d{2})/', $second_line, $date_matches)) {
-            $data['draw_date'] = "{$date_matches[1]}-{$date_matches[2]}-{$date_matches[3]}";
-        }
-        $data['draw_date'] = $data['draw_date'] ?? date('Y-m-d'); // 默认当前日期
+    // Attempt to find a date in the first two lines
+    $text_to_scan_for_date = ($lines[0] ?? '') . "\n" . ($lines[1] ?? '');
+    if (preg_match('/\[(\d{4})\/(\d{2})\/(\d{2})/', $text_to_scan_for_date, $date_matches)) {
+        $data['draw_date'] = "{$date_matches[1]}-{$date_matches[2]}-{$date_matches[3]}";
     }
 
     $period_found = false;
     $numbers_found = false;
 
     foreach ($lines as $index => $line) {
-        // 提取期号和彩票类型 (如果之前没有提取)
-        if (! $period_found && preg_match('/(.*?)第:?(\d+)\s?期开奖结果:/', $line, $period_matches)) {
-            if (!isset($data['lottery_type'])) {
-                $data['lottery_type'] = trim($period_matches[1]);
-            }
+        // Always try to extract lottery type and period from the line
+        if (!$period_found && preg_match('/^(.*?)\s*第:?\s*(\d+)\s*期开奖结果:/u', trim($line), $period_matches)) {
+            $data['lottery_type'] = trim($period_matches[1]);
             $data['draw_period'] = $period_matches[2];
             $period_found = true;
 
-            // 提取开奖号码
+            // Look for numbers in the next line
             if (isset($lines[$index + 1]) && preg_match('/^[\d\s]+$/', trim($lines[$index + 1]))) {
                 $numbers_line = trim($lines[$index + 1]);
                 $numbers_comma_separated = preg_replace('/\s+/', ',', $numbers_line);
                 $data['numbers'] = $numbers_comma_separated;
                 $numbers_found = true;
+                break; // Found everything, exit the loop
             }
         }
     }
 
-    // 确保所有必需的数据都已提取
-    if (isset($data['lottery_type']) && isset($data['draw_period']) && isset($data['numbers'])) {
+    // Check if we have all the required data
+    if (!empty($data['lottery_type']) && isset($data['draw_period']) && isset($data['numbers'])) {
         return $data;
     }
 
     return null;
 }
+
 
 /**
  * Saves or updates a lottery draw record in the database.

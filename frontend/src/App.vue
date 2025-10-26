@@ -1,143 +1,133 @@
 <template>
-  <div id="app">
+  <div id="app-container">
     <header class="app-header">
-      <div class="container">
-        <div class="logo-container">
-          <router-link to="/" class="logo">邮件仪表盘</router-link>
+      <nav class="main-nav">
+        <router-link to="/" class="nav-logo">SS</router-link>
+        <div class="nav-links">
+          <router-link to="/" class="nav-link">主页</router-link>
+          <router-link to="/lottery" class="nav-link">开奖公告</router-link>
         </div>
-        <nav class="app-nav">
-          <template v-if="isLoggedIn">
-            <button @click="handleLogout" class="nav-button">登出</button>
-          </template>
-          <template v-else>
-            <router-link to="/login" class="nav-link">登录</router-link>
-            <router-link to="/register" class="nav-link primary">注册</router-link>
-          </template>
-        </nav>
-      </div>
+        <div class="nav-actions">
+          <button v-if="isLoggedIn" @click="logout" class="btn-logout">登出</button>
+          <router-link v-else to="/login" class="btn-login">登录</router-link>
+        </div>
+      </nav>
     </header>
-    <main>
-      <router-view/>
+    <main class="app-main">
+      <router-view />
     </main>
   </div>
 </template>
 
 <script>
-import auth from '@/services/auth.js';
+import authService from './services/auth.js';
+import { useRouter } from 'vue-router';
+import { ref, onMounted, watch } from 'vue';
 
 export default {
   name: 'App',
-  data() {
-    return {
-      isLoggedIn: false,
+  setup() {
+    const router = useRouter();
+    const isLoggedIn = ref(authService.isLoggedIn());
+
+    const logout = async () => {
+      await authService.logout();
+      isLoggedIn.value = false;
+      router.push('/login');
     };
-  },
-  created() {
-    // 组件创建时检查登录状态
-    this.isLoggedIn = auth.isLoggedIn();
-  },
-  methods: {
-    handleLogout() {
-      auth.logout();
-      // logout方法会自动刷新页面，这里不需要额外操作
-    },
-  },
-  watch: {
-    // 监听路由变化，以在导航后更新登录状态（例如，从登录页跳转后）
-    '$route': function() {
-      this.isLoggedIn = auth.isLoggedIn();
-    }
+
+    onMounted(() => {
+      // Set initial state
+      isLoggedIn.value = authService.isLoggedIn();
+    });
+
+    // Watch for route changes to update login state, e.g., after login/register
+    watch(() => router.currentRoute.value, () => {
+      isLoggedIn.value = authService.isLoggedIn();
+    });
+
+    return { isLoggedIn, logout };
   }
 };
 </script>
 
-<style>
-/* 全局样式 */
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background-color: #f8fafc;
-  color: #1a202c;
+<style scoped>
+#app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
-#app {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-.container {
-  width: 100%;
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 1rem;
-  padding-right: 1rem;
-}
-
-/* 头部样式 */
 .app-header {
-  background-color: white;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 1rem 0;
+  background-color: var(--background-secondary);
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 2px 10px var(--shadow-color);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
-.app-header .container {
+.main-nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.logo {
-  font-size: 1.5rem;
+.nav-logo {
+  font-size: 1.8rem;
   font-weight: 700;
-  color: #2d3748;
-  text-decoration: none;
+  color: var(--primary-accent);
 }
 
-.app-nav {
+.nav-links {
   display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.nav-link, .nav-button {
-  text-decoration: none;
-  font-weight: 500;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  transition: all 0.2s ease-in-out;
+  gap: 2rem;
 }
 
 .nav-link {
-  color: #4a5568;
-}
-.nav-link:hover {
-  background-color: #edf2f7;
-}
-
-.nav-link.primary {
-  background-color: #4f46e5;
-  color: white;
-}
-.nav-link.primary:hover {
-  background-color: #4338ca;
-}
-
-.nav-button {
-  border: 1px solid #cbd5e0;
-  background-color: transparent;
-  color: #4a5568;
-  cursor: pointer;
   font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 0.5rem 0;
+  position: relative;
+  transition: color 0.3s;
 }
 
-.nav-button:hover {
-  background-color: #edf2f7;
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background-color: var(--primary-accent);
+  transition: width 0.3s;
 }
 
-/* 主体内容区域 */
-main {
-  padding-top: 2rem;
-  padding-bottom: 2rem;
+.nav-link:hover,
+.router-link-exact-active {
+  color: var(--text-primary);
+}
+
+.nav-link:hover::after,
+.router-link-exact-active::after {
+  width: 100%;
+}
+
+.nav-actions .btn-login,
+.nav-actions .btn-logout {
+  padding: 0.5rem 1.2rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.btn-logout {
+  background-color: var(--error-color);
+}
+
+.app-main {
+  flex: 1;
+  padding: 2rem;
 }
 </style>

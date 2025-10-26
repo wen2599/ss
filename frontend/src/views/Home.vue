@@ -1,48 +1,60 @@
 <template>
-  <div class="container">
-    <div class="welcome-banner">
-      <h1>我的邮件收件箱</h1>
-      <p>这里是您通过邮件自动处理和提取的所有记录。</p>
+  <div class="home-container">
+    
+    <!-- Header Section -->
+    <div class="welcome-header card">
+      <h1>Dashboard</h1>
+      <p>Welcome back! Here's the latest lottery draw and your email inbox.</p>
     </div>
 
-    <div v-if="loading" class="loading-state">
-      <p>正在从服务器加载您的邮件...</p>
+    <!-- Loading and Error States -->
+    <div v-if="loading" class="state-card card">Loading data...</div>
+    <div v-if="error" class="state-card error-card card">
+      Error loading data: {{ error }}
     </div>
 
-    <div v-else-if="error" class="error-state">
-      <p>加载数据时出错：{{ error }}</p>
-    </div>
-
-    <div v-else-if="records.length === 0 && !latestDraw" class="empty-state">
-      <p>您的收件箱是空的，也没有最新的开奖号码。</p>
-      <p>一旦您配置的邮箱地址收到新的邮件，它们将自动出现在这里。</p>
-    </div>
-
-    <!-- 最新开奖号码显示区域 -->
-    <div v-if="latestDraw" class="latest-draw-card">
-      <div class="card-header">
-        <h3 class="subject">{{ latestDraw.lottery_type }} 第:{{ latestDraw.draw_period }}期 开奖结果</h3>
-        <span class="timestamp">{{ formatDateTime(latestDraw.draw_date) }}</span>
-      </div>
-      <div class="card-body">
-        <p class="draw-numbers"><strong>开奖号码:</strong> {{ latestDraw.numbers }}</p>
-        <p class="recorded-at">记录时间: {{ formatDateTime(latestDraw.recorded_at) }}</p>
-      </div>
-    </div>
-
-    <div v-if="records.length > 0" class="records-grid">
-      <div v-for="(record, index) in records" :key="index" class="record-card">
-        <div class="card-header">
-          <h3 class="subject">{{ record.subject }}</h3>
-          <span class="timestamp">{{ formatDateTime(record.received_at) }}</span>
-        </div>
-        <div class="card-body">
-          <p class="from"><strong>发件人:</strong> {{ record.from_address }}</p>
-          <div v-if="record.extracted_data" class="extracted-data">
-            <h4>提取的数据:</h4>
-            <pre>{{ JSON.stringify(record.extracted_data, null, 2) }}</pre>
+    <!-- Main Content Grid -->
+    <div v-if="!loading && !error" class="main-grid">
+      
+      <!-- Latest Lottery Draw -->
+      <div class="latest-draw-section card">
+        <h2>Latest Lottery Draw</h2>
+        <div v-if="latestDraw" class="lottery-content">
+          <div class="lottery-header">
+            <span class="lottery-type">{{ latestDraw.lottery_type }}</span>
+            <span class="lottery-period">Period: {{ latestDraw.draw_period }}</span>
+          </div>
+          <div class="lottery-numbers">
+            <span v-for="(number, index) in latestDraw.numbers.split(',')" :key="index" class="number-ball">
+              {{ number }}
+            </span>
+          </div>
+          <div class="lottery-footer">
+            <span>Draw Date: {{ formatDate(latestDraw.draw_date) }}</span>
           </div>
         </div>
+        <div v-else class="empty-state">No lottery draw data available.</div>
+      </div>
+
+      <!-- Email Records Section -->
+      <div class="email-records-section card">
+        <h2>Email Inbox</h2>
+        <div v-if="records.length > 0" class="records-list">
+          <div v-for="record in records" :key="record.id" class="record-item">
+            <div class="record-header">
+              <span class="from">{{ record.from_address }}</span>
+              <span class="timestamp">{{ formatDateTime(record.received_at) }}</span>
+            </div>
+            <div class="record-body">
+              <h3 class="subject">{{ record.subject }}</h3>
+              <div v-if="record.extracted_data && Object.keys(record.extracted_data).length > 0" class="extracted-data">
+                <h4>Extracted Data:</h4>
+                <pre>{{ JSON.stringify(record.extracted_data, null, 2) }}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-else class="empty-state">Your inbox is empty.</div>
       </div>
     </div>
   </div>
@@ -50,215 +62,186 @@
 
 <script>
 import recordsService from '@/services/records.js';
-import lotteryService from '@/services/lotteryService.js'; // 导入新的开奖服务
+import lotteryService from '@/services/lotteryService.js';
 
 export default {
   name: 'HomeView',
   data() {
     return {
       records: [],
-      latestDraw: null, // 新增：存储最新开奖号码
+      latestDraw: null,
       loading: true,
       error: null,
     };
   },
   async created() {
-    await this.fetchLatestLotteryDraw(); // 获取最新开奖号码
-    await this.fetchUserRecords();
+    this.fetchAllData();
   },
   methods: {
-    async fetchUserRecords() {
-      // this.loading = true; // 避免重复设置loading，由fetchLatestLotteryDraw或created统一管理
-      this.error = null;
-      try {
-        const response = await recordsService.getMyRecords();
-        this.records = response.data;
-      } catch (err) {
-        console.error('获取用户记录失败:', err);
-        if (err.response && err.response.status !== 401) {
-             this.error = err.response.data.message || '无法连接到服务器。';
-        }
-      } finally {
-        // this.loading = false; // 避免重复设置loading
-      }
-    },
-    async fetchLatestLotteryDraw() {
+    async fetchAllData() {
       this.loading = true;
       this.error = null;
       try {
-        const response = await lotteryService.getLatestDraw();
-        if (response.status === 'success') {
-          this.latestDraw = response.data;
-        } else {
-          console.warn('No latest lottery draw found or error:', response.message);
-          // 不将404视为错误，只表示没有数据
+        const [drawResponse, recordsResponse] = await Promise.all([
+          lotteryService.getLatestDraw(),
+          recordsService.getMyRecords()
+        ]);
+
+        if (drawResponse.status === 'success') {
+          this.latestDraw = drawResponse.data;
         }
+
+        this.records = recordsResponse.data;
+
       } catch (err) {
-        console.error('获取最新开奖号码失败:', err);
-        this.error = err.message || '无法获取最新开奖号码。';
+        console.error('Failed to fetch data:', err);
+        this.error = 'Could not connect to the server or data is unavailable.';
       } finally {
         this.loading = false;
       }
     },
+    formatDate(dateString) {
+      if (!dateString) return 'N/A';
+      return new Date(dateString).toLocaleDateString('en-CA');
+    },
     formatDateTime(dateTimeString) {
-      if (!dateTimeString) return '未知时间';
-      const options = {
+      if (!dateTimeString) return 'N/A';
+      return new Date(dateTimeString).toLocaleString('en-US', {
         year: 'numeric', month: 'short', day: 'numeric',
         hour: '2-digit', minute: '2-digit'
-      };
-      return new Date(dateTimeString).toLocaleString('zh-CN', options);
+      });
     }
   }
 };
 </script>
 
 <style scoped>
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1rem;
+.home-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
 }
 
-.welcome-banner {
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+.welcome-header {
+  border-left: 5px solid var(--primary-accent);
 }
 
-.welcome-banner h1 {
-  margin: 0 0 0.5rem 0;
-  font-size: 2rem;
-}
-
-.welcome-banner p {
-  margin: 0;
-  color: #6b7280;
-}
-
-.loading-state, .error-state, .empty-state {
+.state-card {
   text-align: center;
-  padding: 4rem 2rem;
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  margin-top: 2rem;
+  padding: 2rem;
+  font-size: 1.2rem;
 }
 
-.loading-state p, .error-state p, .empty-state p {
-    margin: 0.5rem 0;
-    font-size: 1.125rem;
-    color: #4a5568;
+.error-card {
+  background-color: var(--error-color);
+  color: #fff;
 }
 
-.records-grid {
+.main-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: 1fr 2fr;
+  gap: 2rem;
+}
+
+/* Latest Lottery Draw Styles */
+.latest-draw-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.lottery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.lottery-type {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--primary-accent);
+}
+
+.lottery-period {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.lottery-numbers {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.number-ball {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--background-tertiary);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.lottery-footer {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* Email Records Styles */
+.email-records-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.records-list {
+  display: flex;
+  flex-direction: column;
   gap: 1.5rem;
 }
 
-.record-card {
-  background-color: #ffffff;
+.record-item {
+  background-color: var(--background-tertiary);
+  padding: 1rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  transition: transform 0.2s, box-shadow 0.2s;
+  border-left: 3px solid var(--primary-accent);
 }
 
-.record-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
-}
-
-.card-header {
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #f3f4f6;
+.record-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 .subject {
-  font-size: 1.125rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  margin: 0;
-  color: #1f2937;
-  word-break: break-word;
-}
-
-.timestamp {
-  font-size: 0.8rem;
-  color: #6b7280;
-  flex-shrink: 0;
-  margin-left: 1rem;
-}
-
-.card-body {
-  padding: 1rem 1.5rem;
-}
-
-.from {
-  font-size: 0.9rem;
-  color: #4b5563;
-  margin: 0 0 1rem 0;
-}
-
-.extracted-data h4 {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #374151;
-  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
 }
 
 .extracted-data pre {
-  background-color: #f9fafb;
+  background-color: var(--background-primary);
   padding: 0.75rem;
   border-radius: 6px;
   white-space: pre-wrap;
   word-break: break-all;
-  font-family: 'Menlo', 'Consolas', monospace;
   font-size: 0.85rem;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
-/* New styles for latest draw card */
-.latest-draw-card {
-  background-color: #e6f7ff; /* Light blue background */
-  border-left: 5px solid #1890ff; /* Blue border on the left */
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-}
-
-.latest-draw-card .card-header {
-  border-bottom: 1px solid #a0daff;
-  margin-bottom: 1rem;
-  padding: 0 0 1rem 0; /* Adjust padding */
-}
-
-.latest-draw-card .subject {
-  color: #1890ff; /* Blue color for subject */
-  font-size: 1.25rem;
-}
-
-.latest-draw-card .timestamp {
-  color: #40a9ff;
-}
-
-.latest-draw-card .card-body {
-  padding: 0; /* Adjust padding */
-}
-
-.latest-draw-card .draw-numbers {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #333;
-  margin-bottom: 0.5rem;
-}
-
-.latest-draw-card .recorded-at {
-  font-size: 0.85rem;
-  color: #666;
+.empty-state {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 2rem;
 }
 </style>
