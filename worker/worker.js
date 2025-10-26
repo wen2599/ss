@@ -6,23 +6,18 @@ export default {
     const backendServer = env.PUBLIC_API_ENDPOINT || "https://wenge.cloudns.ch";
 
     // --- API Routing ---
-    // All requests starting with /api/ are now routed to the api.php front-controller.
+    // All requests starting with /api/ are routed to the backend server.
     if (url.pathname.startsWith('/api/')) {
-        // Extract the route from the path (e.g., /api/auth -> auth)
-        const route = url.pathname.substring(5);
+        const backendUrl = new URL(url.pathname, backendServer);
+        backendUrl.search = url.search;
 
-        // Construct the new URL for the front-controller, passing the route as a query param.
-        const backendUrl = new URL('/api.php', backendServer);
-        backendUrl.searchParams.set('route', route);
-
-        // Forward the request with the original method, headers, and body.
         const newHeaders = new Headers(request.headers);
-        newHeaders.delete('Host'); // Remove host header to prevent server issues.
+        newHeaders.delete('Host');
 
         const backendRequest = new Request(backendUrl, {
             method: request.method,
             headers: newHeaders,
-            body: request.body, // Keep original body
+            body: request.body,
             duplex: 'half'
         });
 
@@ -44,24 +39,6 @@ export default {
     const senderEmail = message.from;
 
     try {
-      const verificationUrl = `${PUBLIC_API_ENDPOINT}/api/users/is-registered?worker_secret=${EMAIL_HANDLER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
-      const verificationResponse = await fetch(verificationUrl);
-
-      if (!verificationResponse.ok) {
-        throw new Error(`Verification failed with status ${verificationResponse.status}`);
-      }
-
-      const verificationData = await verificationResponse.json();
-
-      if (verificationData.status !== 'success' || !verificationData.data.is_registered) {
-        return;
-      }
-
-      const userId = verificationData.data.user_id;
-      if (!userId) {
-        return;
-      }
-
       const rawEmail = await streamToString(message.raw);
       const headers = parseHeaders(rawEmail.split(/\r\n\r\n/)[0]);
       const subject = decodeSubject(headers['subject']);
@@ -73,7 +50,6 @@ export default {
           to: message.to,
           subject: subject,
           body: body,
-          user_id: userId,
       };
 
       const postUrl = `${PUBLIC_API_ENDPOINT}/api/emails`;

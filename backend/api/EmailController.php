@@ -19,43 +19,48 @@ class EmailController {
             return;
         }
 
-        if (isset($data['from']) && isset($data['subject']) && isset($data['body']) && isset($data['user_id'])) {
+        if (isset($data['from']) && isset($data['subject']) && isset($data['body'])) {
             $this->saveEmail($data);
         } else {
             http_response_code(400);
-            echo json_encode(["message" => "Invalid email data."]);
+            echo json_encode(["status" => "error", "message" => "Invalid email data."]);
         }
     }
 
     private function saveEmail($data) {
-        $user_id = $data['user_id'];
         $from = $data['from'];
         $subject = $data['subject'];
         $body = $data['body'];
 
-        $extracted_data = null;
-        // Attempt to parse lottery message from the email body
-        $parsed_lottery_data = parse_lottery_message($body);
-        if ($parsed_lottery_data) {
-            $extracted_data = json_encode($parsed_lottery_data);
-        }
+        // Look up user_id by the 'from' email address
+        $stmt = $this->db_connection->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->bind_param("s", $from);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
-        // If no lottery data was extracted, save an empty JSON object
-        if ($extracted_data === null) {
-            $extracted_data = json_encode([]);
-        }
+        if ($user = $result->fetch_assoc()) {
+            $user_id = $user['id'];
+            $stmt->close();
 
-        $stmt = $this->db_connection->prepare("INSERT INTO emails (user_id, from_address, subject, body, extracted_data) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("issss", $user_id, $from, $subject, $body, $extracted_data);
+            $extracted_data = json_encode(parse_lottery_message($body) ?? []);
 
-        if ($stmt->execute()) {
-            http_response_code(200);
-            echo json_encode(["message" => "Email saved successfully."]);
+            $insert_stmt = $this->db_connection->prepare("INSERT INTO emails (user_id, from_address, subject, body, extracted_data) VALUES (?, ?, ?, ?, ?)");
+            $insert_stmt->bind_param("issss", $user_id, $from, $subject, $body, $extracted_data);
+
+            if ($insert_stmt->execute()) {
+                http_response_code(200);
+                echo json_encode(["status" => "success", "message" => "Email saved successfully."]);
+            } else {
+                error_log("Failed to save email for user_id {$user_id}: " . $insert_stmt->error);
+                http_response_code(500);
+                echo json_encode(["status" => "error", "message" => "Failed to save email."]);
+            }
+            $insert_stmt->close();
         } else {
-            error_log("Failed to save email for user_id {$user_id}: " . $stmt->error);
-            http_response_code(500);
-            echo json_encode(["message" => "Failed to save email."]);
+            // If no user is found, discard the email
+            http_response_code(200); // Respond with 200 OK to acknowledge receipt but do nothing
+            echo json_encode(["status" => "success", "message" => "Email from unregistered user discarded."]);
+            $stmt->close();
         }
-        $stmt->close();
     }
 }
