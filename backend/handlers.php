@@ -9,15 +9,25 @@ declare(strict_types=1);
  */
 function handle_help_command($chat_id): void
 {
-    $reply_text = "您好, 管理员！可用的命令有:\n\n" .
+    $reply_text = "您好, 管理员！请使用下面的菜单进行操作，或直接输入命令:\n\n" .
                   "/help - 显示此帮助信息\n" .
                   "/stats - 查看系统统计数据\n" .
                   "/latest - 查询最新一条开奖记录\n" .
                   "/add [类型] [期号] [号码] - 手动添加开奖记录\n" .
-                  "  (例如: /add 香港六合彩 2023001 01,02,03,04,05,06,07)\n" .
-                  "/delete [类型] [期号] - 删除一条开奖记录\n" .
-                  "  (例如: /delete 香港六合彩 2023001)";
-    send_telegram_message($chat_id, $reply_text);
+                  "/delete [类型] [期号] - 删除一条开奖记录";
+
+    $keyboard = [
+        'keyboard' => [
+            [['text' => '/latest'], ['text' => '/stats']],
+            [['text' => '/help']]
+        ],
+        'resize_keyboard' => true,
+        'one_time_keyboard' => false, // Set to false to make it a persistent menu
+        'selective' => true
+    ];
+
+    $reply_markup = json_encode($keyboard);
+    send_telegram_message($chat_id, $reply_text, $reply_markup);
 }
 
 /**

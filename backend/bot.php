@@ -113,12 +113,13 @@ if (isset($update['message']['text'])) {
                 handle_delete_command($chat_id, $command_parts);
                 break;
             default:
-                send_telegram_message($chat_id, "未知命令: {$command}。 输入 /help 查看可用命令。");
+                // For any other command or unrecognized text, show the help with the keyboard
+                handle_help_command($chat_id);
                 break;
         }
     } else {
-        // Default reply for the admin
-        send_telegram_message($chat_id, "您好, 管理员。请输入一个命令来开始，例如 /help");
+        // Default reply for the admin for any non-command message
+        handle_help_command($chat_id);
     }
     http_response_code(200);
     exit("OK: Admin command processed.");
