@@ -4,7 +4,7 @@ const authService = {
   user: null,
 
   async register(user) {
-    const response = await axios.post('/api/auth', {
+    const response = await axios.post('/api/auth', { // Changed to /api/auth
       action: 'register',
       email: user.email,
       password: user.password
@@ -17,7 +17,7 @@ const authService = {
   },
 
   async login(user) {
-    const response = await axios.post('/api/auth', {
+    const response = await axios.post('/api/auth', { // Changed to /api/auth
       action: 'login',
       email: user.email,
       password: user.password
@@ -30,7 +30,6 @@ const authService = {
   },
 
   isLoggedIn() {
-    // 检查localStorage中是否有user_id，并结合PHP会话cookie检查，确保可靠性
     return localStorage.getItem('user_id') !== null && document.cookie.includes('PHPSESSID');
   },
 
@@ -39,7 +38,7 @@ const authService = {
       action: 'logout'
     });
     this.user = null;
-    localStorage.removeItem('user_id'); // 移除localStorage中的user_id
+    localStorage.removeItem('user_id');
     window.location.href = '/login';
   },
 
