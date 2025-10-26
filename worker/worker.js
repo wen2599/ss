@@ -23,7 +23,7 @@ export default {
             method: request.method,
             headers: newHeaders,
             body: request.body, // Keep original body
-            // duplex: 'half' // Removed duplex option
+            duplex: 'half'
         });
 
         return fetch(backendRequest);
