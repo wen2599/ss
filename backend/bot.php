@@ -89,37 +89,76 @@ if (isset($update['message']['text'])) {
         exit("OK: Message sent to non-admin.");
     }
 
-    // Process commands starting with '/'
-    if (strpos($message_text, '/') === 0) {
-        $command_parts = explode(' ', $message_text, 3);
-        $command = $command_parts[0];
-        error_log("Admin command received: {$command}");
+    // Check for a pending command state
+    $user_state = get_user_state($chat_id);
 
-        switch ($command) {
-            case '/start':
-            case '/help':
-                handle_help_command($chat_id);
-                break;
-            case '/stats':
-                handle_stats_command($chat_id);
-                break;
-            case '/latest':
-                handle_latest_command($chat_id);
-                break;
-            case '/add':
-                handle_add_command($chat_id, $command_parts);
-                break;
-            case '/delete':
-                handle_delete_command($chat_id, $command_parts);
-                break;
-            default:
-                // For any other command or unrecognized text, show the help with the keyboard
-                handle_help_command($chat_id);
-                break;
+    if ($user_state) {
+        error_log("User {$chat_id} is in state: {$user_state}");
+        $args = explode(' ', $message_text);
+
+        if ($user_state === 'add') {
+            $command_parts = array_merge(['/add'], $args);
+            handle_add_command($chat_id, $command_parts);
+        } elseif ($user_state === 'delete') {
+            $command_parts = array_merge(['/delete'], $args);
+            handle_delete_command($chat_id, $command_parts);
         }
+
+        set_user_state($chat_id, null); // Clear state after handling
     } else {
-        // Default reply for the admin for any non-command message
-        handle_help_command($chat_id);
+        // Handle as a new command or keyboard press
+        if (strpos($message_text, '/') === 0) {
+            $command_parts = explode(' ', $message_text);
+            $command = $command_parts[0];
+            error_log("Admin command received: {$command}");
+
+            switch ($command) {
+                case '/start':
+                case '/help':
+                    handle_help_command($chat_id);
+                    break;
+                case '/stats':
+                    handle_stats_command($chat_id);
+                    break;
+                case '/latest':
+                    handle_latest_command($chat_id);
+                    break;
+                case '/add':
+                    handle_add_command($chat_id, $command_parts);
+                    break;
+                case '/delete':
+                    handle_delete_command($chat_id, $command_parts);
+                    break;
+                default:
+                    handle_help_command($chat_id);
+                    break;
+            }
+        } else {
+            // Handle keyboard button presses (Chinese text)
+            error_log("Admin keyboard button press received: {$message_text}");
+            switch ($message_text) {
+                case '最新开奖':
+                    handle_latest_command($chat_id);
+                    break;
+                case '系统统计':
+                    handle_stats_command($chat_id);
+                    break;
+                case '手动添加':
+                    set_user_state($chat_id, 'add');
+                    send_telegram_message($chat_id, "请输入要添加的记录，格式为:\n[类型] [期号] [号码]\n\n例如:\n香港六合彩 2023001 01,02,03,04,05,06,07");
+                    break;
+                case '删除记录':
+                    set_user_state($chat_id, 'delete');
+                    send_telegram_message($chat_id, "请输入要删除的记录，格式为:\n[类型] [期号]\n\n例如:\n香港六合彩 2023001");
+                    break;
+                case '帮助说明':
+                    handle_help_command($chat_id);
+                    break;
+                default:
+                    handle_help_command($chat_id);
+                    break;
+            }
+        }
     }
     http_response_code(200);
     exit("OK: Admin command processed.");
