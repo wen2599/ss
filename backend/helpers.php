@@ -7,11 +7,14 @@ declare(strict_types=1);
 /**
  * Sends a message to a specified Telegram chat.
  */
-function send_telegram_message($chat_id, $text)
+function send_telegram_message($chat_id, $text, $reply_markup = null)
 {
     global $bot_token;
     $url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
     $data = ['chat_id' => $chat_id, 'text' => $text];
+    if ($reply_markup) {
+        $data['reply_markup'] = $reply_markup;
+    }
 
     $options = [
         'http' => [
