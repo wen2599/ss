@@ -1,6 +1,6 @@
 <template>
   <div class="auth-container">
-    <div class="auth-card">
+    <div class="auth-card card">
       <h2>创建账户</h2>
       <p>只需几步即可开始使用您的私人邮箱。</p>
       <form @submit.prevent="handleRegister">
@@ -9,7 +9,7 @@
           <input type="email" id="email" v-model="email" required autocomplete="email">
         </div>
         <div class="form-group">
-          <label for="password">密码 (至少8位)</label>
+          <label for="password">密码 (正好6位)</label>
           <input type="password" id="password" v-model="password" required autocomplete="new-password">
         </div>
          <div class="form-group">
@@ -59,14 +59,16 @@ export default {
         this.loading = false;
         return;
       }
-      if (this.password.length < 8) {
-        this.error = '密码必须至少为8位。';
+      // 修改密码长度验证为正好6位
+      if (this.password.length !== 6) {
+        this.error = '密码必须正好为6位。';
         this.loading = false;
         return;
       }
 
       try {
-        await auth.register(this.email, this.password);
+        // 注册服务已经调整为接受邮箱和密码作为参数
+        await auth.register({ email: this.email, password: this.password });
         this.loading = false;
         this.successMessage = '账户创建成功！您现在可以登录了。';
         // 清空表单
@@ -92,68 +94,72 @@ export default {
 </script>
 
 <style scoped>
-/* 样式保持不变 */
 .auth-container {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: calc(100vh - 80px);
-  background-color: #f3f4f6;
+  /* background-color: var(--background-primary); */ /* 使用全局背景 */
 }
+
 .auth-card {
   width: 100%;
   max-width: 400px;
-  padding: 2rem;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  /* padding: 2rem; */ /* 继承 card 样式 */
+  /* background-color: var(--background-secondary); */ /* 继承 card 样式 */
+  /* border-radius: 8px; */ /* 继承 card 样式 */
+  /* box-shadow: 0 4px 6px var(--shadow-color); */ /* 继承 card 样式 */
   text-align: center;
 }
-h2 {
+
+.auth-card h2 {
   margin-bottom: 0.5rem;
   font-size: 1.75rem;
   font-weight: 600;
+  color: var(--text-primary);
 }
-p {
+
+.auth-card p {
   margin-bottom: 1.5rem;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
+
 .form-group {
   margin-bottom: 1rem;
   text-align: left;
 }
+
 label {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
 }
-input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
+
+/* input 样式已在 main.css 中全局定义 */
+
 .submit-btn {
   width: 100%;
-  padding: 0.75rem;
-  border: none;
-  border-radius: 4px;
-  background-color: #4f46e5;
-  color: white;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  /* padding: 0.75rem; */ /* 继承 button 样式 */
+  /* border: none; */ /* 继承 button 样式 */
+  /* border-radius: 4px; */ /* 继承 button 样式 */
+  /* background-color: var(--primary-accent); */ /* 继承 button 样式 */
+  /* color: white; */ /* 继承 button 样式 */
+  /* font-size: 1rem; */ /* 继承 button 样式 */
+  /* font-weight: 600; */ /* 继承 button 样式 */
+  /* cursor: pointer; */ /* 继承 button 样式 */
+  /* transition: background-color 0.2s; */ /* 继承 button 样式 */
 }
+
 .submit-btn:disabled {
-  background-color: #a5b4fc;
+  background-color: var(--background-tertiary);
   cursor: not-allowed;
 }
+
 .submit-btn:hover:not(:disabled) {
-  background-color: #4338ca;
+  background-color: var(--primary-accent-hover);
 }
+
 .error-message, .success-message {
   margin-top: 1rem;
   margin-bottom: 1rem;
@@ -161,15 +167,22 @@ input {
   padding: 0.75rem;
   border-radius: 4px;
 }
+
 .error-message {
-  color: #991b1b;
-  background-color: #fde2e2;
+  color: var(--error-color);
+  background-color: rgba(var(--error-color-rgb), 0.2); /* 假设有 RGB 变量 */
 }
+
 .success-message {
-    color: #166534;
-    background-color: #dcfce7;
+    color: var(--success-color);
+    background-color: rgba(var(--success-color-rgb), 0.2); /* 假设有 RGB 变量 */
 }
+
 .switch-link {
   margin-top: 1.5rem;
+}
+
+.switch-link p {
+  color: var(--text-secondary);
 }
 </style>
