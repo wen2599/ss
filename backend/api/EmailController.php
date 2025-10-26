@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../helpers.php'; // Ensure helpers.php is included for parse_lottery_message
+
 class EmailController {
     private $db_connection;
 
@@ -31,15 +33,26 @@ class EmailController {
         $subject = $data['subject'];
         $body = $data['body'];
 
-        $jsonExtractedData = json_encode([]);
+        $extracted_data = null;
+        // Attempt to parse lottery message from the email body
+        $parsed_lottery_data = parse_lottery_message($body);
+        if ($parsed_lottery_data) {
+            $extracted_data = json_encode($parsed_lottery_data);
+        }
+
+        // If no lottery data was extracted, save an empty JSON object
+        if ($extracted_data === null) {
+            $extracted_data = json_encode([]);
+        }
 
         $stmt = $this->db_connection->prepare("INSERT INTO emails (user_id, from_address, subject, body, extracted_data) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("issss", $user_id, $from, $subject, $body, $jsonExtractedData);
+        $stmt->bind_param("issss", $user_id, $from, $subject, $body, $extracted_data);
 
         if ($stmt->execute()) {
             http_response_code(200);
             echo json_encode(["message" => "Email saved successfully."]);
         } else {
+            error_log("Failed to save email for user_id {$user_id}: " . $stmt->error);
             http_response_code(500);
             echo json_encode(["message" => "Failed to save email."]);
         }

@@ -14,7 +14,7 @@ global $db_connection;
 
 // Query to get the latest lottery draw record.
 // Ordering by 'id DESC' is the most reliable way to get the most recently added record.
-$query = "SELECT draw_date, draw_period, numbers, created_at FROM lottery_draws ORDER BY id DESC LIMIT 1";
+$query = "SELECT draw_date, lottery_type, draw_period, numbers, created_at FROM lottery_draws ORDER BY id DESC LIMIT 1";
 
 $response = [];
 
@@ -27,6 +27,7 @@ try {
                 'status' => 'success',
                 'data' => [
                     'draw_date' => $row['draw_date'],
+                    'lottery_type' => $row['lottery_type'], // Added lottery_type
                     'draw_period' => $row['draw_period'],
                     'numbers' => $row['numbers'],
                     'recorded_at' => $row['created_at']
