@@ -4,7 +4,7 @@ const authService = {
   user: null,
 
   async register(user) {
-    const response = await axios.post('/api/register.php', {
+    const response = await axios.post('/register.php', {
       email: user.email,
       password: user.password
     });
@@ -13,7 +13,7 @@ const authService = {
   },
 
   async login(user) {
-    const response = await axios.post('/api/login.php', {
+    const response = await axios.post('/login.php', {
       email: user.email,
       password: user.password
     });
@@ -26,7 +26,7 @@ const authService = {
   },
 
   async logout() {
-    await axios.post('/api/logout.php');
+    await axios.post('/logout.php');
     this.user = null;
     window.location.href = '/login';
   },

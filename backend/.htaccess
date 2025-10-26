@@ -1,0 +1,10 @@
+
+# backend/.htaccess
+# Route all requests to api.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Redirect all requests for /api/* to api.php
+  RewriteRule ^api/(.*)$ api.php?request=$1 [QSA,L]
+</IfModule>

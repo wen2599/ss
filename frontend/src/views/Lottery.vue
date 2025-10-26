@@ -1,53 +1,63 @@
 <template>
   <div class="lottery-container">
-    <div v-if="loading" class="loading-message">
-      正在加载...
+    <h1>开奖公告</h1>
+    <div v-if="loading" class="loading">正在加载...</div>
+    <div v-if="error" class="error">{{ error }}</div>
+    <div v-if="draws.length" class="results-table">
+      <table>
+        <thead>
+          <tr>
+            <th>日期</th>
+            <th>期数</th>
+            <th>开奖号码</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="draw in draws" :key="draw.draw_period">
+            <td>{{ draw.draw_date }}</td>
+            <td>{{ draw.draw_period }}</td>
+            <td class="numbers">
+              <span v-for="(number, index) in draw.numbers.split(',')" :key="index" class="number-ball">{{ number }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-    <div v-if="error" class="error-message">
-      {{ error }}
-    </div>
-    <div v-if="draws.length > 0" class="draws-list">
-      <div v-for="draw in draws" :key="draw.lottery_type" class="lottery-card">
-        <h2>{{ draw.lottery_type }}</h2>
-        <div class="draw-details">
-          <p><strong>期号:</strong> {{ draw.draw_period }}</p>
-          <p><strong>开奖日期:</strong> {{ draw.draw_date }}</p>
-          <p><strong>开奖号码:</strong> {{ draw.numbers }}</p>
-          <p><strong>生肖:</strong> {{ draw.zodiacs }}</p>
-          <p><strong>颜色:</strong> {{ draw.colors }}</p>
-        </div>
-      </div>
-    </div>
-    <div v-if="!loading && draws.length === 0 && !error" class="no-data-message">
-        暂无开奖数据。
+    <div v-else-if="!loading && !error">
+      <p>目前没有开奖记录。</p>
     </div>
   </div>
 </template>
 
 <script>
-import axios from 'axios';
-
 export default {
   name: 'LotteryView',
   data() {
     return {
-      draws: [],
-      loading: false,
+      loading: true,
       error: null,
+      draws: [],
     };
   },
   created() {
-    this.fetchLatestDraws();
+    this.fetchLotteryDraws();
   },
   methods: {
-    async fetchLatestDraws() {
+    async fetchLotteryDraws() {
       this.loading = true;
-      this.error = null;
       try {
-        const response = await axios.get('/api/get_all_latest_draws.php');
-        this.draws = response.data;
-      } catch (err) {
-        this.error = '无法加载开奖号码，请稍后再试。';
+        const response = await fetch('https://ss.wenxiuxiu.eu.org/api.php?request=lottery-draws');
+        if (!response.ok) {
+          throw new Error('网络响应错误');
+        }
+        const result = await response.json();
+        if (result.status === 'success') {
+          this.draws = result.data;
+        } else {
+          throw new Error(result.message || '获取数据失败');
+        }
+      } catch (e) {
+        this.error = e.message;
       } finally {
         this.loading = false;
       }
@@ -59,36 +69,55 @@ export default {
 <style scoped>
 .lottery-container {
   max-width: 800px;
-  margin: 0 auto;
+  margin: 2rem auto;
   padding: 1rem;
-}
-.lottery-card {
-  background-color: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
-}
-h2 {
-  margin-top: 0;
-  margin-bottom: 1.5rem;
-  font-size: 1.75rem;
-  font-weight: 600;
   text-align: center;
 }
-.draw-details {
-  font-size: 1.1rem;
-  line-height: 1.6;
-}
-.draw-details p {
-    margin: 0.5rem 0;
-}
-.loading-message, .error-message, .no-data-message {
-  text-align: center;
+
+.loading, .error {
+  margin-top: 1rem;
   font-size: 1.2rem;
-  padding: 2rem;
+  color: #888;
 }
-.error-message {
-  color: #ef4444;
+
+.error {
+  color: #e74c3c;
+}
+
+.results-table table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+thead {
+  background-color: #f2f2f2;
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 12px;
+  text-align: center;
+}
+
+.numbers {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.number-ball {
+  display: inline-block;
+  width: 35px;
+  height: 35px;
+  line-height: 35px;
+  border-radius: 50%;
+  background-color: #3498db;
+  color: white;
+  font-weight: bold;
+  font-size: 1rem;
+  text-align: center;
 }
 </style>

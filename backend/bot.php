@@ -66,44 +66,36 @@ if (isset($update['message']['text'])) {
         exit("OK: Message sent to non-admin.");
     }
 
-    // --- Define Keyboard Menu ---
-    $keyboard = [
-        'keyboard' => [
-            ['/latest', '/stats'],
-            ['/help']
-        ],
-        'resize_keyboard' => true,
-        'one_time_keyboard' => false,
-        'persistent' => true
-    ];
-    $reply_markup = json_encode($keyboard);
+    // Process commands starting with '/'
+    if (strpos($message_text, '/') === 0) {
+        $command_parts = explode(' ', $message_text, 3);
+        $command = $command_parts[0];
 
-    // Process commands
-    $command_parts = explode(' ', $message_text, 3);
-    $command = $command_parts[0];
-
-    switch ($command) {
-        case '/start':
-        case '/help':
-            handle_help_command($chat_id, $reply_markup);
-            break;
-        case '/stats':
-            handle_stats_command($chat_id);
-            break;
-        case '/latest':
-            handle_latest_command($chat_id);
-            break;
-        case '/add':
-            handle_add_command($chat_id, $command_parts);
-            break;
-        case '/delete':
-            handle_delete_command($chat_id, $command_parts);
-            break;
-        default:
-            send_telegram_message($chat_id, "未知命令: {$command}。请使用键盘或输入 /help 查看可用命令。", $reply_markup);
-            break;
+        switch ($command) {
+            case '/start':
+            case '/help':
+                handle_help_command($chat_id);
+                break;
+            case '/stats':
+                handle_stats_command($chat_id);
+                break;
+            case '/latest':
+                handle_latest_command($chat_id);
+                break;
+            case '/add':
+                handle_add_command($chat_id, $command_parts);
+                break;
+            case '/delete':
+                handle_delete_command($chat_id, $command_parts);
+                break;
+            default:
+                send_telegram_message($chat_id, "未知命令: {$command}。 输入 /help 查看可用命令。");
+                break;
+        }
+    } else {
+        // Default reply for the admin
+        send_telegram_message($chat_id, "您好, 管理员。请输入一个命令来开始，例如 /help");
     }
-
     http_response_code(200);
     exit("OK: Admin command processed.");
 }

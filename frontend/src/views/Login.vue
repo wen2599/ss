@@ -2,6 +2,7 @@
   <div class="auth-container">
     <div class="auth-card">
       <h2>登录</h2>
+      <p>请输入您的邮箱和密码以访问您的邮件。</p>
       <form @submit.prevent="handleLogin">
         <div class="form-group">
           <label for="email">邮箱地址</label>
@@ -26,7 +27,7 @@
 </template>
 
 <script>
-import auth from '@/services/auth.js';
+import auth from '@/services/auth.js'; // 导入认证服务
 
 export default {
   name: 'LoginView',
@@ -38,19 +39,16 @@ export default {
       error: null,
     };
   },
-  created() {
-    if (auth.isLoggedIn()) {
-      this.$router.push('/emails');
-    }
-  },
   methods: {
     async handleLogin() {
       this.loading = true;
       this.error = null;
       try {
-        await auth.login({ email: this.email, password: this.password });
-        this.$router.push('/emails').then(() => {
-          window.location.reload(); // Reload to update App.vue state
+        await auth.login(this.email, this.password);
+        // 登录成功后，路由守卫会自动处理跳转，但我们也可以手动跳转
+        // 为了更好的用户体验，直接跳转到根路径，然后让页面重新加载以应用状态
+        this.$router.push('/').then(() => {
+          window.location.reload();
         });
       } catch (err) {
         this.loading = false;
@@ -66,7 +64,7 @@ export default {
 </script>
 
 <style scoped>
-/* Styles from previous implementation */
+/* 样式保持不变 */
 .auth-container {
   display: flex;
   justify-content: center;
@@ -81,6 +79,60 @@ export default {
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
 }
-/* ... etc ... */
+h2 {
+  margin-bottom: 0.5rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+p {
+  margin-bottom: 1.5rem;
+  color: #6b7280;
+}
+.form-group {
+  margin-bottom: 1rem;
+  text-align: left;
+}
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #374151;
+}
+input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+.submit-btn {
+  width: 100%;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 4px;
+  background-color: #4f46e5;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.submit-btn:disabled {
+  background-color: #a5b4fc;
+  cursor: not-allowed;
+}
+.submit-btn:hover:not(:disabled) {
+  background-color: #4338ca;
+}
+.error-message {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  color: #ef4444;
+  font-size: 0.875rem;
+}
+.switch-link {
+  margin-top: 1.5rem;
+}
 </style>
