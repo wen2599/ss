@@ -1,24 +1,44 @@
 import axios from 'axios';
 
 const authService = {
-  register(user) {
-    return axios.post('/api/register.php', {
+  user: null,
+
+  async register(user) {
+    const response = await axios.post('/api/auth', {
+      action: 'register',
       email: user.email,
       password: user.password
     });
+    this.user = response.data.user;
+    return response;
   },
-  login(user) {
-    return axios.post('/api/login.php', {
+
+  async login(user) {
+    const response = await axios.post('/api/auth', {
+      action: 'login',
       email: user.email,
       password: user.password
     });
+    this.user = response.data.user;
+    return response;
   },
+
   isLoggedIn() {
-    return !!localStorage.getItem('authToken');
+    // This is a simple check. A more robust solution might involve
+    // a dedicated endpoint to verify the session on the server.
+    return document.cookie.includes('PHPSESSID');
   },
-  logout() {
-    localStorage.removeItem('authToken');
-    window.location.reload();
+
+  async logout() {
+    await axios.post('/api/auth', {
+      action: 'logout'
+    });
+    this.user = null;
+    window.location.href = '/login'; // Redirect to login
+  },
+
+  getCurrentUser() {
+    return this.user;
   }
 };
 
