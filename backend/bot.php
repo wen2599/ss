@@ -15,6 +15,10 @@ $secret_token = getenv('TELEGRAM_SECRET_TOKEN');
 $admin_id = getenv('TELEGRAM_ADMIN_ID');
 $channel_id = getenv('TELEGRAM_CHANNEL_ID');
 
+error_log("Bot Start: Received webhook request.");
+error_log("Config: TELEGRAM_ADMIN_ID=" . (empty($admin_id) ? "NOT_SET" : $admin_id));
+error_log("Config: TELEGRAM_CHANNEL_ID=" . (empty($channel_id) ? "NOT_SET" : $channel_id));
+
 if (! $bot_token || ! $secret_token) {
     http_response_code(500);
     error_log("Bot token or secret token is not configured.");
@@ -32,6 +36,8 @@ if ($client_secret_token !== $secret_token) {
 $raw_input = file_get_contents('php://input');
 $update = json_decode($raw_input, true);
 
+error_log("Raw Telegram Update: " . $raw_input);
+
 if (! $update) {
     http_response_code(200);
     exit("OK: No valid update received.");
@@ -40,15 +46,28 @@ if (! $update) {
 // 1. Handle Channel Post
 if (isset($update['channel_post'])) {
     $post = $update['channel_post'];
+    $received_channel_id = $post['chat']['id'] ?? 'UNKNOWN';
+    $post_text = $post['text'] ?? 'NO_TEXT';
+
+    error_log("Received Channel Post from ID: {$received_channel_id}");
+    error_log("Channel Post Text: {$post_text}");
+
     // Check if it's a post from the configured channel and contains text
-    if (! empty($channel_id) && $post['chat']['id'] == $channel_id && isset($post['text'])) {
+    if (! empty($channel_id) && (string)$received_channel_id === (string)$channel_id && isset($post['text'])) {
+        error_log("Channel ID matched. Attempting to parse lottery message.");
         $parsed_data = parse_lottery_message($post['text']);
         if ($parsed_data) {
-            save_lottery_draw($parsed_data);
+            error_log("Lottery message parsed successfully. Data: " . json_encode($parsed_data));
+            if (save_lottery_draw($parsed_data)) {
+                error_log("Lottery draw saved successfully.");
+            } else {
+                error_log("Failed to save lottery draw.");
+            }
+        } else {
+            error_log("Failed to parse lottery message from channel post.");
         }
-    } elseif (! empty($post['chat']['id'])) {
-        // Log if a post is received from a different channel
-        error_log("Received channel post from an unsubscribed or incorrect channel ID: " . $post['chat']['id']);
+    } elseif (! empty($received_channel_id)) {
+        error_log("Received channel post from an unsubscribed or incorrect channel ID: {$received_channel_id}. Expected: {$channel_id}");
     }
     http_response_code(200);
     exit("OK: Channel post processed.");
@@ -59,9 +78,13 @@ if (isset($update['message']['text'])) {
     $chat_id = $update['message']['chat']['id'];
     $message_text = $update['message']['text'];
 
+    error_log("Received Private Message from Chat ID: {$chat_id}");
+    error_log("Private Message Text: {$message_text}");
+
     // Restrict access to the admin user
-    if (! empty($admin_id) && $chat_id != $admin_id) {
+    if (! empty($admin_id) && (string)$chat_id !== (string)$admin_id) {
         send_telegram_message($chat_id, "您好！这是一个私人机器人，感谢您的关注。");
+        error_log("Blocked non-admin message from chat ID: {$chat_id}");
         http_response_code(200);
         exit("OK: Message sent to non-admin.");
     }
@@ -70,6 +93,7 @@ if (isset($update['message']['text'])) {
     if (strpos($message_text, '/') === 0) {
         $command_parts = explode(' ', $message_text, 3);
         $command = $command_parts[0];
+        error_log("Admin command received: {$command}");
 
         switch ($command) {
             case '/start':
@@ -101,5 +125,6 @@ if (isset($update['message']['text'])) {
 }
 
 // 3. Handle other update types
+error_log("Unhandled update type received.");
 http_response_code(200);
 exit("OK: Unhandled update type received.");
