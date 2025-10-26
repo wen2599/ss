@@ -10,6 +10,9 @@ const authService = {
       password: user.password
     });
     this.user = response.data.user;
+    if (this.user && this.user.id) {
+      localStorage.setItem('user_id', this.user.id);
+    }
     return response;
   },
 
@@ -20,11 +23,15 @@ const authService = {
       password: user.password
     });
     this.user = response.data.user;
+    if (this.user && this.user.id) {
+      localStorage.setItem('user_id', this.user.id);
+    }
     return response;
   },
 
   isLoggedIn() {
-    return document.cookie.includes('PHPSESSID');
+    // 检查localStorage中是否有user_id，并结合PHP会话cookie检查，确保可靠性
+    return localStorage.getItem('user_id') !== null && document.cookie.includes('PHPSESSID');
   },
 
   async logout() {
@@ -32,6 +39,7 @@ const authService = {
       action: 'logout'
     });
     this.user = null;
+    localStorage.removeItem('user_id'); // 移除localStorage中的user_id
     window.location.href = '/login';
   },
 
