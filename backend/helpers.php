@@ -59,37 +59,40 @@ function get_system_stats(): array
 function parse_lottery_message($text): ?array
 {
     $data = [];
-    $lines = explode("\n", $text);
-    $data['draw_date'] = date('Y-m-d');
+    $lines = array_map('trim', explode("\n", $text));
+    $data['draw_date'] = date('Y-m-d'); // Default to today
 
+    // --- 1. Extract Lottery Type and Period ---
+    if (preg_match('/(新澳门六合彩|香港六合彩|老澳\d{2}\.\d{2})第:?(\d+)\s?期开奖结果:/', $lines[0], $matches)) {
+        $data['lottery_type'] = $matches[1];
+        $data['draw_period'] = $matches[2];
+    } else {
+        return null; // Essential info missing
+    }
+
+    // --- 2. Extract Numbers, Zodiacs, and Colors ---
+    // The data is expected in the next three lines
+    if (isset($lines[1]) && isset($lines[2]) && isset($lines[3])) {
+        // Numbers: "22 20 49 37 39 35 23" -> "22,20,49,37,39,35,23"
+        $data['numbers'] = preg_replace('/\s+/', ',', trim($lines[1]));
+
+        // Zodiacs: "猴 狗 蛇 蛇 兔 羊 羊" -> "猴,狗,蛇,蛇,兔,羊,羊"
+        $data['zodiacs'] = preg_replace('/\s+/', ',', trim($lines[2]));
+
+        // Colors: "🟢 🔵 🟢 🔵 🟢 🔴 🔴" -> "🟢,🔵,🟢,🔵,🟢,🔴,🔴"
+        $data['colors'] = preg_replace('/\s+/', ',', trim($lines[3]));
+    } else {
+        return null; // Data format is incorrect
+    }
+
+    // --- 3. Override Date if present ---
     if (preg_match('/\[(\d{4})\/(\d{2})\/(\d{2})/', $lines[0], $date_matches)) {
         $data['draw_date'] = "{$date_matches[1]}-{$date_matches[2]}-{$date_matches[3]}";
     }
 
-    $period_found = false;
-    $numbers_found = false;
-
-    foreach ($lines as $index => $line) {
-        if (! $period_found && preg_match('/第:?(\d+)\s?期开奖结果:/', $line, $period_matches)) {
-            $data['draw_period'] = $period_matches[1];
-            $period_found = true;
-
-            if (isset($lines[$index + 1]) && preg_match('/^[\d\s]+$/', trim($lines[$index + 1]))) {
-                $numbers_line = trim($lines[$index + 1]);
-                $numbers_comma_separated = preg_replace('/\s+/', ',', $numbers_line);
-                $data['numbers'] = $numbers_comma_separated;
-                $numbers_found = true;
-                break;
-            }
-        }
-    }
-
-    if (isset($data['draw_period']) && isset($data['numbers'])) {
-        return $data;
-    }
-
-    return null;
+    return $data;
 }
+
 
 /**
  * Saves or updates a lottery draw record in the database.
@@ -98,14 +101,30 @@ function save_lottery_draw($data): bool
 {
     global $db_connection;
 
-    $stmt = $db_connection->prepare("INSERT INTO lottery_draws (draw_date, draw_period, numbers) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE numbers = VALUES(numbers), draw_date = VALUES(draw_date)");
+    $stmt = $db_connection->prepare(
+        "INSERT INTO lottery_draws (lottery_type, draw_period, draw_date, numbers, zodiacs, colors)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+         draw_date = VALUES(draw_date),
+         numbers = VALUES(numbers),
+         zodiacs = VALUES(zodiacs),
+         colors = VALUES(colors)"
+    );
 
     if (! $stmt) {
         error_log("DB Prepare Error in save_lottery_draw: " . $db_connection->error);
         return false;
     }
 
-    $stmt->bind_param("sss", $data['draw_date'], $data['draw_period'], $data['numbers']);
+    $stmt->bind_param("ssssss",
+        $data['lottery_type'],
+        $data['draw_period'],
+        $data['draw_date'],
+        $data['numbers'],
+        $data['zodiacs'],
+        $data['colors']
+    );
+
     $success = $stmt->execute();
 
     if (! $success) {
