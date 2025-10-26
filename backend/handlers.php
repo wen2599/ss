@@ -7,7 +7,7 @@ declare(strict_types=1);
 /**
  * Handles the /help and /start command.
  */
-function handle_help_command($chat_id): void
+function handle_help_command($chat_id, $reply_markup = null): void
 {
     $reply_text = "您好, 管理员！可用的命令有:\n\n" .
                   "/help - 显示此帮助信息\n" .
@@ -17,7 +17,7 @@ function handle_help_command($chat_id): void
                   "  (例如: /add 2023001 01,02,03,04,05)\n" .
                   "/delete [期号] - 删除一条开奖记录\n" .
                   "  (例如: /delete 2023001)";
-    send_telegram_message($chat_id, $reply_text);
+    send_telegram_message($chat_id, $reply_text, $reply_markup);
 }
 
 /**
