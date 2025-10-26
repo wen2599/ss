@@ -3,9 +3,9 @@ require_once __DIR__ . '/bootstrap.php';
 
 // --- Simple Request Router ---
 $route = $_GET['route'] ?? null;
+$request_method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-// --- Fallback for direct file access ---
-// This allows old endpoints to continue working during the transition.
+// --- Fallback for direct file access (legacy endpoints) ---
 if ($route === null) {
     $script_name = basename($_SERVER['SCRIPT_NAME']);
     $file_path = __DIR__ . '/api/' . $script_name;
@@ -18,21 +18,36 @@ if ($route === null) {
 // --- New Controller-based Routing ---
 switch ($route) {
     case 'auth':
-        require_once __DIR__ . '/api/AuthController.php';
-        $controller = new AuthController();
-        $controller->handleRequest();
+        if ($request_method === 'POST') {
+            require_once __DIR__ . '/api/AuthController.php';
+            $controller = new AuthController();
+            $controller->handleRequest();
+        } else {
+            http_response_code(405); // Method Not Allowed
+            echo json_encode(["message" => "Method Not Allowed"]);
+        }
         break;
 
     case 'users/is-registered':
-        require_once __DIR__ . '/api/UserController.php';
-        $controller = new UserController();
-        $controller->isRegistered();
+        if ($request_method === 'GET') {
+            require_once __DIR__ . '/api/UserController.php';
+            $controller = new UserController();
+            $controller->isRegistered();
+        } else {
+            http_response_code(405); // Method Not Allowed
+            echo json_encode(["message" => "Method Not Allowed"]);
+        }
         break;
 
     case 'emails':
-        require_once __DIR__ . '/api/EmailController.php';
-        $controller = new EmailController();
-        $controller->handleRequest();
+        if ($request_method === 'POST') {
+            require_once __DIR__ . '/api/EmailController.php';
+            $controller = new EmailController();
+            $controller->handleRequest();
+        } else {
+            http_response_code(405); // Method Not Allowed
+            echo json_encode(["message" => "Method Not Allowed"]);
+        }
         break;
 
     default:

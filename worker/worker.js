@@ -22,8 +22,8 @@ export default {
         const backendRequest = new Request(backendUrl, {
             method: request.method,
             headers: newHeaders,
-            body: request.body,
-            duplex: 'half'
+            body: request.body, // Keep original body
+            // duplex: 'half' // Removed duplex option
         });
 
         return fetch(backendRequest);
