@@ -18,11 +18,12 @@ function handle_help_command($chat_id): void
 
     $keyboard = [
         'keyboard' => [
-            [['text' => '/latest'], ['text' => '/stats']],
-            [['text' => '/help']]
+            [['text' => '最新开奖'], ['text' => '系统统计']],
+            [['text' => '手动添加'], ['text' => '删除记录']],
+            [['text' => '帮助说明']]
         ],
         'resize_keyboard' => true,
-        'one_time_keyboard' => false, // Set to false to make it a persistent menu
+        'one_time_keyboard' => false,
         'selective' => true
     ];
 

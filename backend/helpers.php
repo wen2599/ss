@@ -134,3 +134,47 @@ function save_lottery_draw($data): bool
     $stmt->close();
     return $success;
 }
+
+/**
+ * Gets the current command state for a user.
+ */
+function get_user_state($chat_id): ?string
+{
+    $state_file = __DIR__ . '/bot_state.json';
+    if (!file_exists($state_file)) {
+        return null;
+    }
+
+    $state_data = json_decode(file_get_contents($state_file), true);
+    return $state_data[$chat_id]['command'] ?? null;
+}
+
+/**
+ * Sets or clears the command state for a user.
+ */
+function set_user_state($chat_id, $command): void
+{
+    $state_file = __DIR__ . '/bot_state.json';
+    $state_data = [];
+
+    $fp = fopen($state_file, 'c+');
+    if (flock($fp, LOCK_EX)) { // Exclusive lock
+        $file_content = stream_get_contents($fp);
+        if (!empty($file_content)) {
+            $state_data = json_decode($file_content, true);
+        }
+
+        if ($command) {
+            $state_data[$chat_id] = ['command' => $command, 'timestamp' => time()];
+        } else {
+            unset($state_data[$chat_id]);
+        }
+
+        ftruncate($fp, 0); // Clear the file
+        rewind($fp);
+        fwrite($fp, json_encode($state_data, JSON_PRETTY_PRINT));
+        fflush($fp);
+        flock($fp, LOCK_UN); // Release the lock
+    }
+    fclose($fp);
+}
