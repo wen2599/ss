@@ -34,8 +34,7 @@ function handle_help_command($chat_id): void
             [['text' => '最新开奖'], ['text' => '系统统计']],
             [['text' => '查找用户'], ['text' => '删除用户']],
             [['text' => 'CF AI 对话'], ['text' => 'Gemini AI 对话']],
-            [['text' => '更换Gemini Key'], ['text' => '帮助说明']],
-            [['text' => '退出会话']]
+            [['text' => '更换Gemini Key'], ['text' => '帮助说明']]
         ],
         'resize_keyboard' => true,
         'one_time_keyboard' => false,
