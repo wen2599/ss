@@ -1,0 +1,8 @@
+# Ignore build artifacts
+dist
+
+# Ignore dependencies
+node_modules
+
+# Ignore Vite cache
+.vite

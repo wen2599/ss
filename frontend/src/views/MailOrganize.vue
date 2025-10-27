@@ -98,9 +98,7 @@
 
 <script>
 import recordsService from '@/services/records.js';
-import axios from 'axios';
-
-const API_BASE_URL = '/api';
+import api from '@/services/api.js';
 
 export default {
   name: 'MailOrganize',
@@ -161,7 +159,7 @@ export default {
 
       try {
         const token = localStorage.getItem('jwt_token');
-        const response = await axios.post(`${API_BASE_URL}/ai_process_email.php`, payload, {
+        const response = await api.post('/ai_process_email.php', payload, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
 
@@ -198,7 +196,7 @@ export default {
 
       try {
         const token = localStorage.getItem('jwt_token');
-        const response = await axios.post(`${API_BASE_URL}/save_settlement.php`, {
+        const response = await api.post('/save_settlement.php', {
             emailId: this.selectedEmail.id,
             settlementData: settlementData
         }, {

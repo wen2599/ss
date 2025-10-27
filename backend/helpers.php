@@ -11,25 +11,47 @@ function send_telegram_message($chat_id, $text, $reply_markup = null)
 {
     global $bot_token;
     $url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
-    $data = ['chat_id' => $chat_id, 'text' => $text];
+    $data = ['chat_id' => $chat_id, 'text' => $text, 'parse_mode' => 'HTML'];
 
     if ($reply_markup) {
         $data['reply_markup'] = $reply_markup;
     }
 
-    $options = [
-        'http' => [
-            'header'  => "Content-type: application/json\r\n",
-            'method'  => 'POST',
-            'content' => json_encode($data),
-            'ignore_errors' => true,
-        ],
-    ];
-    $context  = stream_context_create($options);
-    $result = file_get_contents($url, false, $context);
+    // Use cURL for more robust sending
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10); // 10-second timeout
+        $result = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_error = curl_error($ch);
+        curl_close($ch);
 
-    if ($result === false) {
-        error_log("Failed to send message to chat_id: {$chat_id}");
+        if ($result === false) {
+            error_log("cURL Error sending message to chat_id {$chat_id}: {$curl_error}");
+        } elseif ($http_code >= 400) {
+            error_log("Telegram API Error for chat_id {$chat_id}: HTTP Code {$http_code} - Response: {$result}");
+        }
+    } else {
+        // Fallback to file_get_contents if cURL is not available
+        $options = [
+            'http' => [
+                'header'  => "Content-type: application/json\r\n",
+                'method'  => 'POST',
+                'content' => json_encode($data),
+                'ignore_errors' => true,
+                'timeout' => 10,
+            ],
+        ];
+        $context  = stream_context_create($options);
+        $result = file_get_contents($url, false, $context);
+
+        if ($result === false) {
+            error_log("file_get_contents Error: Failed to send message to chat_id: {$chat_id}");
+        }
     }
 }
 
