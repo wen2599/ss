@@ -4,6 +4,24 @@ declare(strict_types=1);
 
 // backend/bot.php
 
+// --- Enhanced Debugging ---
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+ini_set('error_log', __DIR__ . '/debug.log');
+
+function log_debug($message) {
+    $timestamp = date("Y-m-d H:i:s");
+    $log_entry = "[{$timestamp}] " . $message . "\n";
+    file_put_contents(__DIR__ . '/debug.log', $log_entry, FILE_APPEND);
+}
+
+log_debug("--- Webhook Triggered ---");
+log_debug("Request Method: " . ($_SERVER['REQUEST_METHOD'] ?? 'N/A'));
+log_debug("Raw Input: " . file_get_contents('php://input'));
+log_debug("Headers: " . json_encode(getallheaders()));
+// --- End Debugging ---
+
+
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/ai_helpers.php';
