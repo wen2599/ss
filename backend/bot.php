@@ -9,6 +9,19 @@ ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 ini_set('error_log', __DIR__ . '/debug.log');
 
+// Polyfill for getallheaders() if it doesn't exist (e.g., in FPM-CGI).
+if (!function_exists('getallheaders')) {
+    function getallheaders() {
+        $headers = [];
+        foreach ($_SERVER as $name => $value) {
+            if (substr($name, 0, 5) == 'HTTP_') {
+                $headers[str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($name, 5)))))] = $value;
+            }
+        }
+        return $headers;
+    }
+}
+
 function log_debug($message) {
     $timestamp = date("Y-m-d H:i:s");
     $log_entry = "[{$timestamp}] " . $message . "\n";
