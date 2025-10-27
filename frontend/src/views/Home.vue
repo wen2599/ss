@@ -1,5 +1,10 @@
 <template>
   <div class="home-container">
+    <div class="navigation-bar card">
+      <router-link to="/mail-original" class="nav-item">邮件原文</router-link>
+      <router-link to="/mail-organize" class="nav-item">邮件整理</router-link>
+      <router-link to="/lottery-result" class="nav-item">彩票开奖</router-link>
+    </div>
     
     <!-- Header Section -->
     <div class="welcome-header card">
@@ -120,6 +125,29 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+}
+
+.navigation-bar {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: var(--background-secondary);
+  box-shadow: var(--shadow-elevation-low);
+}
+
+.nav-item {
+  color: var(--primary-accent);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.nav-item:hover {
+  background-color: var(--background-tertiary);
 }
 
 .welcome-header {

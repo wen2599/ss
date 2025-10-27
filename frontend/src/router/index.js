@@ -2,6 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router';
 import Home from '../views/Home.vue';
 import Login from '../views/Login.vue';
 import Register from '../views/Register.vue';
+import MailOriginal from '../views/MailOriginal.vue';
+import MailOrganize from '../views/MailOrganize.vue';
+import LotteryResult from '../views/LotteryResult.vue';
 
 const routes = [
   {
@@ -21,6 +24,24 @@ const routes = [
     name: 'Register',
     component: Register,
     meta: { guestOnly: true }
+  },
+  {
+    path: '/mail-original',
+    name: 'MailOriginal',
+    component: MailOriginal,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/mail-organize',
+    name: 'MailOrganize',
+    component: MailOrganize,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/lottery-result',
+    name: 'LotteryResult',
+    component: LotteryResult,
+    meta: { requiresAuth: true }
   }
 ];
 
