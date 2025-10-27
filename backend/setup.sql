@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS `lottery_draws` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `draw_date` date NOT NULL,
-  `lottery_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `lottery_type` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `draw_period` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `numbers` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
