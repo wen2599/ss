@@ -54,8 +54,13 @@ function initialize_database_if_needed()
 {
     global $db_connection;
 
-    // Check if the 'users' table exists as an indicator of initialization.
-    $result = $db_connection->query("SELECT 1 FROM `users` LIMIT 1");
+    try {
+        // Check if the 'users' table exists as an indicator of initialization.
+        $result = $db_connection->query("SELECT 1 FROM `users` LIMIT 1");
+    } catch (mysqli_sql_exception $e) {
+        // Suppress the error if the table doesn't exist, as we will create it.
+        $result = false;
+    }
 
     if ($result === false) {
         // Table does not exist, so run the setup script.
