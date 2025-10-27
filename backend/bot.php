@@ -92,45 +92,46 @@ if (isset($update['message']['text'])) {
         if (in_array($user_state, ['chat_cf', 'chat_gemini']) && in_array($argument, ['/done', '退出', '退出会话'])) {
             set_user_state($chat_id, null); // Clear state
             handle_help_command($chat_id); // Show main menu
-            exit; // Explicitly stop script execution
-        }
+            // Let the script continue to the final exit("OK...") to acknowledge receipt to Telegram.
+        } else {
 
-        switch ($user_state) {
-            case 'settle':
-                handle_settle_command($chat_id, ['/settle', $argument]);
-                set_user_state($chat_id, null); // Clear state after non-chat command
-                break;
-            case 'report':
-                handle_report_command($chat_id, ['/report', $argument]);
-                set_user_state($chat_id, null);
-                break;
-            case 'add':
-                handle_add_command($chat_id, array_merge(['/add'], explode(' ', $argument)));
-                set_user_state($chat_id, null);
-                break;
-            case 'delete':
-                handle_delete_command($chat_id, array_merge(['/delete'], explode(' ', $argument)));
-                set_user_state($chat_id, null);
-                break;
-            case 'find_user':
-                handle_find_user_command($chat_id, ['/finduser', $argument]);
-                set_user_state($chat_id, null);
-                break;
-            case 'delete_user':
-                handle_delete_user_command($chat_id, ['/deleteuser', $argument]);
-                set_user_state($chat_id, null);
-                break;
-            case 'set_gemini_key':
-                handle_set_gemini_key_command($chat_id, ['/setgeminikey', $argument]);
-                set_user_state($chat_id, null);
-                break;
-            // For AI chats, we do NOT clear the state, allowing for a continuous conversation.
-            case 'chat_cf':
-                handle_ai_chat_command($chat_id, $argument, 'cloudflare');
-                break;
-            case 'chat_gemini':
-                handle_ai_chat_command($chat_id, $argument, 'gemini');
-                break;
+            switch ($user_state) {
+                case 'settle':
+                    handle_settle_command($chat_id, ['/settle', $argument]);
+                    set_user_state($chat_id, null); // Clear state after non-chat command
+                    break;
+                case 'report':
+                    handle_report_command($chat_id, ['/report', $argument]);
+                    set_user_state($chat_id, null);
+                    break;
+                case 'add':
+                    handle_add_command($chat_id, array_merge(['/add'], explode(' ', $argument)));
+                    set_user_state($chat_id, null);
+                    break;
+                case 'delete':
+                    handle_delete_command($chat_id, array_merge(['/delete'], explode(' ', $argument)));
+                    set_user_state($chat_id, null);
+                    break;
+                case 'find_user':
+                    handle_find_user_command($chat_id, ['/finduser', $argument]);
+                    set_user_state($chat_id, null);
+                    break;
+                case 'delete_user':
+                    handle_delete_user_command($chat_id, ['/deleteuser', $argument]);
+                    set_user_state($chat_id, null);
+                    break;
+                case 'set_gemini_key':
+                    handle_set_gemini_key_command($chat_id, ['/setgeminikey', $argument]);
+                    set_user_state($chat_id, null);
+                    break;
+                // For AI chats, we do NOT clear the state, allowing for a continuous conversation.
+                case 'chat_cf':
+                    handle_ai_chat_command($chat_id, $argument, 'cloudflare');
+                    break;
+                case 'chat_gemini':
+                    handle_ai_chat_command($chat_id, $argument, 'gemini');
+                    break;
+            }
         }
     } else {
         if (strpos($message_text, '/') === 0) {

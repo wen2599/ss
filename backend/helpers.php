@@ -177,26 +177,42 @@ function get_user_state($chat_id): ?string
 function set_user_state($chat_id, $command): void
 {
     $state_file = __DIR__ . '/bot_state.json';
+    $temp_file = $state_file . '.' . uniqid() . '.tmp';
     $state_data = [];
 
-    $fp = fopen($state_file, 'c+');
-    if (flock($fp, LOCK_EX)) { // Exclusive lock
-        $file_content = stream_get_contents($fp);
+    // Step 1: Read the current state safely.
+    if (file_exists($state_file)) {
+        $file_content = file_get_contents($state_file);
         if (!empty($file_content)) {
-            $state_data = json_decode($file_content, true);
+            $decoded_data = json_decode($file_content, true);
+            // Check if json_decode was successful
+            if (is_array($decoded_data)) {
+                $state_data = $decoded_data;
+            }
         }
-
-        if ($command) {
-            $state_data[$chat_id] = ['command' => $command, 'timestamp' => time()];
-        } else {
-            unset($state_data[$chat_id]);
-        }
-
-        ftruncate($fp, 0); // Clear the file
-        rewind($fp);
-        fwrite($fp, json_encode($state_data, JSON_PRETTY_PRINT));
-        fflush($fp);
-        flock($fp, LOCK_UN); // Release the lock
     }
-    fclose($fp);
+
+    // Step 2: Modify the state in memory.
+    if ($command) {
+        $state_data[$chat_id] = ['command' => $command, 'timestamp' => time()];
+    } else {
+        unset($state_data[$chat_id]);
+    }
+
+    // Step 3: Write to a temporary file.
+    $write_success = file_put_contents($temp_file, json_encode($state_data, JSON_PRETTY_PRINT));
+
+    if ($write_success === false) {
+        // Handle error: could not write to temporary file
+        error_log("Failed to write to temporary state file: {$temp_file}");
+        @unlink($temp_file); // Clean up temp file
+        return;
+    }
+
+    // Step 4: Atomically rename the temporary file to the original file name.
+    if (!rename($temp_file, $state_file)) {
+        // Handle error: could not rename file
+        error_log("Failed to rename temporary state file to {$state_file}");
+        @unlink($temp_file); // Clean up temp file
+    }
 }
