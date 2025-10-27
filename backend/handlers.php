@@ -14,12 +14,15 @@ function handle_help_command($chat_id): void
                   "/stats - 查看系统统计数据\n" .
                   "/latest - 查询最新一条开奖记录\n" .
                   "/add [类型] [期号] [号码] - 手动添加开奖记录\n" .
-                  "/delete [类型] [期号] - 删除一条开奖记录";
+                  "/delete [类型] [期号] - 删除一条开奖记录\n" .
+                  "/finduser [用户名/邮箱] - 查找用户信息\n" .
+                  "/deleteuser [用户名/邮箱] - 删除用户及其数据";
 
     $keyboard = [
         'keyboard' => [
             [['text' => '最新开奖'], ['text' => '系统统计']],
             [['text' => '手动添加'], ['text' => '删除记录']],
+            [['text' => '查找用户'], ['text' => '删除用户']],
             [['text' => '帮助说明']]
         ],
         'resize_keyboard' => true,
@@ -116,4 +119,99 @@ function handle_delete_command($chat_id, array $command_parts): void
         send_telegram_message($chat_id, "删除失败: " . $stmt->error);
     }
     $stmt->close();
+}
+
+
+/**
+ * Handles the /finduser command.
+ */
+function handle_find_user_command($chat_id, array $command_parts): void
+{
+    if (count($command_parts) < 2) {
+        send_telegram_message($chat_id, "格式错误。用法: /finduser [用户名或邮箱]");
+        return;
+    }
+    
+    global $db_connection;
+    $search_term = $command_parts[1];
+
+    $stmt = $db_connection->prepare("SELECT id, username, email, created_at FROM users WHERE username = ? OR email = ?");
+    $stmt->bind_param("ss", $search_term, $search_term);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($user = $result->fetch_assoc()) {
+        $reply_text = "✅ 找到用户信息:\n" .
+                      "  - 用户ID: {$user['id']}\n" .
+                      "  - 用户名: {$user['username']}\n" .
+                      "  - 邮箱: {$user['email']}\n" .
+                      "  - 注册时间: {$user['created_at']}";
+    } else {
+        $reply_text = "❌ 未找到用户: " . htmlspecialchars($search_term);
+    }
+    $stmt->close();
+    send_telegram_message($chat_id, $reply_text);
+}
+
+
+/**
+ * Handles the /deleteuser command.
+ */
+function handle_delete_user_command($chat_id, array $command_parts): void
+{
+    if (count($command_parts) < 2) {
+        send_telegram_message($chat_id, "格式错误。用法: /deleteuser [用户名或邮箱]");
+        return;
+    }
+
+    global $db_connection;
+    $search_term = $command_parts[1];
+
+    // 1. Find the user to get their ID and details
+    $stmt_find = $db_connection->prepare("SELECT id, username, email FROM users WHERE username = ? OR email = ?");
+    $stmt_find->bind_param("ss", $search_term, $search_term);
+    $stmt_find->execute();
+    $result = $stmt_find->get_result();
+    
+    if (!$user = $result->fetch_assoc()) {
+        send_telegram_message($chat_id, "❌ 未找到用户: " . htmlspecialchars($search_term));
+        $stmt_find->close();
+        return;
+    }
+    $stmt_find->close();
+    
+    $user_id = $user['id'];
+    $username = $user['username'];
+    $email = $user['email'];
+
+    // 2. Use a transaction to delete the user and their emails
+    $db_connection->begin_transaction();
+    try {
+        // Delete related emails first
+        $stmt_delete_emails = $db_connection->prepare("DELETE FROM emails WHERE user_id = ?");
+        $stmt_delete_emails->bind_param("i", $user_id);
+        $stmt_delete_emails->execute();
+        $email_rows_affected = $stmt_delete_emails->affected_rows;
+        $stmt_delete_emails->close();
+
+        // Then delete the user
+        $stmt_delete_user = $db_connection->prepare("DELETE FROM users WHERE id = ?");
+        $stmt_delete_user->bind_param("i", $user_id);
+        $stmt_delete_user->execute();
+        $user_rows_affected = $stmt_delete_user->affected_rows;
+        $stmt_delete_user->close();
+
+        if ($user_rows_affected > 0) {
+            $db_connection->commit();
+            send_telegram_message($chat_id, "✅ 成功删除用户 {$username} ({$email}) 及 {$email_rows_affected} 封关联邮件。");
+        } else {
+            // This case should theoretically not be reached if the user was found
+            $db_connection->rollback();
+            send_telegram_message($chat_id, "⚠️ 删除用户失败，但该用户存在。请检查数据库。");
+        }
+    } catch (Exception $e) {
+        $db_connection->rollback();
+        send_telegram_message($chat_id, "❌ 操作失败！在删除过程中发生严重错误: " . $e->getMessage());
+        error_log("Bot Error: Failed to delete user {$username}: " . $e->getMessage());
+    }
 }

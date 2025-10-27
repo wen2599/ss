@@ -95,13 +95,23 @@ if (isset($update['message']['text'])) {
     if ($user_state) {
         error_log("User {$chat_id} is in state: {$user_state}");
         $args = explode(' ', $message_text);
+        $command_parts = array_merge(['/' . $user_state], $args);
 
-        if ($user_state === 'add') {
-            $command_parts = array_merge(['/add'], $args);
-            handle_add_command($chat_id, $command_parts);
-        } elseif ($user_state === 'delete') {
-            $command_parts = array_merge(['/delete'], $args);
-            handle_delete_command($chat_id, $command_parts);
+        switch($user_state) {
+            case 'add':
+                handle_add_command($chat_id, $command_parts);
+                break;
+            case 'delete':
+                handle_delete_command($chat_id, $command_parts);
+                break;
+            case 'find_user':
+                $command_parts = array_merge(['/finduser'], $args);
+                handle_find_user_command($chat_id, $command_parts);
+                break;
+            case 'delete_user':
+                $command_parts = array_merge(['/deleteuser'], $args);
+                handle_delete_user_command($chat_id, $command_parts);
+                break;
         }
 
         set_user_state($chat_id, null); // Clear state after handling
@@ -129,6 +139,12 @@ if (isset($update['message']['text'])) {
                 case '/delete':
                     handle_delete_command($chat_id, $command_parts);
                     break;
+                case '/finduser':
+                    handle_find_user_command($chat_id, $command_parts);
+                    break;
+                case '/deleteuser':
+                    handle_delete_user_command($chat_id, $command_parts);
+                    break;
                 default:
                     handle_help_command($chat_id);
                     break;
@@ -150,6 +166,14 @@ if (isset($update['message']['text'])) {
                 case '删除记录':
                     set_user_state($chat_id, 'delete');
                     send_telegram_message($chat_id, "请输入要删除的记录，格式为:\n[类型] [期号]\n\n例如:\n香港六合彩 2023001");
+                    break;
+                case '查找用户':
+                    set_user_state($chat_id, 'find_user');
+                    send_telegram_message($chat_id, "请输入要查找的用户的用户名或邮箱:");
+                    break;
+                case '删除用户':
+                    set_user_state($chat_id, 'delete_user');
+                    send_telegram_message($chat_id, "⚠️ 警告：此操作将永久删除用户及其所有数据！\n请输入要删除的用户的用户名或邮箱:");
                     break;
                 case '帮助说明':
                     handle_help_command($chat_id);
