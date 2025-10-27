@@ -1,25 +1,8 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /backend/
+    RewriteBase /
 
-    # Allow all files in the api/ directory to be accessed directly.
-    # This is for legacy direct file access, should be removed later.
-    RewriteCond %{REQUEST_FILENAME} -f
-    RewriteRule ^api/ - [L]
-
-    # Ensure that api.php is explicitly routed for any /api/ request
-    # that doesn't directly map to a file.
-    # This allows /api/auth to be mapped to api.php?route=auth
-    RewriteRule ^api/(.*)$ api.php?route=$1 [QSA,L]
-
-    # For the root backend path, ensure api.php is the front controller
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^ index.php [L]
-
-</IfModule>
-
-<IfModule mod_php.c>
-    php_value display_errors On
-    php_value error_reporting E_ALL
+    RewriteRule ^api/(.*)$ api.php?route=$1 [QSA,L]
 </IfModule>
