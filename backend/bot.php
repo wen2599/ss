@@ -92,7 +92,7 @@ if (isset($update['message']['text'])) {
         if (in_array($user_state, ['chat_cf', 'chat_gemini']) && in_array($argument, ['/done', '退出', '退出会话'])) {
             set_user_state($chat_id, null); // Clear state
             handle_help_command($chat_id); // Show main menu
-            exit("OK: User exited AI session.");
+            exit; // Explicitly stop script execution
         }
 
         switch ($user_state) {
