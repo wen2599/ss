@@ -245,20 +245,22 @@ PROMPT;
 
 function chat_with_ai(string $user_prompt, string $ai_service = 'cloudflare'): ?string
 {
-    $system_prompt = '你是一个乐于助人的AI助手。请清晰、简洁地回答用户的问题。';
+    $system_prompt = '你是一个乐于助人的AI助手。请清晰、简洁地回答用户的问题。请始终使用中文回答。';
 
     if ($ai_service === 'cloudflare') {
-        // Add Chinese language instruction for Cloudflare AI
-        $system_prompt .= ' 请始终使用中文回答。';
         $messages = [
             ['role' => 'system', 'content' => $system_prompt],
             ['role' => 'user', 'content' => $user_prompt]
         ];
-        // 需要一个能返回纯文本的Cloudflare调用
         return call_cloudflare_ai_raw_text($messages);
     }
     
     if ($ai_service === 'gemini') {
+        // Check for Gemini API key availability before making the call.
+        if (!get_gemini_api_key()) {
+            error_log("Gemini chat failed: API key not configured.");
+            return "❌ Gemini AI 调用失败：尚未设置API密钥。\n请管理员使用 `/setgeminikey [密钥]` 命令进行配置。";
+        }
         $full_prompt = $system_prompt . "\n\n用户问题: " . $user_prompt;
         return call_gemini_ai($full_prompt, false);
     }
