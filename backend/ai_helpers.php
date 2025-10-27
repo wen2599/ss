@@ -248,6 +248,8 @@ function chat_with_ai(string $user_prompt, string $ai_service = 'cloudflare'): ?
     $system_prompt = '你是一个乐于助人的AI助手。请清晰、简洁地回答用户的问题。';
 
     if ($ai_service === 'cloudflare') {
+        // Add Chinese language instruction for Cloudflare AI
+        $system_prompt .= ' 请始终使用中文回答。';
         $messages = [
             ['role' => 'system', 'content' => $system_prompt],
             ['role' => 'user', 'content' => $user_prompt]

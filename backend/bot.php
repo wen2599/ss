@@ -74,18 +74,51 @@ if (isset($update['message']['text'])) {
 
     if ($user_state) {
         $argument = $message_text; // For state-based commands, the whole message is the argument
-        switch ($user_state) {
-            case 'settle': handle_settle_command($chat_id, ['/settle', $argument]); break;
-            case 'report': handle_report_command($chat_id, ['/report', $argument]); break;
-            case 'add': handle_add_command($chat_id, array_merge(['/add'], explode(' ', $argument))); break;
-            case 'delete': handle_delete_command($chat_id, array_merge(['/delete'], explode(' ', $argument))); break;
-            case 'find_user': handle_find_user_command($chat_id, ['/finduser', $argument]); break;
-            case 'delete_user': handle_delete_user_command($chat_id, ['/deleteuser', $argument]); break;
-            case 'set_gemini_key': handle_set_gemini_key_command($chat_id, ['/setgeminikey', $argument]); break;
-            case 'chat_cf': handle_ai_chat_command($chat_id, $argument, 'cloudflare'); break;
-            case 'chat_gemini': handle_ai_chat_command($chat_id, $argument, 'gemini'); break; // Handle Gemini chat
+
+        // Check for an exit command first.
+        if (in_array($argument, ['/done', '退出', '退出会话'])) {
+            set_user_state($chat_id, null); // Clear state
+            handle_help_command($chat_id); // Show main menu
+            exit("OK: User exited session.");
         }
-        set_user_state($chat_id, null); // Clear state
+
+        switch ($user_state) {
+            case 'settle':
+                handle_settle_command($chat_id, ['/settle', $argument]);
+                set_user_state($chat_id, null); // Clear state after non-chat command
+                break;
+            case 'report':
+                handle_report_command($chat_id, ['/report', $argument]);
+                set_user_state($chat_id, null);
+                break;
+            case 'add':
+                handle_add_command($chat_id, array_merge(['/add'], explode(' ', $argument)));
+                set_user_state($chat_id, null);
+                break;
+            case 'delete':
+                handle_delete_command($chat_id, array_merge(['/delete'], explode(' ', $argument)));
+                set_user_state($chat_id, null);
+                break;
+            case 'find_user':
+                handle_find_user_command($chat_id, ['/finduser', $argument]);
+                set_user_state($chat_id, null);
+                break;
+            case 'delete_user':
+                handle_delete_user_command($chat_id, ['/deleteuser', $argument]);
+                set_user_state($chat_id, null);
+                break;
+            case 'set_gemini_key':
+                handle_set_gemini_key_command($chat_id, ['/setgeminikey', $argument]);
+                set_user_state($chat_id, null);
+                break;
+            // For AI chats, we do NOT clear the state, allowing for a continuous conversation.
+            case 'chat_cf':
+                handle_ai_chat_command($chat_id, $argument, 'cloudflare');
+                break;
+            case 'chat_gemini':
+                handle_ai_chat_command($chat_id, $argument, 'gemini');
+                break;
+        }
     } else {
         if (strpos($message_text, '/') === 0) {
             $command = $command_parts[0];
