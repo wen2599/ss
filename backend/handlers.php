@@ -137,22 +137,21 @@ function handle_delete_command($chat_id, array $command_parts): void
 function handle_find_user_command($chat_id, array $command_parts): void
 {
     if (count($command_parts) < 2) {
-        send_telegram_message($chat_id, "格式错误。用法: /finduser [用户名或邮箱]");
+        send_telegram_message($chat_id, "格式错误。用法: /finduser [邮箱]");
         return;
     }
 
     global $db_connection;
     $search_term = $command_parts[1];
 
-    $stmt = $db_connection->prepare("SELECT id, username, email, created_at FROM users WHERE username = ? OR email = ?");
-    $stmt->bind_param("ss", $search_term, $search_term);
+    $stmt = $db_connection->prepare("SELECT id, email, created_at FROM users WHERE email = ?");
+    $stmt->bind_param("s", $search_term);
     $stmt->execute();
     $result = $stmt->get_result();
 
     if ($user = $result->fetch_assoc()) {
         $reply_text = "✅ 找到用户信息:\\n" .
                       "  - 用户ID: {$user['id']}\\n" .
-                      "  - 用户名: {$user['username']}\\n" .
                       "  - 邮箱: {$user['email']}\\n" .
                       "  - 注册时间: {$user['created_at']}";
     } else {
@@ -169,15 +168,15 @@ function handle_find_user_command($chat_id, array $command_parts): void
 function handle_delete_user_command($chat_id, array $command_parts): void
 {
     if (count($command_parts) < 2) {
-        send_telegram_message($chat_id, "格式错误。用法: /deleteuser [用户名或邮箱]");
+        send_telegram_message($chat_id, "格式错误。用法: /deleteuser [邮箱]");
         return;
     }
 
     global $db_connection;
     $search_term = $command_parts[1];
 
-    $stmt_find = $db_connection->prepare("SELECT id, username, email FROM users WHERE username = ? OR email = ?");
-    $stmt_find->bind_param("ss", $search_term, $search_term);
+    $stmt_find = $db_connection->prepare("SELECT id, email FROM users WHERE email = ?");
+    $stmt_find->bind_param("s", $search_term);
     $stmt_find->execute();
     $result = $stmt_find->get_result();
 
@@ -189,7 +188,7 @@ function handle_delete_user_command($chat_id, array $command_parts): void
     $stmt_find->close();
 
     $user_id = $user['id'];
-    $username = $user['username'];
+    $email = $user['email'];
 
     $db_connection->begin_transaction();
     try {
@@ -204,7 +203,7 @@ function handle_delete_user_command($chat_id, array $command_parts): void
         $stmt_delete_user->execute();
 
         $db_connection->commit();
-        send_telegram_message($chat_id, "✅ 成功删除用户 {$username} 及 {$email_rows_affected} 封关联邮件。");
+        send_telegram_message($chat_id, "✅ 成功删除用户 {$email} 及 {$email_rows_affected} 封关联邮件。");
 
     } catch (Exception $e) {
         $db_connection->rollback();
