@@ -1,2 +1,177 @@
-<template>\n  <div class=\"mail-organize-container\">\n    <h1>邮件整理与结算</h1>\n\n    <div v-if=\"loading\" class=\"loading-state card\">加载邮件中...</div>\n    <div v-if=\"globalError\" class=\"error-state card\">{{ globalError }}</div>\n\n    <div class=\"content-wrapper\">\n      <!-- Email List -->\n      <div class=\"emails-list-panel\">\n        <div v-if=\"emails.length > 0\">\n          <div v-for=\"email in emails\" :key=\"email.id\" class=\"email-item card\" :class=\"{ \'selected\': selectedEmail && selectedEmail.id === email.id, \'processed\': email.is_processed }\">\n            <div class=\"email-header\">\n              <span class=\"email-from\">{{ email.from_address }}</span>\n              <span class=\"email-date\">{{ formatDateTime(email.received_at) }}</span>\n            </div>\n            <h2 class=\"email-subject\">{{ email.subject }}</h2>\n            <div class=\"status-and-button\">\n                <span v-if=\"email.is_processed\" class=\"processed-badge\">已处理</span>\n                <button @click=\"generateSettlement(email)\" class=\"ai-organize-button\" :disabled=\"isAiLoading\">\n                    <span v-if=\"isAiLoading && selectedEmail && selectedEmail.id === email.id\">处理中...</span>\n                    <span v-else>AI 生成结算单</span>\n                </button>\n            </div>\n          </div>\n        </div>\n        <div v-else-if=\"!loading\" class=\"empty-state card\">无待处理邮件。</div>\n      </div>\n\n      <!-- Settlement Slip Panel -->\n      <div v-if=\"selectedEmail\" class=\"settlement-panel card\">\n        <h2>结算单 ({{ selectedEmail.subject }})</h2>\n        \n        <div class=\"settlement-header\">\n          <div class=\"form-group\">\n            <label>客户名</label>\n            <input type=\"text\" v-model=\"settlement.customer_name\" class=\"form-control\" />\n          </div>\n          <div class=\"form-group\">\n            <label>期号</label>\n            <input type=\"text\" v-model=\"settlement.draw_period\" class=\"form-control\" />\n          </div>\n        </div>\n\n        <div class=\"table-responsive\">\n          <table class=\"settlement-table\">\n            <thead>\n              <tr>\n                <th>玩法</th>\n                <th>内容</th>\n                <th>金额</th>\n                <th>赔率</th>\n                <th>操作</th>\n              </tr>\n            </thead>\n            <tbody>\n              <tr v-for=\"(bet, index) in settlement.bets\" :key=\"index\">\n                <td><input type=\"text\" v-model=\"bet.type\" class=\"form-control-table\" /></td>\n                <td><input type=\"text\" v-model=\"bet.content\" class=\"form-control-table\" /></td>\n                <td><input type=\"number\" v-model.number=\"bet.amount\" class=\"form-control-table\" /></td>\n                <td><input type=\"number\" v-model.number=\"bet.odds\" class=\"form-control-table\" /></td>\n                <td><button @click=\"removeBetRow(index)\" class=\"btn-remove-row\">删除</button></td>\n              </tr>\n            </tbody>\n            <tfoot>\n              <tr>\n                <td colspan=\"2\"><strong>总计</strong></td>\n                <td colspan=\"3\"><strong>{{ totalAmount.toFixed(2) }}</strong></td>\n              </tr>\n            </tfoot>\n          </table>\n        </div>\n        <button @click=\"addBetRow\" class=\"btn-add-row\">＋ 添加一行</button>\n\n        <div class=\"ai-correction-section\">\n          <h3>AI 修正</h3>\n          <div class=\"form-group\">\n            <label for=\"ai-correction\">如果 AI 识别有误，请在此输入修正指令：</label>\n            <textarea id=\"ai-correction\" v-model=\"aiCorrectionFeedback\" class=\"form-control\" placeholder=\"例如：第二条的金额是 200，不是 20\"></textarea>\n          </div>\n          <button @click=\"generateSettlement(selectedEmail, true)\" class=\"ai-organize-button\" :disabled=\"isAiLoading\">\n            <span v-if=\"isAiLoading\">修正中...</span>\n            <span v-else>提交修正指令</span>\n          </button>\n        </div>\n\n        <div class=\"main-actions\">\n          <button @click=\"saveSettlement\" class=\"submit-button\" :disabled=\"isSaving\">\n            <span v-if=\"isSaving\">保存中...</span>\n            <span v-else>保存结算单</span>\n          </button>\n          <button @click=\"clearSettlement\" class=\"cancel-button\">清空</button>\n        </div>\n      </div>\n    </div>\n  </div>\n</template>\n\n<script>\nimport recordsService from \'@/services/records.js\';\nimport axios from \'axios\';\n\nconst API_BASE_URL = \'/api\';\n\nexport default {\n  name: \'MailOrganize\',\n  data() {\n    return {\n      emails: [],\n      loading: true,\n      globalError: null,\n      selectedEmail: null,\n      isAiLoading: false,\n      isSaving: false, // 新增：保存状态\n      aiCorrectionFeedback: \'\',\n      settlement: {\n        draw_period: \'\',\n        customer_name: \'\',\n        bets: [],\n      },\n    };\n  },\n  computed: {\n    totalAmount() {\n      return this.settlement.bets.reduce((sum, bet) => sum + (Number(bet.amount) || 0), 0);\n    },\n  },\n  async created() {\n    await this.fetchEmails();\n  },\n  methods: {\n    async fetchEmails() {\n      this.loading = true;\n      this.globalError = null;\n      try {\n        const token = localStorage.getItem(\'jwt_token\');\n        if (!token) {\n          this.globalError = \'用户未登录，请先登录。\';\n          return;\n        }\n        // 注意：recordsService.getMyRecords 现在应该能返回 is_processed 字段\n        const response = await recordsService.getMyRecords(token);\n        this.emails = response.data;\n      } catch (err) {\n        this.globalError = err.response?.data?.message || \'获取邮件列表失败。\';\n      } finally {\n        this.loading = false;\n      }\n    },\n    async generateSettlement(email, withCorrection = false) {\n      // ... (此方法保持不变)\n      if (this.isAiLoading) return;\n      this.isAiLoading = true;\n      this.globalError = null;\n      this.selectedEmail = email;\n      \n      const payload = { email_id: email.id };\n      if (withCorrection && this.aiCorrectionFeedback) {\n        payload.correction = this.aiCorrectionFeedback;\n      }\n\n      try {\n        const token = localStorage.getItem(\'jwt_token\');\n        const response = await axios.post(`${API_BASE_URL}/ai_process_email.php`, payload, {\n          headers: { \'Authorization\': `Bearer ${token}` },\n        });\n\n        if (response.data.status === \'success\') {\n          const aiData = response.data.data;\n          this.settlement.draw_period = aiData.draw_period || \'\';\n          this.settlement.customer_name = aiData.customer_name || \'\';\n          this.settlement.bets = Array.isArray(aiData.bets) ? aiData.bets : [];\n          this.aiCorrectionFeedback = \'\';\n        } else {\n          this.globalError = `AI 处理失败: ${response.data.message}`;\n        }\n      } catch (err) {\n        this.globalError = err.response?.data?.message || \'AI服务调用失败，请检查后端日志。\';\n      } finally {\n        this.isAiLoading = false;\n      }\n    },\n    addBetRow() {\n      this.settlement.bets.push({ type: \'\', content: \'\', amount: 0, odds: null });\n    },\n    removeBetRow(index) {\n      this.settlement.bets.splice(index, 1);\n    },\n    async saveSettlement() {\n      if (this.isSaving) return;\n      this.isSaving = true;\n      this.globalError = null;\n\n      const settlementData = {\n        ...this.settlement,\n        total_amount: this.totalAmount,\n      };\n\n      try {\n        const token = localStorage.getItem(\'jwt_token\');\n        const response = await axios.post(`${API_BASE_URL}/save_settlement.php`, {\n            emailId: this.selectedEmail.id,\n            settlementData: settlementData\n        }, {\n            headers: { \'Authorization\': `Bearer ${token}` }\n        });\n\n        if (response.data.status === \'success\') {\n            // 标记邮件为已处理\n            const foundEmail = this.emails.find(e => e.id === this.selectedEmail.id);\n            if (foundEmail) {\n                foundEmail.is_processed = 1;\n            }\n            this.clearSettlement(); // 清空表单，准备处理下一个\n            alert(\'结算单已成功保存！\');\n        } else {\n            this.globalError = `保存失败: ${response.data.message}`\n        }\n      } catch (err) {\n        this.globalError = err.response?.data?.message || \'保存失败，请检查网络或联系管理员。\';\n      } finally {\n        this.isSaving = false;\n      }\n    },\n    clearSettlement() {\n      this.selectedEmail = null;\n      this.aiCorrectionFeedback = \'\';\n      this.settlement = { draw_period: \'\', customer_name: \'\', bets: [] };\n    },\n    formatDateTime(dateTimeString) {\n      return new Date(dateTimeString).toLocaleString(\'zh-CN\');\n    },\n  },\n};\n</script>\n\n<style scoped>\n/* ... (大部分样式保持不变) ... */\n.mail-organize-container { padding: 2rem; max-width: 1600px; margin: 0 auto; }\nh1 { text-align: center; color: var(--primary-accent); margin-bottom: 2rem; }\n.card { background-color: var(--background-secondary); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }\n.loading-state, .error-state, .empty-state { text-align: center; padding: 2rem; font-size: 1.1rem; }\n.error-state { background-color: var(--error-color); color: #fff; }\n\n.content-wrapper { display: flex; gap: 2rem; align-items: flex-start; }\n.emails-list-panel { flex: 1 1 450px; max-width: 500px; }\n.settlement-panel { flex: 2 1 700px; position: sticky; top: 2rem; }\n\n.email-item { border-left: 5px solid var(--border-color); transition: all 0.2s ease; }\n.email-item.selected { border-left-color: var(--primary-accent); box-shadow: var(--shadow-elevation-medium); }\n.email-item.processed { background-color: var(--background-tertiary); opacity: 0.7; }\n.email-item.processed .email-subject { text-decoration: line-through; }\n\n.email-header { display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem; }\n.email-subject { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }\n\n.status-and-button { display: flex; justify-content: space-between; align-items: center; }\n.processed-badge { font-weight: bold; color: var(--success-color); background-color: rgba(76, 175, 80, 0.1); padding: 0.3rem 0.6rem; border-radius: 12px; }\n\n.ai-organize-button { padding: 0.6rem 1.2rem; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }\n.ai-organize-button:disabled { background-color: #5a8ebb; cursor: not-allowed; }\n
-.settlement-panel h2 { color: var(--primary-accent); margin-top: 0; text-align: center; }\n.settlement-header { display: flex; gap: 1rem; margin-bottom: 1.5rem; }\n.form-group { display: flex; flex-direction: column; flex: 1; }\n.form-group label { margin-bottom: 0.5rem; font-weight: 500; }\n.form-control { width: 100%; padding: 0.8rem; border-radius: 5px; border: 1px solid var(--border-color); }\ntextarea.form-control { min-height: 80px; }\n\n.table-responsive { overflow-x: auto; max-height: 400px; }\n.settlement-table { width: 100%; border-collapse: collapse; }\n.settlement-table th, .settlement-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: middle; }\n.settlement-table th { background-color: var(--background-tertiary); position: sticky; top: 0; }\n.settlement-table tfoot strong { color: var(--primary-accent); font-size: 1.1rem; }\n\n.form-control-table { width: 100%; padding: 0.5rem; border: 1px solid transparent; background-color: transparent; border-radius: 4px; }\n.form-control-table:focus { background-color: var(--background-primary); border-color: var(--primary-accent); outline: none; }\n\n.btn-remove-row, .btn-add-row { background: none; border: none; color: var(--error-color); cursor: pointer; }\n.btn-add-row { color: var(--primary-accent); margin-top: 1rem; font-weight: bold; }\n\n.ai-correction-section { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); }\n.ai-correction-section h3 { margin-top: 0; }\n\n.main-actions { margin-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end; }\n.submit-button, .cancel-button { padding: 0.8rem 1.5rem; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; }\n.submit-button { background-color: var(--primary-accent); color: white; }\n.submit-button:disabled { background-color: #a5d6a7; cursor: not-allowed; }\n.cancel-button { background-color: var(--background-tertiary); color: var(--text-primary); }\n</style>\n
+<template>
+  <div class="mail-organize-container">
+    <h1>邮件整理与结算</h1>
+
+    <div v-if="loading" class="loading-state card">加载邮件中...</div>
+    <div v-if="globalError" class="error-state card">{{ globalError }}</div>
+
+    <div class="content-wrapper">
+      <!-- Email List -->
+      <div class="emails-list-panel">
+        <div v-if="emails.length > 0">
+          <div v-for="email in emails" :key="email.id" class="email-item card" :class="{ 'selected': selectedEmail && selectedEmail.id === email.id, 'processed': email.is_processed }">
+            <div class="email-header">
+              <span class="email-from">{{ email.from_address }}</span>
+              <span class="email-date">{{ formatDateTime(email.received_at) }}</span>
+            </div>
+            <h2 class="email-subject">{{ email.subject }}</h2>
+            <div class="status-and-button">
+                <span v-if="email.is_processed" class="processed-badge">已处理</span>
+                <button @click="generateSettlement(email)" class="ai-organize-button" :disabled="isAiLoading">
+                    <span v-if="isAiLoading && selectedEmail && selectedEmail.id === email.id">处理中...</span>
+                    <span v-else>AI 生成结算单</span>
+                </button>
+            </div>
+          </div>
+        </div>
+        <div v-else-if="!loading" class="empty-state card">无待处理邮件。</div>
+      </div>
+
+      <!-- Settlement Slip Panel -->
+      <div v-if="selectedEmail" class="settlement-panel card">
+        <h2>结算单 ({{ selectedEmail.subject }})</h2>
+        
+        <div class="settlement-header">
+          <div class="form-group">
+            <label>客户名</label>
+            <input type="text" v-model="settlement.customer_name" class="form-control" />
+          </div>
+          <div class="form-group">
+            <label>期号</label>
+            <input type="text" v-model="settlement.draw_period" class="form-control" />
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="settlement-table">
+            <thead>
+              <tr>
+                <th>玩法</th>
+                <th>内容</th>
+                <th>金额</th>
+                <th>赔率</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(bet, index) in settlement.bets" :key="index">
+                <td><input type="text" v-model="bet.type" class="form-control-table" /></td>
+                <td><input type="text" v-model="bet.content" class="form-control-table" /></td>
+                <td><input type="number" v-model.number="bet.amount" class="form-control-table" /></td>
+                <td><input type="number" v-model.number="bet.odds" class="form-control-table" /></td>
+                <td><button @click="removeBetRow(index)" class="btn-remove-row">删除</button></td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2"><strong>总计</strong></td>
+                <td colspan="3"><strong>{{ totalAmount.toFixed(2) }}</strong></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <button @click="addBetRow" class="btn-add-row">＋ 添加一行</button>
+
+        <div class="ai-correction-section">
+          <h3>AI 修正</h3>
+          <div class="form-group">
+            <label for="ai-correction">如果 AI 识别有误，请在此输入修正指令：</label>
+            <textarea id="ai-correction" v-model="aiCorrectionFeedback" class="form-control" placeholder="例如：第二条的金额是 200，不是 20"></textarea>
+          </div>
+          <button @click="generateSettlement(selectedEmail, true)" class="ai-organize-button" :disabled="isAiLoading">
+            <span v-if="isAiLoading">修正中...</span>
+            <span v-else>提交修正指令</span>
+          </button>
+        </div>
+
+        <div class="main-actions">
+          <button @click="saveSettlement" class="submit-button" :disabled="isSaving">
+            <span v-if="isSaving">保存中...</span>
+            <span v-else>保存结算单</span>
+          </button>
+          <button @click="clearSettlement" class="cancel-button">清空</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import recordsService from '@/services/records.js';
+import axios from 'axios';
+
+const API_BASE_URL = '/api';
+
+export default {
+  name: 'MailOrganize',
+  data() {
+    return {
+      emails: [],
+      loading: true,
+      globalError: null,
+      selectedEmail: null,
+      isAiLoading: false,
+      isSaving: false, // 新增：保存状态
+      aiCorrectionFeedback: '',
+      settlement: {
+        draw_period: '',
+        customer_name: '',
+        bets: [],
+      },
+    };
+  },
+  computed: {
+    totalAmount() {
+      return this.settlement.bets.reduce((sum, bet) => sum + (Number(bet.amount) || 0), 0);
+    },
+  },
+  async created() {
+    await this.fetchEmails();
+  },
+  methods: {
+    async fetchEmails() {
+      this.loading = true;
+      this.globalError = null;
+      try {
+        const token = localStorage.getItem('jwt_token');
+        if (!token) {
+          this.globalError = '用户未登录，请先登录。';
+          return;
+        }
+        // 注意：recordsService.getMyRecords 现在应该能返回 is_processed 字段
+        const response = await recordsService.getMyRecords(token);
+        this.emails = response.data;
+      } catch (err) {
+        this.globalError = err.response?.data?.message || '获取邮件列表失败。';
+      } finally {
+        this.loading = false;
+      }
+    },
+    async generateSettlement(email, withCorrection = false) {
+      // ... (此方法保持不变)
+      if (this.isAiLoading) return;
+      this.isAiLoading = true;
+      this.globalError = null;
+      this.selectedEmail = email;
+      
+      const payload = { email_id: email.id };
+      if (withCorrection && this.aiCorrectionFeedback) {
+        payload.correction = this.aiCorrectionFeedback;
+      }
+
+      try {
+        const token = localStorage.getItem('jwt_token');
+        const response = await axios.post(`${API_BASE_URL}/ai_process_email.php`, payload, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+
+        if (response.data.status === 'success') {
+          const aiData = response.data.data;
+          this.settlement.draw_period = aiData.draw_period || '';
+          this.settlement.customer_name = aiData.customer_name || '';
+          this.settlement.bets = Array.isArray(aiData.bets) ? aiData.bets : [];
+          this.aiCorrectionFeedback = '';
+        } else {
+          this.globalError = `AI 处理失败: ${response.data.message}`;
+        }\n      } catch (err) {\n        this.globalError = err.response?.data?.message || \'AI服务调用失败，请检查后端日志。\';\n      } finally {\n        this.isAiLoading = false;\n      }\n    },\n    addBetRow() {\n      this.settlement.bets.push({ type: \'\', content: \'\', amount: 0, odds: null });\n    },\n    removeBetRow(index) {\n      this.settlement.bets.splice(index, 1);\n    },\n    async saveSettlement() {\n      if (this.isSaving) return;\n      this.isSaving = true;\n      this.globalError = null;\n\n      const settlementData = {\n        ...this.settlement,\n        total_amount: this.totalAmount,\n      };\n\n      try {\n        const token = localStorage.getItem(\'jwt_token\');\n        const response = await axios.post(`${API_BASE_URL}/save_settlement.php`, {\n            emailId: this.selectedEmail.id,\n            settlementData: settlementData\n        }, {\n            headers: { \'Authorization\': `Bearer ${token}` }\n        });\n\n        if (response.data.status === \'success\') {\n            // 标记邮件为已处理\n            const foundEmail = this.emails.find(e => e.id === this.selectedEmail.id);\n            if (foundEmail) {\n                foundEmail.is_processed = 1;\n            }\n            this.clearSettlement(); // 清空表单，准备处理下一个\n            alert(\'结算单已成功保存！\');\n        } else {\n            this.globalError = `保存失败: ${response.data.message}`\n        }\n      } catch (err) {\n        this.globalError = err.response?.data?.message || \'保存失败，请检查网络或联系管理员。\';\n      } finally {\n        this.isSaving = false;\n      }\n    },\n    clearSettlement() {\n      this.selectedEmail = null;\n      this.aiCorrectionFeedback = \'\';\n      this.settlement = { draw_period: \'\', customer_name: \'\', bets: [] };\n    },\n    formatDateTime(dateTimeString) {\n      return new Date(dateTimeString).toLocaleString(\'zh-CN\');\n    },\n  },\n};\n</script>\n\n<style scoped>\n/* ... (大部分样式保持不变) ... */\n.mail-organize-container { padding: 2rem; max-width: 1600px; margin: 0 auto; }\nh1 { text-align: center; color: var(--primary-accent); margin-bottom: 2rem; }\n.card { background-color: var(--background-secondary); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }\n.loading-state, .error-state, .empty-state { text-align: center; padding: 2rem; font-size: 1.1rem; }\n.error-state { background-color: var(--error-color); color: #fff; }\n\n.content-wrapper { display: flex; gap: 2rem; align-items: flex-start; }\n.emails-list-panel { flex: 1 1 450px; max-width: 500px; }\n.settlement-panel { flex: 2 1 700px; position: sticky; top: 2rem; }\n\n.email-item { border-left: 5px solid var(--border-color); transition: all 0.2s ease; }\n.email-item.selected { border-left-color: var(--primary-accent); box-shadow: var(--shadow-elevation-medium); }\n.email-item.processed { background-color: var(--background-tertiary); opacity: 0.7; }\n.email-item.processed .email-subject { text-decoration: line-through; }\n\n.email-header { display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem; }\n.email-subject { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }\n\n.status-and-button { display: flex; justify-content: space-between; align-items: center; }\n.processed-badge { font-weight: bold; color: var(--success-color); background-color: rgba(76, 175, 80, 0.1); padding: 0.3rem 0.6rem; border-radius: 12px; }\n\n.ai-organize-button { padding: 0.6rem 1.2rem; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }\n.ai-organize-button:disabled { background-color: #5a8ebb; cursor: not-allowed; }\n
+.settlement-panel h2 { color: var(--primary-accent); margin-top: 0; text-align: center; }\n.settlement-header { display: flex; gap: 1rem; margin-bottom: 1.5rem; }\n.form-group { display: flex; flex-direction: column; flex: 1; }\n.form-group label { margin-bottom: 0.5rem; font-weight: 500; }\n.form-control { width: 100%; padding: 0.8rem; border-radius: 5px; border: 1px solid var(--border-color); }\ntextarea.form-control { min-height: 80px; }\n\n.table-responsive { overflow-x: auto; max-height: 400px; }\n.settlement-table { width: 100%; border-collapse: collapse; }\n.settlement-table th, .settlement-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: middle; }\n.settlement-table th { background-color: var(--background-tertiary); position: sticky; top: 0; }\n.settlement-table tfoot strong { color: var(--primary-accent); font-size: 1.1rem; }\n\n.form-control-table { width: 100%; padding: 0.5rem; border: 1px solid transparent; background-color: transparent; border-radius: 4px; }\n.form-control-table:focus { background-color: var(--background-primary); border-color: var(--primary-accent); outline: none; }\n\n.btn-remove-row, .btn-add-row { background: none; border: none; color: var(--error-color); cursor: pointer; }\n.btn-add-row { color: var(--primary-accent); margin-top: 1rem; font-weight: bold; }\n\n.ai-correction-section { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); }\n.ai-correction-section h3 { margin-top: 0; }\n\n.main-actions { margin-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end; }\n.submit-button, .cancel-button { padding: 0.8rem 1.5rem; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; }\n.submit-button { background-color: var(--primary-accent); color: white; }\n.submit-button:disabled { background-color: #a5d6a7; cursor: not-allowed; }\n.cancel-button { background-color: var(--background-tertiary); color: var(--text-primary); }\n</style>

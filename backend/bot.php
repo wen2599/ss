@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 // backend/bot.php
 
-// --- Bootstrap aplication ---
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/ai_helpers.php';
@@ -44,7 +43,7 @@ if (isset($update['channel_post'])) {
 // 2. Handle Private Message from Admin
 if (isset($update['message']['text'])) {
     $chat_id = $update['message']['chat']['id'];
-    $message_text = $update['message']['text'];
+    $message_text = trim($update['message']['text']); // Trim message text
 
     if ($admin_id && (string)$chat_id !== (string)$admin_id) {
         send_telegram_message($chat_id, "您好！这是一个私人机器人，感谢您的关注。");
@@ -53,18 +52,20 @@ if (isset($update['message']['text'])) {
 
     $user_state = get_user_state($chat_id);
     $command_parts = explode(' ', $message_text, 2);
+    $first_word = strtolower($command_parts[0]);
 
     if ($user_state) {
-        $argument = $command_parts[0] ?? '';
+        $argument = $message_text; // For state-based commands, the whole message is the argument
         switch ($user_state) {
             case 'settle': handle_settle_command($chat_id, ['/settle', $argument]); break;
             case 'report': handle_report_command($chat_id, ['/report', $argument]); break;
-            case 'add': handle_add_command($chat_id, array_merge(['/add'], explode(' ', $message_text))); break;
-            case 'delete': handle_delete_command($chat_id, array_merge(['/delete'], explode(' ', $message_text))); break;
+            case 'add': handle_add_command($chat_id, array_merge(['/add'], explode(' ', $argument))); break;
+            case 'delete': handle_delete_command($chat_id, array_merge(['/delete'], explode(' ', $argument))); break;
             case 'find_user': handle_find_user_command($chat_id, ['/finduser', $argument]); break;
             case 'delete_user': handle_delete_user_command($chat_id, ['/deleteuser', $argument]); break;
             case 'set_gemini_key': handle_set_gemini_key_command($chat_id, ['/setgeminikey', $argument]); break;
-            case 'chat_cf': handle_ai_chat_command($chat_id, $message_text, 'cloudflare'); break;
+            case 'chat_cf': handle_ai_chat_command($chat_id, $argument, 'cloudflare'); break;
+            case 'chat_gemini': handle_ai_chat_command($chat_id, $argument, 'gemini'); break; // Handle Gemini chat
         }
         set_user_state($chat_id, null); // Clear state
     } else {
@@ -85,9 +86,11 @@ if (isset($update['message']['text'])) {
                 case '/deleteuser': handle_delete_user_command($chat_id, ['/deleteuser', $argument]); break;
                 case '/setgeminikey': handle_set_gemini_key_command($chat_id, ['/setgeminikey', $argument]); break;
                 case '/cfchat': handle_ai_chat_command($chat_id, $argument, 'cloudflare'); break;
+                case '/geminichat': handle_ai_chat_command($chat_id, $argument, 'gemini'); break; // Direct Gemini chat command
                 default: handle_help_command($chat_id); break;
             }
         } else {
+            // Keyboard button presses
             switch ($message_text) {
                 case '结算': set_user_state($chat_id, 'settle'); send_telegram_message($chat_id, "请输入要结算的期号:"); break;
                 case '结算报告': set_user_state($chat_id, 'report'); send_telegram_message($chat_id, "请输入要查看报告的期号:"); break;
@@ -95,8 +98,12 @@ if (isset($update['message']['text'])) {
                 case '系统统计': handle_stats_command($chat_id); break;
                 case '帮助说明': handle_help_command($chat_id); break;
                 case '查找用户': set_user_state($chat_id, 'find_user'); send_telegram_message($chat_id, "请输入要查找的用户名或邮箱:"); break;
-                case '更换Gemini Key': set_user_state($chat_id, 'set_gemini_key'); send_telegram_message($chat_id, "请输入新的Gemini API Key:"); break;
+                case '删除用户': set_user_state($chat_id, 'delete_user'); send_telegram_message($chat_id, "⚠️ 警告！此操作将永久删除用户及其所有数据！\n请输入要删除的用户的用户名或邮箱:"); break;
+                case '手动添加': set_user_state($chat_id, 'add'); send_telegram_message($chat_id, "请输入记录 (类型 期号 号码):\n例如:\n香港六合彩 2023001 01,02,03,04,05,06,07"); break;
+                case '删除记录': set_user_state($chat_id, 'delete'); send_telegram_message($chat_id, "请输入记录 (类型 期号):\n例如:\n香港六合彩 2023001"); break;
+                case '更换Gemini Key': set_user_state($chat_id, 'set_gemini_key'); send_telegram_message($chat_id, "请输入新的Gemini API Key:\n(请确保您的API密钥是正确的，通常以'AIza'开头)"); break;
                 case 'CF AI 对话': set_user_state($chat_id, 'chat_cf'); send_telegram_message($chat_id, "您好，我是Cloudflare AI，请问有什么可以帮您？"); break;
+                case 'Gemini AI 对话': set_user_state($chat_id, 'chat_gemini'); send_telegram_message($chat_id, "您好，我是Gemini Pro，请问有什么可以帮您？"); break;
                 default: handle_help_command($chat_id); break;
             }
         }

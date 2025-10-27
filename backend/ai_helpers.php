@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 // backend/ai_helpers.php
 
-// ... (其他函数保持不变，为简洁起见省略) ...
-
 /**
  * 从数据库获取Gemini API密钥。
  */
@@ -32,7 +30,12 @@ function set_gemini_api_key(string $api_key): bool
     return $stmt->execute();
 }
 
-// ... (call_cloudflare_ai, call_gemini_ai 等函数保持不变) ...
+/**
+ * 调用Cloudflare Workers AI (@cf/meta/llama-2-7b-chat-int8)。
+ *
+ * @param array $messages 消息数组，格式为 [['role' => 'system'|'user', 'content' => '...']]
+ * @return array|null 返回AI的响应数组或在失败时返回null。
+ */
 function call_cloudflare_ai(array $messages): ?array
 {
     $account_id = getenv('CLOUDFLARE_ACCOUNT_ID');
@@ -58,31 +61,55 @@ function call_cloudflare_ai(array $messages): ?array
 
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curl_error = curl_error($ch);
     curl_close($ch);
 
     if ($http_code !== 200) {
-        error_log("Cloudflare AI API request failed. HTTP Code: {$http_code}. Response: {$response}");
+        error_log("Cloudflare AI API request failed. HTTP Code: {$http_code}. Response: {$response}. cURL Error: {$curl_error}");
         return null;
     }
 
     $result = json_decode($response, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        error_log("Cloudflare AI response is not valid JSON. Response: " . $response);
+        return null;
+    }
     if (!isset($result['result']['response'])) {
-         error_log("Cloudflare AI response is invalid. Response: " . $response);
+         error_log("Cloudflare AI response is missing 'result.response'. Response: " . $response);
          return null;
     }
     
+    // Llama2 经常在 JSON 代码块前后添加额外的文本，我们需要提取它
     preg_match('/```json\n(.*?)(\n```)?/s', $result['result']['response'], $matches);
 
     if (isset($matches[1])) {
         $json_data = json_decode(trim($matches[1]), true);
-        return (json_last_error() === JSON_ERROR_NONE) ? $json_data : null;
-    } 
+        if (json_last_error() === JSON_ERROR_NONE) {
+            return $json_data;
+        } else {
+             error_log("Failed to parse JSON from Cloudflare AI response (inside code block): " . $matches[1]);
+        }
+    }
     
+    // 如果没有找到代码块，尝试直接解析
     $json_data = json_decode($result['result']['response'], true);
-    return (json_last_error() === JSON_ERROR_NONE) ? $json_data : null;
+     if (json_last_error() === JSON_ERROR_NONE) {
+        return $json_data;
+    } else {
+         error_log("Direct JSON parse failed for Cloudflare AI response: " . $result['result']['response']);
+    }
+
+    return null; // 如果无法解析 JSON，则返回 null
 }
 
 
+/**
+ * 调用Google Gemini Pro API。
+ *
+ * @param string $prompt 用户的提示。
+ * @param bool $is_json_mode 是否要求输出为JSON。
+ * @return array|string|null 成功时返回数组（JSON模式）或字符串，失败时返回null。
+ */
 function call_gemini_ai(string $prompt, bool $is_json_mode = false)
 {
     $api_key = get_gemini_api_key();
@@ -93,9 +120,18 @@ function call_gemini_ai(string $prompt, bool $is_json_mode = false)
 
     $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={$api_key}";
     
-    $data = ['contents' => [['parts' => [['text' => $prompt]]]],];
+    $data = [
+        'contents' => [[
+            'parts' => [[
+                'text' => $prompt
+            ]]
+        ]]
+    ];
+
     if ($is_json_mode) {
-        $data['generationConfig'] = ['response_mime_type' => 'application/json',];
+        $data['generationConfig'] = [
+            'response_mime_type' => 'application/json',
+        ];
     }
 
     $ch = curl_init();
@@ -107,21 +143,35 @@ function call_gemini_ai(string $prompt, bool $is_json_mode = false)
 
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curl_error = curl_error($ch);
     curl_close($ch);
 
     if ($http_code !== 200) {
-        error_log("Gemini API request failed. HTTP Code: {$http_code}. Response: {$response}");
+        error_log("Gemini API request failed. HTTP Code: {$http_code}. Response: {$response}. cURL Error: {$curl_error}");
         return null;
     }
 
     $result = json_decode($response, true);
-    $text_response = $result['candidates'][0]['content']['parts'][0]['text'] ?? null;
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        error_log("Gemini API response is not valid JSON. Response: " . $response);
+        return null;
+    }
 
-    if($text_response === null) return null;
+    if (!isset($result['candidates'][0]['content']['parts'][0]['text'])) {
+        error_log("Gemini API response format is invalid or missing content. Response: " . $response);
+        return null;
+    }
+    
+    $text_response = $result['candidates'][0]['content']['parts'][0]['text'];
 
     if ($is_json_mode) {
         $json_data = json_decode($text_response, true);
-        return (json_last_error() === JSON_ERROR_NONE) ? $json_data : null;
+        if (json_last_error() === JSON_ERROR_NONE) {
+            return $json_data;
+        } else {
+            error_log("Failed to parse JSON from Gemini API response: " . $text_response);
+            return null;
+        }
     }
 
     return $text_response;
@@ -162,14 +212,14 @@ function organize_email_with_ai(string $email_body, ?string $correction_feedback
 `{"draw_period":"240","customer_name":"李四","bets":[{"type":"三中二","content":"01,07,11","amount":100,"odds":null,"status":"待结算","winnings":null},{"type":"合肖","content":"狗,马,羊","amount":150,"odds":null,"status":"待结算","winnings":null}],"total_amount":250}`
 PROMPT;
 
-    $user_prompt = "请为以下邮件内容提取信息：\n\n---\n{$email_body}\n---";
+    $user_prompt = "请为以下邮件内容提取信息：\n\n---\n{$email_body}\n---\n";
 
     // 如果有修正指令，则附加到用户提示中
     if ($correction_feedback) {
         $user_prompt .= "\n\n请注意，用户提供了以下修正指令，请务必采纳：\n{$correction_feedback}";
     }
 
-    // Cloudflare AI 不支持 Gemini 的 JSON 模式，需要更明确的指令
+    // 尝试Cloudflare AI
     $cf_messages = [
         ['role' => 'system', 'content' => $system_prompt],
         ['role' => 'user', 'content' => $user_prompt]
@@ -180,7 +230,7 @@ PROMPT;
         return $organized_data;
     }
 
-    // 回退到 Gemini
+    // 如果Cloudflare失败，回退到Gemini
     error_log("Cloudflare AI failed or returned invalid data. Falling back to Gemini AI.");
     $gemini_prompt = $system_prompt . "\n\n" . $user_prompt;
     $organized_data = call_gemini_ai($gemini_prompt, true);
