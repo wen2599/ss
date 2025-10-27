@@ -173,5 +173,118 @@ export default {
           this.aiCorrectionFeedback = '';
         } else {
           this.globalError = `AI 处理失败: ${response.data.message}`;
-        }\n      } catch (err) {\n        this.globalError = err.response?.data?.message || \'AI服务调用失败，请检查后端日志。\';\n      } finally {\n        this.isAiLoading = false;\n      }\n    },\n    addBetRow() {\n      this.settlement.bets.push({ type: \'\', content: \'\', amount: 0, odds: null });\n    },\n    removeBetRow(index) {\n      this.settlement.bets.splice(index, 1);\n    },\n    async saveSettlement() {\n      if (this.isSaving) return;\n      this.isSaving = true;\n      this.globalError = null;\n\n      const settlementData = {\n        ...this.settlement,\n        total_amount: this.totalAmount,\n      };\n\n      try {\n        const token = localStorage.getItem(\'jwt_token\');\n        const response = await axios.post(`${API_BASE_URL}/save_settlement.php`, {\n            emailId: this.selectedEmail.id,\n            settlementData: settlementData\n        }, {\n            headers: { \'Authorization\': `Bearer ${token}` }\n        });\n\n        if (response.data.status === \'success\') {\n            // 标记邮件为已处理\n            const foundEmail = this.emails.find(e => e.id === this.selectedEmail.id);\n            if (foundEmail) {\n                foundEmail.is_processed = 1;\n            }\n            this.clearSettlement(); // 清空表单，准备处理下一个\n            alert(\'结算单已成功保存！\');\n        } else {\n            this.globalError = `保存失败: ${response.data.message}`\n        }\n      } catch (err) {\n        this.globalError = err.response?.data?.message || \'保存失败，请检查网络或联系管理员。\';\n      } finally {\n        this.isSaving = false;\n      }\n    },\n    clearSettlement() {\n      this.selectedEmail = null;\n      this.aiCorrectionFeedback = \'\';\n      this.settlement = { draw_period: \'\', customer_name: \'\', bets: [] };\n    },\n    formatDateTime(dateTimeString) {\n      return new Date(dateTimeString).toLocaleString(\'zh-CN\');\n    },\n  },\n};\n</script>\n\n<style scoped>\n/* ... (大部分样式保持不变) ... */\n.mail-organize-container { padding: 2rem; max-width: 1600px; margin: 0 auto; }\nh1 { text-align: center; color: var(--primary-accent); margin-bottom: 2rem; }\n.card { background-color: var(--background-secondary); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }\n.loading-state, .error-state, .empty-state { text-align: center; padding: 2rem; font-size: 1.1rem; }\n.error-state { background-color: var(--error-color); color: #fff; }\n\n.content-wrapper { display: flex; gap: 2rem; align-items: flex-start; }\n.emails-list-panel { flex: 1 1 450px; max-width: 500px; }\n.settlement-panel { flex: 2 1 700px; position: sticky; top: 2rem; }\n\n.email-item { border-left: 5px solid var(--border-color); transition: all 0.2s ease; }\n.email-item.selected { border-left-color: var(--primary-accent); box-shadow: var(--shadow-elevation-medium); }\n.email-item.processed { background-color: var(--background-tertiary); opacity: 0.7; }\n.email-item.processed .email-subject { text-decoration: line-through; }\n\n.email-header { display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem; }\n.email-subject { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }\n\n.status-and-button { display: flex; justify-content: space-between; align-items: center; }\n.processed-badge { font-weight: bold; color: var(--success-color); background-color: rgba(76, 175, 80, 0.1); padding: 0.3rem 0.6rem; border-radius: 12px; }\n\n.ai-organize-button { padding: 0.6rem 1.2rem; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }\n.ai-organize-button:disabled { background-color: #5a8ebb; cursor: not-allowed; }\n
-.settlement-panel h2 { color: var(--primary-accent); margin-top: 0; text-align: center; }\n.settlement-header { display: flex; gap: 1rem; margin-bottom: 1.5rem; }\n.form-group { display: flex; flex-direction: column; flex: 1; }\n.form-group label { margin-bottom: 0.5rem; font-weight: 500; }\n.form-control { width: 100%; padding: 0.8rem; border-radius: 5px; border: 1px solid var(--border-color); }\ntextarea.form-control { min-height: 80px; }\n\n.table-responsive { overflow-x: auto; max-height: 400px; }\n.settlement-table { width: 100%; border-collapse: collapse; }\n.settlement-table th, .settlement-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: middle; }\n.settlement-table th { background-color: var(--background-tertiary); position: sticky; top: 0; }\n.settlement-table tfoot strong { color: var(--primary-accent); font-size: 1.1rem; }\n\n.form-control-table { width: 100%; padding: 0.5rem; border: 1px solid transparent; background-color: transparent; border-radius: 4px; }\n.form-control-table:focus { background-color: var(--background-primary); border-color: var(--primary-accent); outline: none; }\n\n.btn-remove-row, .btn-add-row { background: none; border: none; color: var(--error-color); cursor: pointer; }\n.btn-add-row { color: var(--primary-accent); margin-top: 1rem; font-weight: bold; }\n\n.ai-correction-section { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); }\n.ai-correction-section h3 { margin-top: 0; }\n\n.main-actions { margin-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end; }\n.submit-button, .cancel-button { padding: 0.8rem 1.5rem; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; }\n.submit-button { background-color: var(--primary-accent); color: white; }\n.submit-button:disabled { background-color: #a5d6a7; cursor: not-allowed; }\n.cancel-button { background-color: var(--background-tertiary); color: var(--text-primary); }\n</style>
+        }
+      } catch (err) {
+        this.globalError = err.response?.data?.message || 'AI服务调用失败，请检查后端日志。';
+      } finally {
+        this.isAiLoading = false;
+      }
+    },
+    addBetRow() {
+      this.settlement.bets.push({ type: '', content: '', amount: 0, odds: null });
+    },
+    removeBetRow(index) {
+      this.settlement.bets.splice(index, 1);
+    },
+    async saveSettlement() {
+      if (this.isSaving) return;
+      this.isSaving = true;
+      this.globalError = null;
+
+      const settlementData = {
+        ...this.settlement,
+        total_amount: this.totalAmount,
+      };
+
+      try {
+        const token = localStorage.getItem('jwt_token');
+        const response = await axios.post(`${API_BASE_URL}/save_settlement.php`, {
+            emailId: this.selectedEmail.id,
+            settlementData: settlementData
+        }, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.data.status === 'success') {
+            // 标记邮件为已处理
+            const foundEmail = this.emails.find(e => e.id === this.selectedEmail.id);
+            if (foundEmail) {
+                foundEmail.is_processed = 1;
+            }
+            this.clearSettlement(); // 清空表单，准备处理下一个
+            alert('结算单已成功保存！');
+        } else {
+            this.globalError = `保存失败: ${response.data.message}`
+        }
+      } catch (err) {
+        this.globalError = err.response?.data?.message || '保存失败，请检查网络或联系管理员。';
+      } finally {
+        this.isSaving = false;
+      }
+    },
+    clearSettlement() {
+      this.selectedEmail = null;
+      this.aiCorrectionFeedback = '';
+      this.settlement = { draw_period: '', customer_name: '', bets: [] };
+    },
+    formatDateTime(dateTimeString) {
+      return new Date(dateTimeString).toLocaleString('zh-CN');
+    },
+  },
+};
+</script>
+
+<style scoped>
+/* ... (大部分样式保持不变) ... */
+.mail-organize-container { padding: 2rem; max-width: 1600px; margin: 0 auto; }
+h1 { text-align: center; color: var(--primary-accent); margin-bottom: 2rem; }
+.card { background-color: var(--background-secondary); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
+.loading-state, .error-state, .empty-state { text-align: center; padding: 2rem; font-size: 1.1rem; }
+.error-state { background-color: var(--error-color); color: #fff; }
+
+.content-wrapper { display: flex; gap: 2rem; align-items: flex-start; }
+.emails-list-panel { flex: 1 1 450px; max-width: 500px; }
+.settlement-panel { flex: 2 1 700px; position: sticky; top: 2rem; }
+
+.email-item { border-left: 5px solid var(--border-color); transition: all 0.2s ease; }
+.email-item.selected { border-left-color: var(--primary-accent); box-shadow: var(--shadow-elevation-medium); }
+.email-item.processed { background-color: var(--background-tertiary); opacity: 0.7; }
+.email-item.processed .email-subject { text-decoration: line-through; }
+
+.email-header { display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
+.email-subject { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }
+
+.status-and-button { display: flex; justify-content: space-between; align-items: center; }
+.processed-badge { font-weight: bold; color: var(--success-color); background-color: rgba(76, 175, 80, 0.1); padding: 0.3rem 0.6rem; border-radius: 12px; }
+
+.ai-organize-button { padding: 0.6rem 1.2rem; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+.ai-organize-button:disabled { background-color: #5a8ebb; cursor: not-allowed; }
+
+.settlement-panel h2 { color: var(--primary-accent); margin-top: 0; text-align: center; }
+.settlement-header { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+.form-group { display: flex; flex-direction: column; flex: 1; }
+.form-group label { margin-bottom: 0.5rem; font-weight: 500; }
+.form-control { width: 100%; padding: 0.8rem; border-radius: 5px; border: 1px solid var(--border-color); }
+textarea.form-control { min-height: 80px; }
+
+.table-responsive { overflow-x: auto; max-height: 400px; }
+.settlement-table { width: 100%; border-collapse: collapse; }
+.settlement-table th, .settlement-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+.settlement-table th { background-color: var(--background-tertiary); position: sticky; top: 0; }
+.settlement-table tfoot strong { color: var(--primary-accent); font-size: 1.1rem; }
+
+.form-control-table { width: 100%; padding: 0.5rem; border: 1px solid transparent; background-color: transparent; border-radius: 4px; }
+.form-control-table:focus { background-color: var(--background-primary); border-color: var(--primary-accent); outline: none; }
+
+.btn-remove-row, .btn-add-row { background: none; border: none; color: var(--error-color); cursor: pointer; }
+.btn-add-row { color: var(--primary-accent); margin-top: 1rem; font-weight: bold; }
+
+.ai-correction-section { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); }
+.ai-correction-section h3 { margin-top: 0; }
+
+.main-actions { margin-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end; }
+.submit-button, .cancel-button { padding: 0.8rem 1.5rem; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; }
+.submit-button { background-color: var(--primary-accent); color: white; }
+.submit-button:disabled { background-color: #a5d6a7; cursor: not-allowed; }
+.cancel-button { background-color: var(--background-tertiary); color: var(--text-primary); }
+</style>
