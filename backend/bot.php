@@ -88,6 +88,13 @@ if (isset($update['message']['text'])) {
     if ($user_state) {
         $argument = $message_text; // For state-based commands, the whole message is the argument
 
+        // Check for an exit command first, only if in an AI chat state.
+        if (in_array($user_state, ['chat_cf', 'chat_gemini']) && in_array($argument, ['/done', '退出', '退出会话'])) {
+            set_user_state($chat_id, null); // Clear state
+            handle_help_command($chat_id); // Show main menu
+            exit("OK: User exited AI session.");
+        }
+
         switch ($user_state) {
             case 'settle':
                 handle_settle_command($chat_id, ['/settle', $argument]);
