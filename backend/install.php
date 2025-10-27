@@ -4,7 +4,36 @@
 // This script is designed to be run from the command line (CLI) to set up the database.
 // Usage: php install.php
 
-// Set a flag to indicate CLI mode, which can be used in bootstrap.php if needed.
+// --- Environment and Database Initialization ---
+require_once __DIR__ . '/load_env.php';
+
+$db_connection = null;
+
+function connect_to_database_for_install()
+{
+    global $db_connection;
+
+    $db_host = getenv('DB_HOST');
+    $db_user = getenv('DB_USER');
+    $db_pass = getenv('DB_PASS');
+    $db_name = getenv('DB_NAME');
+
+    if (! $db_host || ! $db_user || ! $db_pass || ! $db_name) {
+        echo "❌ Error: Database configuration is incomplete. Please check your .env file.\n";
+        exit(1);
+    }
+
+    $db_connection = new mysqli($db_host, $db_user, $db_pass, $db_name);
+
+    if ($db_connection->connect_error) {
+        echo "❌ Error: Database connection failed: " . $db_connection->connect_error . "\n";
+        exit(1);
+    }
+
+    $db_connection->set_charset("utf8mb4");
+}
+
+// Set a flag to indicate CLI mode.
 define('IS_CLI', true);
 
 // Use echo for output in CLI mode.
@@ -12,8 +41,8 @@ echo "=========================================\n";
 echo "        Database Setup Script        \n";
 echo "=========================================\n\n";
 
-// We need the bootstrap file for the database connection.
-require_once __DIR__ . '/bootstrap.php';
+// Connect to the database using our local function
+connect_to_database_for_install();
 
 // Check if the database connection was successful.
 if (!$db_connection) {
