@@ -1,58 +1,78 @@
 <?php
 // backend/install.php
 
-echo "[INFO] Starting database setup...\n";
+// This script is designed to be run from the command line (CLI) to set up the database.
+// Usage: php install.php
 
-// Include the environment loader
-require_once __DIR__ . '/load_env.php';
+// Set a flag to indicate CLI mode, which can be used in bootstrap.php if needed.
+define('IS_CLI', true);
 
-// Now, access database credentials from the environment
-$db_host = getenv('DB_HOST');
-$db_user = getenv('DB_USER');
-$db_pass = getenv('DB_PASS');
-$db_name = getenv('DB_NAME');
+// Use echo for output in CLI mode.
+echo "=========================================\n";
+echo "        Database Setup Script        \n";
+echo "=========================================\n\n";
 
-// Check if all required variables are loaded
-if (!$db_host || !$db_user || !$db_pass || !$db_name) {
-    die("[FATAL] Database configuration is incomplete. Please check your .env file.\n");
+// We need the bootstrap file for the database connection.
+require_once __DIR__ . '/bootstrap.php';
+
+// Check if the database connection was successful.
+if (!$db_connection) {
+    echo "❌ Error: Failed to connect to the database. Please check your .env file.\n";
+    exit(1); // Exit with a non-zero status code to indicate failure.
 }
 
-// Establish a connection to the database server (without selecting a database)
-$conn = new mysqli($db_host, $db_user, $db_pass);
+echo "✅ Database connection successful.\n";
 
-// Check connection
-if ($conn->connect_error) {
-    die("[FATAL] Connection failed: " . $conn->connect_error . "\n");
+$sql_file_path = __DIR__ . '/setup.sql';
+if (!file_exists($sql_file_path)) {
+    echo "❌ Error: setup.sql file not found in the backend directory.\n";
+    exit(1);
 }
 
-echo "[SUCCESS] Connected to the MySQL server.\n";
+echo "✅ Found setup.sql file.\n";
 
-// Create the database if it doesn't exist
-$sql_create_db = "CREATE DATABASE IF NOT EXISTS `$db_name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
-if ($conn->query($sql_create_db) === TRUE) {
-    echo "[INFO] Database '$db_name' created or already exists.\n";
-} else {
-    die("[FATAL] Error creating database: " . $conn->error . "\n");
+// Read the entire SQL file.
+$sql_commands = file_get_contents($sql_file_path);
+
+// Remove comments and split into individual statements.
+$sql_commands = preg_replace('/--.*/', '', $sql_commands);
+$statements = explode(';', $sql_commands);
+
+$db_connection->begin_transaction();
+$total_statements = 0;
+$executed_statements = 0;
+
+try {
+    foreach ($statements as $statement) {
+        $trimmed_statement = trim($statement);
+        if (!empty($trimmed_statement)) {
+            $total_statements++;
+            echo "Executing: " . substr($trimmed_statement, 0, 50) . "...\n";
+            if ($db_connection->query($trimmed_statement) === false) {
+                // If a statement fails, throw an exception to trigger the rollback.
+                throw new Exception("Error executing statement: " . $db_connection->error);
+            }
+            $executed_statements++;
+        }
+    }
+
+    // If all statements were successful, commit the transaction.
+    $db_connection->commit();
+    echo "\n=========================================\n";
+    echo "✅ Database setup completed successfully!\n";
+    echo "Executed {$executed_statements} out of {$total_statements} SQL statements.\n";
+    echo "=========================================\n";
+
+} catch (Exception $e) {
+    // If any statement fails, roll back the entire transaction.
+    $db_connection->rollback();
+    echo "\n=========================================\n";
+    echo "❌ An error occurred. Rolling back all changes.\n";
+    echo "Error details: " . $e->getMessage() . "\n";
+    echo "=========================================\n";
+    exit(1);
 }
 
-// Select the database
-$conn->select_db($db_name);
-
-// Read the SQL setup file
-$sql_file = file_get_contents(__DIR__ . '/setup.sql');
-if ($sql_file === false) {
-    die("[FATAL] Could not read setup.sql file.\n");
-}
-
-// Execute the multi-query SQL
-if ($conn->multi_query($sql_file)) {
-    // Wait for all queries to finish
-    while ($conn->next_result()) {;}
-    echo "[SUCCESS] Executed SQL script from setup.sql.\n";
-    echo "[INFO] Setup complete! The database and tables should be ready.\n";
-} else {
-    die("[FATAL] Error executing SQL script: " . $conn->error . "\n");
-}
-
-// Close the connection
-$conn->close();
+// Close the database connection.
+$db_connection->close();
+exit(0); // Exit with a zero status code to indicate success.
