@@ -6,15 +6,17 @@ declare(strict_types=1);
 
 
 // --- CORS Configuration ---
-$allowed_origin = 'https://ss.wenxiuxiu.eu.org';
+if (isset($_SERVER['REQUEST_METHOD'])) {
+    $allowed_origin = 'https://ss.wenxiuxiu.eu.org';
 
-header("Access-Control-Allow-Origin: " . $allowed_origin);
-header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
+    header("Access-Control-Allow-Origin: " . $allowed_origin);
+    header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(204);
+        exit;
+    }
 }
 
 // --- Environment and Database Initialization ---
