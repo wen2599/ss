@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 // backend/bootstrap.php
 
+
 // --- CORS Configuration ---
 $allowed_origin = 'https://ss.wenxiuxiu.eu.org';
 
