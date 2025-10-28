@@ -18,6 +18,6 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.0.0",
-    "vite": "^4.5.14" // 升级 Vite 到最新的 4.x.x 版本
+    "vite": "^4.5.14"
   }
 }
