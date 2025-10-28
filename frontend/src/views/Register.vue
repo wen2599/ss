@@ -5,11 +5,15 @@
       <p>只需几步即可开始使用您的私人邮箱。</p>
       <form @submit.prevent="handleRegister">
         <div class="form-group">
+          <label for="username">用户名</label>
+          <input type="text" id="username" v-model="username" required autocomplete="username">
+        </div>
+        <div class="form-group">
           <label for="email">邮箱地址</label>
           <input type="email" id="email" v-model="email" required autocomplete="email">
         </div>
         <div class="form-group">
-          <label for="password">密码 (正好6位)</label>
+          <label for="password">密码 (最少8位)</label>
           <input type="password" id="password" v-model="password" required autocomplete="new-password">
         </div>
          <div class="form-group">
@@ -40,6 +44,7 @@ export default {
   name: 'RegisterView',
   data() {
     return {
+      username: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -59,19 +64,19 @@ export default {
         this.loading = false;
         return;
       }
-      // 修改密码长度验证为正好6位
-      if (this.password.length !== 6) {
-        this.error = '密码必须正好为6位。';
+
+      if (this.password.length < 8) {
+        this.error = '密码必须至少为8位。';
         this.loading = false;
         return;
       }
 
       try {
-        // 注册服务已经调整为接受邮箱和密码作为参数
-        await auth.register({ email: this.email, password: this.password });
+        await auth.register({ username: this.username, email: this.email, password: this.password });
         this.loading = false;
         this.successMessage = '账户创建成功！您现在可以登录了。';
         // 清空表单
+        this.username = '';
         this.email = '';
         this.password = '';
         this.confirmPassword = '';

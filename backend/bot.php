@@ -85,66 +85,52 @@ if (isset($update['message']['text'])) {
     $command_parts = explode(' ', $message_text, 2);
     $first_word = strtolower($command_parts[0]);
 
-    if ($user_state && isset($user_state['command'])) {
-        $current_command = $user_state['command'];
+    if ($user_state) {
         $argument = $message_text; // For state-based commands, the whole message is the argument
 
-        // Check for an exit command first, only if in an AI chat state.
-        if (in_array($current_command, ['chat_cf', 'chat_gemini']) && in_array($argument, ['/done', '退出', '退出会話'])) {
+        // Check for an exit command first.
+        if (in_array($argument, ['/done', '退出', '退出会话'])) {
             set_user_state($chat_id, null); // Clear state
             handle_help_command($chat_id); // Show main menu
-            // Let the script continue to the final exit("OK...") to acknowledge receipt to Telegram.
-        } else {
+            exit("OK: User exited session.");
+        }
 
-            switch ($current_command) {
-                case 'settle':
-                    handle_settle_command($chat_id, ['/settle', $argument]);
-                    set_user_state($chat_id, null); // Clear state after non-chat command
-                    break;
-                case 'report':
-                    handle_report_command($chat_id, ['/report', $argument]);
-                    set_user_state($chat_id, null);
-                    break;
-                case 'add':
-                    handle_add_command($chat_id, array_merge(['/add'], explode(' ', $argument)));
-                    set_user_state($chat_id, null);
-                    break;
-                case 'delete':
-                    handle_delete_command($chat_id, array_merge(['/delete'], explode(' ', $argument)));
-                // State is now set within the handler
+        switch ($user_state) {
+            case 'settle':
+                handle_settle_command($chat_id, ['/settle', $argument]);
+                set_user_state($chat_id, null); // Clear state after non-chat command
                 break;
-            case 'confirm_delete_record':
-                if (strtoupper($argument) === 'YES') {
-                    execute_record_deletion($chat_id, $user_state['data']);
-                } else {
-                    send_telegram_message($chat_id, "操作已取消。");
-                }
-                    set_user_state($chat_id, null);
-                    break;
-                case 'find_user':
-                    handle_find_user_command($chat_id, ['/finduser', $argument]);
-                    set_user_state($chat_id, null);
-                    break;
-                case 'delete_user':
-                    handle_delete_user_command($chat_id, ['/deleteuser', $argument]);
-                // State is now set within the handler
+            case 'report':
+                handle_report_command($chat_id, ['/report', $argument]);
+                set_user_state($chat_id, null);
                 break;
-            case 'confirm_delete_user':
-                if (strtoupper($argument) === 'YES') {
-                    execute_user_deletion($chat_id, $user_state['data']);
-                } else {
-                    send_telegram_message($chat_id, "操作已取消。");
-                }
-                    set_user_state($chat_id, null);
-                    break;
-                // For AI chats, we do NOT clear the state, allowing for a continuous conversation.
-                case 'chat_cf':
-                    handle_ai_chat_command($chat_id, $argument, 'cloudflare');
-                    break;
-                case 'chat_gemini':
-                    handle_ai_chat_command($chat_id, $argument, 'gemini');
-                    break;
-            }
+            case 'add':
+                handle_add_command($chat_id, array_merge(['/add'], explode(' ', $argument)));
+                set_user_state($chat_id, null);
+                break;
+            case 'delete':
+                handle_delete_command($chat_id, array_merge(['/delete'], explode(' ', $argument)));
+                set_user_state($chat_id, null);
+                break;
+            case 'find_user':
+                handle_find_user_command($chat_id, ['/finduser', $argument]);
+                set_user_state($chat_id, null);
+                break;
+            case 'delete_user':
+                handle_delete_user_command($chat_id, ['/deleteuser', $argument]);
+                set_user_state($chat_id, null);
+                break;
+            case 'set_gemini_key':
+                handle_set_gemini_key_command($chat_id, ['/setgeminikey', $argument]);
+                set_user_state($chat_id, null);
+                break;
+            // For AI chats, we do NOT clear the state, allowing for a continuous conversation.
+            case 'chat_cf':
+                handle_ai_chat_command($chat_id, $argument, 'cloudflare');
+                break;
+            case 'chat_gemini':
+                handle_ai_chat_command($chat_id, $argument, 'gemini');
+                break;
         }
     } else {
         if (strpos($message_text, '/') === 0) {
@@ -162,6 +148,7 @@ if (isset($update['message']['text'])) {
                 case '/delete': handle_delete_command($chat_id, explode(' ', $message_text)); break;
                 case '/finduser': handle_find_user_command($chat_id, ['/finduser', $argument]); break;
                 case '/deleteuser': handle_delete_user_command($chat_id, ['/deleteuser', $argument]); break;
+                case '/setgeminikey': handle_set_gemini_key_command($chat_id, ['/setgeminikey', $argument]); break;
                 case '/cfchat': handle_ai_chat_command($chat_id, $argument, 'cloudflare'); break;
                 case '/geminichat': handle_ai_chat_command($chat_id, $argument, 'gemini'); break; // Direct Gemini chat command
                 default: handle_help_command($chat_id); break;
@@ -174,10 +161,11 @@ if (isset($update['message']['text'])) {
                 case '最新开奖': handle_latest_command($chat_id); break;
                 case '系统统计': handle_stats_command($chat_id); break;
                 case '帮助说明': handle_help_command($chat_id); break;
-                case '查找用户': set_user_state($chat_id, 'find_user'); send_telegram_message($chat_id, "请输入要查找的邮箱:"); break;
-                case '删除用户': set_user_state($chat_id, 'delete_user'); send_telegram_message($chat_id, "⚠️ 警告！此操作将永久删除用户及其所有数据！\n请输入要删除的用户的邮箱:"); break;
+                case '查找用户': set_user_state($chat_id, 'find_user'); send_telegram_message($chat_id, "请输入要查找的用户名或邮箱:"); break;
+                case '删除用户': set_user_state($chat_id, 'delete_user'); send_telegram_message($chat_id, "⚠️ 警告！此操作将永久删除用户及其所有数据！\n请输入要删除的用户的用户名或邮箱:"); break;
                 case '手动添加': set_user_state($chat_id, 'add'); send_telegram_message($chat_id, "请输入记录 (类型 期号 号码):\n例如:\n香港六合彩 2023001 01,02,03,04,05,06,07"); break;
                 case '删除记录': set_user_state($chat_id, 'delete'); send_telegram_message($chat_id, "请输入记录 (类型 期号):\n例如:\n香港六合彩 2023001"); break;
+                case '更换Gemini Key': set_user_state($chat_id, 'set_gemini_key'); send_telegram_message($chat_id, "请输入新的Gemini API Key:\n(请确保您的API密钥是正确的，通常以'AIza'开头)"); break;
                 case 'CF AI 对话': set_user_state($chat_id, 'chat_cf'); send_telegram_message($chat_id, "您好，我是Cloudflare AI，请问有什么可以帮您？"); break;
                 case 'Gemini AI 对话': set_user_state($chat_id, 'chat_gemini'); send_telegram_message($chat_id, "您好，我是Gemini Pro，请问有什么可以帮您？"); break;
                 default: handle_help_command($chat_id); break;

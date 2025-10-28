@@ -23,6 +23,7 @@ function handle_help_command($chat_id): void
                   "/finduser [关键词] - 查找用户 (用户名/邮箱)\\n" .
                   "/deleteuser [关键词] - 删除用户及所有数据\\n\\n" .
                   "<b>--- AI 助手 ---</b>\\n" .
+                  "/setgeminikey [密钥] - 配置Gemini API Key\\n" .
                   "/cfchat [问题] - 与Cloudflare AI对话\\n" .
                   "/geminichat [问题] - 与Gemini AI对话\\n" .
                   "/help - 显示此帮助信息";
@@ -33,7 +34,7 @@ function handle_help_command($chat_id): void
             [['text' => '最新开奖'], ['text' => '系统统计']],
             [['text' => '查找用户'], ['text' => '删除用户']],
             [['text' => 'CF AI 对话'], ['text' => 'Gemini AI 对话']],
-            [['text' => '帮助说明']],
+            [['text' => '更换Gemini Key'], ['text' => '帮助说明']],
             [['text' => '退出会话']]
         ],
         'resize_keyboard' => true,
@@ -118,43 +119,13 @@ function handle_delete_command($chat_id, array $command_parts): void
     $lottery_type = $command_parts[1];
     $draw_period = $command_parts[2];
 
-    // Check if the record exists first
-    $stmt = $db_connection->prepare("SELECT id FROM lottery_draws WHERE lottery_type = ? AND draw_period = ?");
-    $stmt->bind_param("ss", $lottery_type, $draw_period);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->fetch_assoc()) {
-        // Ask for confirmation
-        set_user_state($chat_id, 'confirm_delete_record', [
-            'lottery_type' => $lottery_type,
-            'draw_period' => $draw_period
-        ]);
-        $reply_text = "⚠️ 您确定要删除开奖记录吗？\n" .
-                      "  - 类型: {$lottery_type}\n" .
-                      "  - 期号: {$draw_period}\n\n" .
-                      "请输入 `YES` 确认删除。";
-        send_telegram_message($chat_id, $reply_text);
-    } else {
-        send_telegram_message($chat_id, "❌ 未找到要删除的记录。");
-    }
-    $stmt->close();
-}
-
-function execute_record_deletion($chat_id, array $state_data): void
-{
-    global $db_connection;
-    $lottery_type = $state_data['lottery_type'];
-    $draw_period = $state_data['draw_period'];
-
     $stmt = $db_connection->prepare("DELETE FROM lottery_draws WHERE lottery_type = ? AND draw_period = ?");
     $stmt->bind_param("ss", $lottery_type, $draw_period);
 
     if ($stmt->execute() && $stmt->affected_rows > 0) {
-        send_telegram_message($chat_id, "✅ 成功删除记录。");
+        send_telegram_message($chat_id, "成功删除记录。");
     } else {
-        // This case might happen if the record is deleted between confirmation and execution
-        send_telegram_message($chat_id, "❌ 删除失败：记录已不存在。");
+        send_telegram_message($chat_id, "未找到要删除的记录。");
     }
     $stmt->close();
 }
@@ -166,21 +137,22 @@ function execute_record_deletion($chat_id, array $state_data): void
 function handle_find_user_command($chat_id, array $command_parts): void
 {
     if (count($command_parts) < 2) {
-        send_telegram_message($chat_id, "格式错误。用法: /finduser [邮箱]");
+        send_telegram_message($chat_id, "格式错误。用法: /finduser [用户名或邮箱]");
         return;
     }
 
     global $db_connection;
     $search_term = $command_parts[1];
 
-    $stmt = $db_connection->prepare("SELECT id, email, created_at FROM users WHERE email = ?");
-    $stmt->bind_param("s", $search_term);
+    $stmt = $db_connection->prepare("SELECT id, username, email, created_at FROM users WHERE username = ? OR email = ?");
+    $stmt->bind_param("ss", $search_term, $search_term);
     $stmt->execute();
     $result = $stmt->get_result();
 
     if ($user = $result->fetch_assoc()) {
         $reply_text = "✅ 找到用户信息:\\n" .
                       "  - 用户ID: {$user['id']}\\n" .
+                      "  - 用户名: {$user['username']}\\n" .
                       "  - 邮箱: {$user['email']}\\n" .
                       "  - 注册时间: {$user['created_at']}";
     } else {
@@ -197,74 +169,64 @@ function handle_find_user_command($chat_id, array $command_parts): void
 function handle_delete_user_command($chat_id, array $command_parts): void
 {
     if (count($command_parts) < 2) {
-        send_telegram_message($chat_id, "格式错误。用法: /deleteuser [邮箱]");
+        send_telegram_message($chat_id, "格式错误。用法: /deleteuser [用户名或邮箱]");
         return;
     }
 
     global $db_connection;
     $search_term = $command_parts[1];
 
-    $stmt = $db_connection->prepare("SELECT id, email FROM users WHERE email = ?");
-    $stmt->bind_param("s", $search_term);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($user = $result->fetch_assoc()) {
-        $user_id_to_delete = $user['id'];
-        $user_email = $user['email'];
-
-        // Ask for confirmation
-        set_user_state($chat_id, 'confirm_delete_user', ['user_id' => $user_id_to_delete]);
-        $reply_text = "⚠️ 您确定要删除用户 {$user_email} 吗？\n" .
-                      "此操作将永久删除该用户及其所有关联数据（例如，邮件）。\n\n" .
-                      "请输入 `YES` 确认删除。";
-        send_telegram_message($chat_id, $reply_text);
-    } else {
-        send_telegram_message($chat_id, "❌ 未找到用户: " . htmlspecialchars($search_term));
-    }
-    $stmt->close();
-}
-
-function execute_user_deletion($chat_id, array $state_data): void
-{
-    global $db_connection;
-    $user_id = $state_data['user_id'];
-
-    // Fetch email one last time for the confirmation message
-    $stmt_find = $db_connection->prepare("SELECT email FROM users WHERE id = ?");
-    $stmt_find->bind_param("i", $user_id);
+    $stmt_find = $db_connection->prepare("SELECT id, username, email FROM users WHERE username = ? OR email = ?");
+    $stmt_find->bind_param("ss", $search_term, $search_term);
     $stmt_find->execute();
     $result = $stmt_find->get_result();
-    $user = $result->fetch_assoc();
-    $stmt_find->close();
 
-    if (!$user) {
-        send_telegram_message($chat_id, "❌ 删除失败：在确认期间用户已不存在。");
+    if (!$user = $result->fetch_assoc()) {
+        send_telegram_message($chat_id, "❌ 未找到用户: " . htmlspecialchars($search_term));
+        $stmt_find->close();
         return;
     }
-    $email = $user['email'];
+    $stmt_find->close();
+
+    $user_id = $user['id'];
+    $username = $user['username'];
 
     $db_connection->begin_transaction();
     try {
-        // Delete associated emails
         $stmt_delete_emails = $db_connection->prepare("DELETE FROM emails WHERE user_id = ?");
         $stmt_delete_emails->bind_param("i", $user_id);
         $stmt_delete_emails->execute();
         $email_rows_affected = $stmt_delete_emails->affected_rows;
         $stmt_delete_emails->close();
 
-        // Delete the user
         $stmt_delete_user = $db_connection->prepare("DELETE FROM users WHERE id = ?");
         $stmt_delete_user->bind_param("i", $user_id);
         $stmt_delete_user->execute();
-        $stmt_delete_user->close();
 
         $db_connection->commit();
-        send_telegram_message($chat_id, "✅ 成功删除用户 {$email} 及 {$email_rows_affected} 封关联邮件。");
+        send_telegram_message($chat_id, "✅ 成功删除用户 {$username} 及 {$email_rows_affected} 封关联邮件。");
+
     } catch (Exception $e) {
         $db_connection->rollback();
-        error_log("Error during user deletion: " . $e->getMessage());
-        send_telegram_message($chat_id, "❌ 操作失败！在删除过程中发生严重错误。");
+        send_telegram_message($chat_id, "❌ 操作失败！在删除过程中发生严重错误: " . $e->getMessage());
+    }
+}
+
+/**
+ * Handles setting the Gemini API key.
+ */
+function handle_set_gemini_key_command($chat_id, array $command_parts): void
+{
+    if (count($command_parts) < 2) {
+        send_telegram_message($chat_id, "格式错误。用法: /setgeminikey [API密钥]");
+        return;
+    }
+
+    $api_key = $command_parts[1];
+    if (set_gemini_api_key($api_key)) {
+        send_telegram_message($chat_id, "✅ Gemini API密钥已成功更新。");
+    } else {
+        send_telegram_message($chat_id, "❌ 更新Gemini API密钥失败，请检查数据库或日志。");
     }
 }
 

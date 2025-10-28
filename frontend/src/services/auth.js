@@ -6,6 +6,7 @@ const authService = {
   async register(user) {
     const response = await api.post('/auth.php', {
       action: 'register',
+      username: user.username,
       email: user.email,
       password: user.password
     });
@@ -29,8 +30,28 @@ const authService = {
     return response;
   },
 
+  async checkSession() {
+    try {
+      const response = await api.get('/check-session.php');
+      if (response.data.loggedIn) {
+        this.user = response.data.user;
+        localStorage.setItem('user_id', this.user.id);
+        return true;
+      } else {
+        this.user = null;
+        localStorage.removeItem('user_id');
+        return false;
+      }
+    } catch (error) {
+      this.user = null;
+      localStorage.removeItem('user_id');
+      return false;
+    }
+  },
+
   isLoggedIn() {
-    return localStorage.getItem('user_id') !== null && document.cookie.includes('PHPSESSID');
+    // This provides a quick check, but checkSession is the authoritative source.
+    return localStorage.getItem('user_id') !== null;
   },
 
   async logout() {
