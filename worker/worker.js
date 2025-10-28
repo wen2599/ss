@@ -160,12 +160,22 @@ export default {
     const url = new URL(request.url);
     const backendServer = env.PUBLIC_API_ENDPOINT ? new URL(env.PUBLIC_API_ENDPOINT).origin : "https://wenge.cloudns.ch";
 
-    // Proxy API calls (e.g., /api/auth.php, etc.) to the backend
-    // The previous logic for *.php or /api/* is correct.
     const backendUrl = new URL(url.pathname, backendServer);
     backendUrl.search = url.search;
 
-    const backendRequest = new Request(backendUrl, request);
+    const requestInit = {
+      method: request.method,
+      headers: request.headers,
+      redirect: 'follow',
+    };
+
+    // Explicitly handle body and duplex for requests that might have a body
+    if (request.body) {
+      requestInit.body = request.body;
+      requestInit.duplex = 'half'; // CRUCIAL for streaming bodies in Workers
+    }
+
+    const backendRequest = new Request(backendUrl, requestInit);
     return fetch(backendRequest);
   },
 
