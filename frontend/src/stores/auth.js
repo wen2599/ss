@@ -1,25 +1,19 @@
 import { defineStore } from 'pinia';
-import { checkSession as apiCheckSession } from '../services/auth'; // 导入我们重构后的checkSession
+import * as authService from '../services/auth';
+import router from '../router'; // Import router
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    token: localStorage.getItem('token') || null, // 从localStorage加载token
-    user: JSON.parse(localStorage.getItem('user') || 'null'), // 从localStorage加载用户信息
+    token: localStorage.getItem('token') || null,
+    user: JSON.parse(localStorage.getItem('user') || 'null'),
   }),
 
   getters: {
-    // 判断用户是否已登录的计算属性
-    isLoggedIn: (state) => !!state.token,
-    // 获取当前用户信息
+    isLoggedIn: (state) => !!state.token && !!state.user,
     currentUser: (state) => state.user,
   },
 
   actions: {
-    /**
-     * 设置认证信息并保存到localStorage
-     * @param {string} token - JWT token
-     * @param {object} user - 用户对象
-     */
     setAuthentication(token, user) {
       this.token = token;
       this.user = user;
@@ -27,49 +21,56 @@ export const useAuthStore = defineStore('auth', {
       localStorage.setItem('user', JSON.stringify(user));
     },
 
-    /**
-     * 更新用户数据（例如，用户头像或名称更改时）
-     * @param {object} user - 更新后的用户对象
-     */
-    setUser(user) {
-        this.user = user;
-        localStorage.setItem('user', JSON.stringify(user));
+    async login(credentials) {
+      try {
+        const response = await authService.login(credentials);
+        if (response.success && response.token && response.user) {
+          this.setAuthentication(response.token, response.user);
+          return true;
+        } else {
+          throw new Error(response.message || 'Login failed with invalid data.');
+        }
+      } catch (error) {
+        console.error('Store login action failed:', error);
+        throw error;
+      }
     },
 
-    /**
-     * 执行登出操作，清除所有认证信息
-     */
+    async register(userData) {
+      try {
+        const response = await authService.register(userData);
+        if (response.success) {
+          return true; // Indicate success
+        } else {
+          throw new Error(response.message || 'Registration failed with invalid data.');
+        }
+      } catch (error) {
+        console.error('Store register action failed:', error);
+        throw error;
+      }
+    },
+
     logout() {
       this.token = null;
       this.user = null;
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      // 登出后重定向到登录页
-      window.location.href = '/login'; 
+      router.push('/login');
     },
 
-    /**
-     * 异步检查当前会话的有效性
-     * 通常在应用初始化时调用
-     * @returns {Promise<boolean>} - 会话是否有效
-     */
     async checkSession() {
       if (!this.token) {
-        this.logout(); // 如果本地没有token，直接登出
-        return false;
+        return;
       }
       try {
-        // 调用authService中重构后的checkSession
-        const isValid = await apiCheckSession(); 
-        if (!isValid) {
+        const response = await authService.checkSession();
+        if (!response.loggedIn) {
           this.logout();
-          return false;
         }
-        return true;
       } catch (error) {
-        console.error("会话检查失败:", error);
+        // The api.js interceptor will likely catch 401s and log out,
+        // but we'll do it here just in case.
         this.logout();
-        return false;
       }
     },
   },

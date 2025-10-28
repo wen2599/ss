@@ -26,40 +26,36 @@
   </div>
 </template>
 
-<script>
-import auth from '@/services/auth.js';
+<script setup>
+import { ref } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router';
 
-export default {
-  name: 'LoginView',
-  data() {
-    return {
-      email: '',
-      password: '',
-      loading: false,
-      error: null,
-    };
-  },
-  methods: {
-    async handleLogin() {
-      this.loading = true;
-      this.error = null;
-      try {
-        await auth.login({ email: this.email, password: this.password });
-        this.$router.push('/');
-      } catch (err) {
-        this.loading = false;
-        if (err.response && err.response.data && err.response.data.message) {
-          this.error = err.response.data.message;
-        } else {
-          this.error = '发生未知错误，请稍后再试。';
-        }
-      }
-    },
-  },
+const email = ref('');
+const password = ref('');
+const loading = ref(false);
+const error = ref(null);
+
+const authStore = useAuthStore();
+const router = useRouter();
+
+const handleLogin = async () => {
+  loading.value = true;
+  error.value = null;
+  try {
+    await authStore.login({ email: email.value, password: password.value });
+    // On successful login, the App.vue watcher will redirect to home, but we can be explicit
+    router.push('/');
+  } catch (err) {
+    error.value = err.message || 'An unknown error occurred.';
+  } finally {
+    loading.value = false;
+  }
 };
 </script>
 
 <style scoped>
+/* Styles remain the same */
 .auth-container {
   display: flex;
   justify-content: center;

@@ -37,68 +37,59 @@
   </div>
 </template>
 
-<script>
-import auth from '@/services/auth.js'; // 导入认证服务
+<script setup>
+import { ref } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router';
 
-export default {
-  name: 'RegisterView',
-  data() {
-    return {
-      username: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-      loading: false,
-      error: null,
-      successMessage: null,
-    };
-  },
-  methods: {
-    async handleRegister() {
-      this.loading = true;
-      this.error = null;
-      this.successMessage = null;
+const username = ref('');
+const email = ref('');
+const password = ref('');
+const confirmPassword = ref('');
+const loading = ref(false);
+const error = ref(null);
+const successMessage = ref(null);
 
-      if (this.password !== this.confirmPassword) {
-        this.error = '两次输入的密码不一致。';
-        this.loading = false;
-        return;
-      }
+const authStore = useAuthStore();
+const router = useRouter();
 
-      if (this.password.length < 8) {
-        this.error = '密码必须至少为8位。';
-        this.loading = false;
-        return;
-      }
+const handleRegister = async () => {
+  loading.value = true;
+  error.value = null;
+  successMessage.value = null;
 
-      try {
-        await auth.register({ username: this.username, email: this.email, password: this.password });
-        this.loading = false;
-        this.successMessage = '账户创建成功！您现在可以登录了。';
-        // 清空表单
-        this.username = '';
-        this.email = '';
-        this.password = '';
-        this.confirmPassword = '';
-        // 几秒后跳转到登录页
-        setTimeout(() => {
-          this.$router.push('/login');
-        }, 2000);
+  if (password.value !== confirmPassword.value) {
+    error.value = 'Passwords do not match.';
+    loading.value = false;
+    return;
+  }
 
-      } catch (err) {
-        this.loading = false;
-        if (err.response && err.response.data && err.response.data.message) {
-          this.error = err.response.data.message;
-        } else {
-          this.error = '发生未知错误，请稍后再试。';
-        }
-      }
-    },
-  },
+  if (password.value.length < 8) {
+    error.value = 'Password must be at least 8 characters long.';
+    loading.value = false;
+    return;
+  }
+
+  try {
+    await authStore.register({ 
+      username: username.value, 
+      email: email.value, 
+      password: password.value 
+    });
+    successMessage.value = 'Account created successfully! Redirecting to login...';
+    setTimeout(() => {
+      router.push('/login');
+    }, 2000);
+  } catch (err) {
+    error.value = err.message || 'An unknown error occurred during registration.';
+  } finally {
+    loading.value = false;
+  }
 };
 </script>
 
 <style scoped>
+/* Styles remain the same */
 .auth-container {
   display: flex;
   justify-content: center;

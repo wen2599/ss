@@ -8,7 +8,7 @@
           <router-link to="/lottery" class="nav-link">开奖公告</router-link>
         </div>
         <div class="nav-actions">
-          <button v-if="isLoggedIn" @click="logout" class="btn-logout">登出</button>
+          <button v-if="isLoggedIn" @click="handleLogout" class="btn-logout">登出</button>
           <router-link v-else to="/login" class="btn-login">登录</router-link>
         </div>
       </nav>
@@ -20,33 +20,30 @@
 </template>
 
 <script>
-import authService from './services/auth.js';
-import { useRouter } from 'vue-router';
-import { ref, onMounted, watch } from 'vue';
+import { computed, onMounted } from 'vue';
+import { useAuthStore } from './stores/auth';
 
 export default {
   name: 'App',
   setup() {
-    const router = useRouter();
-    const isLoggedIn = ref(authService.isLoggedIn());
+    const authStore = useAuthStore();
 
-    const logout = async () => {
-      await authService.logout();
-      isLoggedIn.value = false;
-      router.push('/login');
+    // Computed property to reactively track login state
+    const isLoggedIn = computed(() => authStore.isLoggedIn);
+
+    // On component mount, check the session validity
+    onMounted(() => {
+      authStore.checkSession();
+    });
+
+    const handleLogout = () => {
+      authStore.logout();
     };
 
-    onMounted(() => {
-      // Set initial state
-      isLoggedIn.value = authService.isLoggedIn();
-    });
-
-    // Watch for route changes to update login state, e.g., after login/register
-    watch(() => router.currentRoute.value, () => {
-      isLoggedIn.value = authService.isLoggedIn();
-    });
-
-    return { isLoggedIn, logout };
+    return { 
+      isLoggedIn, 
+      handleLogout 
+    };
   }
 };
 </script>
