@@ -9,7 +9,7 @@
           <input type="email" id="email" v-model="email" required autocomplete="email">
         </div>
         <div class="form-group">
-          <label for="password">密码 (最少8位)</label>
+          <label for="password">密码 (正好6位)</label>
           <input type="password" id="password" v-model="password" required autocomplete="new-password">
         </div>
          <div class="form-group">
@@ -59,9 +59,9 @@ export default {
         this.loading = false;
         return;
       }
-      // Updated password length validation to a minimum of 8 characters
-      if (this.password.length < 8) {
-        this.error = '密码必须至少为8位。';
+      // 修改密码长度验证为正好6位
+      if (this.password.length !== 6) {
+        this.error = '密码必须正好为6位。';
         this.loading = false;
         return;
       }
