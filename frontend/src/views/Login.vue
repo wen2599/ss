@@ -1,8 +1,8 @@
 <template>
   <div class="auth-container">
-    <div class="auth-card">
+    <div class="auth-card card">
       <h2>登录</h2>
-      <p>请输入您的邮箱和密码以访问您的邮件。</p>
+      <p>欢迎回来！请输入您的凭据以继续。</p>
       <form @submit.prevent="handleLogin">
         <div class="form-group">
           <label for="email">邮箱地址</label>
@@ -20,14 +20,14 @@
         </button>
       </form>
       <div class="switch-link">
-        <p>还没有账户？ <router-link to="/register">立即注册</router-link></p>
+        <p>还没有账户？ <router-link to="/register">创建一个</router-link></p>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import auth from '@/services/auth.js'; // 导入认证服务
+import auth from '@/services/auth.js';
 
 export default {
   name: 'LoginView',
@@ -44,12 +44,8 @@ export default {
       this.loading = true;
       this.error = null;
       try {
-        await auth.login(this.email, this.password);
-        // 登录成功后，路由守卫会自动处理跳转，但我们也可以手动跳转
-        // 为了更好的用户体验，直接跳转到根路径，然后让页面重新加载以应用状态
-        this.$router.push('/').then(() => {
-          window.location.reload();
-        });
+        await auth.login({ email: this.email, password: this.password });
+        this.$router.push('/');
       } catch (err) {
         this.loading = false;
         if (err.response && err.response.data && err.response.data.message) {
@@ -64,75 +60,67 @@ export default {
 </script>
 
 <style scoped>
-/* 样式保持不变 */
 .auth-container {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: calc(100vh - 80px);
-  background-color: #f3f4f6;
 }
+
 .auth-card {
   width: 100%;
   max-width: 400px;
-  padding: 2rem;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   text-align: center;
 }
-h2 {
+
+.auth-card h2 {
   margin-bottom: 0.5rem;
   font-size: 1.75rem;
   font-weight: 600;
+  color: var(--text-primary);
 }
-p {
+
+.auth-card p {
   margin-bottom: 1.5rem;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
+
 .form-group {
   margin-bottom: 1rem;
   text-align: left;
 }
+
 label {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
 }
-input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
-.submit-btn {
-  width: 100%;
-  padding: 0.75rem;
-  border: none;
-  border-radius: 4px;
-  background-color: #4f46e5;
-  color: white;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
+
 .submit-btn:disabled {
-  background-color: #a5b4fc;
+  background-color: var(--background-tertiary);
   cursor: not-allowed;
 }
+
 .submit-btn:hover:not(:disabled) {
-  background-color: #4338ca;
+  background-color: var(--primary-accent-hover);
 }
+
 .error-message {
   margin-top: 1rem;
   margin-bottom: 1rem;
-  color: #ef4444;
   font-size: 0.875rem;
+  padding: 0.75rem;
+  border-radius: 4px;
+  color: var(--error-color);
+  background-color: rgba(var(--error-color-rgb), 0.2);
 }
+
 .switch-link {
   margin-top: 1.5rem;
+}
+
+.switch-link p {
+  color: var(--text-secondary);
 }
 </style>

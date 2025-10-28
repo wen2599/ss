@@ -104,16 +104,11 @@ export default {
   justify-content: center;
   align-items: center;
   min-height: calc(100vh - 80px);
-  /* background-color: var(--background-primary); */ /* 使用全局背景 */
 }
 
 .auth-card {
   width: 100%;
   max-width: 400px;
-  /* padding: 2rem; */ /* 继承 card 样式 */
-  /* background-color: var(--background-secondary); */ /* 继承 card 样式 */
-  /* border-radius: 8px; */ /* 继承 card 样式 */
-  /* box-shadow: 0 4px 6px var(--shadow-color); */ /* 继承 card 样式 */
   text-align: center;
 }
 
@@ -141,21 +136,6 @@ label {
   color: var(--text-secondary);
 }
 
-/* input 样式已在 main.css 中全局定义 */
-
-.submit-btn {
-  width: 100%;
-  /* padding: 0.75rem; */ /* 继承 button 样式 */
-  /* border: none; */ /* 继承 button 样式 */
-  /* border-radius: 4px; */ /* 继承 button 样式 */
-  /* background-color: var(--primary-accent); */ /* 继承 button 样式 */
-  /* color: white; */ /* 继承 button 样式 */
-  /* font-size: 1rem; */ /* 继承 button 样式 */
-  /* font-weight: 600; */ /* 继承 button 样式 */
-  /* cursor: pointer; */ /* 继承 button 样式 */
-  /* transition: background-color 0.2s; */ /* 继承 button 样式 */
-}
-
 .submit-btn:disabled {
   background-color: var(--background-tertiary);
   cursor: not-allowed;
@@ -175,12 +155,12 @@ label {
 
 .error-message {
   color: var(--error-color);
-  background-color: rgba(var(--error-color-rgb), 0.2); /* 假设有 RGB 变量 */
+  background-color: rgba(var(--error-color-rgb), 0.2);
 }
 
 .success-message {
     color: var(--success-color);
-    background-color: rgba(var(--success-color-rgb), 0.2); /* 假设有 RGB 变量 */
+    background-color: rgba(var(--success-color-rgb), 0.2);
 }
 
 .switch-link {
