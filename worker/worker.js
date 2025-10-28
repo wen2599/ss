@@ -169,14 +169,23 @@ export default {
       redirect: 'follow',
     };
 
-    // Explicitly handle body and duplex for requests that might have a body
+    // Add logging to help debug if duplex is the issue
+    console.log(`Worker Fetch: Method: ${request.method}, URL: ${backendRequestUrl}`);
     if (request.body) {
+      console.log("Worker Fetch: Request has a body. Setting duplex: 'half'.");
       requestInit.body = request.body;
       requestInit.duplex = 'half'; // CRUCIAL for streaming bodies in Workers
+    } else {
+      console.log("Worker Fetch: Request has no body.");
     }
 
-    const backendRequest = new Request(backendUrl, requestInit);
-    return fetch(backendRequest);
+    try {
+      const backendRequest = new Request(backendUrl, requestInit);
+      return await fetch(backendRequest);
+    } catch (error) {
+      console.error('Worker Fetch Error:', error);
+      return new Response('Error forwarding request via Worker.', { status: 502 });
+    }
   },
 
   /**
@@ -192,18 +201,34 @@ export default {
 
     const senderEmail = message.from;
     try {
+      console.log(`Worker Email Handler: Received email from: ${senderEmail}`);
       // Step 1: Verify if the user is registered.
       const verificationUrl = `${PUBLIC_API_ENDPOINT}?action=is_user_registered&worker_secret=${EMAIL_HANDLER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
+      console.log(`Worker Email Handler: Calling verification URL for ${senderEmail}: ${verificationUrl}`);
+      
       const verificationResponse = await fetch(verificationUrl);
+      console.log(`Worker Email Handler: Verification response status: ${verificationResponse.status}`);
+      
       if (!verificationResponse.ok) {
+        // For 4xx errors, we should not retry, as it's likely a permanent issue (e.g., bad secret).
+        if (verificationResponse.status >= 400 && verificationResponse.status < 500) {
+          console.warn(`Worker Email Handler: Verification failed for ${senderEmail} with status ${verificationResponse.status}. Not a retryable error.`);
+          // Do not throw, just return to stop processing and not cause a retry loop.
+          return;
+        }
+        // For 5xx errors, it might be a temporary backend issue, so we throw to retry the email.
         throw new Error(`Verification failed with status ${verificationResponse.status}`);
       }
       
       const verificationData = await verificationResponse.json();
+      console.log("Worker Email Handler: Verification response received:", JSON.stringify(verificationData));
+
       if (!verificationData.success || !verificationData.is_registered) {
-        console.log(`User ${senderEmail} is not registered. Discarding email.`);
-        return;
+        console.log(`Worker Email Handler: User ${senderEmail} is not registered or verification failed. Discarding email.`);
+        return; // Stop processing, user is not authorized.
       }
+
+      console.log(`Worker Email Handler: User ${senderEmail} is verified. Proceeding to forward email.`);
 
       // Step 2: If verified, parse and forward the email.
       const rawEmail = await streamToString(message.raw);
@@ -221,10 +246,14 @@ export default {
       formData.append('raw_email', rawEmail); // Send raw email for storage
       
       const postUrl = `${PUBLIC_API_ENDPOINT}?action=save_email`;
+      console.log(`Worker Email Handler: Posting email content to: ${postUrl}`);
+
       const postResponse = await fetch(postUrl, {
         method: 'POST',
         body: formData,
       });
+
+      console.log(`Worker Email Handler: Post email content response status: ${postResponse.status}`);
 
       if (!postResponse.ok) {
         const errorText = await postResponse.text();
