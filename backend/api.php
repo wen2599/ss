@@ -1,6 +1,6 @@
 <?php
 // backend/api.php - Main API Gateway
-
+session_start();
 // Handle CORS pre-flight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     header("Access-Control-Allow-Origin: *");
@@ -26,7 +26,6 @@ $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
 // Determine the action from the JSON body or fallback to query parameters
 $action = $data['action'] ?? $_REQUEST['action'] ?? null;
-
 
 // Route to the appropriate controller
 switch ($action) {
