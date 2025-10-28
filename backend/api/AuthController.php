@@ -83,10 +83,10 @@ class AuthController {
             return;
         }
 
-        // Improved password length validation to a minimum of 8 characters
-        if (strlen($password) < 8) {
+        // Modified password length validation to exactly 6 characters
+        if (strlen($password) !== 6) {
             http_response_code(400);
-            echo json_encode(["message" => "Password must be at least 8 characters long"]);
+            echo json_encode(["message" => "Password must be exactly 6 characters long"]);
             return;
         }
 
@@ -125,32 +125,6 @@ class AuthController {
         } else {
             http_response_code(500);
             echo json_encode(["message" => "An unexpected error occurred."]);
-        }
-    }
-
-    public function check_session() {
-        if (isset($_SESSION['user_id'])) {
-            $stmt = $this->db_connection->prepare("SELECT id, email FROM users WHERE id = ?");
-            $stmt->bind_param("i", $_SESSION['user_id']);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($user = $result->fetch_assoc()) {
-                http_response_code(200);
-                echo json_encode([
-                    "loggedIn" => true,
-                    "user" => [
-                        "id" => $user['id'],
-                        "email" => $user['email']
-                    ]
-                ]);
-            } else {
-                http_response_code(404);
-                echo json_encode(["loggedIn" => false, "message" => "User not found"]);
-            }
-            $stmt->close();
-        } else {
-            http_response_code(401);
-            echo json_encode(["loggedIn" => false, "message" => "Not logged in"]);
         }
     }
 
