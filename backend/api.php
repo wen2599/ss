@@ -1,14 +1,25 @@
 <?php
 // backend/api.php - Main API Gateway
 
+// Handle CORS pre-flight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    header("Access-Control-Allow-Origin: *");
+    header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+    exit(0);
+}
+
+// Allow requests from any origin
+header("Access-Control-Allow-Origin: *");
+header("Content-Type: application/json");
+
+
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/../helpers.php'; // Ensure helpers.php is included for sendJsonResponse
 require_once __DIR__ . '/api/EmailController.php';
 require_once __DIR__ . '/api/AuthController.php';
 
 global $db_connection;
-
-header("Content-Type: application/json");
 
 // Determine the component to handle the request based on the context.
 // For simplicity, we can inspect the 'action' parameter.
