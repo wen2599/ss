@@ -1,1 +1,23 @@
-import { defineConfig } from \'vite\';\nimport vue from \'@vitejs/plugin-vue\';\nimport path from \'path\';\n\n// https://vitejs.dev/config/\nexport default defineConfig({\n  plugins: [vue()],\n  resolve: {\n    alias: {\n      \'@\': path.resolve(__dirname, \'./src\'),\n    },\n  },\n  server: {\n    proxy: {\n      // 代理所有对 /api.php 的请求到您的后端服务器\n      \'/api.php\': {\n        target: \'https://ss.wenxiuxiu.eu.org\', // 您的实际后端服务器地址\n        changeOrigin: true,\n        secure: false, // 如果后端是 HTTPS 但在开发环境遇到 SSL 证书问题，可以设置为 false\n        // rewrite: (path) => path.replace(/^\/api\.php/, '/api.php'), // 可选，如果目标路径与源路径相同则不需要重写\n      },\n      // 如果您的机器人或其他服务有其他API入口，可以继续添加\n      // \'/bot.php\': {\n      //   target: \'https://ss.wenxiuxiu.eu.org\',\n      //   changeOrigin: true,\n      //   secure: false,\n      // },\n    },\n  },\n});\n
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
+import path from 'path';
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [vue()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  server: {
+    proxy: {
+      // 代理所有对 /api.php 的请求到您的后端服务器
+      '/api.php': {
+        target: 'https://ss.wenxiuxiu.eu.org', // 您的实际后端服务器地址
+        changeOrigin: true,
+        secure: false, // 如果后端是 HTTPS 但在开发环境遇到 SSL 证书问题，可以设置为 false
+      },
+    },
+  },
+});

@@ -1,0 +1,15 @@
+name = "ssgamil" # 你的 Worker 名称
+main = "worker/worker.js" # Worker 的入口文件
+compatibility_date = "2024-01-01" # 兼容性日期，使用一个近期日期
+
+# 绑定 Cloudflare AI
+# [[ai_bindings]]
+# binding = "AI" # 在 Worker 中通过 env.AI 访问
+# default_model = "@cf/meta/llama-2-7b-chat-int8" # 默认模型，如果你计划使用其他模型，可以在代码中指定
+
+# 注意: account_id 必须手动填写，它是一个敏感信息。
+# account_id = "你的 Cloudflare 账户 ID"
+
+# 环境变量 (你需要手动在 Cloudflare Worker 的仪表盘中设置这些值)
+# PUBLIC_API_ENDPOINT = "https://ss.wenxiuxiu.eu.org/api.php"
+# EMAIL_HANDLER_SECRET = "你的邮件处理器密钥"
