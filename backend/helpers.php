@@ -160,74 +160,43 @@ function save_lottery_draw($data): bool
 /**
  * Gets the current command state for a user.
  */
-function get_user_state($chat_id): ?array
+function get_user_state($chat_id): ?string
 {
     $state_file = __DIR__ . '/bot_state.json';
     if (!file_exists($state_file)) {
         return null;
     }
 
-    $file_content = file_get_contents($state_file);
-    if (empty($file_content)) {
-        return null;
-    }
-
-    $state_data = json_decode($file_content, true);
-
-    // Check if json_decode was successful and the chat_id exists
-    if (json_last_error() !== JSON_ERROR_NONE || !isset($state_data[$chat_id])) {
-        return null;
-    }
-
-    return $state_data[$chat_id];
+    $state_data = json_decode(file_get_contents($state_file), true);
+    return $state_data[$chat_id]['command'] ?? null;
 }
 
 /**
  * Sets or clears the command state for a user.
  */
-function set_user_state($chat_id, $command, array $data = []): void
+function set_user_state($chat_id, $command): void
 {
     $state_file = __DIR__ . '/bot_state.json';
-    $temp_file = $state_file . '.' . uniqid() . '.tmp';
     $state_data = [];
 
-    // Step 1: Read the current state safely.
-    if (file_exists($state_file)) {
-        $file_content = file_get_contents($state_file);
+    $fp = fopen($state_file, 'c+');
+    if (flock($fp, LOCK_EX)) { // Exclusive lock
+        $file_content = stream_get_contents($fp);
         if (!empty($file_content)) {
-            $decoded_data = json_decode($file_content, true);
-            // Check if json_decode was successful
-            if (is_array($decoded_data)) {
-                $state_data = $decoded_data;
-            }
+            $state_data = json_decode($file_content, true);
         }
-    }
 
-    // Step 2: Modify the state in memory.
-    if ($command) {
-        $state_data[$chat_id] = [
-            'command' => $command,
-            'data' => $data,
-            'timestamp' => time()
-        ];
-    } else {
-        unset($state_data[$chat_id]);
-    }
+        if ($command) {
+            $state_data[$chat_id] = ['command' => $command, 'timestamp' => time()];
+        } else {
+            unset($state_data[$chat_id]);
+        }
 
-    // Step 3: Write to a temporary file.
-    $write_success = file_put_contents($temp_file, json_encode($state_data, JSON_PRETTY_PRINT));
-
-    if ($write_success === false) {
-        // Handle error: could not write to temporary file
-        error_log("Failed to write to temporary state file: {$temp_file}");
-        @unlink($temp_file); // Clean up temp file
-        return;
+        ftruncate($fp, 0); // Clear the file
+        rewind($fp);
+        fwrite($fp, json_encode($state_data, JSON_PRETTY_PRINT));
+        fflush($fp);
+        flock($fp, LOCK_UN); // Release the lock
     }
-
-    // Step 4: Atomically rename the temporary file to the original file name.
-    if (!rename($temp_file, $state_file)) {
-        // Handle error: could not rename file
-        error_log("Failed to rename temporary state file to {$state_file}");
-        @unlink($temp_file); // Clean up temp file
-    }
+    fclose($fp);
 }
