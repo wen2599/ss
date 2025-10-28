@@ -115,7 +115,7 @@ function call_gemini_ai(string $prompt, bool $is_json_mode = false)
     $api_key = get_gemini_api_key();
     if (!$api_key || $api_key === 'YOUR_GEMINI_API_KEY_HERE') {
         error_log("Gemini API key is not configured in the database.");
-        return null;
+        return "❌ Gemini AI 调用失败：尚未设置API密钥。";
     }
 
     $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={$api_key}";
@@ -147,8 +147,15 @@ function call_gemini_ai(string $prompt, bool $is_json_mode = false)
     curl_close($ch);
 
     if ($http_code !== 200) {
-        error_log("Gemini API request failed. HTTP Code: {$http_code}. Response: {$response}. cURL Error: {$curl_error}");
-        return null;
+        $error_message = "Gemini API request failed. HTTP Code: {$http_code}.";
+        if (!empty($response)) {
+            $error_message .= "\nResponse: " . $response;
+        }
+        if (!empty($curl_error)) {
+            $error_message .= "\ncURL Error: " . $curl_error;
+        }
+        error_log($error_message);
+        return "❌ Gemini AI 调用失败：\n" . $error_message;
     }
 
     $result = json_decode($response, true);
@@ -256,13 +263,15 @@ function chat_with_ai(string $user_prompt, string $ai_service = 'cloudflare'): ?
     }
     
     if ($ai_service === 'gemini') {
-        // Check for Gemini API key availability before making the call.
-        if (!get_gemini_api_key()) {
-            error_log("Gemini chat failed: API key not configured.");
-            return "❌ Gemini AI 调用失败：尚未设置API密钥。\n请管理员使用 `/setgeminikey [密钥]` 命令进行配置。";
-        }
         $full_prompt = $system_prompt . "\n\n用户问题: " . $user_prompt;
-        return call_gemini_ai($full_prompt, false);
+        $response = call_gemini_ai($full_prompt, false);
+
+        // The call_gemini_ai function now returns a string on both success and failure.
+        // We can check for the error emoji to see if it failed.
+        if (is_string($response) && strpos($response, '❌') === 0) {
+            return $response; // Return the detailed error message directly.
+        }
+        return $response;
     }
 
     return null;
