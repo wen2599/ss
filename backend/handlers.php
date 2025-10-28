@@ -119,13 +119,43 @@ function handle_delete_command($chat_id, array $command_parts): void
     $lottery_type = $command_parts[1];
     $draw_period = $command_parts[2];
 
+    // Check if the record exists first
+    $stmt = $db_connection->prepare("SELECT id FROM lottery_draws WHERE lottery_type = ? AND draw_period = ?");
+    $stmt->bind_param("ss", $lottery_type, $draw_period);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->fetch_assoc()) {
+        // Ask for confirmation
+        set_user_state($chat_id, 'confirm_delete_record', [
+            'lottery_type' => $lottery_type,
+            'draw_period' => $draw_period
+        ]);
+        $reply_text = "⚠️ 您确定要删除开奖记录吗？\n" .
+                      "  - 类型: {$lottery_type}\n" .
+                      "  - 期号: {$draw_period}\n\n" .
+                      "请输入 `YES` 确认删除。";
+        send_telegram_message($chat_id, $reply_text);
+    } else {
+        send_telegram_message($chat_id, "❌ 未找到要删除的记录。");
+    }
+    $stmt->close();
+}
+
+function execute_record_deletion($chat_id, array $state_data): void
+{
+    global $db_connection;
+    $lottery_type = $state_data['lottery_type'];
+    $draw_period = $state_data['draw_period'];
+
     $stmt = $db_connection->prepare("DELETE FROM lottery_draws WHERE lottery_type = ? AND draw_period = ?");
     $stmt->bind_param("ss", $lottery_type, $draw_period);
 
     if ($stmt->execute() && $stmt->affected_rows > 0) {
-        send_telegram_message($chat_id, "成功删除记录。");
+        send_telegram_message($chat_id, "✅ 成功删除记录。");
     } else {
-        send_telegram_message($chat_id, "未找到要删除的记录。");
+        // This case might happen if the record is deleted between confirmation and execution
+        send_telegram_message($chat_id, "❌ 删除失败：记录已不存在。");
     }
     $stmt->close();
 }
@@ -175,39 +205,67 @@ function handle_delete_user_command($chat_id, array $command_parts): void
     global $db_connection;
     $search_term = $command_parts[1];
 
-    $stmt_find = $db_connection->prepare("SELECT id, email FROM users WHERE email = ?");
-    $stmt_find->bind_param("s", $search_term);
+    $stmt = $db_connection->prepare("SELECT id, email FROM users WHERE email = ?");
+    $stmt->bind_param("s", $search_term);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($user = $result->fetch_assoc()) {
+        $user_id_to_delete = $user['id'];
+        $user_email = $user['email'];
+
+        // Ask for confirmation
+        set_user_state($chat_id, 'confirm_delete_user', ['user_id' => $user_id_to_delete]);
+        $reply_text = "⚠️ 您确定要删除用户 {$user_email} 吗？\n" .
+                      "此操作将永久删除该用户及其所有关联数据（例如，邮件）。\n\n" .
+                      "请输入 `YES` 确认删除。";
+        send_telegram_message($chat_id, $reply_text);
+    } else {
+        send_telegram_message($chat_id, "❌ 未找到用户: " . htmlspecialchars($search_term));
+    }
+    $stmt->close();
+}
+
+function execute_user_deletion($chat_id, array $state_data): void
+{
+    global $db_connection;
+    $user_id = $state_data['user_id'];
+
+    // Fetch email one last time for the confirmation message
+    $stmt_find = $db_connection->prepare("SELECT email FROM users WHERE id = ?");
+    $stmt_find->bind_param("i", $user_id);
     $stmt_find->execute();
     $result = $stmt_find->get_result();
-
-    if (!$user = $result->fetch_assoc()) {
-        send_telegram_message($chat_id, "❌ 未找到用户: " . htmlspecialchars($search_term));
-        $stmt_find->close();
-        return;
-    }
+    $user = $result->fetch_assoc();
     $stmt_find->close();
 
-    $user_id = $user['id'];
+    if (!$user) {
+        send_telegram_message($chat_id, "❌ 删除失败：在确认期间用户已不存在。");
+        return;
+    }
     $email = $user['email'];
 
     $db_connection->begin_transaction();
     try {
+        // Delete associated emails
         $stmt_delete_emails = $db_connection->prepare("DELETE FROM emails WHERE user_id = ?");
         $stmt_delete_emails->bind_param("i", $user_id);
         $stmt_delete_emails->execute();
         $email_rows_affected = $stmt_delete_emails->affected_rows;
         $stmt_delete_emails->close();
 
+        // Delete the user
         $stmt_delete_user = $db_connection->prepare("DELETE FROM users WHERE id = ?");
         $stmt_delete_user->bind_param("i", $user_id);
         $stmt_delete_user->execute();
+        $stmt_delete_user->close();
 
         $db_connection->commit();
         send_telegram_message($chat_id, "✅ 成功删除用户 {$email} 及 {$email_rows_affected} 封关联邮件。");
-
     } catch (Exception $e) {
         $db_connection->rollback();
-        send_telegram_message($chat_id, "❌ 操作失败！在删除过程中发生严重错误: " . $e->getMessage());
+        error_log("Error during user deletion: " . $e->getMessage());
+        send_telegram_message($chat_id, "❌ 操作失败！在删除过程中发生严重错误。");
     }
 }
 
