@@ -2,9 +2,15 @@
 class AuthController {
     private $db_connection;
 
-    public function __construct() {
-        global $db_connection;
+    public function __construct($db_connection) {
         $this->db_connection = $db_connection;
+    }
+
+    private function _sendJsonResponse($statusCode, $data) {
+        http_response_code($statusCode);
+        header('Content-Type: application/json');
+        echo json_encode($data);
+        exit;
     }
 
     public function handleRequest() {
@@ -21,18 +27,18 @@ class AuthController {
             case 'logout':
                 $this->logout();
                 break;
+            case 'check_session': // Added to handle session check via AuthController if needed
+                $this->check_session();
+                break;
             default:
-                http_response_code(400);
-                echo json_encode(["message" => "Invalid action"]);
+                $this->_sendJsonResponse(400, ["message" => "Invalid action"]);
                 break;
         }
     }
 
     private function login($data) {
         if (!isset($data['email']) || !isset($data['password'])) {
-            http_response_code(400);
-            echo json_encode(["message" => "Email and password are required"]);
-            return;
+            $this->_sendJsonResponse(400, ["message" => "Email and password are required"]);
         }
 
         $email = $data['email'];
@@ -48,8 +54,7 @@ class AuthController {
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = $user['id'];
 
-                http_response_code(200);
-                echo json_encode([
+                $this->_sendJsonResponse(200, [
                     "message" => "Login successful",
                     "user" => [
                         "id" => $user['id'],
@@ -58,21 +63,17 @@ class AuthController {
                     ]
                 ]);
             } else {
-                http_response_code(401);
-                echo json_encode(["message" => "Invalid credentials"]);
+                $this->_sendJsonResponse(401, ["message" => "Invalid credentials"]);
             }
         } else {
-            http_response_code(404);
-            echo json_encode(["message" => "User not found"]);
+            $this->_sendJsonResponse(404, ["message" => "User not found"]);
         }
         $stmt->close();
     }
 
     private function register($data) {
         if (!isset($data['username']) || !isset($data['email']) || !isset($data['password'])) {
-            http_response_code(400);
-            echo json_encode(["message" => "Username, email, and password are required"]);
-            return;
+            $this->_sendJsonResponse(400, ["message" => "Username, email, and password are required"]);
         }
 
         $username = trim($data['username']);
@@ -80,21 +81,15 @@ class AuthController {
         $password = $data['password'];
 
         if (empty($username)) {
-            http_response_code(400);
-            echo json_encode(["message" => "Username cannot be empty"]);
-            return;
+            $this->_sendJsonResponse(400, ["message" => "Username cannot be empty"]);
         }
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            http_response_code(400);
-            echo json_encode(["message" => "Invalid email format"]);
-            return;
+            $this->_sendJsonResponse(400, ["message" => "Invalid email format"]);
         }
 
         if (strlen($password) < 8) {
-            http_response_code(400);
-            echo json_encode(["message" => "Password must be at least 8 characters long"]);
-            return;
+            $this->_sendJsonResponse(400, ["message" => "Password must be at least 8 characters long"]);
         }
 
         $stmt = $this->db_connection->prepare("SELECT id FROM users WHERE email = ? OR username = ?");
@@ -103,10 +98,7 @@ class AuthController {
         $result = $stmt->get_result();
 
         if ($result->fetch_assoc()) {
-            http_response_code(409);
-            echo json_encode(["message" => "User with this email or username already exists"]);
-            $stmt->close();
-            return;
+            $this->_sendJsonResponse(409, ["message" => "User with this email or username already exists"]);
         }
         $stmt->close();
 
@@ -121,8 +113,7 @@ class AuthController {
             session_regenerate_id(true);
             $_SESSION['user_id'] = $user_id;
 
-            http_response_code(201);
-            echo json_encode([
+            $this->_sendJsonResponse(201, [
                 "message" => "User created successfully",
                 "user" => [
                     "id" => $user_id,
@@ -131,8 +122,7 @@ class AuthController {
                 ]
             ]);
         } else {
-            http_response_code(500);
-            echo json_encode(["message" => "An unexpected error occurred."]);
+            $this->_sendJsonResponse(500, ["message" => "An unexpected error occurred."]);
         }
     }
 
@@ -143,8 +133,7 @@ class AuthController {
             $stmt->execute();
             $result = $stmt->get_result();
             if ($user = $result->fetch_assoc()) {
-                http_response_code(200);
-                echo json_encode([
+                $this->_sendJsonResponse(200, [
                     "loggedIn" => true,
                     "user" => [
                         "id" => $user['id'],
@@ -153,13 +142,11 @@ class AuthController {
                     ]
                 ]);
             } else {
-                http_response_code(404);
-                echo json_encode(["loggedIn" => false, "message" => "User not found"]);
+                $this->_sendJsonResponse(404, ["loggedIn" => false, "message" => "User not found"]);
             }
             $stmt->close();
         } else {
-            http_response_code(401);
-            echo json_encode(["loggedIn" => false, "message" => "Not logged in"]);
+            $this->_sendJsonResponse(401, ["loggedIn" => false, "message" => "Not logged in"]);
         }
     }
 
@@ -176,7 +163,6 @@ class AuthController {
 
         session_destroy();
 
-        http_response_code(200);
-        echo json_encode(["message" => "Logout successful"]);
+        $this->_sendJsonResponse(200, ["message" => "Logout successful"]);
     }
 }
