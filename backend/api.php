@@ -21,15 +21,12 @@ require_once __DIR__ . '/api/AuthController.php';
 
 global $db_connection;
 
-// Determine the component to handle the request based on the context.
-// For simplicity, we can inspect the 'action' parameter.
-$action = $_REQUEST['action'] ?? null;
+// Read the raw request body once to avoid stream exhaustion
+$data = json_decode(file_get_contents('php://input'), true) ?? [];
 
-if (!$action) {
-    // Fallback for older auth requests that might send JSON body
-    $data = json_decode(file_get_contents('php://input'), true);
-    $action = $data['action'] ?? null;
-}
+// Determine the action from the JSON body or fallback to query parameters
+$action = $data['action'] ?? $_REQUEST['action'] ?? null;
+
 
 // Route to the appropriate controller
 switch ($action) {
@@ -45,9 +42,8 @@ switch ($action) {
     case 'register':
     case 'logout':
     case 'check_session':
-        // AuthController expects JSON input, which is handled correctly
         $authController = new AuthController($db_connection);
-        $authController->handleRequest();
+        $authController->handleRequest($data); // Pass the decoded data
         break;
 
     // AI Processing Action

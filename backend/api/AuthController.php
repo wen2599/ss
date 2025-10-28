@@ -13,8 +13,7 @@ class AuthController {
         exit;
     }
 
-    public function handleRequest() {
-        $data = json_decode(file_get_contents("php://input"), true);
+    public function handleRequest($data) {
         $action = $data['action'] ?? '';
 
         switch ($action) {
