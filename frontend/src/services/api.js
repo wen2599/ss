@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { fetchAdapter } from '@haverstack/axios-fetch-adapter';
+import fetchAdapter from '@haverstack/axios-fetch-adapter';
 
 const api = axios.create({
   baseURL: '/api',
