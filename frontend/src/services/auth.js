@@ -4,7 +4,7 @@ const authService = {
   user: null,
 
   async register(user) {
-    const response = await api.post('/api.php', {
+    const response = await api.post('api.php', {
       action: 'register',
       username: user.username,
       email: user.email,
@@ -18,7 +18,7 @@ const authService = {
   },
 
   async login(user) {
-    const response = await api.post('/api.php', {
+    const response = await api.post('api.php', {
       action: 'login',
       email: user.email,
       password: user.password
@@ -32,7 +32,7 @@ const authService = {
 
   async checkSession() {
     try {
-      const response = await api.post('/api.php', { action: 'check_session' }); // Changed to POST with action
+      const response = await api.post('api.php', { action: 'check_session' });
       if (response.data.loggedIn) {
         this.user = response.data.user;
         localStorage.setItem('user_id', this.user.id);
@@ -54,7 +54,7 @@ const authService = {
   },
 
   async logout() {
-    await api.post('/api.php', {
+    await api.post('api.php', {
       action: 'logout'
     });
     this.user = null;
