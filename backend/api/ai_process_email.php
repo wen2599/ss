@@ -1,63 +1,122 @@
 <?php
-
-declare(strict_types=1);
-
 // backend/api/ai_process_email.php
 
-require_once __DIR__ . '/../bootstrap.php';
-require_once __DIR__ . '/../ai_helpers.php';
+require_once '../bootstrap.php';
+require_once 'helpers.php'; // For sendJsonResponse
 
-header("Content-Type: application/json");
+// --- Configuration ---
+$gemini_api_key = getenv('GEMINI_API_KEY');
+$gemini_api_endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' . $gemini_api_key;
+$worker_secret = getenv('WORKER_SECRET');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['status' => 'error', 'message' => '仅允许POST方法']);
+// --- Input Validation ---
+$request_data = json_decode(file_get_contents('php://input'), true);
+$email_id = $request_data['email_id'] ?? null;
+$client_secret = $request_data['secret'] ?? null;
+
+if (empty($client_secret) || $client_secret !== $worker_secret) {
+    sendJsonResponse(403, ['success' => false, 'message' => 'Forbidden: Invalid secret.']);
     exit;
 }
 
-$user_id = verify_jwt_token();
-if (!$user_id) {
-    http_response_code(401);
-    echo json_encode(['status' => 'error', 'message' => '认证失败，请重新登录。']);
+if (empty($email_id)) {
+    sendJsonResponse(400, ['success' => false, 'message' => 'Bad Request: Missing email_id.']);
     exit;
 }
 
-$data = json_decode(file_get_contents('php://input'), true);
-$email_id = filter_var($data['email_id'] ?? null, FILTER_VALIDATE_INT);
-$correction_feedback = trim($data['correction'] ?? ''); // 接收修正指令，并清理空白符
-
-if (!$email_id) {
-    http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => '请求参数错误：缺少邮件ID。']);
-    exit;
-}
-
+// --- Database Interaction ---
 global $db_connection;
-$stmt = $db_connection->prepare("SELECT body FROM emails WHERE id = ? AND user_id = ?");
-$stmt->bind_param("ii", $email_id, $user_id);
+
+// 1. Fetch the raw email content from the database
+$stmt = $db_connection->prepare("SELECT raw_email FROM emails WHERE id = ?");
+$stmt->bind_param("i", $email_id);
 $stmt->execute();
 $result = $stmt->get_result();
-
-if (!$email = $result->fetch_assoc()) {
-    http_response_code(404);
-    echo json_encode(['status' => 'error', 'message' => '未找到该邮件或您无权访问。' . ($email_id ? " 邮件ID: {$email_id}" : '')]);
-    exit;
-}
+$email = $result->fetch_assoc();
 $stmt->close();
 
-$email_body = $email['body'];
-
-// 将修正指令传递给AI
-$organized_data = organize_email_with_ai($email_body, $correction_feedback);
-
-if (!$organized_data) {
-    http_response_code(500);
-    $error_msg = $correction_feedback 
-        ? 'AI根据您的指令修正失败。请尝试更清晰的描述，例如：“第一条是特码，不是平码”。' 
-        : 'AI处理邮件失败，请检查AI服务配置（Cloudflare / Gemini API Key）。';
-    echo json_encode(['status' => 'error', 'message' => $error_msg]);
+if (!$email || empty($email['raw_email'])) {
+    sendJsonResponse(404, ['success' => false, 'message' => 'Email not found or content is empty.']);
     exit;
 }
 
-http_response_code(200);
-echo json_encode(['status' => 'success', 'message' => 'AI成功生成或修正结算单。', 'data' => $organized_data]);
+$raw_email_content = $email['raw_email'];
+
+// --- AI Processing ---
+
+$prompt = "You are an expert financial assistant. Your task is to extract structured data from the following email content. The email is a bill or invoice. Please extract the following fields: vendor_name, bill_amount (as a number), currency (e.g., USD, CNY), due_date (in YYYY-MM-DD format), invoice_number, and a category (e.g., 'Utilities', 'Subscription', 'Shopping', 'Travel'). If a field is not present, its value should be null. Provide the output in a clean JSON format. Do not include any explanatory text, only the JSON object.\n\nEmail Content:\n\"\"\"\n" . $raw_email_content . "\n\"\"\"";
+
+$post_data = [
+    'contents' => [
+        [
+            'parts' => [
+                ['text' => $prompt]
+            ]
+        ]
+    ]
+];
+
+// --- cURL Request to Gemini API ---
+$ch = curl_init($gemini_api_endpoint);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($post_data));
+curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+
+$response = curl_exec($ch);
+$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+
+if ($http_code !== 200) {
+    sendJsonResponse(502, ['success' => false, 'message' => 'Failed to get a valid response from AI model.', 'details' => $response]);
+    exit;
+}
+
+$response_data = json_decode($response, true);
+$ai_generated_text = $response_data['candidates'][0]['content']['parts'][0]['text'] ?? '';
+
+// --- Data Extraction and Update ---
+
+// Clean the AI response to get pure JSON
+$json_match = [];
+if (preg_match('/```json\s*([\s\S]+?)\s*```/', $ai_generated_text, $json_match)) {
+    $json_response = $json_match[1];
+} else {
+    $json_response = $ai_generated_text;
+}
+
+$extracted_data = json_decode($json_response, true);
+
+if (json_last_error() !== JSON_ERROR_NONE) {
+    sendJsonResponse(500, ['success' => false, 'message' => 'Failed to parse JSON from AI response.', 'raw_response' => $ai_generated_text]);
+    exit;
+}
+
+// 2. Update the 'emails' table with the structured data
+$update_stmt = $db_connection->prepare("UPDATE emails SET 
+    vendor_name = ?, 
+    bill_amount = ?, 
+    currency = ?, 
+    due_date = ?, 
+    invoice_number = ?, 
+    category = ?, 
+    status = 'processed' 
+    WHERE id = ?");
+
+$vendor = $extracted_data['vendor_name'] ?? null;
+$amount = $extracted_data['bill_amount'] ?? null;
+$currency = $extracted_data['currency'] ?? null;
+$due_date = $extracted_data['due_date'] ?? null;
+$invoice = $extracted_data['invoice_number'] ?? null;
+$category = $extracted_data['category'] ?? null;
+
+$update_stmt->bind_param("sdssssi", $vendor, $amount, $currency, $due_date, $invoice, $category, $email_id);
+
+if ($update_stmt->execute()) {
+    sendJsonResponse(200, ['success' => true, 'message' => 'Email processed and data updated successfully.', 'data' => $extracted_data]);
+} else {
+    sendJsonResponse(500, ['success' => false, 'message' => 'Database update failed.']);
+}
+
+$update_stmt->close();
+$db_connection->close();

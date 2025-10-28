@@ -1,40 +1,95 @@
 <?php
-require_once __DIR__ . '/../helpers.php'; // Ensure helpers.php is included for parse_lottery_message
+require_once __DIR__ . '/../helpers.php'; // For sendJsonResponse
 
 class EmailController {
     private $db_connection;
 
-    public function __construct() {
-        global $db_connection;
+    public function __construct($db_connection) {
         $this->db_connection = $db_connection;
     }
 
+    /**
+     * Handles the incoming request from the Cloudflare Worker.
+     */
     public function handleRequest() {
-        $data = json_decode(file_get_contents("php://input"), true);
+        // Data is sent as FormData (POST), not JSON.
+        $action = $_REQUEST['action'] ?? null;
 
-        // --- Worker Authentication ---
-        if (!isset($data['worker_secret']) || $data['worker_secret'] !== getenv('EMAIL_HANDLER_SECRET')) {
-            http_response_code(401);
-            echo json_encode(["status" => "error", "message" => "Unauthorized"]);
-            return;
-        }
-
-        if (isset($data['from']) && isset($data['subject']) && isset($data['body'])) {
-            $this->saveEmail($data);
-        } else {
-            http_response_code(400);
-            echo json_encode(["status" => "error", "message" => "Invalid email data."]);
+        switch ($action) {
+            case 'save_email':
+                $this->saveEmail();
+                break;
+            case 'is_user_registered':
+                $this->isUserRegistered();
+                break;
+            default:
+                sendJsonResponse(400, ['success' => false, 'message' => 'Invalid action specified.']);
+                break;
         }
     }
 
-    private function saveEmail($data) {
-        $from = $data['from'];
-        $subject = $data['subject'];
-        $body = $data['body'];
+    /**
+     * Verifies the worker secret from the request.
+     * @return bool
+     */
+    private function verifySecret() {
+        $worker_secret = getenv('WORKER_SECRET');
+        $submitted_secret = $_REQUEST['worker_secret'] ?? null;
+        
+        if (!$worker_secret || $submitted_secret !== $worker_secret) {
+            sendJsonResponse(403, ['success' => false, 'message' => 'Forbidden: Invalid secret.']);
+            return false;
+        }
+        return true;
+    }
 
-        // Look up user_id by the 'from' email address
+    /**
+     * Checks if a user is registered based on their email address.
+     * This is called by the Worker before forwarding the email content.
+     */
+    private function isUserRegistered() {
+        if (!$this->verifySecret()) return;
+
+        $email = $_REQUEST['email'] ?? null;
+        if (empty($email)) {
+            sendJsonResponse(400, ['success' => false, 'message' => 'Email parameter is required.']);
+            return;
+        }
+
         $stmt = $this->db_connection->prepare("SELECT id FROM users WHERE email = ?");
-        $stmt->bind_param("s", $from);
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            sendJsonResponse(200, ['success' => true, 'is_registered' => true]);
+        } else {
+            sendJsonResponse(200, ['success' => true, 'is_registered' => false]);
+        }
+        $stmt->close();
+    }
+
+    /**
+     * Saves the email content forwarded from the Worker into the database.
+     */
+    private function saveEmail() {
+        if (!$this->verifySecret()) return;
+
+        // --- Extract data from POST request ---
+        $from_address = $_POST['from_address'] ?? null;
+        $to_address = $_POST['to_address'] ?? null;
+        $subject = $_POST['subject'] ?? 'No Subject';
+        $body = $_POST['body'] ?? '';
+        $raw_email = $_POST['raw_email'] ?? '';
+
+        if (empty($from_address) || empty($raw_email)) {
+            sendJsonResponse(400, ['success' => false, 'message' => 'Missing required fields (from_address, raw_email).']);
+            return;
+        }
+
+        // --- Find user_id from the sender's email ---
+        $stmt = $this->db_connection->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->bind_param("s", $from_address);
         $stmt->execute();
         $result = $stmt->get_result();
 
@@ -42,25 +97,25 @@ class EmailController {
             $user_id = $user['id'];
             $stmt->close();
 
-            $extracted_data = json_encode(parse_lottery_message($body) ?? []);
-
-            $insert_stmt = $this->db_connection->prepare("INSERT INTO emails (user_id, from_address, subject, body, extracted_data) VALUES (?, ?, ?, ?, ?)");
-            $insert_stmt->bind_param("issss", $user_id, $from, $subject, $body, $extracted_data);
+            // --- Insert the email into the database ---
+            $insert_stmt = $this->db_connection->prepare(
+                "INSERT INTO emails (user_id, from_address, to_address, subject, body, raw_email, status) 
+                 VALUES (?, ?, ?, ?, ?, ?, 'received')"
+            );
+            $insert_stmt->bind_param("issssss", $user_id, $from_address, $to_address, $subject, $body, $raw_email);
 
             if ($insert_stmt->execute()) {
-                http_response_code(200);
-                echo json_encode(["status" => "success", "message" => "Email saved successfully."]);
+                sendJsonResponse(201, ['success' => true, 'message' => 'Email saved successfully.', 'email_id' => $insert_stmt->insert_id]);
             } else {
                 error_log("Failed to save email for user_id {$user_id}: " . $insert_stmt->error);
-                http_response_code(500);
-                echo json_encode(["status" => "error", "message" => "Failed to save email."]);
+                sendJsonResponse(500, ['success' => false, 'message' => 'Failed to save email.']);
             }
             $insert_stmt->close();
         } else {
-            // If no user is found, discard the email
-            http_response_code(200); // Respond with 200 OK to acknowledge receipt but do nothing
-            echo json_encode(["status" => "success", "message" => "Email from unregistered user discarded."]);
+            // This case should ideally not happen because the worker pre-verifies.
+            // But as a safeguard, we handle it.
             $stmt->close();
+            sendJsonResponse(404, ['success' => false, 'message' => 'User not found for the given email address.']);
         }
     }
 }
