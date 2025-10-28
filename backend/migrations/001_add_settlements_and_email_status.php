@@ -55,7 +55,7 @@ SQL;
         echo "[跳过] `{$column_name}` 字段已经存在于 `emails` 表中。\n";
     } else {
         echo "[执行] 正在添加 `{$column_name}` 字段...\n";
-        $alter_table_sql = "ALTER TABLE `emails` ADD `is_processed` TINYINT(1) NOT NULL DEFAULT 0 AFTER `body`";
+        $alter_table_sql = "ALTER TABLE `emails` ADD `is_processed` TINYINT(1) NOT NULL DEFAULT 0 AFTER `content`";
         if ($db_connection->query($alter_table_sql) === TRUE) {
             echo "[成功] `{$column_name}` 字段已成功添加到 `emails` 表中。\n";
         } else {
