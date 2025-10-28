@@ -23,7 +23,6 @@ function handle_help_command($chat_id): void
                   "/finduser [关键词] - 查找用户 (用户名/邮箱)\\n" .
                   "/deleteuser [关键词] - 删除用户及所有数据\\n\\n" .
                   "<b>--- AI 助手 ---</b>\\n" .
-                  "/setgeminikey [密钥] - 配置Gemini API Key\\n" .
                   "/cfchat [问题] - 与Cloudflare AI对话\\n" .
                   "/geminichat [问题] - 与Gemini AI对话\\n" .
                   "/help - 显示此帮助信息";
@@ -34,7 +33,7 @@ function handle_help_command($chat_id): void
             [['text' => '最新开奖'], ['text' => '系统统计']],
             [['text' => '查找用户'], ['text' => '删除用户']],
             [['text' => 'CF AI 对话'], ['text' => 'Gemini AI 对话']],
-            [['text' => '更换Gemini Key'], ['text' => '帮助说明']],
+            [['text' => '帮助说明']],
             [['text' => '退出会话']]
         ],
         'resize_keyboard' => true,
@@ -266,24 +265,6 @@ function execute_user_deletion($chat_id, array $state_data): void
         $db_connection->rollback();
         error_log("Error during user deletion: " . $e->getMessage());
         send_telegram_message($chat_id, "❌ 操作失败！在删除过程中发生严重错误。");
-    }
-}
-
-/**
- * Handles setting the Gemini API key.
- */
-function handle_set_gemini_key_command($chat_id, array $command_parts): void
-{
-    if (count($command_parts) < 2) {
-        send_telegram_message($chat_id, "格式错误。用法: /setgeminikey [API密钥]");
-        return;
-    }
-
-    $api_key = $command_parts[1];
-    if (set_gemini_api_key($api_key)) {
-        send_telegram_message($chat_id, "✅ Gemini API密钥已成功更新。");
-    } else {
-        send_telegram_message($chat_id, "❌ 更新Gemini API密钥失败，请检查数据库或日志。");
     }
 }
 

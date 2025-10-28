@@ -137,10 +137,6 @@ if (isset($update['message']['text'])) {
                 }
                     set_user_state($chat_id, null);
                     break;
-                case 'set_gemini_key':
-                    handle_set_gemini_key_command($chat_id, ['/setgeminikey', $argument]);
-                    set_user_state($chat_id, null);
-                    break;
                 // For AI chats, we do NOT clear the state, allowing for a continuous conversation.
                 case 'chat_cf':
                     handle_ai_chat_command($chat_id, $argument, 'cloudflare');
@@ -166,7 +162,6 @@ if (isset($update['message']['text'])) {
                 case '/delete': handle_delete_command($chat_id, explode(' ', $message_text)); break;
                 case '/finduser': handle_find_user_command($chat_id, ['/finduser', $argument]); break;
                 case '/deleteuser': handle_delete_user_command($chat_id, ['/deleteuser', $argument]); break;
-                case '/setgeminikey': handle_set_gemini_key_command($chat_id, ['/setgeminikey', $argument]); break;
                 case '/cfchat': handle_ai_chat_command($chat_id, $argument, 'cloudflare'); break;
                 case '/geminichat': handle_ai_chat_command($chat_id, $argument, 'gemini'); break; // Direct Gemini chat command
                 default: handle_help_command($chat_id); break;
@@ -183,7 +178,6 @@ if (isset($update['message']['text'])) {
                 case '删除用户': set_user_state($chat_id, 'delete_user'); send_telegram_message($chat_id, "⚠️ 警告！此操作将永久删除用户及其所有数据！\n请输入要删除的用户的邮箱:"); break;
                 case '手动添加': set_user_state($chat_id, 'add'); send_telegram_message($chat_id, "请输入记录 (类型 期号 号码):\n例如:\n香港六合彩 2023001 01,02,03,04,05,06,07"); break;
                 case '删除记录': set_user_state($chat_id, 'delete'); send_telegram_message($chat_id, "请输入记录 (类型 期号):\n例如:\n香港六合彩 2023001"); break;
-                case '更换Gemini Key': set_user_state($chat_id, 'set_gemini_key'); send_telegram_message($chat_id, "请输入新的Gemini API Key:\n(请确保您的API密钥是正确的，通常以'AIza'开头)"); break;
                 case 'CF AI 对话': set_user_state($chat_id, 'chat_cf'); send_telegram_message($chat_id, "您好，我是Cloudflare AI，请问有什么可以帮您？"); break;
                 case 'Gemini AI 对话': set_user_state($chat_id, 'chat_gemini'); send_telegram_message($chat_id, "您好，我是Gemini Pro，请问有什么可以帮您？"); break;
                 default: handle_help_command($chat_id); break;
