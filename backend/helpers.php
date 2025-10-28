@@ -160,21 +160,32 @@ function save_lottery_draw($data): bool
 /**
  * Gets the current command state for a user.
  */
-function get_user_state($chat_id): ?string
+function get_user_state($chat_id): ?array
 {
     $state_file = __DIR__ . '/bot_state.json';
     if (!file_exists($state_file)) {
         return null;
     }
 
-    $state_data = json_decode(file_get_contents($state_file), true);
-    return $state_data[$chat_id]['command'] ?? null;
+    $file_content = file_get_contents($state_file);
+    if (empty($file_content)) {
+        return null;
+    }
+
+    $state_data = json_decode($file_content, true);
+
+    // Check if json_decode was successful and the chat_id exists
+    if (json_last_error() !== JSON_ERROR_NONE || !isset($state_data[$chat_id])) {
+        return null;
+    }
+
+    return $state_data[$chat_id];
 }
 
 /**
  * Sets or clears the command state for a user.
  */
-function set_user_state($chat_id, $command): void
+function set_user_state($chat_id, $command, array $data = []): void
 {
     $state_file = __DIR__ . '/bot_state.json';
     $temp_file = $state_file . '.' . uniqid() . '.tmp';
@@ -194,7 +205,11 @@ function set_user_state($chat_id, $command): void
 
     // Step 2: Modify the state in memory.
     if ($command) {
-        $state_data[$chat_id] = ['command' => $command, 'timestamp' => time()];
+        $state_data[$chat_id] = [
+            'command' => $command,
+            'data' => $data,
+            'timestamp' => time()
+        ];
     } else {
         unset($state_data[$chat_id]);
     }

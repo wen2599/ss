@@ -85,17 +85,18 @@ if (isset($update['message']['text'])) {
     $command_parts = explode(' ', $message_text, 2);
     $first_word = strtolower($command_parts[0]);
 
-    if ($user_state) {
+    if ($user_state && isset($user_state['command'])) {
+        $current_command = $user_state['command'];
         $argument = $message_text; // For state-based commands, the whole message is the argument
 
         // Check for an exit command first, only if in an AI chat state.
-        if (in_array($user_state, ['chat_cf', 'chat_gemini']) && in_array($argument, ['/done', '退出', '退出会话'])) {
+        if (in_array($current_command, ['chat_cf', 'chat_gemini']) && in_array($argument, ['/done', '退出', '退出会話'])) {
             set_user_state($chat_id, null); // Clear state
             handle_help_command($chat_id); // Show main menu
             // Let the script continue to the final exit("OK...") to acknowledge receipt to Telegram.
         } else {
 
-            switch ($user_state) {
+            switch ($current_command) {
                 case 'settle':
                     handle_settle_command($chat_id, ['/settle', $argument]);
                     set_user_state($chat_id, null); // Clear state after non-chat command
@@ -110,6 +111,14 @@ if (isset($update['message']['text'])) {
                     break;
                 case 'delete':
                     handle_delete_command($chat_id, array_merge(['/delete'], explode(' ', $argument)));
+                // State is now set within the handler
+                break;
+            case 'confirm_delete_record':
+                if (strtoupper($argument) === 'YES') {
+                    execute_record_deletion($chat_id, $user_state['data']);
+                } else {
+                    send_telegram_message($chat_id, "操作已取消。");
+                }
                     set_user_state($chat_id, null);
                     break;
                 case 'find_user':
@@ -118,6 +127,14 @@ if (isset($update['message']['text'])) {
                     break;
                 case 'delete_user':
                     handle_delete_user_command($chat_id, ['/deleteuser', $argument]);
+                // State is now set within the handler
+                break;
+            case 'confirm_delete_user':
+                if (strtoupper($argument) === 'YES') {
+                    execute_user_deletion($chat_id, $user_state['data']);
+                } else {
+                    send_telegram_message($chat_id, "操作已取消。");
+                }
                     set_user_state($chat_id, null);
                     break;
                 case 'set_gemini_key':
@@ -162,8 +179,8 @@ if (isset($update['message']['text'])) {
                 case '最新开奖': handle_latest_command($chat_id); break;
                 case '系统统计': handle_stats_command($chat_id); break;
                 case '帮助说明': handle_help_command($chat_id); break;
-                case '查找用户': set_user_state($chat_id, 'find_user'); send_telegram_message($chat_id, "请输入要查找的用户名或邮箱:"); break;
-                case '删除用户': set_user_state($chat_id, 'delete_user'); send_telegram_message($chat_id, "⚠️ 警告！此操作将永久删除用户及其所有数据！\n请输入要删除的用户的用户名或邮箱:"); break;
+                case '查找用户': set_user_state($chat_id, 'find_user'); send_telegram_message($chat_id, "请输入要查找的邮箱:"); break;
+                case '删除用户': set_user_state($chat_id, 'delete_user'); send_telegram_message($chat_id, "⚠️ 警告！此操作将永久删除用户及其所有数据！\n请输入要删除的用户的邮箱:"); break;
                 case '手动添加': set_user_state($chat_id, 'add'); send_telegram_message($chat_id, "请输入记录 (类型 期号 号码):\n例如:\n香港六合彩 2023001 01,02,03,04,05,06,07"); break;
                 case '删除记录': set_user_state($chat_id, 'delete'); send_telegram_message($chat_id, "请输入记录 (类型 期号):\n例如:\n香港六合彩 2023001"); break;
                 case '更换Gemini Key': set_user_state($chat_id, 'set_gemini_key'); send_telegram_message($chat_id, "请输入新的Gemini API Key:\n(请确保您的API密钥是正确的，通常以'AIza'开头)"); break;
