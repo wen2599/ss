@@ -12,6 +12,7 @@
     "@capacitor/cli": "^7.4.4",
     "@capacitor/core": "^7.4.4",
     "axios": "^1.7.2",
+    "@haverstack/axios-fetch-adapter": "^0.3.2",
     "vue": "^3.2.47",
     "vue-router": "^4.6.3"
   },
