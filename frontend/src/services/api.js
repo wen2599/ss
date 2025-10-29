@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://wenge.cloudns.ch'; // 根据您的后端实际地址修改
+const API_BASE_URL = ''; // The worker will handle the routing
 
 const api = {
   request: async (method, url, data = null) => {
@@ -9,7 +9,7 @@ const api = {
     const config = {
       method: method,
       headers: headers,
-      credentials: 'include', // 确保在跨域请求中发送 cookies
+      credentials: 'include', // Ensure cookies are sent in cross-origin requests
     };
 
     if (data) {

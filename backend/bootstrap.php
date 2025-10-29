@@ -12,7 +12,8 @@ error_reporting(E_ALL);
 // Start output buffering to prevent accidental output from breaking JSON responses.
 ob_start();
 
-// --- CORS Configuration ---
+/*
+// --- CORS Configuration (No longer needed with Cloudflare Worker) ---
 if (isset($_SERVER['REQUEST_METHOD'])) {
     $allowed_origin = 'https://ss.wenxiuxiu.eu.org';
 
@@ -26,6 +27,7 @@ if (isset($_SERVER['REQUEST_METHOD'])) {
         exit;
     }
 }
+*/
 
 // --- Environment and Database Initialization ---
 require_once __DIR__ . '/load_env.php';
