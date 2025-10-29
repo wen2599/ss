@@ -77,7 +77,7 @@ if (isset($update['message']['text'])) {
     $message_text = trim($update['message']['text']); // Trim message text
 
     if ($admin_id && (string)$chat_id !== (string)$admin_id) {
-        send_telegram_message($chat_id, "您好！这是一个私人机器人，感谢关注。");
+        send_telegram_message($chat_id, "您好！这是一个私人机器人，感谢你关注。");
         exit("OK: Non-admin message sent.");
     }
 
