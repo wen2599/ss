@@ -9,6 +9,8 @@ ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 error_reporting(E_ALL);
 
+// Start output buffering to prevent accidental output from breaking JSON responses.
+ob_start();
 
 // --- CORS Configuration ---
 if (isset($_SERVER['REQUEST_METHOD'])) {
@@ -104,3 +106,5 @@ require_once __DIR__ . '/api/jwt_helper.php';
 // --- Global Execution ---
 connect_to_database();
 initialize_database_if_needed();
+
+ob_end_clean(); // Clean the output buffer at the end of bootstrap.
