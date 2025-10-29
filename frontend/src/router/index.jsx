@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import authService from '../services/auth';
 
 // 导入页面组件
@@ -36,56 +36,26 @@ const PrivateRoute = ({ children }) => {
     return <div>加载中...</div>; // 或者一个更友好的加载指示器
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  return isAuthenticated ? <Outlet /> : <Navigate to="/login" />;
 };
 
 const AppRouter = () => {
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        
-        <Route 
-          path="/" 
-          element=
-            {<PrivateRoute>
-              <HomePage />
-            </PrivateRoute>}
-        />
-        <Route 
-          path="/lottery" 
-          element=
-            {<PrivateRoute>
-              <LotteryPage />
-            </PrivateRoute>}
-        />
-        <Route 
-          path="/lottery-result" 
-          element=
-            {<PrivateRoute>
-              <LotteryResultPage />
-            </PrivateRoute>}
-        />
-        <Route 
-          path="/mail-organize" 
-          element=
-            {<PrivateRoute>
-              <MailOrganizePage />
-            </PrivateRoute>}
-        />
-        <Route 
-          path="/mail-original" 
-          element=
-            {<PrivateRoute>
-              <MailOriginalPage />
-            </PrivateRoute>}
-        />
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
 
-        {/* 404 Not Found Page */}
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </Router>
+      <Route element={<PrivateRoute />}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/lottery" element={<LotteryPage />} />
+        <Route path="/lottery-result" element={<LotteryResultPage />} />
+        <Route path="/mail-organize" element={<MailOrganizePage />} />
+        <Route path="/mail-original" element={<MailOriginalPage />} />
+      </Route>
+
+      {/* 404 Not Found Page */}
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
   );
 };
 
