@@ -29,11 +29,26 @@ export default {
     });
 
     try {
-      // Forward the request to the backend and return the response
-      return await fetch(backendRequest);
+      // Fetch the response from the backend
+      const response = await fetch(backendRequest);
+
+      // If the backend returns an error (e.g., 500), we pass it through
+      // This allows us to see the actual PHP error in the browser instead of a generic 502
+      if (!response.ok) {
+        return new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+      }
+
+      // If the response is successful, return it directly
+      return response;
+
     } catch (error) {
-      console.error('Error fetching from backend:', error);
-      return new Response('Error connecting to the backend.', { status: 502 });
+      console.error('Cloudflare Worker fetch error:', error);
+      // This error is for when the worker can't even reach the backend
+      return new Response(`Worker Error: Could not connect to backend. ${error.message}`, { status: 502 });
     }
   },
 };
