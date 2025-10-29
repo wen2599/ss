@@ -1,16 +1,20 @@
 <?php
 // backend/api.php - Main API Gateway
 
+$allowed_origin = 'https://ss.wenxiuxiu.eu.org';
+
 // Handle CORS pre-flight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header("Access-Control-Allow-Origin: *");
+    header("Access-Control-Allow-Origin: " . $allowed_origin);
+    header("Access-Control-Allow-Credentials: true");
     header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
     header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
     exit(0);
 }
 
-// Allow requests from any origin
-header("Access-Control-Allow-Origin: *");
+// Set CORS headers for the actual request
+header("Access-Control-Allow-Origin: " . $allowed_origin);
+header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json");
 
 
