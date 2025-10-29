@@ -1,4 +1,4 @@
-const API_BASE_URL = ''; // The worker will handle the routing
+const API_BASE_URL = 'https://wenge.cloudns.ch';
 
 const api = {
   request: async (method, url, data = null) => {
@@ -17,7 +17,8 @@ const api = {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}${url}`, config);
+      // 确保请求路径正确拼接
+      const response = await fetch(`${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`, config);
       const responseData = await response.json();
 
       if (!response.ok) {
