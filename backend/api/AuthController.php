@@ -6,13 +6,6 @@ class AuthController {
         $this->db_connection = $db_connection;
     }
 
-    private function _sendJsonResponse($statusCode, $data) {
-        http_response_code($statusCode);
-        header('Content-Type: application/json');
-        echo json_encode($data);
-        exit;
-    }
-
     public function handleRequest() {
         $data = json_decode(file_get_contents("php://input"), true);
         $action = $data['action'] ?? '';
@@ -31,14 +24,14 @@ class AuthController {
                 $this->check_session();
                 break;
             default:
-                $this->_sendJsonResponse(400, ["message" => "Invalid action"]);
+                sendJsonResponse(400, ["message" => "Invalid action"]);
                 break;
         }
     }
 
     private function login($data) {
         if (!isset($data['email']) || !isset($data['password'])) {
-            $this->_sendJsonResponse(400, ["message" => "Email and password are required"]);
+            sendJsonResponse(400, ["message" => "Email and password are required"]);
         }
 
         $email = $data['email'];
@@ -54,7 +47,7 @@ class AuthController {
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = $user['id'];
 
-                $this->_sendJsonResponse(200, [
+                sendJsonResponse(200, [
                     "message" => "Login successful",
                     "user" => [
                         "id" => $user['id'],
@@ -63,17 +56,17 @@ class AuthController {
                     ]
                 ]);
             } else {
-                $this->_sendJsonResponse(401, ["message" => "Invalid credentials"]);
+                sendJsonResponse(401, ["message" => "Invalid credentials"]);
             }
         } else {
-            $this->_sendJsonResponse(404, ["message" => "User not found"]);
+            sendJsonResponse(404, ["message" => "User not found"]);
         }
         $stmt->close();
     }
 
     private function register($data) {
         if (!isset($data['username']) || !isset($data['email']) || !isset($data['password'])) {
-            $this->_sendJsonResponse(400, ["message" => "Username, email, and password are required"]);
+            sendJsonResponse(400, ["message" => "Username, email, and password are required"]);
         }
 
         $username = trim($data['username']);
@@ -81,15 +74,15 @@ class AuthController {
         $password = $data['password'];
 
         if (empty($username)) {
-            $this->_sendJsonResponse(400, ["message" => "Username cannot be empty"]);
+            sendJsonResponse(400, ["message" => "Username cannot be empty"]);
         }
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $this->_sendJsonResponse(400, ["message" => "Invalid email format"]);
+            sendJsonResponse(400, ["message" => "Invalid email format"]);
         }
 
         if (strlen($password) < 8) {
-            $this->_sendJsonResponse(400, ["message" => "Password must be at least 8 characters long"]);
+            sendJsonResponse(400, ["message" => "Password must be at least 8 characters long"]);
         }
 
         $stmt = $this->db_connection->prepare("SELECT id FROM users WHERE email = ? OR username = ?");
@@ -98,7 +91,7 @@ class AuthController {
         $result = $stmt->get_result();
 
         if ($result->fetch_assoc()) {
-            $this->_sendJsonResponse(409, ["message" => "User with this email or username already exists"]);
+            sendJsonResponse(409, ["message" => "User with this email or username already exists"]);
         }
         $stmt->close();
 
@@ -113,7 +106,7 @@ class AuthController {
             session_regenerate_id(true);
             $_SESSION['user_id'] = $user_id;
 
-            $this->_sendJsonResponse(201, [
+            sendJsonResponse(201, [
                 "message" => "User created successfully",
                 "user" => [
                     "id" => $user_id,
@@ -122,7 +115,7 @@ class AuthController {
                 ]
             ]);
         } else {
-            $this->_sendJsonResponse(500, ["message" => "An unexpected error occurred."]);
+            sendJsonResponse(500, ["message" => "An unexpected error occurred."]);
         }
     }
 
@@ -133,7 +126,7 @@ class AuthController {
             $stmt->execute();
             $result = $stmt->get_result();
             if ($user = $result->fetch_assoc()) {
-                $this->_sendJsonResponse(200, [
+                sendJsonResponse(200, [
                     "loggedIn" => true,
                     "user" => [
                         "id" => $user['id'],
@@ -142,11 +135,11 @@ class AuthController {
                     ]
                 ]);
             } else {
-                $this->_sendJsonResponse(404, ["loggedIn" => false, "message" => "User not found"]);
+                sendJsonResponse(404, ["loggedIn" => false, "message" => "User not found"]);
             }
             $stmt->close();
         } else {
-            $this->_sendJsonResponse(401, ["loggedIn" => false, "message" => "Not logged in"]);
+            sendJsonResponse(401, ["loggedIn" => false, "message" => "Not logged in"]);
         }
     }
 
@@ -163,6 +156,6 @@ class AuthController {
 
         session_destroy();
 
-        $this->_sendJsonResponse(200, ["message" => "Logout successful"]);
+        sendJsonResponse(200, ["message" => "Logout successful"]);
     }
 }

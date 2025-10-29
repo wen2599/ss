@@ -200,3 +200,14 @@ function set_user_state($chat_id, $command): void
     }
     fclose($fp);
 }
+
+/**
+ * Sends a JSON response with a specific HTTP status code.
+ */
+function sendJsonResponse($statusCode, $data)
+{
+    http_response_code($statusCode);
+    header('Content-Type: application/json');
+    echo json_encode($data);
+    exit;
+}
