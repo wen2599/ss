@@ -26,6 +26,11 @@ export default {
       redirect: 'follow',
       // The 'duplex' property is required for streaming request bodies
       ...(request.body && { duplex: 'half' }),
+      // Add cache control to force the worker to always connect to the backend
+      // and bypass any cached error responses.
+      cf: {
+        cacheTtl: 0
+      }
     });
 
     try {
