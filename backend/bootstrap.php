@@ -5,44 +5,9 @@ declare(strict_types=1);
 // backend/bootstrap.php
 
 // --- Error Reporting Configuration ---
-ini_set('display_errors', '0'); // Keep errors hidden from public
+ini_set('display_errors', '0');
 ini_set('log_errors', '1');
-$log_file = __DIR__ . '/debug.log';
-ini_set('error_log', $log_file);
 error_reporting(E_ALL);
-
-// --- "Black Box" Fatal Error Catcher ---
-register_shutdown_function(function () use ($log_file) {
-    $error = error_get_last();
-    // Check for a fatal error
-    if ($error !== null && in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
-        // Clear any potentially half-rendered output
-        if (ob_get_length()) {
-            ob_end_clean();
-        }
-
-        // Log the error in a structured way
-        $log_message = sprintf(
-            "[%s] FATAL ERROR: %s in %s on line %d\n",
-            date('Y-m-d H:i:s'),
-            $error['message'],
-            $error['file'],
-            $error['line']
-        );
-        file_put_contents($log_file, $log_message, FILE_APPEND);
-
-        // Send a generic, clean JSON error to the client
-        // This prevents the 502 by ensuring a valid HTTP response
-        if (!headers_sent()) {
-            header('Content-Type: application/json');
-            http_response_code(500);
-            echo json_encode([
-                'success' => false,
-                'message' => 'A critical server error occurred. The incident has been logged.'
-            ]);
-        }
-    }
-});
 
 // Start output buffering to prevent accidental output from breaking JSON responses.
 ob_start();
