@@ -19,9 +19,15 @@ const PrivateRoute = ({ children }) => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const loggedIn = await authService.isLoggedIn();
-      setIsAuthenticated(loggedIn);
-      setIsLoading(false);
+      try {
+        const loggedIn = await authService.isLoggedIn();
+        setIsAuthenticated(loggedIn);
+      } catch (error) {
+        console.error("Authentication check failed:", error);
+        setIsAuthenticated(false); // On error, assume not authenticated
+      } finally {
+        setIsLoading(false);
+      }
     };
     checkAuth();
   }, []);

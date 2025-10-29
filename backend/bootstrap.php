@@ -102,9 +102,6 @@ function initialize_database_if_needed()
     }
 }
 
-// --- JWT Helper Functions ---
-require_once __DIR__ . '/api/jwt_helper.php';
-
 // --- Global Execution ---
 connect_to_database();
 initialize_database_if_needed();
