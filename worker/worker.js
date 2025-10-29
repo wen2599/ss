@@ -170,7 +170,7 @@ export default {
     };
 
     // Add logging to help debug if duplex is the issue
-    console.log(`Worker Fetch: Method: ${request.method}, URL: ${backendRequestUrl}`);
+    console.log(`Worker Fetch: Method: ${request.method}, URL: ${backendUrl}`);
     if (request.body) {
       console.log("Worker Fetch: Request has a body. Setting duplex: 'half'.");
       requestInit.body = request.body;
