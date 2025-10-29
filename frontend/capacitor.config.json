@@ -1,5 +1,6 @@
 {
-  "appId": "com.wenxiuxiu.ss",
-  "appName": "SS",
-  "webDir": "dist"
+  "appId": "com.my.app",
+  "appName": "My-App",
+  "webDir": "dist",
+  "bundledWebRuntime": false
 }
