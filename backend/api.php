@@ -26,7 +26,14 @@ $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
 // Determine the action from the JSON body or fallback to query parameters
 $action = $data['action'] ?? $_REQUEST['action'] ?? null;
-
+if (!function_exists('sendJsonResponse')) {
+    function sendJsonResponse($statusCode, $data) {
+        http_response_code($statusCode);
+        header('Content-Type: application/json');
+        echo json_encode($data);
+        exit;
+    }
+}
 // Route to the appropriate controller
 switch ($action) {
     // Email Actions
