@@ -154,38 +154,56 @@ function extractHTMLBody(rawEmail) {
 
 export default {
   /**
-   * Handles HTTP requests, acting as a proxy for the backend API.
+   * Handles HTTP requests, routing them to the backend API or the frontend assets.
    */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const backendServer = env.PUBLIC_API_ENDPOINT ? new URL(env.PUBLIC_API_ENDPOINT).origin : "https://wenge.cloudns.ch";
 
-    const backendUrl = new URL(url.pathname, backendServer);
-    backendUrl.search = url.search;
+    // Route API requests to the backend server.
+    if (url.pathname.startsWith('/api.php')) {
+      const backendServer = env.PUBLIC_API_ENDPOINT ? new URL(env.PUBLIC_API_ENDPOINT).origin : "https://wenge.cloudns.ch";
+      const backendUrl = new URL(url.pathname, backendServer);
+      backendUrl.search = url.search;
 
-    const requestInit = {
-      method: request.method,
-      headers: request.headers,
-      redirect: 'follow',
-    };
+      const requestInit = {
+        method: request.method,
+        headers: request.headers,
+        redirect: 'follow',
+      };
 
-    // Add logging to help debug if duplex is the issue
-    console.log(`Worker Fetch: Method: ${request.method}, URL: ${backendUrl}`);
-    if (request.body) {
-      console.log("Worker Fetch: Request has a body. Setting duplex: 'half'.");
-      requestInit.body = request.body;
-      requestInit.duplex = 'half'; // CRUCIAL for streaming bodies in Workers
-    } else {
-      console.log("Worker Fetch: Request has no body.");
+      if (request.body) {
+        requestInit.body = request.body;
+        requestInit.duplex = 'half'; // Required for streaming request bodies.
+      }
+
+      console.log(`Proxying API request to: ${backendUrl}`);
+      try {
+        const backendRequest = new Request(backendUrl, requestInit);
+        return await fetch(backendRequest);
+      } catch (error) {
+        console.error('Worker API Proxy Error:', error);
+        return new Response('Error forwarding API request.', { status: 502 });
+      }
     }
 
-    try {
-      const backendRequest = new Request(backendUrl, requestInit);
-      return await fetch(backendRequest);
-    } catch (error) {
-      console.error('Worker Fetch Error:', error);
-      return new Response('Error forwarding request via Worker.', { status: 502 });
+    // For all other requests, serve from the Cloudflare Pages assets.
+    // This requires a service binding named 'ASSETS' pointing to the Pages project.
+    if (env.ASSETS) {
+      try {
+        return await env.ASSETS.fetch(request);
+      } catch (error) {
+        console.error('Cloudflare Pages asset fetch failed:', error);
+        return new Response('Error serving static asset.', { status: 500 });
+      }
     }
+
+    // Fallback if the ASSETS service binding is not configured.
+    return new Response(
+      `<h1>Worker Misconfiguration</h1>
+       <p>This request was not for the API, but the Cloudflare Pages asset binding ('ASSETS') is not configured for this worker.</p>
+       <p>Please bind your Cloudflare Pages project to this worker script to serve your frontend.</p>`,
+      { status: 503, headers: { 'Content-Type': 'text/html' } }
+    );
   },
 
   /**
