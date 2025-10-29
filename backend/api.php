@@ -1,6 +1,13 @@
 <?php
 // backend/api.php - Main API Gateway
 
+// --- Session Initialization ---
+// Must be called before any output is sent to the browser.
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+
 $allowed_origin = 'https://ss.wenxiuxiu.eu.org';
 
 // Handle CORS pre-flight requests
@@ -18,8 +25,8 @@ header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json");
 
 
-require_once __DIR__ . '/../bootstrap.php';
-require_once __DIR__ . '/../helpers.php'; // Ensure helpers.php is included for sendJsonResponse
+require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/api/EmailController.php';
 require_once __DIR__ . '/api/AuthController.php';
 
