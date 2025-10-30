@@ -1,61 +1,46 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import EmailList from '../components/EmailList';
-import EmailDetailView from '../components/EmailDetailView';
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 const DashboardPage = () => {
-  const [emails, setEmails] = useState([]);
-  const [selectedEmailId, setSelectedEmailId] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  
-  const fetchEmails = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/emails/list.php');
-      setEmails(response.data);
-      setError('');
-    } catch (err) {
-      setError('无法加载邮件列表。');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    const { user } = useAuth();
+    const [emails, setEmails] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchEmails();
-  }, [fetchEmails]);
+    useEffect(() => {
+        const fetchEmails = async () => {
+            try {
+                setLoading(true);
+                // 调用新的受保护的API action
+                const response = await api.get('/api.php?action=get_user_emails');
+                setEmails(response.data);
+            } catch (error) {
+                console.error("无法获取邮件列表:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-  const handleSelectEmail = (id) => {
-    setSelectedEmailId(id);
-  };
+        fetchEmails();
+    }, []);
 
-  const handleUpdate = () => {
-    // 刷新邮件列表和当前详情
-    fetchEmails();
-    if (selectedEmailId) {
-      // 触发详情视图的刷新
-      setSelectedEmailId(null); // 强制重新挂载组件
-      setTimeout(() => setSelectedEmailId(selectedEmailId), 0);
-    }
-  };
 
-  return (
-    <div className="dashboard">
-      <EmailList 
-        emails={emails} 
-        selectedEmailId={selectedEmailId} 
-        onSelectEmail={handleSelectEmail} 
-        loading={loading}
-        error={error}
-      />
-      <EmailDetailView 
-        emailId={selectedEmailId} 
-        onUpdate={handleUpdate} 
-      />
-    </div>
-  );
+    return (
+        <div>
+            <h2>仪表盘</h2>
+            <p>欢迎回来, {user?.email}!</p>
+            <h3>您的邮件列表</h3>
+            {loading ? (
+                <p>正在加载邮件...</p>
+            ) : (
+                <ul>
+                    {emails.map(email => (
+                        <li key={email.id}>{email.subject}</li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
 };
 
 export default DashboardPage;

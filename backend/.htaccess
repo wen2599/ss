@@ -1,24 +1,16 @@
 #
 # 文件名: .htaccess
-# 路径: 项目根目录
+# 路径: backend/ (项目根目录)
+# 版本: Final Corrected
 #
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
 </IfModule>
 
-# 核心安全配置：保护PHP文件不被直接通过浏览器访问
-# 我们只允许 api.php 被公开访问。
-# 注意：这需要您确保前端请求的路径是干净的，没有 .php 后缀
-<FilesMatch "\.(php)$">
-    <If "-f '%{REQUEST_FILENAME}' && !('%{REQUEST_URI}' -strmatch '/api.php*')">
-        Order Allow,Deny
-        Deny from all
-    </If>
-</FilesMatch>
-
-# 保护其他敏感文件
-<FilesMatch "\.(env|md|txt)$">
+# 核心安全配置：阻止对 .env 文件的直接 Web 访问请求
+# 这是一个备用安全层，因为 .env 文件本身就不在 Web 根目录下
+<FilesMatch "\.(env)$">
     Order Allow,Deny
     Deny from all
 </FilesMatch>

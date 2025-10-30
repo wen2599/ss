@@ -1,9 +1,9 @@
+import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
-import NotFoundPage from './pages/NotFoundPage';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -16,7 +16,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         
-        {/* 受保护的路由 */}
+        {/* DashboardPage 是一个受保护的路由 */}
         <Route 
           path="/dashboard" 
           element={
@@ -26,7 +26,8 @@ function App() {
           } 
         />
         
-        <Route path="*" element={<NotFoundPage />} />
+        {/* 可以添加一个 404 页面 */}
+        {/* <Route path="*" element={<NotFoundPage />} /> */}
       </Routes>
     </div>
   );

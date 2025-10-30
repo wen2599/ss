@@ -4,7 +4,7 @@ import LotteryDisplay from '../components/LotteryDisplay';
 const HomePage = () => {
   return (
     <div>
-      <h1>欢迎使用</h1>
+      <h1>开奖公告</h1>
       <LotteryDisplay />
     </div>
   );

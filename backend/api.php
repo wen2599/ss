@@ -1,66 +1,69 @@
 <?php
 /**
  * 文件名: api.php
- * 路径: 项目根目录
- * 描述: 前端所有 API 请求的单一入口。
+ * 路径: backend/ (项目根目录)
+ * 版本: Final with User Authentication
  */
-ini_set('display_errors', 0); // 在生产环境中关闭错误显示
+// 错误报告（在开发时开启）
+ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 // 1. CORS 头
-header("Access-Control-Allow-Origin: " . ($_ENV['FRONTEND_URL'] ?? '*'));
+header("Access-Control-Allow-Origin: https://ss.wenxiuxiu.eu.org");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Access-Control-Allow-Credentials: true");
+header("Access-Control-Allow-Credentials: true"); // 允许凭证
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') { http_response_code(204); exit; }
 
-// 2. 引入核心文件
+// 2. 引入所有核心文件
 require_once __DIR__ . '/core/db.php';
 require_once __DIR__ . '/core/auth.php';
 require_once __DIR__ . '/core/helpers.php';
-require_once __DIR__ . '/core/ai_client.php';
-require_once __DIR__ . '/core/settlement_engine.php';
+// ai_client.php 和 settlement_engine.php 会在需要时被调用，这里可以不引入
 
 // 3. API 路由
 $action = $_GET['action'] ?? '';
 $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
 switch ($action) {
-    // 公开访问
+    // === 公开路由 ===
     case 'get_latest_lottery':
         handle_get_latest_lottery();
         break;
-    // 用户认证
     case 'register':
         handle_register($data);
         break;
     case 'login':
         handle_login($data);
         break;
-    // 需要登录认证的接口
-    case 'get_emails':
-        handle_get_emails();
+
+    // === 受保护的路由 (需要JWT Token) ===
+    case 'get_user_emails':
+        handle_get_user_emails();
         break;
-    case 'get_email_details':
-        handle_get_email_details($_GET['id'] ?? null);
-        break;
-    // ... 未来添加更多需要认证的 case ...
+
     default:
         json_response(['message' => 'Invalid API action'], 404);
         break;
 }
 
+// ===================================================
 // 4. 处理器函数
+// ===================================================
+
 function handle_get_latest_lottery() {
     try {
         $db = get_db_connection();
         $stmt = $db->query("SELECT * FROM lottery_results ORDER BY draw_date DESC, id DESC LIMIT 1");
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($result) { json_response($result); } 
-        else { json_response(['message' => 'No lottery results found.'], 404); }
-    } catch (Exception $e) {
+        if ($result) {
+            json_response($result, 200);
+        } else {
+            json_response(['message' => 'No lottery results found.'], 404);
+        }
+    } catch (PDOException $e) {
         error_log("API Error (get_latest_lottery): " . $e->getMessage());
-        json_response(['message' => 'Server error'], 500);
+        json_response(['message' => 'A database error occurred.'], 500);
     }
 }
 
@@ -76,13 +79,14 @@ function handle_register($data) {
         $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
         $stmt->execute([$email]);
         if ($stmt->fetch()) { json_response(['message' => 'Email already exists.'], 409); }
+        
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
         $stmt = $db->prepare("INSERT INTO users (email, password_hash) VALUES (?, ?)");
         $stmt->execute([$email, $password_hash]);
         json_response(['message' => 'User registered successfully.'], 201);
-    } catch (Exception $e) {
+    } catch (PDOException $e) {
         error_log("API Error (register): " . $e->getMessage());
-        json_response(['message' => 'Server error'], 500);
+        json_response(['message' => 'Database error during registration.'], 500);
     }
 }
 
@@ -99,52 +103,32 @@ function handle_login($data) {
 
         if ($user && password_verify($password, $user['password_hash'])) {
             $token = generate_jwt($user['id'], $user['email']);
-            unset($user['password_hash']);
-            json_response(['token' => $token, 'user' => $user]);
+            unset($user['password_hash']); // 不要在响应中返回密码哈希
+            json_response(['token' => $token, 'user' => $user], 200);
         } else {
             json_response(['message' => 'Invalid credentials.'], 401);
         }
-    } catch (Exception $e) {
+    } catch (PDOException $e) {
         error_log("API Error (login): " . $e->getMessage());
-        json_response(['message' => 'Server error'], 500);
+        json_response(['message' => 'Database error during login.'], 500);
     }
 }
 
-function handle_get_emails() {
-    $user = get_auth_user();
-    if (!$user) { json_response(['message' => 'Unauthorized'], 401); }
+// --- 这是一个受保护的示例函数 ---
+function handle_get_user_emails() {
+    $user = get_auth_user(); // get_auth_user() 会检查并解码JWT
+    if (!$user) {
+        json_response(['message' => 'Unauthorized'], 401);
+    }
     
-    try {
-        $db = get_db_connection();
-        $stmt = $db->prepare("SELECT id, subject, from_address, status, created_at FROM received_emails WHERE user_id = ? ORDER BY created_at DESC");
-        $stmt->execute([$user->user_id]);
-        json_response($stmt->fetchAll(PDO::FETCH_ASSOC));
-    } catch (Exception $e) {
-        error_log("API Error (get_emails): " . $e->getMessage());
-        json_response(['message' => 'Server error'], 500);
-    }
+    // 既然已经验证了用户身份，我们可以安全地查询他的数据
+    // 在这里添加查询该用户邮件的逻辑
+    // ...
+    
+    // 暂时返回一个模拟响应
+    json_response([
+        ['id' => 1, 'subject' => '来自 ' . $user->email . ' 的第一封邮件'],
+        ['id' => 2, 'subject' => '来自 ' . $user->email . ' 的第二封邮件']
+    ]);
 }
-
-function handle_get_email_details($email_id) {
-    $user = get_auth_user();
-    if (!$user) { json_response(['message' => 'Unauthorized'], 401); }
-    if (!$email_id) { json_response(['message' => 'Email ID is required'], 400); }
-
-    try {
-        $db = get_db_connection();
-        $stmt = $db->prepare("SELECT * FROM received_emails WHERE id = ? AND user_id = ?");
-        $stmt->execute([$email_id, $user->user_id]);
-        $email = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($email) {
-            $email['structured_data'] = $email['structured_data'] ? json_decode($email['structured_data'], true) : [];
-            $email['settlement_result'] = $email['settlement_result'] ? json_decode($email['settlement_result'], true) : null;
-            json_response($email);
-        } else {
-            json_response(['message' => 'Email not found.'], 404);
-        }
-    } catch (Exception $e) {
-        error_log("API Error (get_email_details): " . $e->getMessage());
-        json_response(['message' => 'Server error'], 500);
-    }
-}
+?>
