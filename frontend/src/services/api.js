@@ -1,16 +1,17 @@
 // 文件名: api.js
 // 路径: frontend/src/services/api.js
-// 版本: Final Path Correction for Direct Backend Call
+// 版本: Final - Full Physical Path
 
 import axios from 'axios';
 
 // --- 关键修改在这里 ---
-// baseURL 必须包含 /api/ 这一部分，
-// 这样 axios 发出请求时才会正确拼接 URL。
-// 旧的可能是: 'https://wenge.cloudns.ch'
-// 正确的应该是: 'https://wenge.cloudns.ch/api'
+// 我们将 baseURL 设置为包含 /public_html/ 的完整路径。
+// 这样，前端发出的请求 URL 就会是：
+// https://wenge.cloudns.ch/public_html/api/lottery/get_latest.php
+// 这个 URL 直接对应了您服务器上文件的物理位置，
+// 绕过了所有 URL 重写和服务器根目录配置的问题。
 const api = axios.create({
-  baseURL: 'https://wenge.cloudns.ch/api', 
+  baseURL: 'https://wenge.cloudns.ch/public_html/api', 
 });
 // --- 修改结束 ---
 
