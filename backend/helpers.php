@@ -2,9 +2,8 @@
 // backend/helpers.php
 
 function sendJsonResponse($data, $statusCode = 200) {
-    // Set CORS headers to allow requests from any origin.
-    // In a production environment, you should restrict this to your frontend's domain.
-    header("Access-Control-Allow-Origin: *");
+    // Set CORS headers to allow requests only from the specified frontend domain.
+    header("Access-Control-Allow-Origin: https://ss.wenxiuxiu.eu.org");
     header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
     header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
