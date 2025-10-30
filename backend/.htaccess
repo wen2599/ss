@@ -1,0 +1,26 @@
+# 文件名: .htaccess
+# 路径: backend/.htaccess
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # 你可以在这里添加URL重写规则 (如果需要)
+</IfModule>
+
+# 保护敏感文件
+<FilesMatch "\.(env|config\.php|md)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# 允许 OPTIONS 请求 (用于CORS预检)
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ $1 [R=200,L]
+
+# 设置通用 Header
+<IfModule mod_headers.c>
+    # 允许来自前端的跨域请求
+    Header set Access-Control-Allow-Origin "https://ss.wenxiuxiu.eu.org"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+    Header set Access-Control-Allow-Credentials "true"
+</IfModule>
