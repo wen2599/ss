@@ -1,28 +1,22 @@
 <?php
 // 文件名: config.php
-// 路径: backend/config.php
-// 用途: 加载.env配置并定义应用程序常量
+// 路径: 项目根目录
 
-// 引入我们的.env解析器
 require_once __DIR__ . '/core/dotenv.php';
 
-// 加载.env文件
-// __DIR__ 是当前文件(config.php)所在的目录 (backend)
-// '/../.env' 表示上一级目录的.env文件
-$dotenvPath = __DIR__ . '/../.env';
+// __DIR__ 是项目根目录, .env 在上一级
+$dotenvPath = __DIR__ . '/../.env'; 
+
 if (file_exists($dotenvPath)) {
     DotEnv::load($dotenvPath);
 } else {
-    // 如果.env文件不存在，则停止并报错
     http_response_code(500);
     header('Content-Type: application/json');
     echo json_encode(['status' => 'error', 'message' => 'Configuration error: .env file not found.']);
     exit;
 }
 
-
 // --- 定义数据库常量 ---
-// 使用 ?? 'default_value' 来提供一个备用值，防止.env中缺少变量时出错
 define('DB_HOST', $_ENV['DB_HOST'] ?? 'localhost');
 define('DB_PORT', $_ENV['DB_PORT'] ?? '3306');
 define('DB_USER', $_ENV['DB_USER'] ?? '');

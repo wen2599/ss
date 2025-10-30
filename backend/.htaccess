@@ -1,25 +1,18 @@
 #
 # 文件名: .htaccess
-# 路径: backend/.htaccess
-# 版本: Final - Cleaned CORS Settings
-#
-# 目的: 这个版本的 .htaccess 文件移除了所有与 CORS (跨域资源共享) 相关的 Header 指令。
-# 我们将完全依赖各个 PHP API 脚本顶部的代码来处理 CORS，
-# 以避免发送重复的响应头，从而解决 "multiple values" 错误。
+# 路径: 项目根目录
+# 版本: Final Corrected
 #
 
-<IfModule mod_rewrite.c>
-    # 启用 URL 重写引擎。
-    # 目前我们没有具体的重写规则，但保留这个结构以备将来使用。
-    RewriteEngine On
-</IfModule>
+# 核心安全配置：阻止通过浏览器直接访问 .env 文件
+# 由于 .env 在上一级，这个规则主要是为了防止意外地把它放在根目录。
+<FilesMatch "\.(env)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
 
-#
-# 安全配置：保护敏感文件
-# 这是一个非常重要的安全措施，它会阻止通过 Web 访问 .env 和 config.php 等文件。
-# 必须保留！
-#
-<FilesMatch "\.(env|config\.php|md)$">
+# 保护项目内部的 config.php 和 install.php 不被外部访问
+<FilesMatch "^(config\.php|install\.php)$">
     Order Allow,Deny
     Deny from all
 </FilesMatch>
