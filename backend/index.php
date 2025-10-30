@@ -1,15 +1,30 @@
 <?php
 // backend/index.php
 
+// --- CORS Whitelist ---
+$allowed_origins = [
+    'https://ss.wenxiuxiu.eu.org',
+    'http://localhost:5173'
+];
+
+if (isset($_SERVER['HTTP_ORIGIN']) && in_array($_SERVER['HTTP_ORIGIN'], $allowed_origins)) {
+    header("Access-Control-Allow-Origin: " . $_SERVER['HTTP_ORIGIN']);
+} else {
+    // Optionally, you could fall back to a default or deny the request.
+    // For this case, we'll default to the primary production origin.
+    header("Access-Control-Allow-Origin: https://ss.wenxiuxiu.eu.org");
+}
+
 // --- Universal Headers ---
-header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
+
 // --- Handle preflight OPTIONS request ---
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
+    http_response_code(200);
     exit;
 }
 

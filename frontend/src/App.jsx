@@ -11,8 +11,12 @@ function App() {
         const fetchNumbers = async () => {
             try {
                 setLoading(true);
-                const data = await getNumbers(); // 使用新的 API 函数
-                setNumbers(data);
+                const response = await getNumbers(); // 使用新的 API 函数
+                if (response && response.data) {
+                    setNumbers(response.data);
+                } else {
+                    setNumbers([]); // Set to empty array if data is not in the expected format
+                }
                 setError(null);
             } catch (error) {
                 console.error("Fetching numbers failed in component:", error);
