@@ -1,0 +1,55 @@
+/* frontend/src/components/LotteryDisplay.css */
+
+.lottery-container {
+    margin: 20px auto;
+    padding: 20px;
+    max-width: 800px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+h1 {
+    text-align: center;
+    color: #333;
+}
+
+.loading, .error {
+    text-align: center;
+    font-size: 1.2em;
+    padding: 20px;
+}
+
+.error {
+    color: #d9534f;
+}
+
+.lottery-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.lottery-table th, .lottery-table td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: left;
+}
+
+.lottery-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+.lottery-table tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.lottery-table tbody tr:hover {
+    background-color: #f1f1f1;
+}
+
+.lottery-table .numbers {
+    font-weight: bold;
+    color: #0056b3;
+}
