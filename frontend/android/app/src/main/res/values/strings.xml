@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">WengeApp</string>
-    <string name="title_activity_main">WengeApp</string>
-    <string name="package_name">ch.cloudns.wenge.app</string>
-    <string name="custom_url_scheme">ch.cloudns.wenge.app</string>
-</resources>

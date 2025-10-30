@@ -1,6 +1,0 @@
-{
-  "appId": "ch.cloudns.wenge.app",
-  "appName": "WengeApp",
-  "webDir": "dist",
-  "bundledWebRuntime": false
-}
