@@ -1,6 +1,6 @@
 // 文件名: _worker.js
 // 路径: frontend/public/_worker.js
-// 版本: Final with User-Agent spoofing
+// 版本: Final with Path Correction
 
 export default {
   async fetch(request, env, ctx) {
@@ -8,30 +8,29 @@ export default {
     const apiBaseUrl = "https://wenge.cloudns.ch";
 
     if (url.pathname.startsWith('/api/')) {
-      const newPath = url.pathname.substring(4);
-      const destinationUrl = new URL(newPath + url.search, apiBaseUrl);
-
       // --- 关键修改在这里 ---
-      // 1. 复制原始请求的 Headers
-      const newHeaders = new Headers(request.headers);
-
-      // 2. 设置一个通用的浏览器 User-Agent
-      // 这会让我们的 Worker 请求看起来像一个普通的 Chrome 浏览器，
-      // 从而有很大几率绕过服务器端的防火墙或机器人检测。
-      newHeaders.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36');
+      // 1. 获取原始请求路径，并移除 '/api' 前缀
+      const originalPath = url.pathname.substring(4);
       
-      // (可选) 有些服务器还会检查 Host 头，我们也可以伪装一下
-      // newHeaders.set('Host', new URL(apiBaseUrl).host);
+      // 2. 构造新的、修正后的路径，在前面加上 /public_html
+      const correctedPath = '/public_html' + originalPath;
       // --- 修改结束 ---
 
+      // 使用修正后的路径构造目标 URL
+      const destinationUrl = new URL(correctedPath + url.search, apiBaseUrl);
+
+      const newHeaders = new Headers(request.headers);
+      newHeaders.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36');
+      
       const newRequest = new Request(destinationUrl, {
         method: request.method,
-        headers: newHeaders, // 使用我们修改过的新 Headers
+        headers: newHeaders,
         body: request.body,
         redirect: 'follow'
       });
 
       try {
+        // ... (try...catch 块保持不变) ...
         const backendResponse = await fetch(newRequest);
         
         const responseHeaders = new Headers(backendResponse.headers);
