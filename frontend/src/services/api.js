@@ -1,15 +1,11 @@
 // 文件名: api.js
 // 路径: frontend/src/services/api.js
-// 版本: Final - Single Entry Point
-
 import axios from 'axios';
 
-// baseURL 设置为您的后端服务器域名根
 const api = axios.create({
   baseURL: 'https://wenge.cloudns.ch',
 });
 
-// 请求拦截器
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -18,16 +14,11 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// 响应拦截器
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');

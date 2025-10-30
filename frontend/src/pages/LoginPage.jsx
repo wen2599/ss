@@ -1,3 +1,5 @@
+// 文件名: LoginPage.jsx
+// 路径: frontend/src/pages/LoginPage.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -7,7 +9,7 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login } = useAuth(); // login function is now in AuthContext
 
   const handleSubmit = async (e) => {
     e.preventDefault();

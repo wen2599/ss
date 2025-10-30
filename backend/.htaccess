@@ -1,18 +1,24 @@
 #
 # 文件名: .htaccess
 # 路径: 项目根目录
-# 版本: Final Corrected
 #
 
-# 核心安全配置：阻止通过浏览器直接访问 .env 文件
-# 由于 .env 在上一级，这个规则主要是为了防止意外地把它放在根目录。
-<FilesMatch "\.(env)$">
-    Order Allow,Deny
-    Deny from all
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+</IfModule>
+
+# 核心安全配置：保护PHP文件不被直接通过浏览器访问
+# 我们只允许 api.php 被公开访问。
+# 注意：这需要您确保前端请求的路径是干净的，没有 .php 后缀
+<FilesMatch "\.(php)$">
+    <If "-f '%{REQUEST_FILENAME}' && !('%{REQUEST_URI}' -strmatch '/api.php*')">
+        Order Allow,Deny
+        Deny from all
+    </If>
 </FilesMatch>
 
-# 保护项目内部的 config.php 和 install.php 不被外部访问
-<FilesMatch "^(config\.php|install\.php)$">
+# 保护其他敏感文件
+<FilesMatch "\.(env|md|txt)$">
     Order Allow,Deny
     Deny from all
 </FilesMatch>

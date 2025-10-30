@@ -1,3 +1,5 @@
+// 文件名: AuthContext.jsx
+// 路径: frontend/src/context/AuthContext.jsx
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import api from '../services/api';
 
@@ -17,17 +19,15 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    const response = await api.post('/auth/login.php', { email, password });
+    const response = await api.post('/api.php?action=login', { email, password });
     const { token, user } = response.data;
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
     setUser(user);
-    return response.data;
   };
 
   const register = async (email, password) => {
-    const response = await api.post('/auth/register.php', { email, password });
-    return response.data;
+    return api.post('/api.php?action=register', { email, password });
   };
 
   const logout = () => {
@@ -36,11 +36,9 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, register, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = { user, isAuthenticated: !!user, loading, login, register, logout };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
