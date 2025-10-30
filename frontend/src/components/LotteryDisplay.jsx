@@ -1,6 +1,6 @@
 // 文件名: LotteryDisplay.jsx
 // 路径: frontend/src/components/LotteryDisplay.jsx
-// 版本: Final Corrected Full Physical Path
+// 版本: Final - Single Entry Point
 
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
@@ -16,9 +16,8 @@ const LotteryDisplay = () => {
         setLoading(true);
         
         // --- 关键修改在这里 ---
-        // 因为 baseURL 是 'https://wenge.cloudns.ch'
-        // 我们需要提供从服务器根开始的完整物理路径
-        const response = await api.get('/public_html/data/get_latest.php');
+        // 请求根目录下的 api.php, 并通过 'action' 参数告诉它我们想要做什么
+        const response = await api.get('/api.php?action=get_latest_result');
         // --- 修改结束 ---
         
         setResult(response.data);

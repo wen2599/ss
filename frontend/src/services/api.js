@@ -1,6 +1,6 @@
 // 文件名: api.js
 // 路径: frontend/src/services/api.js
-// 版本: Final Corrected Path after Cache Purge
+// 版本: Final - Single Entry Point
 
 import axios from 'axios';
 
