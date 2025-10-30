@@ -1,11 +1,12 @@
 // 文件名: api.js
 // 路径: frontend/src/services/api.js
-// 版本: Final Corrected Backend Root URL
+// 版本: Final Corrected Path after Cache Purge
 
 import axios from 'axios';
 
+// baseURL 设置为您的后端服务器域名根
 const api = axios.create({
-  baseURL: 'https://wenge.cloudns.ch', 
+  baseURL: 'https://wenge.cloudns.ch',
 });
 
 // 请求拦截器
