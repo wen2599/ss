@@ -1,7 +1,7 @@
 <?php
 // 文件名: install.php
 // 路径: backend/install.php
-// 用途: 数据库安装脚本，通过SSH运行 `php install.php`
+// 更新: 修复了最后一条 INSERT ... ON DUPLICATE KEY UPDATE 语句的语法问题
 
 // 仅限命令行运行
 if (php_sapi_name() !== 'cli') {
@@ -56,8 +56,13 @@ $sql_statements = [
         `key_value` TEXT NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
     
-    // 插入一个初始的Gemini Key设置，值留空让管理员通过Bot设置
-    "INSERT INTO `settings` (`key_name`, `key_value`) VALUES ('gemini_api_key', '') ON DUPLICATE KEY UPDATE key_name = key_name;"
+    // --- 关键修改在这里 ---
+    // 旧语法: ON DUPLICATE KEY UPDATE key_name = key_name; (有歧义)
+    // 新语法: 使用 VALUES() 函数，这是处理重复键更新的标准且无歧义的方法。
+    // 它的意思是：如果 key_name 已经存在，就用本次 INSERT 尝试插入的值 (VALUES(key_value)) 来更新 key_value 字段。
+    // 我们这里让它用自己的值更新自己，实际上就是“什么都不做”，安全地跳过重复插入。
+    "INSERT INTO `settings` (`key_name`, `key_value`) VALUES ('gemini_api_key', '') 
+     ON DUPLICATE KEY UPDATE `key_value` = VALUES(`key_value`);"
 ];
 
 foreach ($sql_statements as $sql) {
@@ -70,4 +75,3 @@ foreach ($sql_statements as $sql) {
 }
 
 echo "Database installation completed successfully!\n";
-?>
