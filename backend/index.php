@@ -4,21 +4,27 @@
 // --- Universal Headers ---
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
-// --- Includes ---
+// --- Handle preflight OPTIONS request ---
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
+// --- Autoload & Includes ---
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/secrets.php';
-require_once __DIR__ . '/routes/get_numbers.php';
-require_once __DIR__ . '/routes/post_telegram.php';
-require_once __DIR__ . '/routes/post_email.php';
-require_once __DIR__ . '/routes/get_emails.php'; // 引入新的邮件路由
+require_once __DIR__ . '/src/controllers/EmailController.php';
+require_once __DIR__ . '/src/controllers/UserController.php';
 
 // --- Error Handling & DB Connection ---
 try {
     $conn = get_db_connection();
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    echo json_encode(['status' => 'error', 'message' => 'Database connection failed: ' . $e->getMessage()]);
     exit;
 }
 
@@ -26,49 +32,48 @@ try {
 $request_method = $_SERVER['REQUEST_METHOD'];
 $request_uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($request_uri, PHP_URL_PATH);
-$path_parts = explode('/', trim($path, '/'));
+$trimmed_path = trim($path, '/');
+$path_parts = explode('/', $trimmed_path);
+$resource = array_shift($path_parts) ?? ''; // e.g., 'emails', 'users', 'numbers'
 
-// 根据请求方法进行路由
-if ($request_method === 'GET') {
-    // 如果路径是 /emails
-    if (isset($path_parts[0]) && $path_parts[0] === 'emails') {
-        // 如果路径是 /emails/{id}
-        if (isset($path_parts[1]) && is_numeric($path_parts[1])) {
-            handle_get_email_by_id($conn, (int)$path_parts[1]);
-        } else {
-            // 如果路径是 /emails
-            handle_get_emails($conn);
+// --- Instantiate Controllers ---
+$emailController = new EmailController($conn);
+$userController = new UserController($conn);
+
+// --- Route Definitions ---
+switch ($resource) {
+    case 'emails':
+        if ($request_method === 'GET') {
+            $id = $path_parts[0] ?? null;
+            $emailController->handleGetEmails($id);
+        } elseif ($request_method === 'POST') {
+            $data = json_decode(file_get_contents('php://input'), true);
+            $emailController->handlePostEmail($data);
         }
-    } else {
-        // 默认 GET 请求，或对 /numbers 的请求
-        handle_get_numbers($conn);
-    }
-} elseif ($request_method === 'POST') {
-    $json_data = file_get_contents('php://input');
-    $data = json_decode($json_data, true);
+        break;
 
-    if (!$data || !isset($data['token'])) {
-        http_response_code(400);
-        echo json_encode(['status' => 'error', 'message' => 'Invalid request or missing token.']);
-        exit;
-    }
+    case 'numbers':
+        if ($request_method === 'GET') {
+            $userController->handleGetNumbers();
+        }
+        break;
 
-    // 获取密钥
-    $telegram_secret_token = get_env('TELEGRAM_SECRET_TOKEN');
-    $email_handler_secret = get_env('EMAIL_HANDLER_SECRET');
+    case 'register':
+        if ($request_method === 'POST') {
+            $data = json_decode(file_get_contents('php://input'), true);
+            $userController->handleRegisterUser($data);
+        }
+        break;
 
-    // 根据 Token 路由 POST 请求 (保持现有逻辑)
-    if (isset($data['token']) && $data['token'] === $telegram_secret_token) {
-        handle_post_telegram($conn, $data);
-    } elseif (isset($data['token']) && $data['token'] === $email_handler_secret) {
-        handle_post_email($conn, $data);
-    } else {
-        http_response_code(403);
-        echo json_encode(['status' => 'error', 'message' => 'Permission denied. Invalid token.']);
-    }
-} else {
-    http_response_code(405);
-    echo json_encode(['status' => 'error', 'message' => 'Method Not Allowed.']);
+    default:
+        // Default route (optional, can serve numbers or a welcome message)
+        if ($request_method === 'GET') {
+            $userController->handleGetNumbers();
+        } else {
+            http_response_code(404);
+            echo json_encode(['status' => 'error', 'message' => 'Endpoint Not Found']);
+        }
+        break;
 }
 
 // --- Close Connection ---
