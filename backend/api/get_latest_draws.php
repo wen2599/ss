@@ -1,6 +1,12 @@
 <?php
 // backend/api/get_latest_draws.php
 
+// --- Temporary Debugging ---
+// Enable error reporting to see the cause of the 500 error directly.
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+// --- End Temporary Debugging ---
+
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/../helpers.php';
 
@@ -25,11 +31,10 @@ try {
 
     sendJsonResponse(['success' => true, 'data' => $draws]);
 
-} catch (PDOException $e) {
-    // In case of a database error, send a 500 server error response.
-    // Avoid exposing detailed error messages in a production environment.
-    sendJsonResponse(['success' => false, 'message' => 'Database query failed.'], 500);
 } catch (Exception $e) {
-    // Catch any other exceptions (e.g., failed DB connection).
-    sendJsonResponse(['success' => false, 'message' => 'An unexpected error occurred.'], 500);
+    // --- Temporary Debugging ---
+    // We are temporarily exposing the raw exception message to the client
+    // to diagnose the root cause of the setup failure on the server.
+    sendJsonResponse(['success' => false, 'message' => 'Caught Exception: ' . $e->getMessage()], 500);
+    // --- End Temporary Debugging ---
 }

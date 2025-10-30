@@ -73,20 +73,33 @@ function get_db_connection() {
  */
 function initialize_database(PDO $pdo) {
     try {
-        // A simple query to check if the table exists.
-        // If it throws an exception, the table is missing.
+        // Check if the table exists.
         $pdo->query("SELECT 1 FROM lottery_draws LIMIT 1");
     } catch (PDOException $e) {
-        // Table does not exist, so we need to create it.
+        // Table does not exist (error code for 'base table or view not found' is usually 42S02),
+        // so we proceed with creation.
+
+        // Let's read the setup file first.
+        $sql = @file_get_contents(__DIR__ . '/setup.sql');
+        if ($sql === false) {
+            // Throw a very specific error if the file can't be read.
+            throw new Exception("CRITICAL: setup.sql could not be read. Check file permissions.");
+        }
+
         try {
-            $sql = file_get_contents(__DIR__ . '/setup.sql');
-            if ($sql === false) {
-                throw new Exception("Could not read setup.sql file.");
-            }
+            // Execute the SQL to create the table.
             $pdo->exec($sql);
-        } catch (Exception $setup_e) {
-            // If setup fails, we re-throw the exception to be caught by the global handler.
-            throw new Exception("Database setup failed: " . $setup_e->getMessage());
+        } catch (PDOException $setup_e) {
+            // If executing the SQL fails, throw a new, more detailed exception.
+            // This will give us the exact database error message.
+            $errorInfo = $setup_e->errorInfo;
+            $errorMessage = sprintf(
+                "Database setup FAILED. SQLSTATE[%s] Driver Error[%s]: %s",
+                $errorInfo[0] ?? 'N/A',
+                $errorInfo[1] ?? 'N/A',
+                $errorInfo[2] ?? $setup_e->getMessage()
+            );
+            throw new Exception($errorMessage);
         }
     }
 }
