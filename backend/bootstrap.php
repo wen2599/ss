@@ -51,10 +51,55 @@ function get_db_connection() {
     }
 }
 
-// --- Global Error Handling ---
-// Set a basic error handler to catch warnings and notices.
+// --- Global Error Handling & Logging ---
+
+// Ensure the helpers file is included if it hasn't been already,
+// so we can use sendJsonResponse in our error handlers.
+if (!function_exists('sendJsonResponse')) {
+    require_once __DIR__ . '/helpers.php';
+}
+// Ensure the logging function from bot.php is available.
+// We can centralize it here.
+if (!function_exists('write_log')) {
+    function write_log($message) {
+        $log_file = __DIR__ . '/debug.log';
+        $timestamp = date("Y-m-d H:i:s");
+        $formatted_message = is_string($message) ? $message : print_r($message, true);
+        file_put_contents($log_file, "[$timestamp] " . $formatted_message . "\n", FILE_APPEND | LOCK_EX);
+    }
+}
+
+
+// Set a global exception handler. This will catch any uncaught exceptions.
+set_exception_handler(function($exception) {
+    write_log("Uncaught Exception: " . $exception->getMessage() . " in " . $exception->getFile() . " on line " . $exception->getLine());
+
+    // Check if headers have already been sent to avoid "Cannot modify header information" errors.
+    if (!headers_sent()) {
+        sendJsonResponse(['success' => false, 'message' => 'A critical server error occurred.'], 500);
+    }
+    exit;
+});
+
+// Set an error handler to convert all PHP errors (warnings, notices, etc.) into ErrorExceptions.
 set_error_handler(function($severity, $message, $file, $line) {
-    // In a production environment, you would log this to a file.
-    // For now, we'll just throw an exception to halt execution.
+    // Don't throw exception for errors that are suppressed with @
+    if (error_reporting() === 0) {
+        return false;
+    }
     throw new ErrorException($message, 0, $severity, $file, $line);
+});
+
+// Register a shutdown function to catch fatal errors that are not caught by the exception handler.
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
+        $message = "Fatal Error: " . $error['message'] . " in " . $error['file'] . " on line " . $error['line'];
+        write_log($message);
+
+        // Manually call the exception handler's logic to send a response.
+        if (!headers_sent()) {
+            sendJsonResponse(['success' => false, 'message' => 'A critical server error occurred.'], 500);
+        }
+    }
 });

@@ -5,14 +5,7 @@
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/handlers.php';
 
-// --- Debug Logging ---
-function write_log($message) {
-    $log_file = __DIR__ . '/debug.log';
-    $timestamp = date("Y-m-d H:i:s");
-    // Use FILE_APPEND to add content to the end of the file
-    // Use LOCK_EX to prevent concurrent writes
-    file_put_contents($log_file, "[$timestamp] " . $message . "\n", FILE_APPEND | LOCK_EX);
-}
+// The write_log() function is now globally available from bootstrap.php
 
 // --- Main Webhook Logic ---
 
