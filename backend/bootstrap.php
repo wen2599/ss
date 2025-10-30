@@ -26,8 +26,19 @@ function load_env($path) {
 // Load .env file from the backend directory
 load_env(__DIR__ . '/.env');
 
-// --- Database Connection ---
+// --- Database Connection & Initialization ---
+
+// This function will hold the single PDO instance.
+$pdo_connection = null;
+
 function get_db_connection() {
+    global $pdo_connection;
+
+    // Return the existing connection if it has already been made.
+    if ($pdo_connection !== null) {
+        return $pdo_connection;
+    }
+
     $host = getenv('DB_HOST');
     $port = getenv('DB_PORT');
     $db   = getenv('DB_NAME');
@@ -43,11 +54,40 @@ function get_db_connection() {
     ];
 
     try {
-        return new PDO($dsn, $user, $pass, $options);
+        $pdo_connection = new PDO($dsn, $user, $pass, $options);
+
+        // After connecting, ensure the database is initialized.
+        initialize_database($pdo_connection);
+
+        return $pdo_connection;
     } catch (PDOException $e) {
-        // In a real application, you would log this error.
-        // For now, we'll just stop the script.
         throw new PDOException($e->getMessage(), (int)$e->getCode());
+    }
+}
+
+/**
+ * Checks if the required table exists and creates it if it doesn't.
+ * This makes the application self-initializing.
+ *
+ * @param PDO $pdo The database connection object.
+ */
+function initialize_database(PDO $pdo) {
+    try {
+        // A simple query to check if the table exists.
+        // If it throws an exception, the table is missing.
+        $pdo->query("SELECT 1 FROM lottery_draws LIMIT 1");
+    } catch (PDOException $e) {
+        // Table does not exist, so we need to create it.
+        try {
+            $sql = file_get_contents(__DIR__ . '/setup.sql');
+            if ($sql === false) {
+                throw new Exception("Could not read setup.sql file.");
+            }
+            $pdo->exec($sql);
+        } catch (Exception $setup_e) {
+            // If setup fails, we re-throw the exception to be caught by the global handler.
+            throw new Exception("Database setup failed: " . $setup_e->getMessage());
+        }
     }
 }
 
