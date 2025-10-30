@@ -1,5 +1,9 @@
+// 文件名: LotteryDisplay.jsx
+// 路径: frontend/src/components/LotteryDisplay.jsx
+
 import React, { useState, useEffect } from 'react';
-import api from '../services/api';
+// 注意：api.js 的导入路径可能需要根据您的项目结构调整
+import api from '../services/api'; 
 
 const LotteryDisplay = () => {
   const [result, setResult] = useState(null);
@@ -10,7 +14,12 @@ const LotteryDisplay = () => {
     const fetchLatestResult = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/lottery/get_latest.php');
+        // --- 关键修改在这里 ---
+        // 旧的请求: api.get('/lottery/get_latest.php')
+        // 新的请求: api.get('/get_latest.php') 
+        // 因为 baseURL 已经包含了 /data
+        const response = await api.get('/get_latest.php');
+        // --- 修改结束 ---
         setResult(response.data);
         setError('');
       } catch (err) {
@@ -24,6 +33,7 @@ const LotteryDisplay = () => {
     fetchLatestResult();
   }, []);
 
+  // ... (文件的其余部分不变) ...
   if (loading) return <p className="loading">正在加载开奖结果...</p>;
   if (error) return <p className="error">{error}</p>;
   if (!result) return <p>暂无开奖结果。</p>;

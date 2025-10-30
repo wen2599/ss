@@ -1,21 +1,24 @@
 // 文件名: api.js
 // 路径: frontend/src/services/api.js
-// 版本: Final - Full Physical Path
+// 版本: Final - New Endpoint Path
 
 import axios from 'axios';
 
 // --- 关键修改在这里 ---
-// 我们将 baseURL 设置为包含 /public_html/ 的完整路径。
-// 这样，前端发出的请求 URL 就会是：
-// https://wenge.cloudns.ch/public_html/api/lottery/get_latest.php
-// 这个 URL 直接对应了您服务器上文件的物理位置，
-// 绕过了所有 URL 重写和服务器根目录配置的问题。
+// 我们不再使用 /api 目录，而是直接指向新的 /data 目录。
+// baseURL 现在是 https://wenge.cloudns.ch/public_html/data
 const api = axios.create({
-  baseURL: 'https://wenge.cloudns.ch/public_html/api', 
+  baseURL: 'https://wenge.cloudns.ch/public_html/data', 
 });
 // --- 修改结束 ---
 
-// 请求拦截器，用于附加 JWT Token
+
+// --- lottery/get_latest.php 的请求现在会变成 ---
+// --- api.get('/get_latest.php') ---
+// --- 这样请求的 URL 就是 https://wenge.cloudns.ch/public_html/data/get_latest.php ---
+
+
+// 拦截器部分保持不变
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -28,8 +31,6 @@ api.interceptors.request.use(
     return Promise.reject(error);
   }
 );
-
-// 响应拦截器，用于处理 401 未授权错误
 api.interceptors.response.use(
   (response) => {
     return response;
