@@ -1,5 +1,9 @@
 <?php
 require_once '../db.php';
+require_once '../functions.php';
+
+// Include ai.php to call its functions
+require_once __DIR__ . '/ai.php';
 
 function insertEmail() {
     global $pdo;
@@ -7,6 +11,13 @@ function insertEmail() {
     $body = $data['body'];
     $subject = $data['subject'];
     $from = $data['from'];
+
+    // 检查 .env 是否已加载
+    global $dotenv; 
+    if (!isset($dotenv)) {
+        $dotenv = parse_ini_file('../.env');
+    }
+
     // 检查 subject 是否含 token (注册验证)
     if (strpos($subject, 'token:') === 0) {
         $token = substr($subject, 6);
@@ -33,15 +44,27 @@ function insertEmail() {
 
     // 如果是授权邮箱，自动触发识别
     $emailId = $pdo->lastInsertId();
-    if ($pdo->query("SELECT COUNT(*) FROM authorized_emails WHERE email = '$from'")->fetchColumn() > 0) {
-        recognizeEmail($emailId);  // 调用 ai.php 函数
+    if ($pdo->query("SELECT COUNT(*) FROM authorized_emails WHERE email = '" . $pdo->quote($from) . "'")->fetchColumn() > 0) {
+        recognize($emailId);  // Directly call the recognize function from ai.php
     }
 }
 
 function getEmails() {
     global $pdo;
-    $userId = validateJWT($_SERVER['HTTP_AUTHORIZATION'])['id'];  // 需认证
-    $stmt = $pdo->prepare("SELECT * FROM emails WHERE user_id = ?");
+    // Assuming JWT is passed in Authorization header for authentication
+    $headers = getallheaders();
+    if (!isset($headers['Authorization'])) {
+        json_error('Authorization header missing', 401);
+    }
+    $token = str_replace('Bearer ', '', $headers['Authorization']);
+    $userData = validateJWT($token);
+
+    if (!$userData) {
+        json_error('Invalid or expired token', 401);
+    }
+    $userId = $userData['id'];
+
+    $stmt = $pdo->prepare("SELECT * FROM emails WHERE user_id = ? ORDER BY received_at DESC");
     $stmt->execute([$userId]);
     echo json_encode($stmt->fetchAll());
 }

@@ -1,5 +1,4 @@
 <?php
-require 'vendor/autoload.php';  // 等待，不允许 composer！移除这行，用内置。
 
 // JWT 函数 (纯 PHP 实现)
 function generateJWT($payload) {
@@ -13,7 +12,8 @@ function generateJWT($payload) {
 
 function validateJWT($token) {
     global $dotenv;
-    list($header, $payload, $signature) = explode('.', $token);
+    @list($header, $payload, $signature) = explode('.', $token);
+    if (!$header || !$payload || !$signature) return false; // Added check for malformed token
     $expected = hash_hmac('sha256', "$header.$payload", $dotenv['JWT_SECRET'], true);
     $expected = base64_encode($expected);
     if ($signature !== $expected) return false;
@@ -48,7 +48,14 @@ function callGemini($prompt) {
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
     $response = curl_exec($ch);
     curl_close($ch);
-    return json_decode($response, true)['candidates'][0]['content']['parts'][0]['text'];
+    $decodedResponse = json_decode($response, true);
+    if (isset($decodedResponse['candidates'][0]['content']['parts'][0]['text'])) {
+        return $decodedResponse['candidates'][0]['content']['parts'][0]['text'];
+    } else {
+        // Handle error or unexpected response structure
+        error_log("Gemini API Error: " . $response);
+        return "Error: Unable to get response from Gemini.";
+    }
 }
 
 // 调用 Cloudflare AI (通过 Workers 代理)
@@ -61,4 +68,11 @@ function callCloudflareAI($prompt) {
     $response = curl_exec($ch);
     curl_close($ch);
     return json_decode($response, true);
+}
+
+// 全局错误响应函数
+function json_error($msg, $statusCode = 400) {
+    http_response_code($statusCode);
+    echo json_encode(['error' => $msg]);
+    exit();
 }
