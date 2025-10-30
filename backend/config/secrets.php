@@ -11,7 +11,8 @@ function get_env($key, $default = null) {
 
     static $env = null;
     if ($env === null) {
-        $env_path = __DIR__ . '/../../.env'; 
+        // Corrected path to point to the .env file inside the backend/ directory
+        $env_path = __DIR__ . '/../.env';
         if (file_exists($env_path)) {
             $env = parse_ini_file($env_path);
         } else {

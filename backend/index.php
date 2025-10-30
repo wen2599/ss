@@ -4,14 +4,14 @@
 // --- CORS Whitelist ---
 $allowed_origins = [
     'https://ss.wenxiuxiu.eu.org',
-    'http://localhost:5173'
+    'http://localhost:5173',
+    'http://localhost:5174'
 ];
 
 if (isset($_SERVER['HTTP_ORIGIN']) && in_array($_SERVER['HTTP_ORIGIN'], $allowed_origins)) {
     header("Access-Control-Allow-Origin: " . $_SERVER['HTTP_ORIGIN']);
 } else {
-    // Optionally, you could fall back to a default or deny the request.
-    // For this case, we'll default to the primary production origin.
+    // Block requests from unknown origins
     header("Access-Control-Allow-Origin: https://ss.wenxiuxiu.eu.org");
 }
 
