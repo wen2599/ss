@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+// The API URL is constructed using an environment variable for flexibility.
 const API_URL = `${import.meta.env.VITE_API_BASE_URL}/get_results.php`;
 
 function LotteryResults() {
@@ -12,25 +13,35 @@ function LotteryResults() {
     const fetchResults = async () => {
       try {
         const response = await axios.get(API_URL);
-        // 确保返回的是一个数组
-        if (Array.isArray(response.data)) {
-          setResults(response.data);
+        
+        // Check if the response is successful and contains the data array.
+        if (response.data && response.data.success && Array.isArray(response.data.data)) {
+          setResults(response.data.data);
         } else {
-          setResults([]); // 如果不是数组，设置为空数组防止 map 错误
+          // Handle cases where the API returns a success=false or unexpected structure.
+          setError('获取开奖数据失败或格式不正确。');
+          setResults([]);
         }
       } catch (err) {
         setError('无法加载开奖数据，请检查后端 API 是否正常。');
-        console.error(err);
+        console.error("API request failed:", err);
       } finally {
         setLoading(false);
       }
     };
 
     fetchResults();
-  }, []);
+  }, []); // The empty dependency array ensures this effect runs only once on mount.
 
-  if (loading) return <p>加载开奖结果中...</p>;
-  if (error) return <p style={{ color: 'red' }}>{error}</p>;
+  // --- Render Logic ---
+
+  if (loading) {
+    return <p>加载开奖结果中...</p>;
+  }
+
+  if (error) {
+    return <p style={{ color: 'red' }}>{error}</p>;
+  }
 
   return (
     <div className="lottery-results">
@@ -49,7 +60,7 @@ function LotteryResults() {
               <tr key={result.id}>
                 <td>{result.issue_number}</td>
                 <td>{result.draw_date}</td>
-                <td>{result.numbers}</td>
+                <td>{result.numbers.replace('+', ' + ')}</td>
               </tr>
             ))
           ) : (

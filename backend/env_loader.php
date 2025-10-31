@@ -9,7 +9,8 @@ if (!function_exists('load_env')) {
             return;
         }
 
-        $env_path = __DIR__ . '/../.env';
+        // Look for .env in the same directory as this file
+        $env_path = __DIR__ . '/.env';
         if (!file_exists($env_path) || !is_readable($env_path)) {
             // For CLI, output to stderr
             if (php_sapi_name() === 'cli') {
