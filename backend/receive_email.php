@@ -125,8 +125,8 @@ function handle_process_email() {
         }
         $user_id = $user['id'];
 
-        // 2. Insert the email into a new table `user_emails`
-        $stmt_insert = $conn->prepare("INSERT INTO user_emails (user_id, from_address, subject, body) VALUES (?, ?, ?, ?)");
+        // 2. Insert the email into the `emails` table
+        $stmt_insert = $conn->prepare("INSERT INTO emails (user_id, from_address, subject, body) VALUES (?, ?, ?, ?)");
         $stmt_insert->bind_param("isss", $user_id, $from, $subject, $body);
         
         if ($stmt_insert->execute()) {
