@@ -7,18 +7,18 @@ error_reporting(E_ALL);
 require_once __DIR__ . '/env_loader.php';
 
 $bot_token = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
-$app_url = $_ENV['APP_URL'] ?? null;
+$backend_url = $_ENV['BACKEND_URL'] ?? null;
 
-if (!$bot_token || !$app_url) {
-    die("Error: TELEGRAM_BOT_TOKEN and APP_URL must be set in your .env file.");
+if (!$bot_token || !$backend_url) {
+    die("Error: TELEGRAM_BOT_TOKEN and BACKEND_URL must be set in your .env file.");
 }
 
 // Ensure the URL has a trailing slash
-if (substr($app_url, -1) !== '/') {
-    $app_url .= '/';
+if (substr($backend_url, -1) !== '/') {
+    $backend_url .= '/';
 }
 
-$webhook_url = $app_url . 'backend/bot/webhook.php';
+$webhook_url = $backend_url . 'bot/webhook.php';
 
 $api_url = "https://api.telegram.org/bot{$bot_token}/setWebhook?url=" . urlencode($webhook_url);
 
