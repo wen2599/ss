@@ -8,7 +8,7 @@ if (!function_exists('load_env')) {
             return $env_vars;
         }
 
-        $env_path = __DIR__ . '/.env';
+        $env_path = __DIR__ . '/../.env';
         
         if (!file_exists($env_path) || !is_readable($env_path)) {
             if (php_sapi_name() === 'cli') {
