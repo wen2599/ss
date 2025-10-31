@@ -1,7 +1,16 @@
-
 <?php
 // backend/receive_email.php
-// Version 2.0: Handles multiple actions from the Cloudflare Worker.
+// Version 2.1: Added production error handling to suppress warnings in JSON response.
+
+// --- Production-Safe Error Handling ---
+// Prevent any PHP warnings or errors from being displayed in the output,
+// as this will break the JSON response expected by the Cloudflare Worker.
+ini_set('display_errors', 0);
+// Log errors to the server's error log instead of displaying them.
+ini_set('log_errors', 1);
+// Report all types of errors to be logged.
+error_reporting(E_ALL);
+
 
 // Load environment variables and database connection
 require_once __DIR__ . '/env_loader.php';
@@ -117,16 +126,6 @@ function handle_process_email() {
         $user_id = $user['id'];
 
         // 2. Insert the email into a new table `user_emails`
-        // This assumes you have a table like:
-        // CREATE TABLE user_emails (
-        //   id INT AUTO_INCREMENT PRIMARY KEY,
-        //   user_id INT,
-        //   from_address VARCHAR(255),
-        //   subject VARCHAR(255),
-        //   body TEXT,
-        //   received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        //   FOREIGN KEY (user_id) REFERENCES users(id)
-        // );
         $stmt_insert = $conn->prepare("INSERT INTO user_emails (user_id, from_address, subject, body) VALUES (?, ?, ?, ?)");
         $stmt_insert->bind_param("isss", $user_id, $from, $subject, $body);
         
