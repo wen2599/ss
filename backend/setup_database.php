@@ -71,6 +71,21 @@ if ($conn->query($sql_emails) === TRUE) {
     echo "Error creating table 'emails': " . $conn->error . "\n";
 }
 
+// --- 创建 users 表 ---
+$sql_users = "
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);";
+
+if ($conn->query($sql_users) === TRUE) {
+    echo "Table 'users' created successfully or already exists.\n";
+} else {
+    echo "Error creating table 'users': " . $conn->error . "\n";
+}
+
 $conn->close();
 echo "Setup script finished.\n"
 ?>
