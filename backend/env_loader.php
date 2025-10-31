@@ -6,7 +6,7 @@ if (!function_exists('load_env')) {
         if (!empty($_ENV['DB_HOST'])) {
             return;
         }
-        $env_path = __DIR__ . '/../../.env'; // .env 文件在 backend 目录的上两级
+        $env_path = __DIR__ . '/../.env'; // .env file is one level up from the backend directory
         if (!file_exists($env_path)) {
             // 在 Web 环境下，不要暴露路径
             http_response_code(500);
