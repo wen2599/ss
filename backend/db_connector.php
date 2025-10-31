@@ -1,43 +1,39 @@
 <?php
 // backend/db_connector.php
 
-/**
- * Establishes a database connection using PDO and returns the connection object.
- * It reads configuration by calling the load_env() function.
- *
- * @return PDO|null A PDO connection object on success, or null on failure.
- */
 function get_db_connection() {
-    static $pdo = null;
+    // --- TEMPORARY DIAGNOSTIC CODE ---
+    ini_set('display_errors', 1);
+    error_reporting(E_ALL);
 
-    if ($pdo !== null) {
-        return $pdo;
-    }
-
-    // env_loader.php should have been included before this function is called.
-    // We rely on the more reliable array-based approach instead of getenv().
     if (!function_exists('load_env')) {
-        error_log('CRITICAL: load_env() function not found. env_loader.php must be included first.');
-        return null;
+        die('DIAGNOSTIC_ERROR: The env_loader.php file was not included, or the load_env() function does not exist.');
     }
-    
-    // Call the function to get the array of environment variables.
+
     $env = load_env();
+
+    if (empty($env)) {
+        die('DIAGNOSTIC_ERROR: load_env() was called but returned an empty array. Check file permissions or path for .env file.');
+    }
 
     $host    = $env['DB_HOST'] ?? null;
     $db_name = $env['DB_NAME'] ?? null;
     $user    = $env['DB_USER'] ?? null;
-    // CORRECTED: Use DB_PASSWORD to match the .env file.
     $pass    = $env['DB_PASSWORD'] ?? null;
-    $charset = 'utf8mb4';
 
-    // Check if the essential variables were loaded from the array.
     if (!$host || !$db_name || !$user) {
-        error_log('Database configuration variables (DB_HOST, DB_NAME, DB_USER) could not be loaded from the environment array.');
-        return null;
+        echo "<pre>";
+        echo "DIAGNOSTIC_ERROR: One or more essential database variables could not be found after loading the environment.\n";
+        echo "HOST: " . var_export($host, true) . "\n";
+        echo "DB_NAME: " . var_export($db_name, true) . "\n";
+        echo "USER: " . var_export($user, true) . "\n";
+        echo "LOADED ENV ARRAY:\n";
+        print_r($env);
+        echo "</pre>";
+        die();
     }
 
-    $dsn = "mysql:host={$host};dbname={$db_name};charset={$charset}";
+    $dsn = "mysql:host={$host};dbname={$db_name};charset=utf8mb4";
     $options = [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -45,10 +41,10 @@ function get_db_connection() {
     ];
 
     try {
-        $pdo = new PDO($dsn, $user, $pass, $options);
-        return $pdo;
+        // This is the final point of failure we are testing.
+        return new PDO($dsn, $user, $pass, $options);
     } catch (PDOException $e) {
-        error_log('Database connection failed via PDO: ' . $e->getMessage());
-        return null;
+        // If this message is shown, the problem is 100% the connection itself or the PDO driver.
+        die("FINAL DIAGNOSTIC ERROR: PDO Connection Failed: " . $e->getMessage());
     }
 }
