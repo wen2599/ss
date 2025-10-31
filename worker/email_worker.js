@@ -2,7 +2,7 @@
  * File: email_worker.js
  * Description: Cloudflare Worker to receive emails, parse them, and securely forward them to a PHP backend.
  * This worker is designed to be robust, with retry logic and structured logging.
- * Version: 2.5 - Patched inlined postal-mime to fix undefined variable in address parsing.
+ * Version: 2.6 - Forcing a new deployment to address Cloudflare activation delays.
  */
 
 // We are using a bundled version of postal-mime to avoid external dependencies.
