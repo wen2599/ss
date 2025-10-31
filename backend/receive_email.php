@@ -1,97 +1,148 @@
+
 <?php
 // backend/receive_email.php
+// Version 2.0: Handles multiple actions from the Cloudflare Worker.
 
-// Load environment variables
+// Load environment variables and database connection
 require_once __DIR__ . '/env_loader.php';
-// Include the new database connection function
 require_once __DIR__ . '/db_connection.php';
 
-// --- Security Check ---
-// The secret key must be sent from the Cloudflare Worker in this header.
-$auth_header = $_SERVER['HTTP_X_WORKER_SECRET'] ?? '';
-$expected_secret = getenv('WORKER_SECRET');
-
-if (!$expected_secret || $auth_header !== $expected_secret) {
-    http_response_code(403);
+// --- Global Helper for JSON responses ---
+function send_json($data, $statusCode = 200) {
+    http_response_code($statusCode);
     header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'message' => 'Forbidden: Invalid or missing secret token.']);
+    echo json_encode($data);
     exit;
 }
 
-// --- Request Validation ---
-// This endpoint only accepts POST requests.
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-    exit;
+// --- Primary Security Check: Validate the Worker Secret ---
+$worker_secret = getenv('EMAIL_HANDLER_SECRET');
+if (!$worker_secret) {
+    error_log('Security Error: EMAIL_HANDLER_SECRET is not set in the environment.');
+    send_json(['success' => false, 'message' => 'Server configuration error.'], 500);
 }
 
-// --- Data Processing ---
-// Get the raw POST data from the Worker.
-$json_data = file_get_contents('php://input');
-$data = json_decode($json_data, true);
-
-// Check if JSON is valid and contains the required fields.
-if (json_last_error() !== JSON_ERROR_NONE || !isset($data['from'], $data['to'])) {
-    http_response_code(400);
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'message' => 'Bad Request: Invalid or incomplete JSON.']);
-    exit;
+$received_secret = '';
+// The secret is sent differently depending on the request type from the worker
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $received_secret = $_POST['worker_secret'] ?? '';
+} else {
+    $received_secret = $_GET['worker_secret'] ?? '';
 }
 
-// --- Database Interaction ---
-$conn = null;
-try {
-    $conn = get_db_connection();
+if ($received_secret !== $worker_secret) {
+    error_log("Forbidden: Invalid worker secret. Got: '{$received_secret}'");
+    send_json(['success' => false, 'message' => 'Forbidden: Invalid credentials.'], 403);
+}
 
-    // The `message_id` from the email header is the best unique identifier.
-    // If it's not present, we create a fallback unique ID.
-    $message_id = $data['message_id'] ?? uniqid('no-id-');
-    $from_address = $data['from'];
-    $subject = $data['subject'] ?? '';
-    $body_text = $data['text'] ?? '';
-    $body_html = $data['html'] ?? null; // Can be null if the email is plain text
-    $raw_content = $data['raw_content'] ?? null; // Extract raw content
+// --- Action Router ---
+$action = $_GET['action'] ?? '';
 
-    $stmt = $conn->prepare(
-        "INSERT INTO emails (message_id, from_address, subject, body_text, body_html, raw_content) 
-         VALUES (?, ?, ?, ?, ?, ?) 
-         ON DUPLICATE KEY UPDATE 
-            from_address=VALUES(from_address), 
-            subject=VALUES(subject), 
-            body_text=VALUES(body_text), 
-            body_html=VALUES(body_html),
-            raw_content=VALUES(raw_content)"
-    );
+switch ($action) {
+    case 'is_user_registered':
+        handle_is_user_registered();
+        break;
+    case 'process_email':
+        handle_process_email();
+        break;
+    default:
+        send_json(['success' => false, 'message' => 'Bad Request: No or invalid action specified.'], 400);
+}
 
-    if (!$stmt) {
-        throw new Exception("Failed to prepare statement: " . $conn->error);
+
+// --- Action Handler: is_user_registered ---
+function handle_is_user_registered() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        send_json(['success' => false, 'message' => 'Method Not Allowed for this action.'], 405);
     }
     
-    // The type string is now "ssssss" for six string parameters
-    $stmt->bind_param("ssssss", $message_id, $from_address, $subject, $body_text, $body_html, $raw_content);
-
-    if ($stmt->execute()) {
-        http_response_code(201); // 201 Created is appropriate for successful resource creation
-        header('Content-Type: application/json');
-        echo json_encode(['success' => true, 'message' => 'Email processed and saved successfully.']);
-    } else {
-        throw new Exception("Failed to execute statement: " . $stmt->error);
+    $email = $_GET['email'] ?? null;
+    if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        send_json(['success' => false, 'message' => 'Bad Request: Missing or invalid email.'], 400);
     }
 
-    $stmt->close();
-    
-} catch (Exception $e) {
-    // Log the actual error to the server's error log for debugging
-    error_log("Email Receiver Error: " . $e->getMessage());
-
-    http_response_code(500);
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'message' => 'Internal Server Error.']);
-
-} finally {
-    if ($conn) {
+    $conn = null;
+    try {
+        $conn = get_db_connection();
+        $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $stmt->store_result();
+        
+        $is_registered = $stmt->num_rows > 0;
+        
+        $stmt->close();
         $conn->close();
+
+        send_json(['success' => true, 'is_registered' => $is_registered]);
+
+    } catch (Exception $e) {
+        error_log("DB Error in is_user_registered: " . $e->getMessage());
+        send_json(['success' => false, 'message' => 'Internal Server Error.'], 500);
     }
 }
+
+
+// --- Action Handler: process_email ---
+function handle_process_email() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        send_json(['success' => false, 'message' => 'Method Not Allowed for this action.'], 405);
+    }
+
+    // Extract data from FormData
+    $from = $_POST['from'] ?? null;
+    $subject = $_POST['subject'] ?? '';
+    $body = $_POST['body'] ?? '';
+
+    if (!$from) {
+        send_json(['success' => false, 'message' => 'Bad Request: Missing from address.'], 400);
+    }
+
+    $conn = null;
+    try {
+        $conn = get_db_connection();
+
+        // 1. Find the user_id based on the 'from' email address
+        $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->bind_param("s", $from);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $user = $result->fetch_assoc();
+        $stmt->close();
+
+        if (!$user) {
+            // This should technically not happen if the worker logic is correct, but as a safeguard:
+            send_json(['success' => false, 'message' => 'User not found.'], 404);
+        }
+        $user_id = $user['id'];
+
+        // 2. Insert the email into a new table `user_emails`
+        // This assumes you have a table like:
+        // CREATE TABLE user_emails (
+        //   id INT AUTO_INCREMENT PRIMARY KEY,
+        //   user_id INT,
+        //   from_address VARCHAR(255),
+        //   subject VARCHAR(255),
+        //   body TEXT,
+        //   received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        //   FOREIGN KEY (user_id) REFERENCES users(id)
+        // );
+        $stmt_insert = $conn->prepare("INSERT INTO user_emails (user_id, from_address, subject, body) VALUES (?, ?, ?, ?)");
+        $stmt_insert->bind_param("isss", $user_id, $from, $subject, $body);
+        
+        if ($stmt_insert->execute()) {
+            send_json(['success' => true, 'message' => 'Email saved successfully for user.'], 201);
+        } else {
+            throw new Exception("Failed to execute insert statement: " . $stmt_insert->error);
+        }
+        
+        $stmt_insert->close();
+        $conn->close();
+
+    } catch (Exception $e) {
+        error_log("DB Error in process_email: " . $e->getMessage());
+        send_json(['success' => false, 'message' => 'Internal Server Error.'], 500);
+    }
+}
+
+?>
