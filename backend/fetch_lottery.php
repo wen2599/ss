@@ -3,7 +3,7 @@
 
 require_once __DIR__ . '/env_loader.php';
 
-$bot_token = $_ENV['TELEGRAM_BOT_TOKEN'];
+$bot_token = getenv('TELEGRAM_BOT_TOKEN');
 $offset_file = __DIR__ . '/telegram_offset.txt';
 
 // 读取上次的 offset
@@ -31,7 +31,7 @@ if (empty($data['result'])) {
 }
 
 // 连接数据库
-$db_conn = new mysqli($_ENV['DB_HOST'], $_ENV['DB_USER'], $_ENV['DB_PASS'], $_ENV['DB_NAME']);
+$db_conn = new mysqli(getenv('DB_HOST'), getenv('DB_USER'), getenv('DB_PASS'), getenv('DB_NAME'));
 if ($db_conn->connect_error) {
     // 记录错误
     exit;
@@ -62,10 +62,9 @@ foreach ($data['result'] as $update) {
 }
 
 $stmt->close();
-b_conn->close();
+$db_conn->close();
 
 // 保存新的 offset
 file_put_contents($offset_file, $offset);
 
-echo "Processed up to update_id: " . ($offset - 1) . "
-";
+echo "Processed up to update_id: " . ($offset - 1) . "\n";

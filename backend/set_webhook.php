@@ -6,8 +6,8 @@ error_reporting(E_ALL);
 
 require_once __DIR__ . '/env_loader.php';
 
-$bot_token = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
-$backend_url = $_ENV['BACKEND_URL'] ?? null;
+$bot_token = getenv('TELEGRAM_BOT_TOKEN');
+$backend_url = getenv('BACKEND_URL');
 
 if (!$bot_token || !$backend_url) {
     die("Error: TELEGRAM_BOT_TOKEN and BACKEND_URL must be set in your .env file.");

@@ -11,10 +11,10 @@ error_reporting(E_ALL);
 require_once __DIR__ . '/env_loader.php';
 
 // Database connection details from environment variables
-$db_host = $_ENV['DB_HOST'] ?? null;
-$db_user = $_ENV['DB_USER'] ?? null;
-$db_pass = $_ENV['DB_PASS'] ?? null;
-$db_name = $_ENV['DB_NAME'] ?? null;
+$db_host = getenv('DB_HOST');
+$db_user = getenv('DB_USER');
+$db_pass = getenv('DB_PASS');
+$db_name = getenv('DB_NAME');
 
 if (!$db_host || !$db_user || !$db_pass || !$db_name) {
     die("Error: Database credentials are not fully set in your .env file.\n");
