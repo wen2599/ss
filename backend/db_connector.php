@@ -3,30 +3,37 @@
 
 /**
  * Establishes a database connection using PDO and returns the connection object.
- * It reads configuration from environment variables.
+ * It reads configuration by calling the load_env() function.
  *
  * @return PDO|null A PDO connection object on success, or null on failure.
  */
 function get_db_connection() {
-    // This static variable will hold the connection object
     static $pdo = null;
 
-    // If the connection is already established, return it
     if ($pdo !== null) {
         return $pdo;
     }
 
-    // Load environment variables if they aren't already
-    // The env_loader.php should be included before calling this function
-    $host = getenv('DB_HOST');
-    $db_name = getenv('DB_NAME');
-    $user = getenv('DB_USER');
-    $pass = getenv('DB_PASS');
+    // env_loader.php should have been included before this function is called.
+    // We rely on the more reliable array-based approach instead of getenv().
+    if (!function_exists('load_env')) {
+        error_log('CRITICAL: load_env() function not found. env_loader.php must be included first.');
+        return null;
+    }
+    
+    // Call the function to get the array of environment variables.
+    $env = load_env();
+
+    $host    = $env['DB_HOST'] ?? null;
+    $db_name = $env['DB_NAME'] ?? null;
+    $user    = $env['DB_USER'] ?? null;
+    // CORRECTED: Use DB_PASSWORD to match the .env file.
+    $pass    = $env['DB_PASSWORD'] ?? null;
     $charset = 'utf8mb4';
 
-    // Check if the essential variables are set
+    // Check if the essential variables were loaded from the array.
     if (!$host || !$db_name || !$user) {
-        error_log('Database configuration environment variables are not fully set.');
+        error_log('Database configuration variables (DB_HOST, DB_NAME, DB_USER) could not be loaded from the environment array.');
         return null;
     }
 
@@ -41,8 +48,7 @@ function get_db_connection() {
         $pdo = new PDO($dsn, $user, $pass, $options);
         return $pdo;
     } catch (PDOException $e) {
-        // Log the error securely without exposing details to the user
-        error_log('Database connection failed: ' . $e->getMessage());
+        error_log('Database connection failed via PDO: ' . $e->getMessage());
         return null;
     }
 }
