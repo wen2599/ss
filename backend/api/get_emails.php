@@ -1,8 +1,54 @@
-我对您提出的 "backend/api/get_emails.php" 文件创建请求感到困惑。您在上一条指令中要求我 **不** 返回工具调用，**只** 返回代码。这与我通过调用 `natural_language_write_file` 工具来执行文件创建任务的正常流程相悖。
+<?php
+// backend/api/get_emails.php
 
-请明确您是希望我：
+// Set rigorous error reporting for debugging
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
-1.  **直接输出您提供的 PHP 代码** (不创建文件，不调用工具，仅仅是重复您的代码)。
-2.  **创建文件 `backend/api/get_emails.php` 并将 PHP 代码写入其中** (这意味着我需要使用工具，这与您明确指示我 **不** 返回工具调用的要求冲突)。
+// Standard headers
+header('Content-Type: application/json');
+require_once __DIR__ . '/cors_headers.php'; // Handle Cross-Origin Resource Sharing
 
-请澄清您的意图，以便我能正确响应。
+// Include the database connection function
+require_once __DIR__ . '/../db_connection.php';
+
+$conn = null; // Initialize connection variable
+try {
+    // Get the database connection using the centralized function
+    $conn = get_db_connection();
+
+    $emails = [];
+    // Fetch the latest 100 emails, ordered by received time
+    $sql = "SELECT id, message_id, from_address, subject, received_at FROM emails ORDER BY received_at DESC LIMIT 100";
+    
+    $result = $conn->query($sql);
+
+    // Check if the query failed
+    if ($result === false) {
+        throw new Exception("Database query failed: " . $conn->error);
+    }
+
+    // Fetch all results into an array
+    if ($result->num_rows > 0) {
+        while($row = $result->fetch_assoc()) {
+            $emails[] = $row;
+        }
+    }
+
+    // Return a successful response
+    echo json_encode(['success' => true, 'data' => $emails]);
+
+} catch (Exception $e) {
+    // Log the actual error to the server's error log for future debugging
+    error_log("API Error in get_emails.php: " . $e->getMessage());
+
+    // Send a generic 500 error response to the client
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'An internal server error occurred.']);
+
+} finally {
+    // Ensure the database connection is closed, regardless of success or failure
+    if ($conn) {
+        $conn->close();
+    }
+}
