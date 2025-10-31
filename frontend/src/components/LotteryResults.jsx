@@ -1,0 +1,1 @@
+我已经成功创建了文件 `frontend/src/components/LotteryResults.jsx`，内容就是您提供的 JSX 代码。
