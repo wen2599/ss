@@ -1,99 +1,86 @@
 <?php
 // backend/api/register.php
 
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header('Content-Type: application/json');
-require_once __DIR__ . '/cors_headers.php';
-require_once __DIR__ . '/../env_loader.php'; // Ensure env_loader is always available
+
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
 require_once __DIR__ . '/../db_connection.php';
 
-$conn = null;
-try {
-    // Only allow POST requests for registration
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        http_response_code(405);
-        echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
-        exit;
+function is_email_registered($email, $conn) {
+    $sql = "SELECT COUNT(*) FROM users WHERE email = ?";
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        throw new Exception("Prepare statement failed: " . $conn->error);
     }
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $stmt->bind_result($count);
+    $stmt->fetch();
+    $stmt->close();
+    return $count > 0;
+}
 
-    $data = json_decode(file_get_contents('php://input'), true);
+$conn = null;
 
-    // Validate input
-    if (json_last_error() !== JSON_ERROR_NONE || !isset($data['email'], $data['password'])) {
+try {
+    $data = json_decode(file_get_contents("php://input"));
+
+    if (!$data || !isset($data->email) || !isset($data->password)) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Invalid input. Email and password are required.']);
-        exit;
+        exit();
     }
 
-    $email = trim($data['email']);
-    $password = $data['password'];
+    $email = trim($data->email);
+    $password = $data->password;
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Invalid email format.']);
-        exit;
+        exit();
     }
 
     if (strlen($password) < 6) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Password must be at least 6 characters long.']);
-        exit;
+        exit();
     }
 
     $conn = get_db_connection();
-    // IMPORTANT: Check if connection was successful
-    if ($conn === null) {
-        error_log("Register API Error: Database connection returned null. Check db_connection.php and .env file.");
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database connection failed during registration. Please try again later.']);
-        exit;
+
+    if (!$conn) {
+        throw new Exception("Database connection failed during registration.");
     }
 
-    // Check if email already exists
-    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
-    if (!$stmt) {
-        $error_message = "Failed to prepare statement for email check: " . $conn->error;
-        error_log("Register API Error: " . $error_message);
-        throw new Exception($error_message);
+    if (is_email_registered($email, $conn)) {
+        http_response_code(409); // 409 Conflict
+        echo json_encode(['success' => false, 'message' => 'This email is already registered. Please try to log in.']);
+        exit();
     }
-    $stmt->bind_param("s", $email);
-    if (!$stmt->execute()) {
-        $error_message = "Failed to execute statement for email check: " . $stmt->error;
-        error_log("Register API Error: " . $error_message);
-        throw new Exception($error_message);
-    }
-    $stmt->store_result();
-    if ($stmt->num_rows > 0) {
-        http_response_code(409); // Conflict
-        echo json_encode(['success' => false, 'message' => 'Email already registered.']);
-        $stmt->close();
-        exit;
-    }
-    $stmt->close();
 
-    // Hash password securely
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-    // Insert new user
-    $stmt = $conn->prepare("INSERT INTO users (email, password) VALUES (?, ?)");
+    $sql = "INSERT INTO users (email, password_hash) VALUES (?, ?)";
+    $stmt = $conn->prepare($sql);
     if (!$stmt) {
-        $error_message = "Failed to prepare statement for user insertion: " . $conn->error;
-        error_log("Register API Error: " . $error_message);
-        throw new Exception($error_message);
+        throw new Exception("Prepare statement for insert failed: " . $conn->error);
     }
     $stmt->bind_param("ss", $email, $hashed_password);
-
+    
     if ($stmt->execute()) {
-        http_response_code(201); // Created
-        echo json_encode(['success' => true, 'message' => 'User registered successfully.']);
+        http_response_code(201); // 201 Created
+        echo json_encode(['success' => true, 'message' => 'Registration successful!']);
     } else {
-        $error_message = "Failed to execute user insertion: " . $stmt->error;
-        error_log("Register API Error: " . $error_message);
-        throw new Exception($error_message);
+        throw new Exception("Execute statement for insert failed: " . $stmt->error);
     }
-
+    
     $stmt->close();
 
 } catch (Exception $e) {
