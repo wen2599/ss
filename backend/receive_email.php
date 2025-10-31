@@ -94,6 +94,7 @@ function handle_is_user_registered() {
 
 // --- Action Handler: process_email ---
 function handle_process_email() {
+    error_log("DEBUG: handle_process_email started."); // DEBUG LOG
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         send_json(['success' => false, 'message' => 'Method Not Allowed for this action.'], 405);
     }
@@ -110,6 +111,7 @@ function handle_process_email() {
     $conn = null;
     try {
         $conn = get_db_connection();
+        error_log("DEBUG: Database connection successful."); // DEBUG LOG
 
         // 1. Find the user_id based on the 'from' email address
         $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
