@@ -1,43 +1,36 @@
 <?php
-// 此脚本应通过 SSH 命令行执行: php /path/to/backend/setup_database.php
+// backend/setup_database.php
 
-// 严格错误报告
+// This script should be executed from the command line via SSH:
+// php /path/to/your/project/backend/setup_database.php
+
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-// 加载 .env 文件的函数
-function load_env() {
-    $env_path = __DIR__ . '/../../.env'; // 指向服务器根目录的 .env
-    if (!file_exists($env_path)) {
-        die(".env file not found at {$env_path}. Please create it.\n");
-    }
-    $lines = file($env_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) continue;
-        list($name, $value) = explode('=', $line, 2);
-        $_ENV[trim($name)] = trim($value);
-    }
+// Load environment variables using the shared loader
+require_once __DIR__ . '/env_loader.php';
+
+// Database connection details from environment variables
+$db_host = $_ENV['DB_HOST'] ?? null;
+$db_user = $_ENV['DB_USER'] ?? null;
+$db_pass = $_ENV['DB_PASS'] ?? null;
+$db_name = $_ENV['DB_NAME'] ?? null;
+
+if (!$db_host || !$db_user || !$db_pass || !$db_name) {
+    die("Error: Database credentials are not fully set in your .env file.\n");
 }
 
-load_env();
-
-// 数据库连接信息
-$db_host = $_ENV['DB_HOST'];
-$db_user = $_ENV['DB_USER'];
-$db_pass = $_ENV['DB_PASS'];
-$db_name = $_ENV['DB_NAME'];
-
-// 创建连接
+// Create a new database connection
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 
-// 检查连接
+// Check for connection errors
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error . "\n");
 }
 
 echo "Database connected successfully.\n";
 
-// --- 创建 lottery_results 表 ---
+// --- Create lottery_results table ---
 $sql_lottery = "
 CREATE TABLE IF NOT EXISTS lottery_results (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -48,12 +41,12 @@ CREATE TABLE IF NOT EXISTS lottery_results (
 );";
 
 if ($conn->query($sql_lottery) === TRUE) {
-    echo "Table 'lottery_results' created successfully or already exists.\n";
+    echo "Table 'lottery_results' created or already exists.\n";
 } else {
     echo "Error creating table 'lottery_results': " . $conn->error . "\n";
 }
 
-// --- 创建 emails 表 ---
+// --- Create emails table ---
 $sql_emails = "
 CREATE TABLE IF NOT EXISTS emails (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -66,12 +59,12 @@ CREATE TABLE IF NOT EXISTS emails (
 );";
 
 if ($conn->query($sql_emails) === TRUE) {
-    echo "Table 'emails' created successfully or already exists.\n";
+    echo "Table 'emails' created or already exists.\n";
 } else {
     echo "Error creating table 'emails': " . $conn->error . "\n";
 }
 
-// --- 创建 users 表 ---
+// --- Create users table ---
 $sql_users = "
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -81,11 +74,10 @@ CREATE TABLE IF NOT EXISTS users (
 );";
 
 if ($conn->query($sql_users) === TRUE) {
-    echo "Table 'users' created successfully or already exists.\n";
+    echo "Table 'users' created or already exists.\n";
 } else {
     echo "Error creating table 'users': " . $conn->error . "\n";
 }
 
 $conn->close();
-echo "Setup script finished.\n"
-?>
+echo "Setup script finished.\n";
