@@ -8,11 +8,11 @@ error_reporting(E_ALL);
 // 加载环境变量
 require_once __DIR__ . '/env_loader.php';
 
-// 从 $_ENV 获取数据库凭证
-$db_host = $_ENV['DB_HOST'] ?? '';
-$db_user = $_ENV['DB_USER'] ?? '';
-$db_pass = $_ENV['DB_PASS'] ?? '';
-$db_name = $_ENV['DB_NAME'] ?? '';
+// 从 getenv 获取数据库凭证
+$db_host = getenv('DB_HOST');
+$db_user = getenv('DB_USER');
+$db_pass = getenv('DB_PASS');
+$db_name = getenv('DB_NAME');
 
 // 检查是否所有凭证都已加载
 if (empty($db_host) || empty($db_user) || empty($db_name)) {

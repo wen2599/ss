@@ -7,7 +7,6 @@ ini_set('error_log', __DIR__ . '/bot_errors.log');
 error_reporting(E_ALL);
 
 require_once __DIR__ . '/../env_loader.php';
-require_once __DIR__ . '/../db_connection.php';
 
 // Log the raw input from Telegram
 $raw_input = file_get_contents('php://input');
@@ -23,7 +22,7 @@ if (function_exists('fastcgi_finish_request')) {
     flush();
 }
 
-$bot_token = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
+$bot_token = getenv('TELEGRAM_BOT_TOKEN');
 if (!$bot_token) {
     error_log('TELEGRAM_BOT_TOKEN is not set.');
     exit;
