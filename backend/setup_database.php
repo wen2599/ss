@@ -55,7 +55,7 @@ if ($conn->query($sql_lottery) === TRUE) {
     echo "Error creating table 'lottery_results': " . $conn->error . "\n";
 }
 
-// --- Create emails table ---
+// --- Create emails table (with raw_content field) ---
 $sql_emails = "
 CREATE TABLE IF NOT EXISTS emails (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS emails (
     subject TEXT,
     body_text LONGTEXT,
     body_html LONGTEXT,
+    raw_content MEDIUMTEXT,
     received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );";
 
