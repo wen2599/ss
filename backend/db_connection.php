@@ -21,10 +21,10 @@ if (!function_exists('get_db_connection')) {
         // Get credentials from the returned array, ensuring correct key names
         $db_host = $env_vars['DB_HOST'] ?? null;
         $db_user = $env_vars['DB_USER'] ?? null;
-        $db_pass = $env_vars['DB_PASSWORD'] ?? null; // Correct key
+        $db_pass = $env_vars['DB_PASSWORD'] ?? null; // Corrected variable name
         $db_name = $env_vars['DB_NAME'] ?? null;
 
-        // Check if all credentials are loaded - IMPORTANT: Added $db_pass check
+        // Check if all credentials are loaded
         if (empty($db_host) || empty($db_user) || empty($db_pass) || empty($db_name)) {
             error_log("DB Connection Error: Database credentials (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME) are not fully set or are empty in the .env file.");
             // For now, returning null indicates failure.
