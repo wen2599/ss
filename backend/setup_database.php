@@ -22,15 +22,15 @@ echo "DEBUG: setup_database.php: DB_NAME from returned array: " . ($env_vars['DB
 // Database connection details from the returned environment variables array
 $db_host = $env_vars['DB_HOST'] ?? null;
 $db_user = $env_vars['DB_USER'] ?? null;
-$db_pass = $env_vars['DB_PASSWORD'] ?? null; // Corrected to DB_PASSWORD
+$db_password = $env_vars['DB_PASSWORD'] ?? null;
 $db_name = $env_vars['DB_NAME'] ?? null;
 
-if (!$db_host || !$db_user || !$db_pass || !$db_name) {
+if (!$db_host || !$db_user || !$db_password || !$db_name) {
     die("Error: Database credentials are not fully set in your .env file or could not be loaded from env_loader.\n");
 }
 
 // Create a new database connection
-$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+$conn = new mysqli($db_host, $db_user, $db_password, $db_name);
 
 // Check for connection errors
 if ($conn->connect_error) {

@@ -21,11 +21,11 @@ if (!function_exists('get_db_connection')) {
         // Get credentials from the returned array, ensuring correct key names
         $db_host = $env_vars['DB_HOST'] ?? null;
         $db_user = $env_vars['DB_USER'] ?? null;
-        $db_pass = $env_vars['DB_PASSWORD'] ?? null; // Corrected variable name
+        $db_password = $env_vars['DB_PASSWORD'] ?? null;
         $db_name = $env_vars['DB_NAME'] ?? null;
 
         // Check if all credentials are loaded
-        if (empty($db_host) || empty($db_user) || empty($db_pass) || empty($db_name)) {
+        if (empty($db_host) || empty($db_user) || empty($db_password) || empty($db_name)) {
             error_log("DB Connection Error: Database credentials (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME) are not fully set or are empty in the .env file.");
             // For now, returning null indicates failure.
             return null; 
@@ -33,7 +33,7 @@ if (!function_exists('get_db_connection')) {
 
         // Create a new database connection
         // The '@' suppresses the default PHP warning, allowing us to handle the error explicitly.
-        @$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+        @$conn = new mysqli($db_host, $db_user, $db_password, $db_name);
 
         // Check for connection errors
         if ($conn->connect_error) {
