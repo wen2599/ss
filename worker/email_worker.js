@@ -2,7 +2,7 @@
  * File: email_worker.js
  * Description: Cloudflare Worker to receive emails, parse them, and securely forward them to a PHP backend.
  * This worker is designed to be robust, with retry logic and structured logging.
- * Version: 2.6 - Forcing a new deployment to address Cloudflare activation delays.
+ * Version: 2.7 - Firewall diagnostic build. Sends a minimal, hardcoded payload to the backend.
  */
 
 // We are using a bundled version of postal-mime to avoid external dependencies.
@@ -138,34 +138,26 @@ export default {
     const fullApiUrl = `${BACKEND_URL.replace(/\/$/, '')}/receive_email.php`;
 
     try {
-      // Tee the stream so it can be read twice (once for parsing, once for raw content)
-      const [stream1, stream2] = message.raw.tee();
+      // For this diagnostic build, we are ignoring the actual email content and sending a fixed payload.
 
-      // 1. Parse the email using one stream.
-      const parser = new PostalMime();
-      const parsedEmail = await parser.parse(stream1);
-
-      // 2. Get the raw content from the second stream.
-      const rawEmailContent = await streamToString(stream2);
-
-      // 3. Construct the payload, now with the raw content.
+      // 1. Construct the minimal, hardcoded payload for the firewall test.
       const payload = {
-        message_id: messageId,
-        from: parsedEmail.from?.address || message.from,
-        to: parsedEmail.to?.map(t => t.address).join(', ') || message.to,
-        subject: parsedEmail.subject || '',
-        text: parsedEmail.text || '',
-        html: parsedEmail.html || null,
-        raw_content: rawEmailContent, // The full, raw, original email content
+        message_id: `test-id-${Date.now()}`,
+        from: "firewall-test@example.com",
+        to: message.to,
+        subject: "Firewall Diagnostic Test",
+        text: "This is a test to see if the hosting provider\'s firewall is blocking the request.",
+        html: null,
+        raw_content: "Minimal content.",
       };
 
-      // 4. Forward the enhanced payload to the backend.
+      // 2. Forward the minimal payload to the backend.
       await forwardToBackend(payload, fullApiUrl, WORKER_SECRET, messageId);
 
-      log('INFO', 'Email processing complete and forwarded successfully.', { messageId, from: payload.from });
+      log('INFO', 'Firewall diagnostic test forwarded successfully.', { messageId });
 
     } catch (error) {
-      log('ERROR', 'Critical error during worker execution after all retries.', { 
+      log('ERROR', 'Critical error during worker execution for firewall test.', { 
         messageId, 
         errorMessage: error.message,
       });
