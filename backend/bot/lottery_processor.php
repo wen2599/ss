@@ -1,7 +1,7 @@
 <?php
 // backend/bot/lottery_processor.php
 
-require_once __DIR__ . '/../db_connector.php';
+require_once __DIR__ . '/../db_connection.php';
 
 /**
  * Parses lottery result text from a channel post and stores it in the database.
