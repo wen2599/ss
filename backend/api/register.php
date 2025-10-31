@@ -6,7 +6,7 @@ error_reporting(E_ALL);
 
 header('Content-Type: application/json');
 require_once __DIR__ . '/cors_headers.php';
-require_once __DIR__ . '/../env_loader.php';
+require_once __DIR__ . '/../env_loader.php'; // Ensure env_loader is always available
 require_once __DIR__ . '/../db_connection.php';
 
 $conn = null;
@@ -43,6 +43,13 @@ try {
     }
 
     $conn = get_db_connection();
+    // IMPORTANT: Check if connection was successful
+    if ($conn === null) {
+        // get_db_connection() already logs the specific error internally
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Database connection failed during registration. Please try again later.']);
+        exit;
+    }
 
     // Check if email already exists
     $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");

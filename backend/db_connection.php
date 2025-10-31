@@ -1,38 +1,50 @@
 <?php
 // backend/db_connection.php
 
-// 严格错误报告
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+// Ensure this file is included only once
+if (!function_exists('get_db_connection')) {
+    
+    /**
+     * Creates and returns a new MySQLi database connection.
+     * This function centralizes the database connection logic.
+     *
+     * @return mysqli|null The mysqli connection object on success, or null on failure.
+     */
+    function get_db_connection() {
+        // Load environment variables using the robust loader
+        // This file should already be included, but for safety, we include it here
+        require_once __DIR__ . '/env_loader.php';
 
-// 加载环境变量
-require_once __DIR__ . '/env_loader.php';
+        // Explicitly call load_env() to get the array of variables
+        $env_vars = load_env();
 
-// 从 getenv 获取数据库凭证
-$db_host = getenv('DB_HOST');
-$db_user = getenv('DB_USER');
-$db_pass = getenv('DB_PASS');
-$db_name = getenv('DB_NAME');
+        // Get credentials from the returned array, ensuring correct key names
+        $db_host = $env_vars['DB_HOST'] ?? null;
+        $db_user = $env_vars['DB_USER'] ?? null;
+        $db_pass = $env_vars['DB_PASSWORD'] ?? null; // Correct key
+        $db_name = $env_vars['DB_NAME'] ?? null;
 
-// 检查是否所有凭证都已加载
-if (empty($db_host) || empty($db_user) || empty($db_name)) {
-    // 在生产环境中不应显示详细错误
-    error_log("数据库凭证缺失或不完整。");
-    http_response_code(500);
-    header('Content-Type: application/json');
-    die(json_encode(['success' => false, 'message' => '服务器配置错误。']));
+        // Check if all credentials are loaded - IMPORTANT: Added $db_pass check
+        if (empty($db_host) || empty($db_user) || empty($db_pass) || empty($db_name)) {
+            error_log("DB Connection Error: Database credentials (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME) are not fully set or are empty in the .env file.");
+            // For now, returning null indicates failure.
+            return null; 
+        }
+
+        // Create a new database connection
+        // The '@' suppresses the default PHP warning, allowing us to handle the error explicitly.
+        @$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+
+        // Check for connection errors
+        if ($conn->connect_error) {
+            // Log the detailed error for the administrator
+            error_log("Database connection failed: " . $conn->connect_error);
+            return null;
+        }
+
+        // Set the character set to utf8mb4 for full Unicode support
+        $conn->set_charset("utf8mb4");
+
+        return $conn;
+    }
 }
-
-// 创建数据库连接
-$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
-
-// 检查连接错误
-if ($conn->connect_error) {
-    error_log("数据库连接失败: " . $conn->connect_error);
-    http_response_code(500);
-    header('Content-Type: application/json');
-    die(json_encode(['success' => false, 'message' => '无法连接到数据库。']));
-}
-
-// 设置字符集为 UTF-8
-$conn->set_charset("utf8mb4");
