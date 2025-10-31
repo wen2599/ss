@@ -45,7 +45,7 @@ try {
     $conn = get_db_connection();
     // IMPORTANT: Check if connection was successful
     if ($conn === null) {
-        // get_db_connection() already logs the specific error internally
+        error_log("Register API Error: Database connection returned null. Check db_connection.php and .env file.");
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Database connection failed during registration. Please try again later.']);
         exit;
@@ -54,10 +54,16 @@ try {
     // Check if email already exists
     $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
     if (!$stmt) {
-        throw new Exception("Failed to prepare statement for email check: " . $conn->error);
+        $error_message = "Failed to prepare statement for email check: " . $conn->error;
+        error_log("Register API Error: " . $error_message);
+        throw new Exception($error_message);
     }
     $stmt->bind_param("s", $email);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        $error_message = "Failed to execute statement for email check: " . $stmt->error;
+        error_log("Register API Error: " . $error_message);
+        throw new Exception($error_message);
+    }
     $stmt->store_result();
     if ($stmt->num_rows > 0) {
         http_response_code(409); // Conflict
@@ -73,7 +79,9 @@ try {
     // Insert new user
     $stmt = $conn->prepare("INSERT INTO users (email, password) VALUES (?, ?)");
     if (!$stmt) {
-        throw new Exception("Failed to prepare statement for user insertion: " . $conn->error);
+        $error_message = "Failed to prepare statement for user insertion: " . $conn->error;
+        error_log("Register API Error: " . $error_message);
+        throw new Exception($error_message);
     }
     $stmt->bind_param("ss", $email, $hashed_password);
 
@@ -81,13 +89,15 @@ try {
         http_response_code(201); // Created
         echo json_encode(['success' => true, 'message' => 'User registered successfully.']);
     } else {
-        throw new Exception("Failed to execute user insertion: " . $stmt->error);
+        $error_message = "Failed to execute user insertion: " . $stmt->error;
+        error_log("Register API Error: " . $error_message);
+        throw new Exception($error_message);
     }
 
     $stmt->close();
 
 } catch (Exception $e) {
-    error_log("Register API Error: " . $e->getMessage());
+    error_log("Register API General Error: " . $e->getMessage());
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'An internal server error occurred.']);
 } finally {
