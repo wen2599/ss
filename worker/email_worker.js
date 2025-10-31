@@ -2,7 +2,7 @@
  * File: email_worker.js
  * Description: Cloudflare Worker to receive emails, parse them, and securely forward them to a PHP backend.
  * This worker is designed to be robust, with retry logic and structured logging.
- * Version: 2.4 - Patched inlined postal-mime to fix null body initialization.
+ * Version: 2.5 - Patched inlined postal-mime to fix undefined variable in address parsing.
  */
 
 // We are using a bundled version of postal-mime to avoid external dependencies.
@@ -20,7 +20,7 @@ e[i]="from"===i?a[0]:a}else"content-type"===i?e.contentType=o.value:"content-dis
 else if(r){var e=new TextDecoder().decode(r);
 t.contentType&&t.contentType.includes("text/html")?t.html=e:t.text=e}},t.prototype.decodeHeaders=function(t){return t.map((function(t){return{key:t.key,value:t.value.replace(/(=\?[^?]+\?[^?]+\?[^?]+\?=)/g,(function(t){try{return function(t){var r=t.match(/=\?([^?]+)\?([^?]+)\?(.*)\?=/);if(!r)return t;var e=r[1],s=r[2].toUpperCase(),n=r[3];
 if("B"===s){for(var o=atob(n),i=new Uint8Array(o.length),a=0;a<o.length;a++)i[a]=o.charCodeAt(a);return new TextDecoder(e).decode(i)}if("Q"===s)return n.replace(/_/g," ").replace(/=([0-9A-F]{2})/g,(function(t,r){return String.fromCharCode(parseInt(r,16))}));
-return t}(t)}catch(r){return t}}))}}))},t.prototype.parseAddresses=function(t){for(var r,e=[],s=/\"([^\"]+)\"\s*<([^>]+)>|([^<]+)\s*<([^>]+)>|([\w\s]+)|([^,]+)/g;null!==(r=g.exec(t));){var n=r[1]||r[3]||r[5]||r[6],o=r[2]||r[4];
+return t}(t)}catch(r){return t}}))}}))},t.prototype.parseAddresses=function(t){for(var r,e=[],s=/\"([^\"]+)\"\s*<([^>]+)>|([^<]+)\s*<([^>]+)>|([\w\s]+)|([^,]+)/g;null!==(r=s.exec(t));){var n=r[1]||r[3]||r[5]||r[6],o=r[2]||r[4];
 e.push({name:n?n.trim():"",address:o?o.trim():""})}return e},t}();var e=function(){function e(opts){void 0===opts&&(opts={}),this.options=opts,this.parser=new r(this.options),this.node={headers:[],body:new Uint8Array(0)},this.header="",this.crlf=!1,this.lf=!1,this.headersEnded=!1,this.bodyParser=new t,this.bodyParser.node=this.node}return e.prototype.write=function(t){for(var r=0;r<t.length;r++){var e=t[r];
 if(this.headersEnded)this.bodyParser.write(new Uint8Array([e]));
 else if(13===e)this.crlf=!0;
