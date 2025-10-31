@@ -10,15 +10,23 @@ error_reporting(E_ALL);
 // Load environment variables using the shared loader
 require_once __DIR__ . '/env_loader.php';
 
-// Database connection details from environment variables
-// Using $_ENV superglobal as it is explicitly populated by env_loader.php
-$db_host = $_ENV['DB_HOST'] ?? null;
-$db_user = $_ENV['DB_USER'] ?? null;
-$db_pass = $_ENV['DB_PASS'] ?? null;
-$db_name = $_ENV['DB_NAME'] ?? null;
+// Explicitly call load_env() and capture its return value
+$env_vars = load_env();
+
+echo "DEBUG: setup_database.php: Environment variables loaded by load_env() function.\n";
+echo "DEBUG: setup_database.php: DB_HOST from returned array: " . ($env_vars['DB_HOST'] ?? 'NOT SET') . "\n";
+echo "DEBUG: setup_database.php: DB_USER from returned array: " . ($env_vars['DB_USER'] ?? 'NOT SET') . "\n";
+echo "DEBUG: setup_database.php: DB_PASSWORD from returned array: " . ($env_vars['DB_PASSWORD'] ?? 'NOT SET') . "\n"; // Corrected to DB_PASSWORD
+echo "DEBUG: setup_database.php: DB_NAME from returned array: " . ($env_vars['DB_NAME'] ?? 'NOT SET') . "\n";
+
+// Database connection details from the returned environment variables array
+$db_host = $env_vars['DB_HOST'] ?? null;
+$db_user = $env_vars['DB_USER'] ?? null;
+$db_pass = $env_vars['DB_PASSWORD'] ?? null; // Corrected to DB_PASSWORD
+$db_name = $env_vars['DB_NAME'] ?? null;
 
 if (!$db_host || !$db_user || !$db_pass || !$db_name) {
-    die("Error: Database credentials are not fully set in your .env file or could not be loaded.\n");
+    die("Error: Database credentials are not fully set in your .env file or could not be loaded from env_loader.\n");
 }
 
 // Create a new database connection
