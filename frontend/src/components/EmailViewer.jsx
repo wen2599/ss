@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-// --- FIX: Change API URLs to relative paths for Cloudflare Worker proxy ---
-const API_BASE_URL = '/api';
-const EMAILS_API_URL = `${API_BASE_URL}/get_emails.php`;
-const EMAIL_DETAIL_API_URL = `${API_BASE_URL}/get_email_details.php`;
+const EMAILS_API_URL = '/api_router.php?endpoint=emails';
+const EMAIL_DETAIL_API_URL = '/api_router.php?endpoint=email_details';
 
 function EmailViewer() {
   const [emails, setEmails] = useState([]);
@@ -14,9 +12,9 @@ function EmailViewer() {
 
   useEffect(() => {
     const fetchEmails = async () => {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
       if (!token) {
-        setError('请先登录以查看邮件。');
+        setError('Please log in to view emails.');
         setLoading(false);
         return;
       }
@@ -28,18 +26,18 @@ function EmailViewer() {
           }
         });
 
-        if (response.data && Array.isArray(response.data.data)) {
+        if (response.data && response.data.success && Array.isArray(response.data.data)) {
             setEmails(response.data.data);
         } else {
-            console.warn("API did not return an array of emails:", response.data);
+            setError(response.data.message || 'Failed to fetch emails.');
             setEmails([]);
         }
 
       } catch (err) {
         if (err.response && err.response.status === 401) {
-          setError('您的会话已过期，请重新登录。');
+          setError('Your session has expired. Please log in again.');
         } else {
-          setError('无法加载邮件列表，请稍后重试。');
+          setError('Could not load email list. Please try again later.');
         }
         console.error("Error fetching emails:", err);
       } finally {
@@ -51,29 +49,35 @@ function EmailViewer() {
   }, []);
 
   const handleEmailSelect = async (id) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken');
     if (!token) {
-        setSelectedEmail({ error: '请先登录以查看邮件内容。' });
+        setSelectedEmail({ error: 'Please log in to view email content.' });
         return;
     }
 
     setSelectedEmail({ loading: true });
     try {
-      const response = await axios.get(`${EMAIL_DETAIL_API_URL}?id=${id}`, {
+      const response = await axios.get(`${EMAIL_DETAIL_API_URL}&id=${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      setSelectedEmail(response.data.data);
+
+      if (response.data.success) {
+        setSelectedEmail(response.data.data);
+      } else {
+        setSelectedEmail({ error: response.data.message || 'Could not load email content.' });
+      }
+
     } catch (err) {
       console.error("Error fetching email details:", err);
       if (err.response && err.response.status === 401) {
-        setSelectedEmail({ error: '您的会话已过期，请重新登录。' });
+        setSelectedEmail({ error: 'Your session has expired. Please log in again.' });
       } else {
-        setSelectedEmail({ error: '无法加载邮件内容。' });
+        setSelectedEmail({ error: 'Could not load email content.' });
       }
     }
   };
 
-  if (loading) return <p>加载邮件列表中...</p>;
+  if (loading) return <p>Loading email list...</p>;
 
   return (
     <div className="email-viewer">
@@ -86,27 +90,27 @@ function EmailViewer() {
             {emails.map((email) => (
               <li key={email.id} onClick={() => handleEmailSelect(email.id)}>
                 <div className="from">{email.from_address}</div>
-                <div className="subject">{email.subject || '(无主题)'}</div>
+                <div className="subject">{email.subject || '(No Subject)'}</div>
                 <div className="date">{new Date(email.received_at).toLocaleString()}</div>
               </li>
             ))}
           </ul>
         ) : (
-          <p style={{padding: '1rem'}}>收件箱是空的。</p>
+          <p style={{padding: '1rem'}}>Your inbox is empty.</p>
         )}
       </div>
       <div className="email-detail">
         {!selectedEmail ? (
-          <p>请在左侧选择一封邮件查看。</p>
+          <p>Please select an email to view.</p>
         ) : selectedEmail.loading ? (
-          <p>加载邮件内容...</p>
+          <p>Loading email content...</p>
         ) : selectedEmail.error ? (
           <p style={{ color: 'red' }}>{selectedEmail.error}</p>
         ) : (
           <div>
-            <h3>{selectedEmail.subject || '(无主题)'}</h3>
-            <p><strong>发件人:</strong> {selectedEmail.from_address}</p>
-            <p><strong>收件时间:</strong> {new Date(selectedEmail.received_at).toLocaleString()}</p>
+            <h3>{selectedEmail.subject || '(No Subject)'}</h3>
+            <p><strong>From:</strong> {selectedEmail.from_address}</p>
+            <p><strong>Received:</strong> {new Date(selectedEmail.received_at).toLocaleString()}</p>
             <hr />
             {selectedEmail.body_html ? (
               <div dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }} />

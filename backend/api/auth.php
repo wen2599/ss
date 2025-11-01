@@ -1,13 +1,13 @@
 <?php
 // backend/api/auth.php
-// Version 3.0: Refactored for centralized routing.
+// Version 4.0: Unified and refactored authentication endpoint.
 
-// Error reporting is handled by api_router.php
-// session_start() is handled by api_router.php
-// header('Content-Type: application/json') is handled by api_router.php
-// Database connection is handled by api_router.php, $conn is available globally.
+// This script is designed to be called by api_router.php, which handles:
+// - Error reporting
+// - Session start (though we are moving away from it)
+// - JSON content type header
+// - Database connection ($conn is globally available)
 
-// Ensure $conn is available from the router context.
 if (!isset($conn)) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Router configuration error: Database connection not available.']);
@@ -17,7 +17,7 @@ if (!isset($conn)) {
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 
-// --- REGISTER ACTION ---
+// --- ACTION: register ---
 if ($method === 'POST' && $action === 'register') {
     $data = json_decode(file_get_contents('php://input'), true);
 
@@ -26,12 +26,17 @@ if ($method === 'POST' && $action === 'register') {
 
     if (empty($email) || empty($password)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => '邮箱和密码不能为空。']);
+        echo json_encode(['success' => false, 'message' => 'Email and password are required.']);
         exit;
     }
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => '无效的邮箱格式。']);
+        echo json_encode(['success' => false, 'message' => 'Invalid email format.']);
+        exit;
+    }
+    if (strlen($password) < 6) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Password must be at least 6 characters long.']);
         exit;
     }
 
@@ -39,28 +44,29 @@ if ($method === 'POST' && $action === 'register') {
 
     $stmt = $conn->prepare("INSERT INTO users (email, password_hash) VALUES (?, ?)");
     if (!$stmt) {
+        error_log("Auth API (Register): Prepare failed: " . $conn->error);
         http_response_code(500);
-        error_log("Auth API: Register prepare failed: " . $conn->error);
-        echo json_encode(['success' => false, 'message' => '准备注册查询失败：' . $conn->error]);
+        echo json_encode(['success' => false, 'message' => 'Failed to prepare registration query.']);
         exit;
     }
     $stmt->bind_param("ss", $email, $hashed_password);
 
     if ($stmt->execute()) {
-        echo json_encode(['success' => true, 'message' => '注册成功。']);
+        http_response_code(201);
+        echo json_encode(['success' => true, 'message' => 'Registration successful.']);
     } else {
-        if ($conn->errno === 1062) {
+        if ($conn->errno === 1062) { // Duplicate entry
             http_response_code(409);
-            echo json_encode(['success' => false, 'message' => '该邮箱已被注册。']);
+            echo json_encode(['success' => false, 'message' => 'This email is already registered.']);
         } else {
+            error_log("Auth API (Register): Execute failed: " . $stmt->error);
             http_response_code(500);
-            error_log("Auth API: Register execute failed: " . $conn->error);
-            echo json_encode(['success' => false, 'message' => '注册失败，请稍后再试。']);
+            echo json_encode(['success' => false, 'message' => 'Registration failed due to a server error.']);
         }
     }
     $stmt->close();
 
-// --- LOGIN ACTION ---
+// --- ACTION: login ---
 } elseif ($method === 'POST' && $action === 'login') {
     $data = json_decode(file_get_contents('php://input'), true);
 
@@ -69,15 +75,15 @@ if ($method === 'POST' && $action === 'register') {
 
     if (empty($email) || empty($password)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => '登录失败，请检查您的凭据。']);
+        echo json_encode(['success' => false, 'message' => 'Invalid credentials.']);
         exit;
     }
 
     $stmt = $conn->prepare("SELECT id, email, password_hash FROM users WHERE email = ?");
     if (!$stmt) {
+        error_log("Auth API (Login): Prepare failed: " . $conn->error);
         http_response_code(500);
-        error_log("Auth API: Login prepare failed: " . $conn->error);
-        echo json_encode(['success' => false, 'message' => '准备登录查询失败：' . $conn->error]);
+        echo json_encode(['success' => false, 'message' => 'Failed to prepare login query.']);
         exit;
     }
     $stmt->bind_param("s", $email);
@@ -87,51 +93,50 @@ if ($method === 'POST' && $action === 'register') {
     $stmt->close();
 
     if ($user && password_verify($password, $user['password_hash'])) {
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['user_email'] = $user['email'];
-
+        // Generate a secure, random token
         $token = bin2hex(random_bytes(32));
         $expires_at = date('Y-m-d H:i:s', strtotime('+1 day'));
 
+        // Clean up any old tokens for this user
         $delete_stmt = $conn->prepare("DELETE FROM tokens WHERE user_id = ?");
-        if ($delete_stmt) {
-            $delete_stmt->bind_param("i", $user['id']);
-            $delete_stmt->execute();
-            $delete_stmt->close();
-        }
+        $delete_stmt->bind_param("i", $user['id']);
+        $delete_stmt->execute();
+        $delete_stmt->close();
         
+        // Insert the new token
         $insert_stmt = $conn->prepare("INSERT INTO tokens (user_id, token, expires_at) VALUES (?, ?, ?)");
-        if ($insert_stmt) {
-            $insert_stmt->bind_param("iss", $user['id'], $token, $expires_at);
-            if ($insert_stmt->execute()) {
-                echo json_encode([
-                    'success' => true,
-                    'message' => '登录成功。',
-                    'user' => ['email' => $user['email']],
-                    'token' => $token
-                ]);
-            } else {
-                http_response_code(500);
-                error_log("Auth API: Token insert failed: " . $conn->error);
-                echo json_encode(['success' => false, 'message' => '登录失败：无法生成认证令牌。']);
-            }
-            $insert_stmt->close();
-        } else {
+        if (!$insert_stmt) {
+            error_log("Auth API (Login): Prepare token insert failed: " . $conn->error);
             http_response_code(500);
-            error_log("Auth API: Token prepare failed: " . $conn->error);
-            echo json_encode(['success' => false, 'message' => '登录失败：准备令牌插入失败：' . $conn->error]);
+            echo json_encode(['success' => false, 'message' => 'Failed to prepare token generation.']);
+            exit;
         }
+        $insert_stmt->bind_param("iss", $user['id'], $token, $expires_at);
+
+        if ($insert_stmt->execute()) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Login successful.',
+                'token' => $token,
+                'user' => ['id' => $user['id'], 'email' => $user['email']]
+            ]);
+        } else {
+            error_log("Auth API (Login): Execute token insert failed: " . $insert_stmt->error);
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Failed to save authentication token.']);
+        }
+        $insert_stmt->close();
 
     } else {
         http_response_code(401);
-        echo json_encode(['success' => false, 'message' => '登录失败，请检查您的凭据。']);
+        echo json_encode(['success' => false, 'message' => 'Invalid credentials.']);
     }
 
-// --- LOGOUT ACTION ---
+// --- ACTION: logout ---
 } elseif ($method === 'POST' && $action === 'logout') {
     $headers = getallheaders();
     $auth_header = $headers['Authorization'] ?? '';
-    if (preg_match('/Bearer\s((.*)\.(.*)\.(.*))/', $auth_header, $matches)) {
+    if (preg_match('/Bearer\s(.+)/', $auth_header, $matches)) {
         $token = $matches[1];
         $delete_stmt = $conn->prepare("DELETE FROM tokens WHERE token = ?");
         if ($delete_stmt) {
@@ -140,46 +145,40 @@ if ($method === 'POST' && $action === 'register') {
             $delete_stmt->close();
         }
     }
-
-    session_destroy();
-    echo json_encode(['success' => true, 'message' => '登出成功。']);
-
-// --- CHECK SESSION ACTION ---
-} elseif ($method === 'GET' && $action === 'check_session') {
-    $is_logged_in = false;
-    $user_email = null;
-
-    if (isset($_SESSION['user_id'])) {
-        $is_logged_in = true;
-        $user_email = $_SESSION['user_email'];
+    // Also destroy any lingering session data for good measure
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_destroy();
     }
-    
+    echo json_encode(['success' => true, 'message' => 'Logout successful.']);
+
+// --- ACTION: check_auth ---
+} elseif ($method === 'GET' && $action === 'check_auth') {
     $headers = getallheaders();
     $auth_header = $headers['Authorization'] ?? '';
-    if (preg_match('/Bearer\s((.*)\.(.*)\.(.*))/', $auth_header, $matches)) {
-        $token_string = $matches[1];
+
+    if (preg_match('/Bearer\s(.+)/', $auth_header, $matches)) {
+        $token = $matches[1];
 
         $stmt = $conn->prepare("SELECT u.id, u.email FROM tokens t JOIN users u ON t.user_id = u.id WHERE t.token = ? AND t.expires_at > NOW()");
         if ($stmt) {
-            $stmt->bind_param("s", $token_string);
+            $stmt->bind_param("s", $token);
             $stmt->execute();
             $result = $stmt->get_result();
-            $token_user = $result->fetch_assoc();
+            $user = $result->fetch_assoc();
             $stmt->close();
 
-            if ($token_user) {
-                $is_logged_in = true;
-                $user_email = $token_user['email'];
-                $_SESSION['user_id'] = $token_user['id'];
-                $_SESSION['user_email'] = $token_user['email'];
+            if ($user) {
+                echo json_encode(['success' => true, 'loggedIn' => true, 'user' => $user]);
+                exit;
             }
         }
     }
     
-    echo json_encode(['success' => true, 'loggedIn' => $is_logged_in, 'user' => ['email' => $user_email]]);
+    // If we reach here, the token was missing, invalid, or expired
+    http_response_code(401);
+    echo json_encode(['success' => false, 'loggedIn' => false, 'message' => 'Unauthorized.']);
 
 } else {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => '无效的请求。']);
+    http_response_code(404);
+    echo json_encode(['success' => false, 'message' => 'Invalid auth action or method.']);
 }
-

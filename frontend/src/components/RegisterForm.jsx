@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const API_REGISTER_URL = '/api_router.php?endpoint=auth&action=register';
 
 function RegisterForm() {
   const [email, setEmail] = useState('');
@@ -17,26 +17,23 @@ function RegisterForm() {
     setError('');
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/register.php`, {
+      const response = await axios.post(API_REGISTER_URL, {
         email,
         password,
       });
 
       if (response.data.success) {
-        setMessage(response.data.message + ' 您现在可以登录了。');
-        // Optionally redirect to login after successful registration
-        setTimeout(() => navigate('/login'), 2000);
+        setMessage(response.data.message + ' You can now log in.');
+        setTimeout(() => navigate('/login'), 2000); // Redirect after 2 seconds
       } else {
-        setError(response.data.message || '注册失败。');
+        setError(response.data.message || 'Registration failed.');
       }
     } catch (err) {
       console.error("Registration error:", err);
       if (err.response && err.response.data && err.response.data.message) {
         setError(err.response.data.message);
-      } else if (err.message) {
-        setError(err.message);
       } else {
-        setError('注册过程中发生未知错误。');
+        setError('An unknown error occurred during registration.');
       }
     }
   };
