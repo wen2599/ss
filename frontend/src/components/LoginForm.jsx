@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 // Use an environment variable for the API base URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://wenge.cloudns.ch';
-const API_LOGIN_URL = `${API_BASE_URL}/api_router.php?endpoint=auth&action=login';
+const API_LOGIN_URL = `${API_BASE_URL}/api_router.php?endpoint=auth&action=login`;
 
 function LoginForm({ onLogin }) {
   const [email, setEmail] = useState('');
