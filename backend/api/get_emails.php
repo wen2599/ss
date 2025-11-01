@@ -1,53 +1,67 @@
 <?php
 // backend/api/get_emails.php
 
-// Set rigorous error reporting for debugging
+// Enable error reporting for debugging
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 // Standard headers
 header('Content-Type: application/json');
-require_once __DIR__ . '/cors_headers.php'; // Handle Cross-Origin Resource Sharing
+require_once __DIR__ . '/cors_headers.php';
 
-// Include the database connection function
+// --- Session Handling ---
+// Start the session to access logged-in user data
+session_start();
+
+// Security check: Ensure a user is logged in
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401); // Unauthorized
+    echo json_encode(['success' => false, 'message' => 'Unauthorized: You must be logged in to view emails.']);
+    exit;
+}
+
+$user_id = $_SESSION['user_id'];
+
+// Include database connection
 require_once __DIR__ . '/../db_connection.php';
 
-$conn = null; // Initialize connection variable
+$conn = null;
 try {
-    // Get the database connection using the centralized function
     $conn = get_db_connection();
 
     $emails = [];
-    // Fetch the latest 100 emails, ordered by received time
-    $sql = "SELECT id, message_id, from_address, subject, received_at FROM emails ORDER BY received_at DESC LIMIT 100";
+    // --- Modified SQL Query ---
+    // Selects emails associated with the logged-in user
+    $sql = "SELECT id, from_address, subject, received_at FROM emails WHERE user_id = ? ORDER BY received_at DESC LIMIT 100";
     
-    $result = $conn->query($sql);
-
-    // Check if the query failed
-    if ($result === false) {
-        throw new Exception("Database query failed: " . $conn->error);
+    $stmt = $conn->prepare($sql);
+    if ($stmt === false) {
+        throw new Exception("Failed to prepare the SQL statement: " . $conn->error);
     }
 
-    // Fetch all results into an array
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result === false) {
+        throw new Exception("Database query failed: " . $stmt->error);
+    }
+
     if ($result->num_rows > 0) {
         while($row = $result->fetch_assoc()) {
             $emails[] = $row;
         }
     }
 
-    // Return a successful response
+    $stmt->close();
     echo json_encode(['success' => true, 'data' => $emails]);
 
 } catch (Exception $e) {
-    // Log the actual error to the server's error log for future debugging
     error_log("API Error in get_emails.php: " . $e->getMessage());
-
-    // Send a generic 500 error response to the client
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'An internal server error occurred.']);
 
 } finally {
-    // Ensure the database connection is closed, regardless of success or failure
     if ($conn) {
         $conn->close();
     }
