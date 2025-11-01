@@ -51,6 +51,20 @@ CREATE TABLE IF NOT EXISTS lottery_results (
 
 if ($conn->query($sql_lottery) === TRUE) {
     echo "Table 'lottery_results' created or already exists.\n";
+
+    // --- Safe migration to add 'lottery_type' column ---
+    $result = $conn->query("SHOW COLUMNS FROM `lottery_results` LIKE 'lottery_type'");
+    if ($result->num_rows == 0) {
+        echo "Attempting to add 'lottery_type' column to 'lottery_results' table...\n";
+        $alter_sql = "ALTER TABLE `lottery_results` ADD COLUMN `lottery_type` VARCHAR(255) NULL AFTER `id`";
+        if ($conn->query($alter_sql) === TRUE) {
+            echo "Successfully added 'lottery_type' column to 'lottery_results' table.\n";
+        } else {
+            echo "Error adding 'lottery_type' column: " . $conn->error . "\n";
+        }
+    } else {
+        echo "'lottery_type' column already exists in 'lottery_results' table. No migration needed.\n";
+    }
 } else {
     echo "Error creating table 'lottery_results': " . $conn->error . "\n";
 }
