@@ -1,31 +1,25 @@
 <?php
 // backend/api/get_results.php
+// Version 2.0: Refactored for centralized routing.
 
-// Enable error reporting for debugging
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+// Ensure $conn is available from the router context.
+if (!isset($conn)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Router configuration error: Database connection not available.']);
+    exit;
+}
 
-// Standard headers
-header('Content-Type: application/json');
-require_once __DIR__ . '/cors_headers.php';
-
-// Include environment loader and database connection
-require_once __DIR__ . '/../env_loader.php';
-require_once __DIR__ . '/../db_connection.php';
-
-$conn = null;
 try {
-    $conn = get_db_connection();
-
     $results = [];
     // The query is public and does not need to be user-specific.
-    // Fixed the query by removing the non-existent 'lottery_type' column.
     $sql = "SELECT id, issue_number, numbers, created_at FROM lottery_results ORDER BY issue_number DESC LIMIT 100";
     
     $result = $conn->query($sql);
 
     if ($result === false) {
-        throw new Exception("Database query failed: " . $conn->error);
+        // The router will handle closing the connection, but we can log the specific error.
+        error_log("API Error in get_results.php: Database query failed: " . $conn->error);
+        throw new Exception("Database query failed.");
     }
 
     if ($result->num_rows > 0) {
@@ -37,12 +31,9 @@ try {
     echo json_encode(['success' => true, 'data' => $results]);
 
 } catch (Exception $e) {
-    error_log("API Error in get_results.php: " . $e->getMessage());
+    // A generic error is sent to the client, details are logged.
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'An internal server error occurred while fetching results.']);
-
-} finally {
-    if ($conn) {
-        $conn->close();
-    }
 }
+
+// The connection will be closed by api_router.php

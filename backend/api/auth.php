@@ -1,26 +1,21 @@
 <?php
 // backend/api/auth.php
-// Version 2.1: Corrected SQL column names for password handling.
+// Version 3.0: Refactored for centralized routing.
 
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+// Error reporting is handled by api_router.php
+// session_start() is handled by api_router.php
+// header('Content-Type: application/json') is handled by api_router.php
+// Database connection is handled by api_router.php, $conn is available globally.
 
-require_once __DIR__ . '/../db_connection.php';
-
-session_start();
-
-header('Content-Type: application/json');
+// Ensure $conn is available from the router context.
+if (!isset($conn)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Router configuration error: Database connection not available.']);
+    exit;
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
-
-$conn = get_db_connection();
-if (!$conn) {
-    http_response_code(500);
-    error_log("Auth API: Database connection failed.");
-    echo json_encode(['success' => false, 'message' => '数据库连接失败。']);
-    exit;
-}
 
 // --- REGISTER ACTION ---
 if ($method === 'POST' && $action === 'register') {
@@ -42,7 +37,6 @@ if ($method === 'POST' && $action === 'register') {
 
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-    // FIX: Use the correct 'password_hash' column name.
     $stmt = $conn->prepare("INSERT INTO users (email, password_hash) VALUES (?, ?)");
     if (!$stmt) {
         http_response_code(500);
@@ -79,7 +73,6 @@ if ($method === 'POST' && $action === 'register') {
         exit;
     }
 
-    // FIX: Select the correct 'password_hash' column.
     $stmt = $conn->prepare("SELECT id, email, password_hash FROM users WHERE email = ?");
     if (!$stmt) {
         http_response_code(500);
@@ -93,7 +86,6 @@ if ($method === 'POST' && $action === 'register') {
     $user = $result->fetch_assoc();
     $stmt->close();
 
-    // FIX: Verify password against the 'password_hash' column.
     if ($user && password_verify($password, $user['password_hash'])) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_email'] = $user['email'];
@@ -191,4 +183,3 @@ if ($method === 'POST' && $action === 'register') {
     echo json_encode(['success' => false, 'message' => '无效的请求。']);
 }
 
-$conn->close();

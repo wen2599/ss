@@ -6,8 +6,27 @@ export default {
 
     // Check if the request path starts with /api/
     if (url.pathname.startsWith('/api/')) {
-      const newUrl = new URL(backendBase + url.pathname + url.search);
-
+      // --- ROUTING LOGIC: Rewrite the path to use the new api_router.php ---
+      // Original path, e.g., /api/auth.php
+      const originalPath = url.pathname; 
+      // Original query, e.g., ?action=login
+      const originalQuery = url.search;
+      // New path for the router
+      const routerPath = '/api_router.php';
+      
+      // Construct new query parameters
+      const newParams = new URLSearchParams();
+      newParams.append('path', originalPath); // Pass the original path as a 'path' parameter
+      
+      // Append original query parameters to the new ones
+      if (originalQuery) {
+          new URLSearchParams(originalQuery.substring(1)).forEach((value, key) => {
+              newParams.append(key, value);
+          });
+      }
+      
+      const newUrl = new URL(backendBase + routerPath + '?' + newParams.toString());
+      
       // Handle preflight requests (OPTIONS)
       if (request.method === 'OPTIONS') {
         return handleOptions(request);
@@ -22,23 +41,15 @@ export default {
         redirect: 'follow'
       };
 
-      // --- FIX: Always add duplex: 'half' if request.body exists ---
       if (request.body) {
         newRequestInit.body = request.body;
-        newRequestInit.duplex = 'half'; // Required for streaming bodies when body is present
+        newRequestInit.duplex = 'half';
       }
 
       const newRequest = new Request(newUrl, newRequestInit);
-
-      // Forward the request to the backend
       let response = await fetch(newRequest);
-
-      // Clone the response because it's immutable
       response = new Response(response.body, response);
-
-      // Add CORS headers to all responses
       addCORSHeaders(response);
-
       return response;
     }
 
