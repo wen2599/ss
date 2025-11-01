@@ -18,8 +18,9 @@ try {
     $conn = get_db_connection();
 
     $results = [];
-    // The query is public and does not need to be user-specific
-    $sql = "SELECT id, lottery_type, issue_number, numbers, created_at FROM lottery_results ORDER BY issue_number DESC LIMIT 100";
+    // The query is public and does not need to be user-specific.
+    // Fixed the query by removing the non-existent 'lottery_type' column.
+    $sql = "SELECT id, issue_number, numbers, created_at FROM lottery_results ORDER BY issue_number DESC LIMIT 100";
     
     $result = $conn->query($sql);
 

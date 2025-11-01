@@ -12,42 +12,77 @@ function EmailViewer() {
 
   useEffect(() => {
     const fetchEmails = async () => {
+      // 检查用户是否登录
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('请先登录以查看邮件。');
+        setLoading(false);
+        return;
+      }
+
       try {
-        const response = await axios.get(EMAILS_API_URL);
-        if (Array.isArray(response.data)) {
-          setEmails(response.data);
+        // 在请求头中添加 token
+        const response = await axios.get(EMAILS_API_URL, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        // 检查返回的数据是否是数组
+        if (response.data && Array.isArray(response.data.data)) {
+            setEmails(response.data.data);
         } else {
-          setEmails([]);
+            console.warn("API did not return an array of emails:", response.data);
+            setEmails([]);
         }
+
       } catch (err) {
-        setError('无法加载邮件列表，请检查后端 API 是否正常。');
-        console.error(err);
+        if (err.response && err.response.status === 401) {
+          setError('您的会话已过期，请重新登录。');
+        } else {
+          setError('无法加载邮件列表，请稍后重试。');
+        }
+        console.error("Error fetching emails:", err);
       } finally {
         setLoading(false);
       }
     };
+
     fetchEmails();
   }, []);
 
   const handleEmailSelect = async (id) => {
-    setSelectedEmail({ loading: true }); // 显示加载状态
+    const token = localStorage.getItem('token');
+    if (!token) {
+        setSelectedEmail({ error: '请先登录以查看邮件内容。' });
+        return;
+    }
+
+    setSelectedEmail({ loading: true });
     try {
-      const response = await axios.get(`${EMAIL_DETAIL_API_URL}?id=${id}`);
-      setSelectedEmail(response.data);
+      const response = await axios.get(`${EMAIL_DETAIL_API_URL}?id=${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      setSelectedEmail(response.data.data);
     } catch (err) {
-      console.error(err);
-      setSelectedEmail({ error: '无法加载邮件内容。' });
+      console.error("Error fetching email details:", err);
+      if (err.response && err.response.status === 401) {
+        setSelectedEmail({ error: '您的会话已过期，请重新登录。' });
+      } else {
+        setSelectedEmail({ error: '无法加载邮件内容。' });
+      }
     }
   };
 
   if (loading) return <p>加载邮件列表中...</p>;
-  if (error) return <p style={{ color: 'red' }}>{error}</p>;
 
   return (
     <div className="email-viewer">
       <div className="email-list">
         <h2>收件箱</h2>
-        {emails.length > 0 ? (
+        {error ? (
+          <p style={{ color: 'red', padding: '1rem' }}>{error}</p>
+        ) : emails.length > 0 ? (
           <ul>
             {emails.map((email) => (
               <li key={email.id} onClick={() => handleEmailSelect(email.id)}>
