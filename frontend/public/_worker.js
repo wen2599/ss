@@ -1,7 +1,6 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    // --- FIX: Correct variable declaration order ---
     const backendBase = 'https://wenge.cloudns.ch'; // Your Serv00 backend domain
     const backendUrl = new URL(backendBase);
 
@@ -14,16 +13,22 @@ export default {
         return handleOptions(request);
       }
       
-      // Create a new Headers object and explicitly set the Host header
       const newRequestHeaders = new Headers(request.headers);
       newRequestHeaders.set('Host', backendUrl.host);
 
-      const newRequest = new Request(newUrl, {
+      // --- FIX: Add duplex: 'half' for requests with a streaming body ---
+      const newRequestInit = {
         method: request.method,
         headers: newRequestHeaders,
-        body: request.body,
         redirect: 'follow'
-      });
+      };
+
+      if (request.body) {
+        newRequestInit.body = request.body;
+        newRequestInit.duplex = 'half'; // Required for streaming bodies
+      }
+
+      const newRequest = new Request(newUrl, newRequestInit);
 
       // Forward the request to the backend
       let response = await fetch(newRequest);
