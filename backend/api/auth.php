@@ -4,7 +4,6 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-// require_once __DIR__ . '/cors_headers.php'; // Temporarily disabled as Cloudflare Worker should handle this
 require_once __DIR__ . '/../db_connection.php';
 
 session_start();
@@ -62,26 +61,14 @@ if ($method === 'POST' && $action === 'register') {
     }
     $stmt->close();
 } elseif ($method === 'POST' && $action === 'login') {
-    // --- DEBUGGING: Log incoming request data ---
-    $raw_input = file_get_contents('php://input');
-    $log_data = "Timestamp: " . date('Y-m-d H:i:s') . "\n";
-    $log_data .= "GET Data: " . print_r($_GET, true) . "\n";
-    $log_data .= "POST Data: " . print_r($_POST, true) . "\n";
-    $log_data .= "Raw Input: " . $raw_input . "\n";
-    $log_data .= "Headers: " . print_r(getallheaders(), true) . "\n";
-    $log_data .= "-------------------------------------\n";
-    file_put_contents(__DIR__ . '/auth_debug.log', $log_data, FILE_APPEND);
-    // --- END DEBUGGING ---
-
-    $data = json_decode($raw_input, true);
+    $data = json_decode(file_get_contents('php://input'), true);
 
     $email = $data['email'] ?? null;
     $password = $data['password'] ?? null;
 
     if (empty($email) || empty($password)) {
         http_response_code(400);
-        // --- FIX: Change error message to be more specific ---
-        echo json_encode(['success' => false, 'message' => '登录失败，请检查您的凭据']);
+        echo json_encode(['success' => false, 'message' => '登录失败，请检查您的凭据。']);
         exit;
     }
 
@@ -133,8 +120,7 @@ if ($method === 'POST' && $action === 'register') {
 
     } else {
         http_response_code(401);
-        // --- FIX: Change error message to be more specific ---
-        echo json_encode(['success' => false, 'message' => '登录失败，请检查您的凭据']);
+        echo json_encode(['success' => false, 'message' => '登录失败，请检查您的凭据。']);
     }
 } elseif ($method === 'POST' && $action === 'logout') {
     $headers = getallheaders();
