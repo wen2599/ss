@@ -1,5 +1,6 @@
 <?php
 // backend/api/auth.php
+// Version 2.1: Corrected SQL column names for password handling.
 
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
@@ -13,14 +14,15 @@ header('Content-Type: application/json');
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 
-$conn = get_db_connection(); // Get connection outside of specific action blocks
+$conn = get_db_connection();
 if (!$conn) {
     http_response_code(500);
-    error_log("Auth API: Database connection failed."); // Log database connection failure
+    error_log("Auth API: Database connection failed.");
     echo json_encode(['success' => false, 'message' => '数据库连接失败。']);
     exit;
 }
 
+// --- REGISTER ACTION ---
 if ($method === 'POST' && $action === 'register') {
     $data = json_decode(file_get_contents('php://input'), true);
 
@@ -32,7 +34,6 @@ if ($method === 'POST' && $action === 'register') {
         echo json_encode(['success' => false, 'message' => '邮箱和密码不能为空。']);
         exit;
     }
-
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => '无效的邮箱格式。']);
@@ -41,10 +42,11 @@ if ($method === 'POST' && $action === 'register') {
 
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-    $stmt = $conn->prepare("INSERT INTO users (email, password) VALUES (?, ?)");
+    // FIX: Use the correct 'password_hash' column name.
+    $stmt = $conn->prepare("INSERT INTO users (email, password_hash) VALUES (?, ?)");
     if (!$stmt) {
         http_response_code(500);
-        error_log("Auth API: Register prepare failed: " . $conn->error); // Log prepare error
+        error_log("Auth API: Register prepare failed: " . $conn->error);
         echo json_encode(['success' => false, 'message' => '准备注册查询失败：' . $conn->error]);
         exit;
     }
@@ -58,14 +60,15 @@ if ($method === 'POST' && $action === 'register') {
             echo json_encode(['success' => false, 'message' => '该邮箱已被注册。']);
         } else {
             http_response_code(500);
-            error_log("Auth API: Register execute failed: " . $conn->error); // Log execute error
+            error_log("Auth API: Register execute failed: " . $conn->error);
             echo json_encode(['success' => false, 'message' => '注册失败，请稍后再试。']);
         }
     }
     $stmt->close();
+
+// --- LOGIN ACTION ---
 } elseif ($method === 'POST' && $action === 'login') {
-    $raw_input = file_get_contents('php://input');
-    $data = json_decode($raw_input, true);
+    $data = json_decode(file_get_contents('php://input'), true);
 
     $email = $data['email'] ?? null;
     $password = $data['password'] ?? null;
@@ -76,10 +79,11 @@ if ($method === 'POST' && $action === 'register') {
         exit;
     }
 
-    $stmt = $conn->prepare("SELECT id, email, password FROM users WHERE email = ?");
+    // FIX: Select the correct 'password_hash' column.
+    $stmt = $conn->prepare("SELECT id, email, password_hash FROM users WHERE email = ?");
     if (!$stmt) {
         http_response_code(500);
-        error_log("Auth API: Login prepare failed: " . $conn->error); // Log prepare error
+        error_log("Auth API: Login prepare failed: " . $conn->error);
         echo json_encode(['success' => false, 'message' => '准备登录查询失败：' . $conn->error]);
         exit;
     }
@@ -89,7 +93,8 @@ if ($method === 'POST' && $action === 'register') {
     $user = $result->fetch_assoc();
     $stmt->close();
 
-    if ($user && password_verify($password, $user['password'])) {
+    // FIX: Verify password against the 'password_hash' column.
+    if ($user && password_verify($password, $user['password_hash'])) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_email'] = $user['email'];
 
@@ -115,13 +120,13 @@ if ($method === 'POST' && $action === 'register') {
                 ]);
             } else {
                 http_response_code(500);
-                error_log("Auth API: Token insert failed: " . $conn->error); // Log token insert failure
+                error_log("Auth API: Token insert failed: " . $conn->error);
                 echo json_encode(['success' => false, 'message' => '登录失败：无法生成认证令牌。']);
             }
             $insert_stmt->close();
         } else {
             http_response_code(500);
-            error_log("Auth API: Token prepare failed: " . $conn->error); // Log token prepare failure
+            error_log("Auth API: Token prepare failed: " . $conn->error);
             echo json_encode(['success' => false, 'message' => '登录失败：准备令牌插入失败：' . $conn->error]);
         }
 
@@ -129,6 +134,8 @@ if ($method === 'POST' && $action === 'register') {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => '登录失败，请检查您的凭据。']);
     }
+
+// --- LOGOUT ACTION ---
 } elseif ($method === 'POST' && $action === 'logout') {
     $headers = getallheaders();
     $auth_header = $headers['Authorization'] ?? '';
@@ -144,6 +151,8 @@ if ($method === 'POST' && $action === 'register') {
 
     session_destroy();
     echo json_encode(['success' => true, 'message' => '登出成功。']);
+
+// --- CHECK SESSION ACTION ---
 } elseif ($method === 'GET' && $action === 'check_session') {
     $is_logged_in = false;
     $user_email = null;
@@ -153,7 +162,6 @@ if ($method === 'POST' && $action === 'register') {
         $user_email = $_SESSION['user_email'];
     }
     
-    // Check for Authorization header (Bearer token)
     $headers = getallheaders();
     $auth_header = $headers['Authorization'] ?? '';
     if (preg_match('/Bearer\s((.*)\.(.*)\.(.*))/', $auth_header, $matches)) {
@@ -170,7 +178,6 @@ if ($method === 'POST' && $action === 'register') {
             if ($token_user) {
                 $is_logged_in = true;
                 $user_email = $token_user['email'];
-                // Optionally, renew session if logged in via token
                 $_SESSION['user_id'] = $token_user['id'];
                 $_SESSION['user_email'] = $token_user['email'];
             }
