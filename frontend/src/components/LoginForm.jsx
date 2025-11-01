@@ -15,28 +15,34 @@ function LoginForm({ onLogin }) {
     setError('');
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/login.php`, {
+      // Note: The backend endpoint is now auth.php with an action parameter.
+      const response = await axios.post(`${API_BASE_URL}/auth.php?action=login`, {
         email,
         password,
       });
 
-      if (response.data.success) {
-        // Store token and user_id in local storage
-        localStorage.setItem('authToken', response.data.token);
-        localStorage.setItem('userId', response.data.user_id);
-        onLogin(response.data.token, response.data.user_id);
-        navigate('/'); // Redirect to home or dashboard
+      if (response.data.success && response.data.token) {
+        // --- FIX: Use the consistent key 'token' for localStorage ---
+        localStorage.setItem('token', response.data.token);
+        
+        // Pass user info to parent component if needed
+        if (onLogin) {
+            onLogin(response.data.user);
+        }
+        
+        // Redirect to the homepage after successful login
+        navigate('/');
+        // Optionally, reload to ensure all components re-check the login state
+        window.location.reload();
       } else {
-        setError(response.data.message || '登录失败。');
+        setError(response.data.message || '登录失败，请检查您的凭据。');
       }
     } catch (err) {
       console.error("Login error:", err);
       if (err.response && err.response.data && err.response.data.message) {
         setError(err.response.data.message);
-      } else if (err.message) {
-        setError(err.message);
       } else {
-        setError('登录过程中发生未知错误。');
+        setError('登录过程中发生网络或服务器错误。');
       }
     }
   };
