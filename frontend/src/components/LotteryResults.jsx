@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-// The API URL is constructed using an environment variable for flexibility.
-const API_URL = `${import.meta.env.VITE_API_BASE_URL}/get_results.php`;
+const API_URL = '/api_router.php?endpoint=lottery';
 
 function LotteryResults() {
   const [results, setResults] = useState([]);
@@ -14,16 +13,14 @@ function LotteryResults() {
       try {
         const response = await axios.get(API_URL);
         
-        // Check if the response is successful and contains the data array.
         if (response.data && response.data.success && Array.isArray(response.data.data)) {
           setResults(response.data.data);
         } else {
-          // Handle cases where the API returns a success=false or unexpected structure.
-          setError('获取开奖数据失败或格式不正确。');
+          setError('Failed to fetch lottery data or the format is incorrect.');
           setResults([]);
         }
       } catch (err) {
-        setError('无法加载开奖数据，请检查后端 API 是否正常。');
+        setError('Could not load lottery data. Please check if the backend API is running.');
         console.error("API request failed:", err);
       } finally {
         setLoading(false);
@@ -31,12 +28,10 @@ function LotteryResults() {
     };
 
     fetchResults();
-  }, []); // The empty dependency array ensures this effect runs only once on mount.
-
-  // --- Render Logic ---
+  }, []);
 
   if (loading) {
-    return <p>加载开奖结果中...</p>;
+    return <p>Loading lottery results...</p>;
   }
 
   if (error) {
@@ -65,7 +60,7 @@ function LotteryResults() {
             ))
           ) : (
             <tr>
-              <td colSpan="3">暂无开奖数据。</td>
+              <td colSpan="3">No lottery data available.</td>
             </tr>
           )}
         </tbody>

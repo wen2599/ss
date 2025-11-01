@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-// --- FIX: Change API_BASE_URL to relative path for Cloudflare Worker proxy ---
-const API_BASE_URL = '/api'; 
+const API_LOGIN_URL = '/api_router.php?endpoint=auth&action=login';
 
 function LoginForm({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -16,29 +15,31 @@ function LoginForm({ onLogin }) {
     setError('');
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth.php?action=login`, {
+      const response = await axios.post(API_LOGIN_URL, {
         email,
         password,
       });
 
       if (response.data.success && response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        
-        if (onLogin) {
-            onLogin(response.data.user);
+        localStorage.setItem('authToken', response.data.token);
+        // Also store user ID from the new API response
+        if (response.data.user && response.data.user.id) {
+            localStorage.setItem('userId', response.data.user.id);
         }
         
+        // Pass the token and user ID to the parent component
+        onLogin(response.data.token, response.data.user.id);
+
         navigate('/');
-        window.location.reload();
       } else {
-        setError(response.data.message || '登录失败，请检查您的凭据。');
+        setError(response.data.message || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
       console.error("Login error:", err);
       if (err.response && err.response.data && err.response.data.message) {
         setError(err.response.data.message);
       } else {
-        setError('登录过程中发生网络或服务器错误。');
+        setError('A network or server error occurred during login.');
       }
     }
   };

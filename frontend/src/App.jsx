@@ -1,30 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import LotteryResults from './components/LotteryResults';
 import EmailViewer from './components/EmailViewer';
 import RegisterForm from './components/RegisterForm';
 import LoginForm from './components/LoginForm';
 import './App.css';
 
+const API_CHECK_AUTH_URL = '/api_router.php?endpoint=auth&action=check_auth';
+
 function App() {
   const [authToken, setAuthToken] = useState(localStorage.getItem('authToken'));
   const [userId, setUserId] = useState(localStorage.getItem('userId'));
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Update state if localStorage changes (e.g., from another tab)
-    const handleStorageChange = () => {
-      setAuthToken(localStorage.getItem('authToken'));
-      setUserId(localStorage.getItem('userId'));
+    const checkAuth = async () => {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        try {
+          const response = await axios.get(API_CHECK_AUTH_URL, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (response.data.success && response.data.loggedIn) {
+            setAuthToken(token);
+            setUserId(response.data.user.id);
+          } else {
+            handleLogout(); // Invalid token
+          }
+        } catch (error) {
+          handleLogout(); // Error validating token
+        }
+      }
+      setLoading(false);
     };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+
+    checkAuth();
   }, []);
 
   const handleLogin = (token, id) => {
     setAuthToken(token);
     setUserId(id);
-    // localStorage is already set in LoginForm
   };
 
   const handleLogout = () => {
@@ -32,8 +49,12 @@ function App() {
     localStorage.removeItem('userId');
     setAuthToken(null);
     setUserId(null);
-    navigate('/login'); // Redirect to login page after logout
+    navigate('/login');
   };
+
+  if (loading) {
+      return <div>Loading...</div>; // Or a spinner component
+  }
 
   return (
     <div className="app">
@@ -51,14 +72,9 @@ function App() {
 
       <main>
         <Routes>
-          <Route path="/" element={authToken ? <HomeContent /> : <WelcomeMessage />}>
-            {/* Nested routes for home content if authenticated */}
-            <Route index element={<LotteryResults />} />
-            <Route path="emails" element={<EmailViewer />} />
-          </Route>
+          <Route path="/" element={authToken ? <HomeContent /> : <WelcomeMessage />} />
           <Route path="/register" element={<RegisterForm />} />
           <Route path="/login" element={<LoginForm onLogin={handleLogin} />} />
-          {/* Add a fallback route for unmatched paths */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
@@ -66,7 +82,6 @@ function App() {
   );
 }
 
-// Placeholder components for routing
 function HomeContent() {
   const [activeView, setActiveView] = useState('lottery');
   return (
