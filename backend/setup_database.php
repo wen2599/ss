@@ -70,6 +70,21 @@ CREATE TABLE IF NOT EXISTS emails (
 
 if ($conn->query($sql_emails) === TRUE) {
     echo "Table 'emails' created or already exists.\n";
+
+    // --- Safe migration to add 'user_id' column to 'emails' table ---
+    $result = $conn->query("SHOW COLUMNS FROM `emails` LIKE 'user_id'");
+    if ($result->num_rows == 0) {
+        echo "Attempting to add 'user_id' column to 'emails' table...\n";
+        $alter_sql = "ALTER TABLE `emails` ADD COLUMN `user_id` INT NULL AFTER `id`, ADD INDEX `idx_user_id` (`user_id`)";
+        if ($conn->query($alter_sql) === TRUE) {
+            echo "Successfully added 'user_id' column and index to 'emails' table.\n";
+        } else {
+            echo "Error adding 'user_id' column: " . $conn->error . "\n";
+        }
+    } else {
+        echo "'user_id' column already exists in 'emails' table. No migration needed.\n";
+    }
+
 } else {
     echo "Error creating table 'emails': " . $conn->error . "\n";
 }
