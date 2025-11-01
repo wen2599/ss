@@ -22,12 +22,10 @@ export default {
         redirect: 'follow'
       };
 
-      // --- FIX: Conditionally add duplex: 'half' for requests with a body ---
-      // Check if the request method typically involves a body (e.g., POST, PUT)
-      const methodsWithBody = ['POST', 'PUT', 'PATCH'];
-      if (methodsWithBody.includes(request.method.toUpperCase()) && request.body) {
+      // --- FIX: Always add duplex: 'half' if request.body exists ---
+      if (request.body) {
         newRequestInit.body = request.body;
-        newRequestInit.duplex = 'half'; // Required for streaming bodies
+        newRequestInit.duplex = 'half'; // Required for streaming bodies when body is present
       }
 
       const newRequest = new Request(newUrl, newRequestInit);
