@@ -117,27 +117,25 @@ export default {
    */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const backendServer = "https://wenge.cloudns.ch"; // Hardcoded for clarity
+    const backendServer = "https://wenge.cloudns.ch";
 
-    // --- UPDATED ROUTING LOGIC ---
-    // This condition now correctly proxies requests for the API router.
+    // Proxy API requests to the backend
     if (url.pathname.startsWith('/api_router.php')) {
       const backendUrl = new URL(url.pathname, backendServer);
       backendUrl.search = url.search;
 
+      // Forward the request to the backend, ensuring duplex: 'half' is set for POSTs
       const backendRequest = new Request(backendUrl.toString(), {
         method: request.method,
         headers: request.headers,
         body: request.body,
-        duplex: 'half',
+        duplex: 'half', // This is the crucial fix for POST request body streaming
       });
       return fetch(backendRequest);
     }
 
-    // --- Fallback for other requests (e.g., frontend assets) ---
-    // This logic should be updated if the worker is also serving the frontend.
-    // For now, we'll return a generic not found.
-    return new Response('Not found.', { status: 404 });
+    // For all other paths, serve the frontend application from Cloudflare Pages
+    return env.ASSETS.fetch(request);
   },
 
   /**
