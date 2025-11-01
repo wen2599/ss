@@ -16,14 +16,16 @@ export default {
       const newRequestHeaders = new Headers(request.headers);
       newRequestHeaders.set('Host', backendUrl.host);
 
-      // --- FIX: Add duplex: 'half' for requests with a streaming body ---
       const newRequestInit = {
         method: request.method,
         headers: newRequestHeaders,
         redirect: 'follow'
       };
 
-      if (request.body) {
+      // --- FIX: Conditionally add duplex: 'half' for requests with a body ---
+      // Check if the request method typically involves a body (e.g., POST, PUT)
+      const methodsWithBody = ['POST', 'PUT', 'PATCH'];
+      if (methodsWithBody.includes(request.method.toUpperCase()) && request.body) {
         newRequestInit.body = request.body;
         newRequestInit.duplex = 'half'; // Required for streaming bodies
       }
