@@ -125,7 +125,12 @@ export default {
       const backendUrl = new URL(url.pathname, backendServer);
       backendUrl.search = url.search;
 
-      const backendRequest = new Request(backendUrl, request);
+      const backendRequest = new Request(backendUrl.toString(), {
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+        duplex: 'half',
+      });
       return fetch(backendRequest);
     }
 

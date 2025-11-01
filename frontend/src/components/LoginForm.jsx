@@ -15,10 +15,8 @@ function LoginForm({ onLogin }) {
     setError('');
 
     try {
-      const response = await axios.post(API_LOGIN_URL, {
-        email,
-        password,
-      });
+      const loginUrl = `${API_LOGIN_URL}&email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
+      const response = await axios.get(loginUrl);
 
       if (response.data.success && response.data.token) {
         localStorage.setItem('authToken', response.data.token);
