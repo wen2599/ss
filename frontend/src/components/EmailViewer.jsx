@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const EMAILS_API_URL = `${import.meta.env.VITE_API_BASE_URL}/get_emails.php`;
-const EMAIL_DETAIL_API_URL = `${import.meta.env.VITE_API_BASE_URL}/get_email_details.php`;
+// --- FIX: Change API URLs to relative paths for Cloudflare Worker proxy ---
+const API_BASE_URL = '/api';
+const EMAILS_API_URL = `${API_BASE_URL}/get_emails.php`;
+const EMAIL_DETAIL_API_URL = `${API_BASE_URL}/get_email_details.php`;
 
 function EmailViewer() {
   const [emails, setEmails] = useState([]);
@@ -12,7 +14,6 @@ function EmailViewer() {
 
   useEffect(() => {
     const fetchEmails = async () => {
-      // 检查用户是否登录
       const token = localStorage.getItem('token');
       if (!token) {
         setError('请先登录以查看邮件。');
@@ -21,14 +22,12 @@ function EmailViewer() {
       }
 
       try {
-        // 在请求头中添加 token
         const response = await axios.get(EMAILS_API_URL, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
 
-        // 检查返回的数据是否是数组
         if (response.data && Array.isArray(response.data.data)) {
             setEmails(response.data.data);
         } else {

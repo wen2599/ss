@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+// --- FIX: Change API_BASE_URL to relative path for Cloudflare Worker proxy ---
+const API_BASE_URL = '/api'; 
 
 function LoginForm({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -15,24 +16,19 @@ function LoginForm({ onLogin }) {
     setError('');
 
     try {
-      // Note: The backend endpoint is now auth.php with an action parameter.
       const response = await axios.post(`${API_BASE_URL}/auth.php?action=login`, {
         email,
         password,
       });
 
       if (response.data.success && response.data.token) {
-        // --- FIX: Use the consistent key 'token' for localStorage ---
         localStorage.setItem('token', response.data.token);
         
-        // Pass user info to parent component if needed
         if (onLogin) {
             onLogin(response.data.user);
         }
         
-        // Redirect to the homepage after successful login
         navigate('/');
-        // Optionally, reload to ensure all components re-check the login state
         window.location.reload();
       } else {
         setError(response.data.message || '登录失败，请检查您的凭据。');
