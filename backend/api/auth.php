@@ -67,11 +67,9 @@ if ($method === 'POST' && $action === 'register') {
     $stmt->close();
 
 // --- ACTION: login ---
-} elseif ($method === 'POST' && $action === 'login') {
-    $data = json_decode(file_get_contents('php://input'), true);
-
-    $email = $data['email'] ?? null;
-    $password = $data['password'] ?? null;
+} elseif ($method === 'GET' && $action === 'login') {
+    $email = $_GET['email'] ?? null;
+    $password = $_GET['password'] ?? null;
 
     if (empty($email) || empty($password)) {
         http_response_code(400);

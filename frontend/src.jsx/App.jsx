@@ -64,7 +64,7 @@ function App() {
       <nav className="main-nav">
         <Link to="/" className="nav-item">首页</Link>
         {!authToken ? (
-          <> 
+          <>
             <Link to="/register" className="nav-item">注册</Link>
             <Link to="/login" className="nav-item">登录</Link>
           </>
@@ -90,14 +90,14 @@ function HomeContent() {
   return (
     <div className="home-content">
       <nav className="sub-nav">
-        <button 
-          onClick={() => setActiveView('lottery')} 
+        <button
+          onClick={() => setActiveView('lottery')}
           className={activeView === 'lottery' ? 'active' : ''}
         >
           开奖结果
         </button>
-        <button 
-          onClick={() => setActiveView('email')} 
+        <button
+          onClick={() => setActiveView('email')}
           className={activeView === 'email' ? 'active' : ''}
         >
           邮件查看
