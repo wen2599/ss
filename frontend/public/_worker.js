@@ -1,6 +1,7 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const backendUrl = new URL(backendBase);
     const backendBase = 'https://wenge.cloudns.ch'; // 您的Serv00后端域名
 
     // 检查请求路径是否以 /api/ 开头
@@ -12,10 +13,13 @@ export default {
         return handleOptions(request);
       }
       
-      // --- FIX: Create a new Request object to properly forward the request body ---
+      // --- FIX: Create a new Headers object and explicitly set the Host header ---
+      const newRequestHeaders = new Headers(request.headers);
+      newRequestHeaders.set('Host', backendUrl.host);
+
       const newRequest = new Request(newUrl, {
         method: request.method,
-        headers: request.headers,
+        headers: newRequestHeaders,
         body: request.body,
         redirect: 'follow'
       });
