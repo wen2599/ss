@@ -1,20 +1,12 @@
 <?php
 // backend/api/cors_headers.php
 
-// 指定允许的源
+// 定义允许的源
 $allowed_origin = 'https://ss.wenxiuxiu.eu.org';
 
-// 检查请求源是否存在
-if (isset($_SERVER['HTTP_ORIGIN'])) {
-    // 如果请求源是允许的源，则设置响应头
-    if ($_SERVER['HTTP_ORIGIN'] === $allowed_origin) {
-        header("Access-Control-Allow-Origin: " . $allowed_origin);
-    }
-} else {
-    // 对于没有源的请求（例如，服务器到服务器的请求或一些工具），可以选择允许或拒绝
-    // 为了安全起见，可以选择只允许明确指定的源
-    // 如果您希望允许 Postman 或类似的工具，可能需要更灵活的策略
-}
+// 无论请求源如何，都设置 Access-Control-Allow-Origin
+// 这有助于确保即使在预检请求中也能正确设置头部，排除服务器配置问题。
+header("Access-Control-Allow-Origin: " . $allowed_origin);
 
 // 设置允许的方法
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
@@ -22,6 +14,9 @@ header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 // 设置凭证许可
 header("Access-Control-Allow-Credentials: true");
+
+// 设置预检请求的缓存时间（可选，但推荐）
+header("Access-Control-Max-Age: 86400"); // 缓存 1 天
 
 // 响应预检请求 (OPTIONS)
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
