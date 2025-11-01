@@ -1,6 +1,10 @@
 <?php
 // backend/db_connection.php
-// Version 2.1: Prioritize $_ENV and $_SERVER for robust environment variable loading.
+// Version 2.2: Ensure env_loader.php is loaded.
+
+// --- FIX: Explicitly load the environment variables ---
+// This ensures that database credentials are available before any connection attempt.
+require_once __DIR__ . '/env_loader.php';
 
 if (!function_exists('get_db_connection')) {
     /**
@@ -13,8 +17,6 @@ if (!function_exists('get_db_connection')) {
      * @throws Exception If the database connection fails, an exception is thrown.
      */
     function get_db_connection() {
-        // The env_loader.php script should have already been required and executed,
-        // populating $_ENV and $_SERVER.
 
         // Prioritize $_ENV, then $_SERVER, then getenv() for maximum compatibility.
         $host = $_ENV['DB_HOST'] ?? $_SERVER['DB_HOST'] ?? getenv('DB_HOST');
