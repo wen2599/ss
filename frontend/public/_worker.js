@@ -1,19 +1,20 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    // --- FIX: Correct variable declaration order ---
+    const backendBase = 'https://wenge.cloudns.ch'; // Your Serv00 backend domain
     const backendUrl = new URL(backendBase);
-    const backendBase = 'https://wenge.cloudns.ch'; // 您的Serv00后端域名
 
-    // 检查请求路径是否以 /api/ 开头
+    // Check if the request path starts with /api/
     if (url.pathname.startsWith('/api/')) {
       const newUrl = new URL(backendBase + url.pathname + url.search);
 
-      // 处理预检请求 (OPTIONS)
+      // Handle preflight requests (OPTIONS)
       if (request.method === 'OPTIONS') {
         return handleOptions(request);
       }
       
-      // --- FIX: Create a new Headers object and explicitly set the Host header ---
+      // Create a new Headers object and explicitly set the Host header
       const newRequestHeaders = new Headers(request.headers);
       newRequestHeaders.set('Host', backendUrl.host);
 
@@ -24,26 +25,26 @@ export default {
         redirect: 'follow'
       });
 
-      // 转发请求到后端
+      // Forward the request to the backend
       let response = await fetch(newRequest);
 
-      // 克隆响应，因为响应是不可变的
+      // Clone the response because it's immutable
       response = new Response(response.body, response);
 
-      // 添加CORS头部到所有响应
+      // Add CORS headers to all responses
       addCORSHeaders(response);
 
       return response;
     }
 
-    // 对于非/api/的请求，直接返回静态内容 (Cloudflare Pages会处理)
+    // For non-/api/ requests, serve the static assets
     return env.ASSETS.fetch(request);
   },
 };
 
 function addCORSHeaders(response) {
   response.headers.set('Access-Control-Allow-Origin', 'https://ss.wenxiuxiu.eu.org');
-  response.headers.set('Access-control-allow-methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   response.headers.set('Access-Control-Allow-Credentials', 'true');
   response.headers.set('Access-Control-Max-Age', '86400');
