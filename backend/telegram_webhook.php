@@ -52,7 +52,8 @@ http_response_code(200);
 function handleAdminCommand($message, $pdo) {
     $text = $message['text'] ?? '';
     
-    $mainMenu = ['keyboard' => [['用户管理', '赔率管理'], ['系统状态']], 'resize_keyboard' => true, 'one_time_keyboard' => true];
+    // 移除赔率管理，增加密钥管理
+    $mainMenu = ['keyboard' => [['用户管理', '系统状态'], ['密钥管理']], 'resize_keyboard' => true, 'one_time_keyboard' => true];
     $backMenu = ['keyboard' => [['返回主菜单']], 'resize_keyboard' => true, 'one_time_keyboard' => true];
 
     switch ($text) {
@@ -62,16 +63,6 @@ function handleAdminCommand($message, $pdo) {
 
         case '用户管理':
             sendTelegramMessage("请选择操作或输入用户邮箱进行查询：\n\n格式: `add 邮箱 密码` (添加用户)", $backMenu);
-            break;
-
-        case '赔率管理':
-            $odds_list = "*当前赔率:*\n";
-            $stmt = $pdo->query("SELECT play_type, name, odds_value FROM odds WHERE is_enabled=1 ORDER BY play_type, id");
-            while ($row = $stmt->fetch()) {
-                $odds_list .= "`{$row['play_type']} - {$row['name']}`: `{$row['odds_value']}`\n";
-            }
-            $odds_list .= "\n修改格式: `setodds 玩法 名称 赔率`\n例如: `setodds 特码 特码 48.8`";
-             sendTelegramMessage($odds_list, $backMenu);
             break;
 
         case '系统状态':
@@ -85,29 +76,48 @@ function handleAdminCommand($message, $pdo) {
             } catch (PDOException $e) { sendTelegramMessage("查询状态失败: " . $e->getMessage()); }
             break;
         
+        case '密钥管理':
+            sendTelegramMessage("请输入要设置的AI密钥：\n\n格式: `set_gemini_key 你的Gemini密钥`", $backMenu);
+            break;
+
         case '返回主菜单':
              sendTelegramMessage("已返回主菜单。", $mainMenu);
              break;
 
         default:
-            $parts = explode(' ', $text, 4);
+            $parts = explode(' ', $text, 2); // Limit to 2 parts for key command
             $command = strtolower($parts[0]);
 
-            if ($command === 'add' && count($parts) === 3) {
-                list(, $email, $password) = $parts;
+            if ($command === 'add' && count(explode(' ', $text, 4)) === 3) {
+                list(, $email, $password) = explode(' ', $text, 4);
                 $password_hash = password_hash($password, PASSWORD_DEFAULT);
                 try {
                     $stmt = $pdo->prepare("INSERT INTO users (email, password_hash) VALUES (?, ?)");
                     $stmt->execute([$email, $password_hash]);
                     sendTelegramMessage("✅ 用户 `{$email}` 添加成功！");
                 } catch (PDOException $e) { sendTelegramMessage("❌ 添加用户失败: " . $e->getMessage()); }
-            } elseif ($command === 'setodds' && count($parts) === 4) {
-                list(, $play_type, $name, $odds_value) = $parts;
-                try {
-                    $stmt = $pdo->prepare("INSERT INTO odds (play_type, name, odds_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE odds_value = ?");
-                    $stmt->execute([$play_type, $name, $odds_value, $odds_value]);
-                    sendTelegramMessage("✅ 赔率已更新: `{$play_type} - {$name}` 设置为 `{$odds_value}`");
-                } catch (PDOException $e) { sendTelegramMessage("❌ 更新赔率失败: " . $e->getMessage()); }
+            } elseif ($command === 'set_gemini_key' && count($parts) === 2) {
+                $gemini_key = $parts[1];
+                // 假设 .env 文件在项目根目录
+                $env_file_path = __DIR__ . '/../.env';
+                if (file_exists($env_file_path)) {
+                    $env_content = file_get_contents($env_file_path);
+                    // 使用正则表达式替换 GEMINI_API_KEY
+                    $new_env_content = preg_replace(
+                        '/^GEMINI_API_KEY=(.*)$/m',
+                        "GEMINI_API_KEY={$gemini_key}",
+                        $env_content, 1, $count
+                    );
+
+                    if ($count === 0) {
+                        // 如果不存在，则添加到文件末尾
+                        $new_env_content .= "\nGEMINI_API_KEY={$gemini_key}\n";
+                    }
+                    file_put_contents($env_file_path, $new_env_content);
+                    sendTelegramMessage("✅ Gemini API 密钥已更新！");
+                } else {
+                    sendTelegramMessage("❌ .env 文件不存在，无法更新密钥。");
+                }
             } elseif (filter_var($text, FILTER_VALIDATE_EMAIL)) {
                  try {
                     $stmt = $pdo->prepare("SELECT id, email, status, created_at FROM users WHERE email = ?");
@@ -131,7 +141,6 @@ function handleCallbackQuery($callback_query, $pdo) {
     $callback_data = $callback_query['data'];
     $callback_query_id = $callback_query['id'];
     
-    // 增加 '_' 填充，防止 explode 报错
     list($action, $target, $user_id, $confirm) = explode('_', $callback_data . '___');
 
     if ($action === 'delete' && $target === 'user' && $confirm !== 'confirm') {
@@ -144,8 +153,6 @@ function handleCallbackQuery($callback_query, $pdo) {
     
     if ($action === 'cancel') {
         answerCallbackQuery($callback_query_id, "操作已取消");
-        // 可以编辑原消息，移除按钮
-        // editMessageText($callback_query['message']['chat']['id'], $callback_query['message']['message_id'], "操作已取消");
         return;
     }
 
@@ -183,7 +190,6 @@ function processLotteryPost($channel_post, $pdo) {
             $all_numbers = implode(',', $number_matches[0]);
             $draw_date = date('Y-m-d', $channel_post['date']);
             try {
-                // 使用 ON DUPLICATE KEY UPDATE 避免因重复消息导致脚本失败
                 $stmt = $pdo->prepare("INSERT INTO lottery_results (issue_number, numbers, draw_date) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE numbers=VALUES(numbers)");
                 $stmt->execute([$issue_number, $all_numbers, $draw_date]);
                 return $issue_number;
@@ -201,21 +207,44 @@ function triggerSettlement($issue_number, $pdo) {
         $stmt = $pdo->prepare("SELECT numbers FROM lottery_results WHERE issue_number = ?");
         $stmt->execute([$issue_number]);
         $lottery_numbers_str = $stmt->fetchColumn();
-        if (!$lottery_numbers_str) { throw new Exception("DB not found result for issue {$issue_number}"); }
+        if (!$lottery_numbers_str) { 
+            sendTelegramMessage("❌ 结算失败！期号 `{$issue_number}` 数据库中找不到开奖结果。");
+            throw new Exception("DB not found result for issue {$issue_number}"); 
+        }
         
         $lottery_numbers = explode(',', $lottery_numbers_str);
         $special_number = (int)end($lottery_numbers);
 
-        $odds_map = [];
-        foreach ($pdo->query("SELECT play_type, name, odds_value FROM odds WHERE is_enabled=1") as $row) {
-            $odds_map[$row['play_type']][$row['name']] = (float)$row['odds_value'];
-        }
+        // 不再从全局odds表获取赔率
+        // $odds_map = [];
+        // foreach ($pdo->query("SELECT play_type, name, odds_value FROM odds WHERE is_enabled=1") as $row) {
+        //     $odds_map[$row['play_type']][$row['name']] = (float)$row['odds_value'];
+        // }
 
-        $batches_to_settle = $pdo->prepare("SELECT id, parsed_data FROM email_batches WHERE (issue_number = ? OR issue_number IS NULL) AND (status = 'parsed' OR status = 'manual_override')");
+        $batches_to_settle = $pdo->prepare(
+            "SELECT eb.id, eb.user_id, eb.parsed_data, u.odds_settings 
+             FROM email_batches eb 
+             JOIN users u ON eb.user_id = u.id
+             WHERE (eb.issue_number = ? OR eb.issue_number IS NULL) 
+               AND (eb.status = 'parsed' OR eb.status = 'manual_override')
+             AND u.odds_settings IS NOT NULL AND u.odds_settings != ''"
+        );
         $batches_to_settle->execute([$issue_number]);
         
-        $settled_count = 0; $total_payout = 0;
+        $settled_count = 0; 
+        $total_payout = 0;
+        $skipped_batches = []; // 用于记录因无赔率而被跳过的批次
+
         while ($batch = $batches_to_settle->fetch(PDO::FETCH_ASSOC)) {
+            $user_id = $batch['user_id'];
+            $user_odds_settings = json_decode($batch['odds_settings'], true); // 获取用户专属赔率
+
+            if (empty($user_odds_settings)) {
+                $skipped_batches[] = $batch['id'];
+                error_log("Skipping batch {$batch['id']} for user {$user_id}: no odds_settings found.");
+                continue; // 跳过没有赔率设置的用户
+            }
+
             $parsed_data = json_decode($batch['parsed_data'], true);
             $bets = $parsed_data['bets'] ?? [];
             $batch_payout = 0;
@@ -226,19 +255,24 @@ function triggerSettlement($issue_number, $pdo) {
                 $selection = $bet['selection'] ?? '';
                 $amount = (float)($bet['amount'] ?? 0);
                 
-                switch ($bet['type']) {
+                $bet_type = $bet['type'] ?? '';
+
+                switch ($bet_type) {
                     case '特码':
                         if ($selection == $special_number) {
-                            $payout = $amount * ($odds_map['特码']['特码'] ?? 0);
+                            // 使用用户专属赔率
+                            $payout = $amount * ($user_odds_settings['特码']['特码'] ?? 0);
                         }
                         break;
                     case '平特肖':
                         $special_zodiac = LotteryHelper::getZodiac($special_number);
                         if ($selection == $special_zodiac) {
-                            $payout = $amount * ($odds_map['平特肖'][$selection] ?? 0);
+                            // 使用用户专属赔率
+                            $payout = $amount * ($user_odds_settings['平特肖'][$selection] ?? 0);
                         }
                         break;
-                    // TODO: 添加更多玩法
+                    // TODO: 根据需要添加更多玩法和对应的赔率获取逻辑
+                    // 例如：case '红波': if (LotteryHelper::getColor($special_number) === 'red') { $payout = $amount * ($user_odds_settings['波色']['红波'] ?? 0); } break;
                 }
                 
                 if ($payout > 0) {
@@ -258,7 +292,11 @@ function triggerSettlement($issue_number, $pdo) {
             $message = "✅ *结算完成!*\n\n期号: `{$issue_number}`\n处理投注数: `{$settled_count}`\n总派奖: `{$total_payout}`";
             sendTelegramMessage($message);
         } else {
-            sendTelegramMessage("ℹ️ 期号 `{$issue_number}` 已开奖，无待结算投注单。");
+            $message = "ℹ️ 期号 `{$issue_number}` 已开奖，无待结算投注单。";
+            if (!empty($skipped_batches)) {
+                $message .= "\n(其中 `" . count($skipped_batches) . "` 条投注因用户未设置赔率而被跳过。)";
+            }
+            sendTelegramMessage($message);
         }
     } catch (Exception $e) {
         error_log("Settlement error for issue {$issue_number}: " . $e->getMessage());

@@ -2,6 +2,7 @@
 // backend/api.php
 require_once 'utils/functions.php';
 require_once 'utils/jwt_handler.php';
+require_once 'config.php'; // 确保PDO实例可用
 
 // --- "Authentication Middleware" ---
 // 检查需要保护的action
@@ -9,8 +10,10 @@ $protected_actions = [
     'get_profile', 
     'get_user_emails', 
     'get_email_batches', 
-    'process_email_segmentation'
-    // ... 未来所有需要登录的action都加在这里
+    'process_email_segmentation',
+    // --- 新增的受保护路由 ---
+    'get_user_odds',
+    'set_user_odds_by_text'
 ];
 
 $action = $_GET['action'] ?? null;
@@ -25,9 +28,11 @@ if (in_array($action, $protected_actions)) {
             $current_user_id = $payload['user_id'];
         } else {
             send_json_response(['status' => 'error', 'message' => 'Invalid or expired token.'], 401);
+            exit;
         }
     } else {
         send_json_response(['status' => 'error', 'message' => 'Authorization header not found.'], 401);
+        exit;
     }
 }
 
@@ -45,10 +50,12 @@ switch ($action) {
         require 'handlers/lottery_get_results.php';
         break;
 
-    // --- Protected Routes (JWT required) ---
-    case 'receive_email': // 虽然受密钥保护，但逻辑上是公开的
+    // --- Semi-Public Routes (e.g., requires a secret key, not JWT) ---
+    case 'receive_email':
         require 'handlers/email_receiver.php';
         break;
+
+    // --- Protected Routes (JWT required) ---
     case 'get_profile':
         // 认证已在上面完成，$current_user_id 已设置
         send_json_response(['status' => 'success', 'user_id' => $current_user_id]);
@@ -61,6 +68,13 @@ switch ($action) {
         break;
     case 'process_email_segmentation':
         require 'handlers/process_email_segmentation.php';
+        break;
+    // --- 新增的路由处理 ---
+    case 'get_user_odds':
+        require 'handlers/get_user_odds.php';
+        break;
+    case 'set_user_odds_by_text':
+        require 'handlers/set_user_odds_by_text.php';
         break;
 
     default:
