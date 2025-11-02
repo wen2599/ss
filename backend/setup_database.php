@@ -28,6 +28,8 @@ $sql_statements = [
     "CREATE TABLE IF NOT EXISTS `user_emails` (
         `id` INT AUTO_INCREMENT PRIMARY KEY,
         `user_id` INT NOT NULL,
+    from_sender VARCHAR(255),
+    subject VARCHAR(255),
         `raw_email` LONGTEXT NOT NULL,
         `received_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         `status` VARCHAR(50) NOT NULL DEFAULT 'new',

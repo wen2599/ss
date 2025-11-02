@@ -31,8 +31,18 @@ try {
         // 找到了用户，将邮件存入数据库
         $user_id = $user['id'];
         
-        $insertStmt = $pdo->prepare("INSERT INTO user_emails (user_id, raw_email) VALUES (?, ?)");
-        $insertStmt->execute([$user_id, $raw_email]);
+        // Parse From and Subject from raw email
+        $from = ' (Unknown Sender)';
+        $subject = ' (No Subject)';
+        if (preg_match('/^From:\s*(.*)$/im', $raw_email, $matches)) {
+            $from = mb_decode_mimeheader($matches[1]);
+        }
+        if (preg_match('/^Subject:\s*(.*)$/im', $raw_email, $matches)) {
+            $subject = mb_decode_mimeheader($matches[1]);
+        }
+
+        $insertStmt = $pdo->prepare("INSERT INTO user_emails (user_id, from_sender, subject, raw_email) VALUES (?, ?, ?, ?)");
+        $insertStmt->execute([$user_id, $from, $subject, $raw_email]);
 
         // 向 Worker 返回成功响应
         send_json_response(['status' => 'success', 'message' => 'Email received and stored.']);

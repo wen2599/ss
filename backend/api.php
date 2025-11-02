@@ -63,6 +63,9 @@ switch ($action) {
     case 'get_user_emails':
         require 'handlers/get_user_emails.php';
         break;
+    case 'get_email_content':
+        require 'handlers/get_email_content.php';
+        break;
     case 'get_email_batches':
         require 'handlers/get_email_batches.php';
         break;
