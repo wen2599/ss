@@ -1,0 +1,137 @@
+.emails-page-layout {
+    display: flex;
+    height: calc(100vh - 60px - 4rem); /* Full height minus navbar and padding */
+    gap: 2rem;
+}
+
+.email-list-panel {
+    flex: 0 0 350px;
+    background-color: var(--secondary-color);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.email-list-panel h2 {
+    margin-top: 0;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.email-list-panel ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.email-list-panel li {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.email-list-panel li:hover {
+    background-color: #333;
+}
+
+.email-list-panel li.active {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.email-subject {
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.email-from, .email-date {
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+.email-list-panel li.active .email-from,
+.email-list-panel li.active .email-date {
+    color: #ddd;
+}
+
+.batch-details-panel {
+    flex-grow: 1;
+    background-color: var(--secondary-color);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.batch-details-panel .placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #888;
+    font-size: 1.2rem;
+}
+
+.batches-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.batch-card {
+    background-color: #1e1e1e;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1rem;
+}
+
+.batch-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: #ccc;
+}
+
+.batch-status {
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+.status-new { background-color: #555; color: white; }
+.status-parsed { background-color: #2980b9; color: white; }
+.status-settled { background-color: #27ae60; color: white; }
+.status-error { background-color: #c0392b; color: white; }
+.status-manual_override { background-color: #f39c12; color: white; }
+
+
+.batch-content {
+    background-color: var(--background-color);
+    padding: 0.8rem;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: monospace;
+    margin: 0.5rem 0;
+}
+
+.batch-actions {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.batch-actions button {
+    width: auto;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+}
+.batch-actions button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}

@@ -1,190 +1,94 @@
-// worker/worker.js
-// Version 2.0: Updated to correctly proxy the new api_router.php endpoint.
+/**
+ * Cloudflare Worker for processing incoming emails via Email Routing.
+ * This worker forwards email content to a backend server for further processing.
+ */
 
-// ========== 1. Email Parsing and Helper Functions (No changes) ==========
-async function streamToString(stream) {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let result = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    result += decoder.decode(value, { stream: true });
-  }
-  return result;
-}
-function decodeQuotedPrintable(input) {
-  return input.replace(/=(?:\r\n|\n|\r)/g, '').replace(/=([A-Fa-f0-9]{2})/g, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
-}
-function parseHeaders(headers) {
-  const headerMap = {};
-  const headerLines = headers.split('\r\n');
-  let currentHeader = '';
-  headerLines.forEach(line => {
-    if (line.startsWith(' ') || line.startsWith('\t')) {
-      headerMap[currentHeader] += ' ' + line.trim();
-    } else if (line.includes(':')) {
-      const parts = line.split(':');
-      currentHeader = parts[0].toLowerCase();
-      headerMap[currentHeader] = parts.slice(1).join(':').trim();
-    }
-  });
-  return headerMap;
-}
-function decodeSubject(subject) {
-    if (!subject) return 'No Subject';
-    return subject.replace(/=\?([^?]+)\?([BQ])\?([^?]+)\?=/gi, (match, charset, encoding, encodedText) => {
-        try {
-            const decoder = new TextDecoder(charset);
-            if (encoding.toUpperCase() === 'B') {
-                const binaryString = atob(encodedText);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-                return decoder.decode(bytes);
-            } else if (encoding.toUpperCase() === 'Q') {
-                return decoder.decode(new Uint8Array(decodeQuotedPrintable(encodedText.replace(/_/g, ' ')).split('').map(c => c.charCodeAt(0))));
-            }
-        } catch (e) {
-            console.error(`Failed to decode subject part: ${match}`, e);
-        }
-        return encodedText;
-    });
-}
-function extractHTMLBody(rawEmail) {
-  const headers = parseHeaders(rawEmail.split(/\r\n\r\n/)[0]);
-  const contentType = headers['content-type'] || '';
-  const bodyStartIndex = rawEmail.indexOf('\r\n\r\n');
-  if (bodyStartIndex === -1) return '';
-  const emailBody = rawEmail.substring(bodyStartIndex + 4);
-  if (contentType.includes('multipart/')) {
-    const boundaryMatch = contentType.match(/boundary="?([^"]+)"?/);
-    if (!boundaryMatch) return emailBody;
-    const boundary = `--${boundaryMatch[1]}`;
-    const parts = emailBody.split(new RegExp(`\\s*${boundary}(--)?\\s*`));
-    let htmlPart = '', textPart = '';
-    for (const part of parts) {
-      if (typeof part !== 'string' || !part.trim()) continue;
-      const partHeadersEndIndex = part.indexOf('\r\n\r\n');
-      if (partHeadersEndIndex === -1) continue;
-      const partHeadersRaw = part.substring(0, partHeadersEndIndex);
-      const partBody = part.substring(partHeadersEndIndex + 4);
-      const partHeaders = parseHeaders(partHeadersRaw);
-      const partContentType = partHeaders['content-type'] || '';
-      const contentEncoding = (partHeaders['content-transfer-encoding'] || '').toLowerCase();
-      const charsetMatch = partContentType.match(/charset="?([^"]+)"?/i);
-      const charset = charsetMatch ? charsetMatch[1].toLowerCase() : 'utf-8';
-      let decodedPartBody;
-      const decoder = new TextDecoder(charset);
-      if (contentEncoding === 'base64') {
-        try {
-          const binaryString = atob(partBody.replace(/(\r\n|\n|\r)/gm, ""));
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-          decodedPartBody = decoder.decode(bytes);
-        } catch(e) { decodedPartBody = partBody; }
-      } else if (contentEncoding === 'quoted-printable') {
-        decodedPartBody = decoder.decode(new Uint8Array(decodeQuotedPrintable(partBody).split('').map(c => c.charCodeAt(0))));
-      } else {
-        decodedPartBody = partBody;
-      }
-      if (partContentType.includes('text/html')) htmlPart = decodedPartBody;
-      else if (partContentType.includes('text/plain')) textPart = decodedPartBody;
-    }
-    return htmlPart || textPart || emailBody;
-  } else {
-    const contentEncoding = (headers['content-transfer-encoding'] || '').toLowerCase();
-    const charsetMatch = contentType.match(/charset="?([^"]+)"?/i);
-    const charset = charsetMatch ? charsetMatch[1].toLowerCase() : 'utf-8';
-    const decoder = new TextDecoder(charset);
-    if (contentEncoding === 'base64') {
-      try {
-        const binaryString = atob(emailBody.replace(/(\r\n|\n|\r)/gm, ""));
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-        return decoder.decode(bytes);
-      } catch(e) { return emailBody; }
-    } else if (contentEncoding === 'quoted-printable') {
-      return decoder.decode(new Uint8Array(decodeQuotedPrintable(emailBody).split('').map(c => c.charCodeAt(0))));
-    }
-    return emailBody;
-  }
-}
-
-// ========== 2. Core Worker Logic ==========
 export default {
   /**
-   * Handles HTTP requests, acting as a proxy for the backend API.
-   */
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    const backendServer = "https://wenge.cloudns.ch"; // Hardcoded for clarity
-
-    // --- UPDATED ROUTING LOGIC ---
-    // This condition now correctly proxies requests for the API router.
-    if (url.pathname.startsWith('/api_router.php')) {
-      const backendUrl = new URL(url.pathname, backendServer);
-      backendUrl.search = url.search;
-
-      const backendRequest = new Request(backendUrl.toString(), {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-        duplex: 'half',
-      });
-      return fetch(backendRequest);
-    }
-
-    // --- Fallback for other requests (e.g., frontend assets) ---
-    // This logic should be updated if the worker is also serving the frontend.
-    // For now, we'll return a generic not found.
-    return new Response('Not found.', { status: 404 });
-  },
-
-  /**
-   * Handles incoming email messages.
+   * The fetch handler is called for every event.
+   * For emails, the `request` parameter is actually an `EmailMessage` object.
+   * @param {EmailMessage} message - The email message object.
+   * @param {object} env - Environment variables bound to the worker.
+   * @param {object} ctx - The execution context.
    */
   async email(message, env, ctx) {
-    const { PUBLIC_API_ENDPOINT, EMAIL_HANDLER_SECRET } = env;
-    if (!PUBLIC_API_ENDPOINT || !EMAIL_HANDLER_SECRET) {
-      console.error("Worker Email Handler: Missing required environment variables.");
+    // --- Configuration ---
+    // These should be set as environment variables in the Cloudflare Worker settings
+    // for better security and management.
+    const BACKEND_ENDPOINT = env.BACKEND_ENDPOINT || 'https://wenge.cloudns.ch/proxy.php?action=receive_email';
+    const WORKER_SECRET = env.WORKER_SECRET || 'your_secret_key_shared_with_cf_worker';
+    
+    // --- Security Check: SPF and DKIM ---
+    // We only process emails that have passed at least one of these checks.
+    // This helps to prevent basic email spoofing.
+    if (message.dkim !== 'pass' && message.spf !== 'pass') {
+      console.log(`Email from ${message.from} failed both DKIM and SPF checks. Rejecting.`);
+      // Reject the email. This will cause it to bounce.
+      // You could also use `message.forward()` to a quarantine address if needed.
+      message.setReject("Email sender verification failed.");
       return;
     }
 
-    const senderEmail = message.from;
-    const verificationUrl = `${PUBLIC_API_ENDPOINT}?action=is_user_registered&worker_secret=${EMAIL_HANDLER_SECRET}&email=${encodeURIComponent(senderEmail)}`;
+    console.log(`Received a valid email from: ${message.from} to: ${message.to}`);
 
-    try {
-      const verificationResponse = await fetch(verificationUrl);
-      if (!verificationResponse.ok) {
-        throw new Error(`Verification failed with status ${verificationResponse.status}`);
-      }
-      const verificationData = await verificationResponse.json();
-      if (!verificationData.success || !verificationData.is_registered) {
-        return; // Discard email
-      }
-
-      const rawEmail = await streamToString(message.raw);
-      const headers = parseHeaders(rawEmail.split(/\r\n\r\n/)[0]);
-      const subject = decodeSubject(headers['subject']);
-      const body = extractHTMLBody(rawEmail);
-
-      const formData = new FormData();
-      formData.append('worker_secret', EMAIL_HANDLER_SECRET);
-      formData.append('from', senderEmail);
-      formData.append('to', message.to);
-      formData.append('subject', subject);
-      formData.append('body', body);
-      
-      const postUrl = `${PUBLIC_API_ENDPOINT}?action=process_email`;
-      const postResponse = await fetch(postUrl, { method: 'POST', body: formData });
-
-      if (!postResponse.ok) {
-        const errorText = await postResponse.text();
-        throw new Error(`Failed to post email with status ${postResponse.status}: ${errorText}`);
-      }
-    } catch (error) {
-      console.error('Worker Email Handler Error:', error.message);
-      throw error;
+    // --- Prepare Data for Backend ---
+    // We need the sender's email and the full raw content of the email.
+    const sender_email = message.from;
+    
+    // Create a stream from the raw email content.
+    const rawEmailStream = message.raw;
+    
+    // Read the stream into a string.
+    const reader = rawEmailStream.getReader();
+    let chunks = [];
+    let done, value;
+    while (!done) {
+      ({ value, done } = await reader.read());
+      if (done) break;
+      chunks.push(value);
     }
-  }
+    // The raw email content is a Uint8Array, we need to decode it to a string.
+    const raw_email_content = new TextDecoder("utf-8").decode(
+      new Uint8Array(chunks.reduce((acc, chunk) => [...acc, ...chunk], []))
+    );
+
+    const postData = {
+      sender_email: sender_email,
+      raw_email: raw_email_content,
+    };
+
+    // --- Send Data to Backend ---
+    try {
+      const response = await fetch(BACKEND_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // This custom header is used by our backend's proxy.php to verify the request's origin.
+          'X-Worker-Secret': WORKER_SECRET,
+        },
+        body: JSON.stringify(postData),
+      });
+
+      // Log the response from the backend for debugging purposes.
+      const responseBody = await response.text();
+      console.log(`Backend responded with status: ${response.status}`);
+      console.log(`Backend response body: ${responseBody}`);
+
+      if (!response.ok) {
+        // If the backend returns an error (e.g., 4xx or 5xx),
+        // we should reject the email so the sender is notified.
+        console.error('Backend failed to process the email. Rejecting.');
+        message.setReject(`Failed to process your submission. Please try again later. (Status: ${response.status})`);
+      } else {
+        console.log('Email successfully forwarded to and accepted by the backend.');
+        // If the backend successfully accepts it, we don't need to do anything else.
+        // The email processing is considered complete.
+      }
+
+    } catch (error) {
+      console.error('Error forwarding email to backend:', error);
+      // If there's a network error connecting to our backend, reject the email.
+      message.setReject('The processing server is temporarily unavailable. Please try again later.');
+    }
+  },
 };
