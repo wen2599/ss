@@ -32,13 +32,13 @@ function load_env($path) {
         // Remove surrounding quotes from the value
         if (preg_match('/^"(.*)"$/', $value, $matches)) {
             $value = $matches[1];
-        } elseif (preg_match('/^'(.*)'$/', $value, $matches)) { // This was the corrected line
+        } elseif (preg_match('/^\'(.*)\'$/', $value, $matches)) { // This was the corrected line
             $value = $matches[1];
         }
 
         // Set environment variables
         if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
-            putenv("$name=$value");
+            putenv($name . '=' . $value);
             $_ENV[$name] = $value;
             $_SERVER[$name] = $value;
         }
