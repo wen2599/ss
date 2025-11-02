@@ -8,8 +8,8 @@
  * @return bool|string API响应或false
  */
 function sendTelegramMessage($message, $reply_markup = null) {
-    $admin_id = $_ENV['TELEGRAM_ADMIN_ID'] ?? null;
-    $bot_token = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
+    $admin_id = getenv('TELEGRAM_ADMIN_ID') ?: null;
+    $bot_token = getenv('TELEGRAM_BOT_TOKEN') ?: null;
 
     error_log("sendTelegramMessage: Attempting to send message.");
     error_log("sendTelegramMessage: TELEGRAM_ADMIN_ID from .env: [" . ($admin_id ?? 'NOT SET') . "]");
@@ -61,7 +61,7 @@ function sendTelegramMessage($message, $reply_markup = null) {
  * @return bool|string API响应或false
  */
 function answerCallbackQuery($callback_query_id, $text = null) {
-    $bot_token = $_ENV['TELEGRAM_BOT_TOKEN'] ?? null;
+    $bot_token = getenv('TELEGRAM_BOT_TOKEN') ?: null;
 
     error_log("answerCallbackQuery: Attempting to answer callback query.");
     error_log("answerCallbackQuery: TELEGRAM_BOT_TOKEN from .env: [" . ($bot_token ? substr($bot_token, 0, 5) . '...' : 'NOT SET') . "]");

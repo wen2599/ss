@@ -15,10 +15,10 @@ $dotenv_path = __DIR__ . '/.env'; // Assuming .env is in the project root
 load_env($dotenv_path);
 
 // --- Database Connection (PDO) ---
-$db_host = $_ENV['DB_HOST'] ?? 'localhost';
-$db_name = $_ENV['DB_NAME'] ?? '';
-$db_user = $_ENV['DB_USER'] ?? '';
-$db_pass = $_ENV['DB_PASS'] ?? '';
+$db_host = getenv('DB_HOST') ?: 'localhost';
+$db_name = getenv('DB_NAME') ?: '';
+$db_user = getenv('DB_USER') ?: '';
+$db_pass = getenv('DB_PASS') ?: '';
 
 $dsn = "mysql:host={$db_host};dbname={$db_name};charset=utf8mb4";
 $options = [
@@ -29,6 +29,7 @@ $options = [
 
 try {
     $pdo = new PDO($dsn, $db_user, $db_pass, $options);
+    error_log("Database connection successful.");
 } catch (\PDOException $e) {
     // In a real app, you would log this error and show a generic message
     error_log("Database Connection Error: " . $e->getMessage());

@@ -16,7 +16,7 @@ error_log("--- Webhook Started ---");
 
 // --- 安全性验证 ---
 $secret_token_header = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
-$expected_token = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? '';
+$expected_token = getenv('TELEGRAM_WEBHOOK_SECRET') ?: '';
 
 error_log("Received Secret Token: [" . $secret_token_header . "]");
 error_log("Expected Secret Token: [" . $expected_token . "]");
@@ -41,7 +41,7 @@ error_log("✅ JSON body decoded successfully.");
 
 // --- 路由更新 ---
 try {
-    $admin_id = $_ENV['TELEGRAM_ADMIN_ID'] ?? null;
+    $admin_id = getenv('TELEGRAM_ADMIN_ID') ?: null;
     $chat_id = $update['message']['chat']['id'] ?? null;
 
     error_log("Configured ADMIN_ID: [" . $admin_id . "]");
