@@ -29,7 +29,6 @@ $options = [
 
 try {
     $pdo = new PDO($dsn, $db_user, $db_pass, $options);
-    error_log("Database connection successful.");
 } catch (\PDOException $e) {
     // In a real app, you would log this error and show a generic message
     error_log("Database Connection Error: " . $e->getMessage());

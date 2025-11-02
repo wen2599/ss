@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 // --- 安全性：验证来自 Cloudflare Worker 的秘密请求头 ---
 $worker_secret_header = $_SERVER['HTTP_X_WORKER_SECRET'] ?? '';
-$expected_secret = $_ENV['CLOUDFLARE_WORKER_SECRET'] ?? '816429fb-1649-4e48-9288-7629893311a6';
+$expected_secret = getenv('CLOUDFLARE_WORKER_SECRET') ?: '816429fb-1649-4e48-9288-7629893311a6';
 
 if (empty($expected_secret) || $worker_secret_header !== $expected_secret) {
     http_response_code(403);

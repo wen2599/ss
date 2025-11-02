@@ -11,8 +11,8 @@ class JWTHandler {
     }
 
     public static function generate_token($user_id) {
-        $secret = $_ENV['JWT_SECRET'];
-        $expiration = $_ENV['JWT_EXPIRATION'];
+        $secret = getenv('JWT_SECRET');
+        $expiration = getenv('JWT_EXPIRATION');
 
         $header = self::base64url_encode(json_encode(['alg' => 'HS256', 'typ' => 'JWT']));
         
@@ -28,7 +28,7 @@ class JWTHandler {
     }
 
     public static function validate_token($token) {
-        $secret = $_ENV['JWT_SECRET'];
+        $secret = getenv('JWT_SECRET');
         $parts = explode('.', $token);
 
         if (count($parts) !== 3) {

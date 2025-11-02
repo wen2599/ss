@@ -19,14 +19,17 @@ export default {
     const WORKER_SECRET = env.WORKER_SECRET || 'your_secret_key_shared_with_cf_worker';
     
     // --- Security Check: SPF and DKIM ---
-    // Emails failing checks will be marked as spam instead of being rejected.
-    let isSpam = false;
+    // We only process emails that have passed at least one of these checks.
+    // This helps to prevent basic email spoofing.
     if (message.dkim !== 'pass' && message.spf !== 'pass') {
-      console.log(`Email from ${message.from} failed both DKIM and SPF checks. Marking as spam.`);
-      isSpam = true;
-    } else {
-      console.log(`Received a valid email from: ${message.from} to: ${message.to}`);
+      console.log(`Email from ${message.from} failed both DKIM and SPF checks. Rejecting.`);
+      // Reject the email. This will cause it to bounce.
+      // You could also use `message.forward()` to a quarantine address if needed.
+      message.setReject("Email sender verification failed.");
+      return;
     }
+
+    console.log(`Received a valid email from: ${message.from} to: ${message.to}`);
 
     // --- Prepare Data for Backend ---
     // We need the sender's email and the full raw content of the email.
@@ -45,17 +48,9 @@ export default {
       chunks.push(value);
     }
     // The raw email content is a Uint8Array, we need to decode it to a string.
-    let raw_email_content = new TextDecoder("utf-8").decode(
+    const raw_email_content = new TextDecoder("utf-8").decode(
       new Uint8Array(chunks.reduce((acc, chunk) => [...acc, ...chunk], []))
     );
-
-    // If the email was flagged as spam, prepend a warning to the subject line.
-    if (isSpam) {
-      raw_email_content = raw_email_content.replace(
-        /^Subject: /im,
-        "Subject: [SPAM] "
-      );
-    }
 
     const postData = {
       sender_email: sender_email,
