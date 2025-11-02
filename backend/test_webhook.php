@@ -14,11 +14,11 @@ load_env($dotenv_path);
 
 
 // 模拟 $_SERVER 变量，特别是 SECRET_TOKEN
-$_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] = $_ENV['TELEGRAM_WEBHOOK_SECRET'] ?? 'dummy_secret';
+$_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] = getenv('TELEGRAM_WEBHOOK_SECRET') ?: 'dummy_secret';
 $_SERVER['REQUEST_METHOD'] = 'POST';
 
 // 获取管理员ID以模拟正确的发送者
-$admin_id = $_ENV['TELEGRAM_ADMIN_ID'] ?? '123456789'; // 使用一个默认值，如果未设置
+$admin_id = getenv('TELEGRAM_ADMIN_ID') ?: '123456789'; // 使用一个默认值，如果未设置
 
 // 模拟一个 /start 命令的 Telegram Webhook 更新对象
 $mock_update = [
