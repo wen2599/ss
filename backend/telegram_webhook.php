@@ -1,5 +1,5 @@
 <?php
-// backend/telegram_webhook.php
+error_log("--- telegram_webhook.php: Script execution started ---");
 
 // 强制错误报告，以便调试
 ini_set('display_errors', 1);
