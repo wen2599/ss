@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import './Navbar.css'; // 我们将为Navbar创建单独的CSS
+import './Navbar.css';
 
 const Navbar = () => {
   const { logout } = useAuth();
@@ -16,6 +16,8 @@ const Navbar = () => {
         <NavLink to="/" end>开奖号码</NavLink>
         <NavLink to="/emails">邮件原文</NavLink>
         <NavLink to="/settlements">结算清单</NavLink>
+        {/* 新增的入口 */}
+        <NavLink to="/settings">结算设置</NavLink> 
       </div>
       <div className="navbar-actions">
         <button onClick={logout} className="logout-button">退出登录</button>
