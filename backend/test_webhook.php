@@ -9,7 +9,7 @@ if (php_sapi_name() !== 'cli') {
 
 // 使用我们自己的加载器加载 .env 文件
 require_once __DIR__ . '/utils/config_loader.php';
-$dotenv_path = __DIR__ . '/../.env'; // .env 文件在项目根目录
+$dotenv_path = __DIR__ . '/.env'; // .env 文件在项目根目录
 load_env($dotenv_path);
 
 

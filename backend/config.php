@@ -11,7 +11,7 @@ date_default_timezone_set('Asia/Shanghai');
 
 // --- Load .env file using our custom loader ---
 require_once __DIR__ . '/utils/config_loader.php';
-$dotenv_path = __DIR__ . '/../.env'; // Assuming .env is in the project root
+$dotenv_path = __DIR__ . '/.env'; // Assuming .env is in the project root
 load_env($dotenv_path);
 
 // --- Database Connection (PDO) ---
