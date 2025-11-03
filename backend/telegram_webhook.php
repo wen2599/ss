@@ -1,6 +1,16 @@
 <?php
 // --- Telegram Bot Webhook (Pure PHP) ---
 
+// --- Start Debug Logging ---
+// This block logs the raw request and headers to a file for debugging purposes.
+$raw_input = file_get_contents('php://input');
+$headers = getallheaders();
+$log_entry = "--- [" . date('Y-m-d H:i:s') . "] ---\n";
+$log_entry .= "RAW INPUT:\n" . $raw_input . "\n";
+$log_entry .= "HEADERS:\n" . print_r($headers, true) . "\n\n";
+file_put_contents('webhook_debug.log', $log_entry, FILE_APPEND);
+// --- End Debug Logging ---
+
 // Include the environment variable loader
 require_once __DIR__ . '/utils/config_loader.php';
 
@@ -94,8 +104,8 @@ function parseLotteryText($text) {
 }
 
 // 2. 接收来自 Telegram 的原始数据
-$update = file_get_contents('php://input');
-$data = json_decode($update, true);
+// The raw input was already read at the top of the script for logging. We reuse the variable here.
+$data = json_decode($raw_input, true);
 
 // 3. 验证并解析数据
 
