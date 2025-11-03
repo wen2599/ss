@@ -1,6 +1,9 @@
 <?php
 // --- Telegram Bot Webhook (Pure PHP) ---
 
+// Include the environment variable loader
+require_once __DIR__ . '/utils/config_loader.php';
+
 // 1. 获取机器人令牌
 // 为了安全，令牌应该作为环境变量 'TELEGRAM_BOT_TOKEN' 在服务器上设置。
 $bot_token = getenv('TELEGRAM_BOT_TOKEN');
