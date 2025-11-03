@@ -35,6 +35,6 @@ try {
     error_log("Database Connection Error: " . $e->getMessage());
     http_response_code(500);
     // Avoid echoing sensitive info, even in a generic message
-    echo json_encode(['status' => 'error', 'message' => 'Internal Server Error - DB Connection Failed']);
+    echo json_encode(['status' => 'error', 'message' => 'DB Connection Failed: ' . $e->getMessage()]);
     exit;
 }
