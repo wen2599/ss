@@ -98,6 +98,17 @@ if (isset($data['message'])) {
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
+    // --- TEMPORARY DEBUGGING ---
+    $debug_message = "Attempting to store lottery number.\n";
+    $debug_message .= "API URL: " . $store_api_url . "\n";
+    $debug_message .= "HTTP Code: " . $http_code . "\n";
+    $debug_message .= "API Response: " . $response . "\n";
+    $admin_id = getenv('TELEGRAM_ADMIN_ID');
+    if ($admin_id) {
+        sendMessage($admin_id, $debug_message, $bot_token);
+    }
+    // --- END TEMPORARY DEBUGGING ---
+
     if ($http_code == 201) { // Check for 201 Created
         http_response_code(200);
         echo "Lottery data stored successfully.";
