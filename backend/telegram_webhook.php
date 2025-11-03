@@ -20,6 +20,14 @@ $store_api_url = 'https://wenge.cloudns.ch/api/store_lottery_number.php';
 
 // 2. 接收来自 Telegram 的原始数据
 $update = file_get_contents('php://input');
+
+// --- TEMPORARY LOGGING ---
+// Save the raw update to a file for debugging. This helps understand the structure
+// of incoming messages that are not being handled.
+$log_file = __DIR__ . '/webhook_log.txt';
+file_put_contents($log_file, date('[Y-m-d H:i:s] ') . $update . PHP_EOL, FILE_APPEND);
+// --- END TEMPORARY LOGGING ---
+
 $data = json_decode($update, true);
 
 // 3. 验证并解析数据
