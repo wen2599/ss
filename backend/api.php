@@ -14,7 +14,8 @@ $protected_actions = [
     'process_email_segmentation',
     // --- 新增的受保护路由 ---
     'get_user_odds',
-    'set_user_odds_by_text'
+    'set_user_odds_by_text',
+    'generate_parsing_template'
 ];
 
 $action = $_GET['action'] ?? null;
@@ -79,6 +80,10 @@ switch ($action) {
         break;
     case 'set_user_odds_by_text':
         require 'handlers/set_user_odds_by_text.php';
+        break;
+
+    case 'generate_parsing_template':
+        require 'handlers/generate_parsing_template.php';
         break;
 
     default:
