@@ -18,35 +18,74 @@ if (!$bot_token) {
 // 后端存储开奖号码的 API 地址
 $store_api_url = 'https://wenge.cloudns.ch/api/store_lottery_number.php';
 
+/**
+ * Sends a message to a specific Telegram chat.
+ *
+ * @param int|string $chat_id The ID of the chat to send the message to.
+ * @param string $text The message text.
+ * @param string $bot_token The Telegram bot token.
+ * @return bool|string The response from the Telegram API, or false on failure.
+ */
+function sendMessage($chat_id, $text, $bot_token) {
+    $url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
+    $post_fields = [
+        'chat_id' => $chat_id,
+        'text' => $text,
+    ];
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post_fields));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    return $response;
+}
+
 // 2. 接收来自 Telegram 的原始数据
 $update = file_get_contents('php://input');
-
-// --- TEMPORARY LOGGING ---
-// Save the raw update to a file for debugging. This helps understand the structure
-// of incoming messages that are not being handled.
-$log_file = __DIR__ . '/webhook_log.txt';
-file_put_contents($log_file, date('[Y-m-d H:i:s] ') . $update . PHP_EOL, FILE_APPEND);
-// --- END TEMPORARY LOGGING ---
-
 $data = json_decode($update, true);
 
 // 3. 验证并解析数据
-// 我们只关心频道里的新消息 (channel_post)
-if (isset($data['channel_post']['text'])) {
+
+// --- A. Handle Private Messages ---
+if (isset($data['message'])) {
+    $chat_id = $data['message']['chat']['id'];
+    $text = $data['message']['text'];
+
+    // Respond to the /start command
+    if ($text === '/start') {
+        $welcome_message = "你好！欢迎使用机器人。";
+        sendMessage($chat_id, $welcome_message, $bot_token);
+        http_response_code(200);
+        echo "Welcome message sent.";
+        exit;
+    }
+
+    // You can add more private message commands here...
+
+    // If it's a private message but not a command we recognize, just exit quietly.
+    http_response_code(200);
+    echo "Private message received, no action taken.";
+    exit;
+
+// --- B. Handle Channel Posts ---
+} elseif (isset($data['channel_post']['text'])) {
     
     $lottery_number = $data['channel_post']['text'];
-    $chat_id = $data['channel_post']['chat']['id']; // 这就是频道 ID
+    $chat_id = $data['channel_post']['chat']['id']; // This is the channel ID
 
-    // (可选) 验证是否来自指定的管理频道 ID
-    $admin_channel_id = getenv('ADMIN_CHANNEL_ID'); // 从环境变量读取
+    // (Optional) Validate if it's from the specified admin channel ID
+    $admin_channel_id = getenv('ADMIN_CHANNEL_ID'); // Read from environment variables
     if ($admin_channel_id && $chat_id != $admin_channel_id) {
-        // 如果设置了频道 ID，但消息来源不匹配，则直接退出
+        // If the channel ID is set but the source doesn't match, exit
         http_response_code(403);
         echo "Invalid Channel";
         exit;
     }
 
-    // 4. 将号码转发到后端存储 API
+    // 4. Forward the number to the backend storage API
     $ch = curl_init();
 
     curl_setopt($ch, CURLOPT_URL, $store_api_url);
@@ -58,22 +97,22 @@ if (isset($data['channel_post']['text'])) {
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
-    // 5. 记录日志或响应 Telegram
+    // 5. Log or respond to Telegram
     if ($http_code == 200) {
-        // 成功
+        // Success
         http_response_code(200);
         echo "Number stored successfully.";
     } else {
-        // 失败
+        // Failure
         http_response_code(500); 
         error_log("Failed to store lottery number. API response: " . $response);
         echo "Failed to store number.";
     }
 
 } else {
-    // 如果不是预期的频道消息，直接返回 OK
+    // If it's not a message type we handle, just return OK
     http_response_code(200);
-    echo "Not a channel post, ignoring.";
+    echo "Webhook received, but no actionable data found.";
 }
 
 /**
