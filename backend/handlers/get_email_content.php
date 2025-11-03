@@ -16,21 +16,37 @@ if (empty($email_id)) {
 }
 
 try {
-    // Fetch the pre-parsed email content, ensuring it belongs to the current user
-    $stmt = $pdo->prepare("SELECT parsed_content FROM user_emails WHERE id = ? AND user_id = ?");
+    // Fetch both parsed_content and raw_email, ensuring it belongs to the current user
+    $stmt = $pdo->prepare("SELECT parsed_content, raw_email FROM user_emails WHERE id = ? AND user_id = ?");
     $stmt->execute([$email_id, $current_user_id]);
     $email = $stmt->fetch();
 
-    if (!$email || empty($email['parsed_content'])) {
-        // If the content is missing (e.g., for an old email before this feature was added),
-        // we can return a message or even attempt a fallback to parse the raw_email here.
-        // For now, we will just indicate it's not found.
-        send_json_response(['status' => 'error', 'message' => 'Parsed email content not found or access denied.'], 404);
+    if (!$email) {
+        send_json_response(['status' => 'error', 'message' => 'Email not found or access denied.'], 404);
+        return; // Use return instead of exit for consistency
     }
 
-    // The content is already a JSON string, so we just need to send it.
-    // To avoid double-encoding, we decode it first and then let send_json_response re-encode it.
-    $parsed_content = json_decode($email['parsed_content'], true);
+    $parsed_content = null;
+
+    // Check if parsed_content is valid JSON
+    if (!empty($email['parsed_content'])) {
+        $parsed_content = json_decode($email['parsed_content'], true);
+        // json_decode returns null on error
+        if ($parsed_content === null) {
+            // Content is invalid, treat as missing and fallback to raw parsing
+            error_log("Invalid JSON in parsed_content for email_id: $email_id");
+        }
+    }
+
+    // If parsed_content is missing or was invalid, parse the raw email as a fallback
+    if ($parsed_content === null) {
+        if (empty($email['raw_email'])) {
+             send_json_response(['status' => 'error', 'message' => 'No content available to display for this email.'], 404);
+             return;
+        }
+        require_once __DIR__ . '/../utils/mime_parser.php';
+        $parsed_content = parse_email_body($email['raw_email']);
+    }
 
     send_json_response(['status' => 'success', 'data' => $parsed_content]);
 
