@@ -41,7 +41,7 @@ try {
         // 这样做是为了不让非注册用户知道他们的邮件被系统处理了
         // 也可以选择返回错误，让 Worker 退信，取决于业务需求
         // 这里的200 OK表示“我们收到了，处理完了”，即使处理方式是“丢弃”
-        send_json_response(['status' => 'accepted_but_discarded', 'message' => 'Sender not registered.']);
+        send_json_response(['status' => 'accepted_but_discarded', 'message' => 'Sender not registered: ' . $sender_email]);
     }
 
 } catch (PDOException $e) {
