@@ -50,8 +50,8 @@ $conn->set_charset('utf8mb4');
 
 // --- Query Data ---
 try {
-    // Query the correct table `lottery_results` and order by creation time
-    $query = "SELECT id, lottery_type, issue_number, numbers, created_at FROM lottery_results ORDER BY created_at DESC";
+    // Query the correct table `lottery_numbers` and order by creation time
+    $query = "SELECT id, number, source, received_at FROM lottery_numbers ORDER BY received_at DESC";
     $result = $conn->query($query);
 
     if ($result === false) {

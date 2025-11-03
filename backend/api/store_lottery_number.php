@@ -56,29 +56,33 @@ $conn->set_charset('utf8mb4');
 
 // --- Prepare SQL and Insert Data ---
 try {
-    // Use the correct table `lottery_results` and columns
-    $stmt = $conn->prepare("INSERT INTO lottery_results (lottery_type, issue_number, numbers) VALUES (?, ?, ?)");
+    // Combine the structured data into a single string for storage
+    $full_lottery_string = sprintf(
+        "%s - 第 %s 期: %s",
+        $lottery_type,
+        $issue_number,
+        $numbers
+    );
+
+    // Use the correct table `lottery_numbers` and columns
+    $stmt = $conn->prepare("INSERT INTO lottery_numbers (number, source) VALUES (?, ?)");
     
     if ($stmt === false) {
         throw new Exception('SQL statement preparation failed: ' . $conn->error);
     }
     
-    $stmt->bind_param("sss", $lottery_type, $issue_number, $numbers);
+    $source = 'telegram'; // The source is always telegram for now
+    $stmt->bind_param("ss", $full_lottery_string, $source);
     
     if ($stmt->execute()) {
         $new_id = $stmt->insert_id;
         $response_data = [
             'id' => $new_id,
-            'lottery_type' => $lottery_type,
-            'issue_number' => $issue_number,
-            'numbers' => $numbers
+            'number' => $full_lottery_string,
+            'source' => $source
         ];
         send_json_response(true, 'Lottery result stored successfully.', $response_data, 201);
     } else {
-        // Check for duplicate entry
-        if ($conn->errno === 1062) { // 1062 is the MySQL error code for duplicate entry
-            send_json_response(false, 'This lottery result (issue number) has already been recorded.', null, 409);
-        }
         throw new Exception('SQL execution failed: ' . $stmt->error);
     }
     
