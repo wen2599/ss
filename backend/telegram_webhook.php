@@ -4,6 +4,19 @@
 // Include the environment variable loader
 require_once __DIR__ . '/utils/config_loader.php';
 
+// --- Security Check: Verify Webhook Secret Token ---
+$secret_token = getenv('TELEGRAM_WEBHOOK_SECRET');
+if ($secret_token) {
+    $header_token = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
+    if ($header_token !== $secret_token) {
+        // This is a security risk. Log it and deny the request.
+        error_log("Webhook secret token mismatch.");
+        http_response_code(403);
+        exit('Forbidden');
+    }
+}
+// --- End Security Check ---
+
 // 1. 获取机器人令牌
 // 为了安全，令牌应该作为环境变量 'TELEGRAM_BOT_TOKEN' 在服务器上设置。
 $bot_token = getenv('TELEGRAM_BOT_TOKEN');
