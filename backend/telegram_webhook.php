@@ -45,6 +45,16 @@ function sendMessage($chat_id, $text, $bot_token) {
 
 // 2. 接收来自 Telegram 的原始数据
 $update = file_get_contents('php://input');
+
+// --- UNIVERSAL DEBUGGING ---
+// Send the raw update to the admin for any and all incoming messages.
+$debug_message = "Received update:\n" . $update;
+$admin_id = getenv('TELEGRAM_ADMIN_ID');
+if ($admin_id) {
+    sendMessage($admin_id, $debug_message, $bot_token);
+}
+// --- END UNIVERSAL DEBUGGING ---
+
 $data = json_decode($update, true);
 
 // 3. 验证并解析数据
