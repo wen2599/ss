@@ -1,5 +1,6 @@
 <?php
 // backend/handlers/email_receiver.php
+require_once __DIR__ . '/../utils/mime_parser.php';
 
 // 确保这是 POST 请求
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -31,11 +32,17 @@ try {
         // 找到了用户，将邮件存入数据库
         $user_id = $user['id'];
         
-        $insertStmt = $pdo->prepare("INSERT INTO user_emails (user_id, raw_email) VALUES (?, ?)");
-        $insertStmt->execute([$user_id, $raw_email]);
+        // --- 新增：解析邮件内容 ---
+        $parsed_content = parse_email_body($raw_email);
+        $parsed_content_json = json_encode($parsed_content);
+
+        $insertStmt = $pdo->prepare(
+            "INSERT INTO user_emails (user_id, raw_email, parsed_content) VALUES (?, ?, ?)"
+        );
+        $insertStmt->execute([$user_id, $raw_email, $parsed_content_json]);
 
         // 向 Worker 返回成功响应
-        send_json_response(['status' => 'success', 'message' => 'Email received and stored.']);
+        send_json_response(['status' => 'success', 'message' => 'Email received, parsed, and stored.']);
     } else {
         // 没有找到匹配的用户，静默丢弃，但向 Worker 返回成功，避免邮件被退回
         // 这样做是为了不让非注册用户知道他们的邮件被系统处理了

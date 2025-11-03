@@ -9,6 +9,7 @@ require_once 'config.php'; // 确保PDO实例可用
 $protected_actions = [
     'get_profile', 
     'get_user_emails', 
+    'get_email_content',
     'get_email_batches', 
     'process_email_segmentation',
     // --- 新增的受保护路由 ---
@@ -62,6 +63,9 @@ switch ($action) {
         break;
     case 'get_user_emails':
         require 'handlers/get_user_emails.php';
+        break;
+    case 'get_email_content':
+        require 'handlers/get_email_content.php';
         break;
     case 'get_email_batches':
         require 'handlers/get_email_batches.php';

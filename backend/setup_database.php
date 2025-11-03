@@ -29,6 +29,7 @@ $sql_statements = [
         `id` INT AUTO_INCREMENT PRIMARY KEY,
         `user_id` INT NOT NULL,
         `raw_email` LONGTEXT NOT NULL,
+        `parsed_content` JSON NULL,
         `received_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         `status` VARCHAR(50) NOT NULL DEFAULT 'new',
         `error_message` TEXT NULL,
@@ -65,16 +66,25 @@ $sql_statements = [
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
     
     // 5. (可选) 删除旧的全局赔率表
-    "DROP TABLE IF EXISTS `odds`;"
+    "DROP TABLE IF EXISTS `odds`;",
+
+    // 6. Add parsed_content to user_emails if it doesn't exist
+    "ALTER TABLE `user_emails` ADD COLUMN `parsed_content` JSON NULL AFTER `raw_email`;"
 ];
 
 // --- 执行SQL ---
-try {
-    foreach ($sql_statements as $index => $sql) {
+foreach ($sql_statements as $index => $sql) {
+    try {
         $pdo->exec($sql);
-        echo "Successfully executed statement " . ($index + 1) . ".\n";
+        echo "✅ Successfully executed statement " . ($index + 1) . ".\n";
+    } catch (PDOException $e) {
+        // Check if the error is about a duplicate column, which we can safely ignore
+        if (strpos($e->getMessage(), 'Duplicate column name') !== false) {
+            echo "ℹ️  Skipped statement " . ($index + 1) . ": Column already exists.\n";
+        } else {
+            // For other errors, we should report them
+            echo "❌ Error executing statement " . ($index + 1) . ": " . $e->getMessage() . "\n";
+        }
     }
-    echo "✅ Database setup completed successfully!\n";
-} catch (PDOException $e) {
-    die("❌ Database error: " . $e->getMessage() . "\n");
 }
+echo "🏁 Database setup process finished.\n";
