@@ -1,25 +1,9 @@
 <?php
-// 加载 .env (如果尚未加载)
-if (empty(getenv('DB_HOST'))) {
-    // 简单的 .env 加载逻辑
-    function loadEnv($path) {
-        if (!file_exists($path)) {
-            throw new Exception('.env file not found');
-        }
-        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) {
-                continue;
-            }
-            list($name, $value) = explode('=', $line, 2);
-            $name = trim($name);
-            $value = trim($value);
-            putenv(sprintf('%s=%s', $name, $value));
-            $_ENV[$name] = $value;
-            $_SERVER[$name] = $value;
-        }
-    }
-    loadEnv(__DIR__ . '/../.env');
+// backend/config/database.php
+
+// 确保配置已加载
+if (file_exists(__DIR__ . '/../utils/config_loader.php')) {
+    require_once __DIR__ . '/../utils/config_loader.php';
 }
 
 function getDbConnection() {

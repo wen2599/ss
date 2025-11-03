@@ -1,58 +1,9 @@
 <?php
-// 文件: backend/database_setup.php (v3 - 智能寻找 .env 版本)
+// backend/database_setup.php
 
-/**
- * 智能加载 .env 文件。
- * 它会按照优先级顺序在多个常见位置寻找 .env 文件，并加载第一个找到的。
- *
- * @return string|null 成功加载的 .env 文件的路径，如果都找不到则返回 null。
- */
-function loadEnvSmart() {
-    // 定义要搜索的路径列表 (按优先级排序)
-    $paths = [
-        __DIR__ . '/.env',                         // 1. 脚本当前目录 (最高优先级)
-        dirname(__DIR__) . '/.env',                // 2. 上一级目录
-        (getenv('HOME') ? getenv('HOME') . '/.env' : null) // 3. 用户主目录 (例如 /usr/home/wenge95222/.env)
-    ];
-
-    $foundPath = null;
-
-    foreach ($paths as $path) {
-        if ($path && file_exists($path)) {
-            $foundPath = $path;
-            break; // 找到第一个就停止搜索
-        }
-    }
-
-    if (!$foundPath) {
-        fwrite(STDERR, "错误: 在所有预设路径中都找不到 .env 文件。\n");
-        fwrite(STDERR, "请确保 .env 文件存在于以下任一位置：\n");
-        foreach ($paths as $p) { if ($p) fwrite(STDERR, " - {$p}\n"); }
-        exit(1);
-    }
-    
-    echo "成功找到并加载配置文件: {$foundPath}\n";
-
-    $lines = file($foundPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) continue;
-        if (strpos($line, '=') !== false) {
-            list($name, $value) = explode('=', $line, 2);
-            $name = trim($name);
-            // 关键修正：强制去除值两边的引号
-            $value = trim(trim($value), '"'');
-            putenv(sprintf('%s=%s', $name, $value));
-            $_ENV[$name] = $value;
-            $_SERVER[$name] = $value;
-        }
-    }
-    return $foundPath;
-}
+require_once __DIR__ . '/utils/config_loader.php';
 
 // ---- 主逻辑开始 ----
-
-// 使用全新的智能加载函数
-loadEnvSmart();
 
 // 从环境变量中获取配置
 $host = getenv('DB_HOST');
@@ -81,6 +32,10 @@ try {
     // --- 创建 lottery_numbers 表 ---
     $sql_numbers = "CREATE TABLE IF NOT EXISTS `lottery_numbers` ( `id` INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY, `number` VARCHAR(255) NOT NULL, `issue_date` DATE NOT NULL, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY `issue_date_unique` (`issue_date`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
     if ($conn->query($sql_numbers)) echo "数据表 'lottery_numbers' 创建成功或已存在。\n";
+
+    // --- 创建 tokens 表 ---
+    $sql_tokens = "CREATE TABLE IF NOT EXISTS `tokens` ( `id` INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY, `user_id` INT(11) UNSIGNED NOT NULL, `token` VARCHAR(64) NOT NULL, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY `token_unique` (`token`), FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+    if ($conn->query($sql_tokens)) echo "数据表 'tokens' 创建成功或已存在。\n";
 
     echo "\n数据库初始化流程全部完成。\n";
 

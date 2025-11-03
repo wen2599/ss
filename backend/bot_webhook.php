@@ -1,34 +1,32 @@
 <?php
+require_once __DIR__ . '/utils/config_loader.php';
 require_once __DIR__ . '/config/database.php';
-
-function loadEnv($path) {
-    if (!file_exists($path)) {
-        throw new Exception('.env file not found');
-    }
-    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) {
-            continue;
-        }
-        list($name, $value) = explode('=', $line, 2);
-        $name = trim($name);
-        $value = trim($value);
-        putenv(sprintf('%s=%s', $name, $value));
-        $_ENV[$name] = $value;
-        $_SERVER[$name] = $value;
-    }
-}
-loadEnv(__DIR__ . '/.env');
 
 
 $botToken = getenv('BOT_TOKEN');
 $adminId = getenv('ADMIN_TELEGRAM_ID');
 
+$secretToken = getenv('TELEGRAM_WEBHOOK_SECRET');
+
+// --- 安全性检查 ---
+// 仅在非 CLI 环境下检查 Secret Token
+if (php_sapi_name() !== 'cli') {
+    $headerToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
+    if ($headerToken !== $secretToken) {
+        http_response_code(403);
+        // 记录可疑访问
+        error_log("Webhook security check failed. IP: {$_SERVER['REMOTE_ADDR']}");
+        exit('Forbidden');
+    }
+}
+
 $content = file_get_contents("php://input");
 $update = json_decode($content, true);
 
-if (!$update) {
-    exit();
+// 基本的更新验证
+if (!$update || !isset($update['update_id'])) {
+    http_response_code(400); // Bad Request
+    exit('Invalid update received');
 }
 
 if (isset($update['message']['from']['id']) && $update['message']['from']['id'] == $adminId) {
