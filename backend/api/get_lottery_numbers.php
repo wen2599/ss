@@ -67,7 +67,8 @@ try {
 
 } catch (Exception $e) {
     error_log($e->getMessage());
-    send_json_response(false, 'An error occurred while fetching data.', null, 500);
+    // TEMPORARY: Expose detailed error for debugging
+    send_json_response(false, 'An error occurred while fetching data: ' . $e->getMessage(), null, 500);
 } finally {
     if (isset($result) && $result instanceof mysqli_result) {
         $result->free();
