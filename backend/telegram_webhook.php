@@ -4,15 +4,17 @@
 // Include the environment variable loader
 require_once __DIR__ . '/utils/config_loader.php';
 
-// --- Security Check: Verify Webhook Secret Token ---
-$secret_token = getenv('TELEGRAM_WEBHOOK_SECRET');
-if ($secret_token) {
-    $header_token = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
-    if ($header_token !== $secret_token) {
-        // This is a security risk. Log it and deny the request.
-        error_log("Webhook secret token mismatch.");
-        http_response_code(403);
-        exit('Forbidden');
+// --- Security Check: Verify Webhook Secret Token (for web requests only) ---
+if (php_sapi_name() !== 'cli') {
+    $secret_token = getenv('TELEGRAM_WEBHOOK_SECRET');
+    if ($secret_token) {
+        $header_token = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
+        if ($header_token !== $secret_token) {
+            // This is a security risk. Log it and deny the request.
+            error_log("Webhook secret token mismatch.");
+            http_response_code(403);
+            exit('Forbidden');
+        }
     }
 }
 // --- End Security Check ---
