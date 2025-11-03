@@ -1,12 +1,15 @@
 <?php
 // --- 数据库一键安装脚本 ---
 
+// Load the environment variables
+require_once __DIR__ . '/utils/config_loader.php';
+
 // 加载 .env 文件中的配置
 // 注意：在共享主机环境，您可能需要手动填写下面的变量
 // 或者使用更复杂的库来解析 .env 文件。
 // 为简单起见，我们这里直接定义，或假设您已设置为环境变量。
 
-$db_host = getenv('DB_HOST') ?: 'localhost';
+$db_host = getenv('DB_HOST');
 $db_user = getenv('DB_USER') ?: 'your_database_user';
 $db_pass = getenv('DB_PASS') ?: 'your_database_password';
 $db_name = getenv('DB_NAME') ?: 'your_database_name';
