@@ -15,7 +15,8 @@ $protected_actions = [
     // --- 新增的受保护路由 ---
     'get_user_odds',
     'set_user_odds_by_text',
-    'generate_parsing_template'
+    'generate_parsing_template',
+    'get_log_file'
 ];
 
 $action = $_GET['action'] ?? null;
@@ -84,6 +85,9 @@ switch ($action) {
 
     case 'generate_parsing_template':
         require 'handlers/generate_parsing_template.php';
+        break;
+    case 'get_log_file':
+        require 'handlers/get_log_file.php';
         break;
 
     default:
