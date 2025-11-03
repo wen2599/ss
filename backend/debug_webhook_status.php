@@ -1,47 +1,76 @@
 <?php
-// --- Webhook Debugger ---
+// --- Webhook Debugger (Sends to Telegram Admin) ---
 
-// Set the timezone for accurate logging
-date_default_timezone_set('UTC');
+// Load environment variables
+require_once __DIR__ . '/utils/config_loader.php';
 
-// The log file path
-$log_file = '/tmp/webhook_debug.log';
+// Get required environment variables
+$bot_token = getenv('TELEGRAM_BOT_TOKEN');
+$admin_id = getenv('TELEGRAM_ADMIN_ID');
 
-// --- Capture Request Data ---
+/**
+ * Sends a message to a specific Telegram chat.
+ *
+ * @param int|string $chat_id The ID of the chat.
+ * @param string $text The message text.
+ * @param string $bot_token The bot token.
+ */
+function sendMessage($chat_id, $text, $bot_token) {
+    // URL encode the text
+    $url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
+    $post_fields = [
+        'chat_id' => $chat_id,
+        'text' => $text,
+        'parse_mode' => 'Markdown' // Optional: for better formatting
+    ];
 
-// 1. Get the raw request body
-$raw_input = file_get_contents('php://input');
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post_fields));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    // Don't output the response of the sendMessage call
+    curl_exec($ch);
+    curl_close($ch);
+}
 
-// 2. Get request headers
-$headers = getallheaders();
+// --- Main Logic ---
 
-// 3. Get the request method and URI
-$request_method = $_SERVER['REQUEST_METHOD'] ?? 'N/A';
-$request_uri = $_SERVER['REQUEST_URI'] ?? 'N/A';
-$remote_addr = $_SERVER['REMOTE_ADDR'] ?? 'N/A';
-
-// --- Format the Log Entry ---
-
-$log_entry = "--- [" . date('Y-m-d H:i:s T') . "] ---\n";
-$log_entry .= "From IP: " . $remote_addr . "\n";
-$log_entry .= "Request: " . $request_method . " " . $request_uri . "\n";
-$log_entry .= "Headers: " . json_encode($headers, JSON_PRETTY_PRINT) . "\n";
-$log_entry .= "Raw Body:\n";
-$log_entry .= $raw_input . "\n";
-$log_entry .= "--------------------------------------\n\n";
-
-// --- Write to Log File ---
-
-// Use file_put_contents with the FILE_APPEND flag to add to the log
-// and LOCK_EX to prevent race conditions.
-file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
-
-// --- Respond to Telegram ---
-
-// Always send a 200 OK response to Telegram to acknowledge receipt.
-// This prevents Telegram from resending the update.
+// Always respond to Telegram first to prevent timeouts and retries
 http_response_code(200);
 header('Content-Type: application/json');
-echo json_encode(['success' => true, 'message' => 'Request logged.']);
+echo json_encode(['success' => true, 'message' => 'Request is being processed.']);
+
+// Check if critical environment variables are set
+if (!$bot_token || !$admin_id) {
+    // If they aren't set, we can't send a message, so just exit silently.
+    // An error will have already been logged by the config_loader if it's missing.
+    exit;
+}
+
+// --- Capture Request Data ---
+$raw_input = file_get_contents('php://input');
+$headers = getallheaders();
+$request_info = [
+    'Remote IP' => $_SERVER['REMOTE_ADDR'] ?? 'N/A',
+    'Request'   => ($_SERVER['REQUEST_METHOD'] ?? 'N/A') . ' ' . ($_SERVER['REQUEST_URI'] ?? 'N/A'),
+    'Timestamp' => date('Y-m-d H:i:s T')
+];
+
+// --- Format and Send Debug Message ---
+$message = "*Webhook Debug Info*\n\n";
+$message .= "```json\n" . json_encode($request_info, JSON_PRETTY_PRINT) . "\n```\n\n";
+$message .= "*Headers*\n";
+$message .= "```json\n" . json_encode($headers, JSON_PRETTY_PRINT) . "\n```\n\n";
+$message .= "*Raw Body*\n";
+$message .= "```\n" . ($raw_input ?: '(empty)') . "\n```";
+
+// Telegram has a message size limit of 4096 characters. Truncate if necessary.
+if (strlen($message) > 4096) {
+    $message = substr($message, 0, 4090) . "\n... (truncated)";
+}
+
+// Send the debug information to the admin
+sendMessage($admin_id, $message, $bot_token);
 
 ?>
