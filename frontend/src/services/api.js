@@ -10,10 +10,10 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
-// 请求拦截器保持不变
+// Add an interceptor to include the auth token in all requests
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken'); // Corrected key
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
