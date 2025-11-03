@@ -9,11 +9,13 @@ function LotteryNumbers() {
     const fetchNumbers = async () => {
       try {
         setLoading(true);
-        // _worker.js 会将此请求代理到您的 PHP 后端
+        // The worker proxies this request to the PHP backend
         const response = await fetch('/api/get_lottery_numbers.php');
 
         if (!response.ok) {
-          throw new Error(`HTTP 错误! 状态: ${response.status}`);
+          // Try to get a more specific error message from the response body
+          const errorText = await response.text();
+          throw new Error(`HTTP error! Status: ${response.status}, Body: ${errorText}`);
         }
 
         const data = await response.json();
@@ -21,21 +23,26 @@ function LotteryNumbers() {
         if (data.success) {
           setNumbers(data.data);
         } else {
-          throw new Error(data.message || '获取数据失败');
+          throw new Error(data.message || 'Failed to fetch lottery data.');
         }
 
       } catch (err) {
-        setError(err.message);
+        // Check for the common JSON parsing error
+        if (err instanceof SyntaxError) {
+             setError("Failed to parse server response. The API may be down or returning invalid data.");
+        } else {
+             setError(err.message);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchNumbers();
-  }, []); // 空依赖数组确保只在组件挂载时运行一次
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   return (
-    <div>
+    <div className="lottery-container">
       <h2>开奖号码列表</h2>
       {loading && <p className="loading">正在加载中...</p>}
       {error && <p className="error">错误: {error}</p>}
@@ -43,9 +50,16 @@ function LotteryNumbers() {
         <ul className="item-list">
           {numbers.length > 0 ? (
             numbers.map((item) => (
-              <li key={item.id}>
-                <span>号码: {item.number}</span>
-                <span>{new Date(item.received_at).toLocaleString()}</span>
+              <li key={item.id} className="lottery-item">
+                <div className="lottery-header">
+                  <strong>{item.lottery_type}</strong> - 第 {item.issue_number} 期
+                </div>
+                <div className="lottery-numbers">
+                  {item.numbers}
+                </div>
+                <div className="lottery-footer">
+                  {new Date(item.created_at).toLocaleString()}
+                </div>
               </li>
             ))
           ) : (

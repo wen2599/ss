@@ -1,70 +1,90 @@
 <?php
-// --- API: 存储开奖号码 ---
+// --- API: Store Parsed Lottery Numbers ---
 
 header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-// 引入数据库连接配置
-// 在实际部署中，创建一个 db_connect.php 文件会更整洁
-$db_host = getenv('DB_HOST') ?: 'localhost';
-$db_user = getenv('DB_USER') ?: 'your_database_user';
-$db_pass = getenv('DB_PASS') ?: 'your_database_password';
-$db_name = getenv('DB_NAME') ?: 'your_database_name';
+// Handle CORS preflight requests
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
 
-// 响应助手函数
-function send_json_response($success, $message, $data = null) {
-    http_response_code($success ? 200 : 500);
+// --- Load Configuration ---
+require_once __DIR__ . '/../utils/config_loader.php';
+
+// A helper function for consistent JSON responses
+function send_json_response($success, $message, $data = null, $code = 200) {
+    http_response_code($code);
     echo json_encode(['success' => $success, 'message' => $message, 'data' => $data]);
     exit;
 }
 
-// 1. 验证请求方法
+// 1. Validate request method
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    send_json_response(false, '无效的请求方法，请使用 POST。');
+    send_json_response(false, 'Invalid request method. Please use POST.', null, 405);
 }
 
-// 2. 获取并验证传入的号码
-$number = isset($_POST['number']) ? trim($_POST['number']) : null;
+// 2. Get and validate incoming structured data
+$lottery_type = isset($_POST['lottery_type']) ? trim($_POST['lottery_type']) : null;
+$issue_number = isset($_POST['issue_number']) ? trim($_POST['issue_number']) : null;
+$numbers = isset($_POST['numbers']) ? trim($_POST['numbers']) : null;
 
-if (empty($number)) {
-    send_json_response(false, '开奖号码不能为空。');
+if (empty($lottery_type) || empty($issue_number) || empty($numbers)) {
+    send_json_response(false, 'Incomplete lottery data. All fields are required.', null, 400);
 }
 
-// (可选) 进行更严格的号码格式验证
-// 例如，如果号码必须是数字，可以使用 is_numeric()
+// --- Database Connection ---
+$db_host = getenv('DB_HOST');
+$db_user = getenv('DB_USER');
+$db_pass = getenv('DB_PASS');
+$db_name = getenv('DB_NAME');
 
-// 3. 连接数据库
+if (!$db_host || !$db_user || !$db_pass || !$db_name) {
+    error_log("Database configuration is incomplete. Check .env file.");
+    send_json_response(false, 'Server configuration error.', null, 500);
+}
+
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
-
 if ($conn->connect_error) {
-    // 在生产环境中，不应暴露详细错误
     error_log("Database connection failed: " . $conn->connect_error);
-    send_json_response(false, '数据库连接失败。');
+    send_json_response(false, 'Database service is currently unavailable.', null, 503);
 }
-
 $conn->set_charset('utf8mb4');
 
-// 4. 准备 SQL 语句并插入数据 (使用预处理语句防止 SQL 注入)
+// --- Prepare SQL and Insert Data ---
 try {
-    $stmt = $conn->prepare("INSERT INTO lottery_numbers (number, source) VALUES (?, ?)");
+    // Use the correct table `lottery_results` and columns
+    $stmt = $conn->prepare("INSERT INTO lottery_results (lottery_type, issue_number, numbers) VALUES (?, ?, ?)");
     
     if ($stmt === false) {
-        throw new Exception('SQL 预处理失败: ' . $conn->error);
+        throw new Exception('SQL statement preparation failed: ' . $conn->error);
     }
     
-    $source = 'telegram'; // 数据来源
-    $stmt->bind_param("ss", $number, $source);
+    $stmt->bind_param("sss", $lottery_type, $issue_number, $numbers);
     
     if ($stmt->execute()) {
-        // 插入成功
         $new_id = $stmt->insert_id;
-        send_json_response(true, '开奖号码存储成功。', ['id' => $new_id, 'number' => $number]);
+        $response_data = [
+            'id' => $new_id,
+            'lottery_type' => $lottery_type,
+            'issue_number' => $issue_number,
+            'numbers' => $numbers
+        ];
+        send_json_response(true, 'Lottery result stored successfully.', $response_data, 201);
     } else {
-        throw new Exception('SQL 执行失败: ' . $stmt->error);
+        // Check for duplicate entry
+        if ($conn->errno === 1062) { // 1062 is the MySQL error code for duplicate entry
+            send_json_response(false, 'This lottery result (issue number) has already been recorded.', null, 409);
+        }
+        throw new Exception('SQL execution failed: ' . $stmt->error);
     }
     
 } catch (Exception $e) {
     error_log($e->getMessage());
-    send_json_response(false, '存储开奖号码时发生内部错误。');
+    send_json_response(false, 'An internal error occurred while storing the lottery result.', null, 500);
 } finally {
     if (isset($stmt)) {
         $stmt->close();
