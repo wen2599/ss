@@ -72,41 +72,75 @@ if (isset($data['message'])) {
 
 // --- B. Handle Channel Posts ---
 } elseif (isset($data['channel_post']['text'])) {
-    
-    $lottery_number = $data['channel_post']['text'];
+
+    $text = $data['channel_post']['text'];
     $chat_id = $data['channel_post']['chat']['id']; // This is the channel ID
 
     // (Optional) Validate if it's from the specified admin channel ID
     $admin_channel_id = getenv('ADMIN_CHANNEL_ID'); // Read from environment variables
     if ($admin_channel_id && $chat_id != $admin_channel_id) {
-        // If the channel ID is set but the source doesn't match, exit
         http_response_code(403);
         echo "Invalid Channel";
         exit;
     }
 
-    // 4. Forward the number to the backend storage API
-    $ch = curl_init();
+    // --- PARSE THE LOTTERY DATA ---
+    $lines = explode("\n", trim($text));
+    $lottery_type = null;
+    $issue_number = null;
+    $numbers = null;
 
-    curl_setopt($ch, CURLOPT_URL, $store_api_url);
-    curl_setopt($ch, CURLOPT_POST, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query(['number' => $lottery_number]));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    // Find the line with the lottery info and extract data
+    foreach ($lines as $index => $line) {
+        $pattern_info = '/(.*?)\s*第:(\d+)\s*期开奖结果:/u';
+        if (preg_match($pattern_info, $line, $info_matches)) {
+            $lottery_type = trim($info_matches[1]);
+            $issue_number = trim($info_matches[2]);
 
-    $response = curl_exec($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+            // The numbers are expected on the next line
+            if (isset($lines[$index + 1])) {
+                $numbers_line = trim($lines[$index + 1]);
+                $numbers_arr = array_filter(preg_split('/\s+/', $numbers_line));
+                // Ensure the line contains only numbers and spaces
+                if (!empty($numbers_arr) && ctype_digit(implode('', $numbers_arr))) {
+                     $numbers = implode(' ', $numbers_arr);
+                }
+            }
+            break; // Exit loop once info is found
+        }
+    }
+    // --- END PARSING ---
 
-    // 5. Log or respond to Telegram
-    if ($http_code == 200) {
-        // Success
-        http_response_code(200);
-        echo "Number stored successfully.";
+    // If parsing was successful, send the structured data to the API
+    if ($lottery_type && $issue_number && $numbers) {
+        $post_data = [
+            'lottery_type' => $lottery_type,
+            'issue_number' => $issue_number,
+            'numbers' => $numbers,
+        ];
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $store_api_url);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post_data));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $response = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($http_code == 200) {
+            http_response_code(200);
+            echo "Parsed lottery data stored successfully.";
+        } else {
+            http_response_code(500);
+            error_log("Failed to store parsed lottery data. API response: " . $response);
+            echo "Failed to store parsed data.";
+        }
     } else {
-        // Failure
-        http_response_code(500); 
-        error_log("Failed to store lottery number. API response: " . $response);
-        echo "Failed to store number.";
+        // If parsing failed, log it and ignore the message
+        error_log("Failed to parse lottery data from message: " . $text);
+        http_response_code(200);
+        echo "Unrecognized format, ignoring.";
     }
 
 } else {
