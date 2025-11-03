@@ -5,7 +5,7 @@
 date_default_timezone_set('UTC');
 
 // The log file path
-$log_file = __DIR__ . '/webhook_debug.log';
+$log_file = '/tmp/webhook_debug.log';
 
 // --- Capture Request Data ---
 
