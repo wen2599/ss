@@ -5,18 +5,18 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
-  // 从localStorage初始化token，这样刷新页面后也能保持登录状态
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  // Use 'authToken' to match the api.js interceptor
+  const [token, setToken] = useState(localStorage.getItem('authToken'));
 
   const login = (newToken) => {
     setToken(newToken);
-    localStorage.setItem('token', newToken);
+    localStorage.setItem('authToken', newToken);
     navigate('/'); // 登录成功后跳转到主页
   };
 
   const logout = () => {
     setToken(null);
-    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');
     navigate('/login'); // 退出后跳转到登录页
   };
 
