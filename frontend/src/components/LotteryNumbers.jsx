@@ -51,14 +51,11 @@ function LotteryNumbers() {
           {numbers.length > 0 ? (
             numbers.map((item) => (
               <li key={item.id} className="lottery-item">
-                <div className="lottery-header">
-                  <strong>{item.lottery_type}</strong> - 第 {item.issue_number} 期
-                </div>
                 <div className="lottery-numbers">
-                  {item.numbers}
+                  {item.number}
                 </div>
                 <div className="lottery-footer">
-                  {new Date(item.created_at).toLocaleString()}
+                  {new Date(item.received_at).toLocaleString()}
                 </div>
               </li>
             ))
