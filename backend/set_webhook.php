@@ -35,14 +35,14 @@ $webhook_url = rtrim($backend_url, '/') . '/' . $webhook_script;
 echo "<p>Attempting to set webhook to: <code>" . htmlspecialchars($webhook_url) . "</code></p>";
 
 // --- Build API URL with allowed_updates ---
-// This tells Telegram we specifically want to receive channel posts.
+// This tells Telegram we want to receive both private messages and channel posts.
 $api_params = [
     'url' => $webhook_url,
-    'allowed_updates' => json_encode(['channel_post'])
+    'allowed_updates' => json_encode(['message', 'channel_post'])
 ];
 $telegram_api_url = "https://api.telegram.org/bot" . $bot_token . "/setWebhook?" . http_build_query($api_params);
 
-echo "<p>Setting webhook with allowed_updates: <code>['channel_post']</code></p>";
+echo "<p>Setting webhook with allowed_updates: <code>['message', 'channel_post']</code></p>";
 
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $telegram_api_url);
