@@ -11,11 +11,8 @@ $protected_actions = [
     'get_user_emails', 
     'get_email_content',
     'get_email_batches', 
-    'process_email_segmentation',
     // --- 新增的受保护路由 ---
     'get_user_odds',
-    'set_user_odds_by_text',
-    'generate_parsing_template',
     'get_log_file'
 ];
 
@@ -72,19 +69,9 @@ switch ($action) {
     case 'get_email_batches':
         require 'handlers/get_email_batches.php';
         break;
-    case 'process_email_segmentation':
-        require 'handlers/process_email_segmentation.php';
-        break;
     // --- 新增的路由处理 ---
     case 'get_user_odds':
         require 'handlers/get_user_odds.php';
-        break;
-    case 'set_user_odds_by_text':
-        require 'handlers/set_user_odds_by_text.php';
-        break;
-
-    case 'generate_parsing_template':
-        require 'handlers/generate_parsing_template.php';
         break;
     case 'get_log_file':
         require 'handlers/get_log_file.php';

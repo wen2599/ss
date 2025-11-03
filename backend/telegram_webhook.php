@@ -83,7 +83,7 @@ function handleAdminCommand($message, $pdo) {
     $text = $message['text'] ?? '';
     error_log("handleAdminCommand: Received text [" . $text . "]");
     
-    $mainMenu = ['keyboard' => [['用户管理', '系统状态'], ['密钥管理']], 'resize_keyboard' => true, 'one_time_keyboard' => true];
+    $mainMenu = ['keyboard' => [['用户管理', '系统状态']], 'resize_keyboard' => true, 'one_time_keyboard' => true];
     $backMenu = ['keyboard' => [['返回主菜单']], 'resize_keyboard' => true, 'one_time_keyboard' => true];
 
     switch ($text) {
@@ -113,11 +113,6 @@ function handleAdminCommand($message, $pdo) {
             }
             break;
         
-        case '密钥管理':
-            error_log("handleAdminCommand: 密钥管理 command recognized.");
-            sendTelegramMessage("请输入要设置的AI密钥：\n\n格式: `set_gemini_key 你的Gemini密钥`", $backMenu);
-            break;
-
         case '返回主菜单':
             error_log("handleAdminCommand: 返回主菜单 command recognized.");
              sendTelegramMessage("已返回主菜单。", $mainMenu);
@@ -140,28 +135,6 @@ function handleAdminCommand($message, $pdo) {
                 } catch (PDOException $e) {
                     error_log("handleAdminCommand: Failed to add user: " . $e->getMessage());
                     sendTelegramMessage("❌ 添加用户失败: " . $e->getMessage()); 
-                }
-            } elseif ($command === 'set_gemini_key' && count($parts) === 2) {
-                error_log("handleAdminCommand: Set Gemini key command detected.");
-                $gemini_key = $parts[1];
-                $env_file_path = __DIR__ . '/../.env';
-                if (file_exists($env_file_path)) {
-                    $env_content = file_get_contents($env_file_path);
-                    $new_env_content = preg_replace(
-                        '/^GEMINI_API_KEY=(.*)$/m',
-                        "GEMINI_API_KEY={$gemini_key}",
-                        $env_content, 1, $count
-                    );
-
-                    if ($count === 0) {
-                        $new_env_content .= "\nGEMINI_API_KEY={$gemini_key}\n";
-                    }
-                    file_put_contents($env_file_path, $new_env_content);
-                    sendTelegramMessage("✅ Gemini API 密钥已更新！");
-                    error_log("handleAdminCommand: Gemini API key updated.");
-                } else {
-                    error_log("handleAdminCommand: .env file not found at [" . $env_file_path . "].");
-                    sendTelegramMessage("❌ .env 文件不存在，无法更新密钥。");
                 }
             } elseif (filter_var($text, FILTER_VALIDATE_EMAIL)) {
                 error_log("handleAdminCommand: Email query detected.");
