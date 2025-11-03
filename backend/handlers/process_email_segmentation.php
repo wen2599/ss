@@ -10,6 +10,8 @@ if (!isset($current_user_id)) {
 
 $input = json_decode(file_get_contents('php://input'), true);
 $email_id = $input['email_id'] ?? null;
+$template_name = $input['template_name'] ?? 'default';
+
 if (empty($email_id)) {
     send_json_response(['status' => 'error', 'message' => 'Email ID is required.'], 400);
 }
@@ -39,11 +41,17 @@ try {
     $body = strip_tags($body);
     $body = trim($body);
 
-    // 3. 定义分段的正则表达式 (识别时间点)
-    $pattern = '/((\d{1,2}|[一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾])\s*点\s*(\d{1,2}|[一二三四五六七八九十\d零〇拾]{1,3})?\s*分?)/u';
+    // 3. 加载AI生成的解析模板
+    $template_path = __DIR__ . '/../utils/parsing_templates/' . $template_name . '.regex';
+    if (!file_exists($template_path)) {
+        throw new Exception("Parsing template '{$template_name}' not found.");
+    }
+    $pattern = file_get_contents($template_path);
+
+    // 4. 使用模板分割邮件正文
     $parts = preg_split($pattern, $body, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
     
-    // 4. 处理分割后的片段并创建批次
+    // 5. 处理分割后的片段并创建批次
     $current_timestamp = null;
     $batches_created = 0;
     foreach ($parts as $part) {
