@@ -69,7 +69,11 @@ $sql_statements = [
     "DROP TABLE IF EXISTS `odds`;",
 
     // 6. Add parsed_content to user_emails if it doesn't exist
-    "ALTER TABLE `user_emails` ADD COLUMN `parsed_content` JSON NULL AFTER `raw_email`;"
+    "ALTER TABLE `user_emails` ADD COLUMN `parsed_content` JSON NULL AFTER `raw_email`;",
+
+    // 7. Add from_sender and subject columns for efficient listing
+    "ALTER TABLE `user_emails` ADD COLUMN `from_sender` VARCHAR(255) NULL AFTER `user_id`;",
+    "ALTER TABLE `user_emails` ADD COLUMN `subject` VARCHAR(512) NULL AFTER `from_sender`;"
 ];
 
 // --- 执行SQL ---

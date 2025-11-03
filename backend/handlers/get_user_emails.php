@@ -13,37 +13,25 @@ if (!isset($current_user_id)) {
 }
 
 try {
-    // 为了提高效率，我们在这里解析邮件的From和Subject
-    // 尽管MIME解析可能很复杂，我们可以用一个简单的正则来提取基本信息
+    // Optimized Query: Select only the necessary, pre-parsed fields.
+    // This is extremely fast and avoids loading the entire raw_email into memory.
     $stmt = $pdo->prepare(
-        "SELECT id, raw_email, received_at, status FROM user_emails WHERE user_id = ? ORDER BY received_at DESC"
+        "SELECT id, from_sender, subject, received_at, status
+         FROM user_emails
+         WHERE user_id = ?
+         ORDER BY received_at DESC"
     );
     $stmt->execute([$current_user_id]);
-    $emails_raw = $stmt->fetchAll();
+    $emails = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $emails_processed = array_map(function($email) {
-        $subject = ' (No Subject)';
-        $from = ' (Unknown Sender)';
+    // Frontend expects 'from', not 'from_sender'. Let's alias the key.
+    $emails_aliased = array_map(function($email) {
+        $email['from'] = $email['from_sender'];
+        unset($email['from_sender']);
+        return $email;
+    }, $emails);
 
-        // Simple regex to extract Subject and From headers
-        if (preg_match('/^Subject:\s*(.*)$/im', $email['raw_email'], $matches)) {
-            // Decode subject if it's encoded (e.g., =?UTF-8?B?...?=)
-            $subject = mb_decode_mimeheader($matches[1]);
-        }
-        if (preg_match('/^From:\s*(.*)$/im', $email['raw_email'], $matches)) {
-            $from = $matches[1];
-        }
-
-        return [
-            'id' => $email['id'],
-            'from' => $from,
-            'subject' => $subject,
-            'received_at' => $email['received_at'],
-            'status' => $email['status']
-        ];
-    }, $emails_raw);
-    
-    send_json_response(['status' => 'success', 'data' => $emails_processed]);
+    send_json_response(['status' => 'success', 'data' => $emails_aliased]);
 
 } catch (PDOException $e) {
     error_log("Get user emails error: " . $e->getMessage());

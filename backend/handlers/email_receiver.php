@@ -36,10 +36,20 @@ try {
         $parsed_content = parse_email_body($raw_email);
         $parsed_content_json = json_encode($parsed_content);
 
+        // --- 新增：解析邮件头，为列表页提供数据 ---
+        $subject = '(No Subject)';
+        $from_sender = '(Unknown Sender)';
+        if (preg_match('/^Subject:\s*(.*)$/im', $raw_email, $matches)) {
+            $subject = mb_decode_mimeheader(trim($matches[1]));
+        }
+        if (preg_match('/^From:\s*(.*)$/im', $raw_email, $matches)) {
+            $from_sender = trim($matches[1]);
+        }
+
         $insertStmt = $pdo->prepare(
-            "INSERT INTO user_emails (user_id, raw_email, parsed_content) VALUES (?, ?, ?)"
+            "INSERT INTO user_emails (user_id, from_sender, subject, raw_email, parsed_content) VALUES (?, ?, ?, ?, ?)"
         );
-        $insertStmt->execute([$user_id, $raw_email, $parsed_content_json]);
+        $insertStmt->execute([$user_id, $from_sender, $subject, $raw_email, $parsed_content_json]);
 
         // 向 Worker 返回成功响应
         send_json_response(['status' => 'success', 'message' => 'Email received, parsed, and stored.']);
