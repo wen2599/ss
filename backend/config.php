@@ -6,7 +6,6 @@ if (!defined('DIR')) {
 }
 
 // --- Custom Debug Logging Function ---
-// This function is kept for debugging purposes but the primary error handling will now be a fatal exit.
 function write_custom_debug_log($message) {
     $logFile = DIR . '/env_debug.log';
     @file_put_contents($logFile, date('[Y-m-d H:i:s]') . ' ' . $message . PHP_EOL, FILE_APPEND | LOCK_EX);
@@ -16,7 +15,6 @@ write_custom_debug_log("------ Config.php Entry Point ------");
 
 /**
  * Robust .env loader
- * This function will now terminate with a clear error message if the .env file is missing.
  */
 function load_env_robust() {
     $envPaths = [
@@ -33,14 +31,11 @@ function load_env_robust() {
         }
     }
 
-    // --- CRITICAL ERROR HANDLING ---
-    // If no .env file is found after checking all paths, terminate execution.
     if ($envPathFound === null) {
-        // Use echo for CLI scripts and error_log for web requests.
         $errorMessage = "FATAL ERROR: Could not find a readable .env file. Please ensure it exists in the project root directory.";
         echo $errorMessage . PHP_EOL;
         error_log($errorMessage, 0);
-        exit(1); // Exit with a non-zero status code to indicate failure.
+        exit(1);
     }
 
     $lines = file($envPathFound, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -94,8 +89,9 @@ require_once DIR . '/db_operations.php';
 require_once DIR . '/telegram_helpers.php';
 require_once DIR . '/user_state_manager.php';
 require_once DIR . '/api_curl_helper.php';
-require_once DIR . '/gemini_ai_helper.php';
-require_once DIR . '/cloudflare_ai_helper.php';
+// AI helpers removed as per user instruction
+// require_once DIR . '/gemini_ai_helper.php';
+// require_once DIR . '/cloudflare_ai_helper.php';
 require_once DIR . '/env_manager.php';
 
 write_custom_debug_log("------ Config.php Exit Point ------");
