@@ -21,7 +21,10 @@ $headerPreview = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '[HEADER_NO
 $allHeaders = getallheaders();
 $headersLog = 'Received Headers: ' . json_encode($allHeaders);
 
-file_put_contents($earlyLogFile, "{$now} [EARLY] Method={$method}, URI={$uri}, HeaderPreview={$headerPreview}, {$headersLog}\n", FILE_APPEND | LOCK_EX);
+// Log entire $_SERVER array for comprehensive debugging
+$serverDump = '$_SERVER Dump: ' . json_encode($_SERVER, JSON_PRETTY_PRINT);
+
+file_put_contents($earlyLogFile, "{$now} [EARLY] Method={$method}, URI={$uri}, HeaderPreview={$headerPreview}, {$headersLog}\n{$serverDump}\n", FILE_APPEND | LOCK_EX);
 
 // --- Lightweight .env loader ---
 function load_env_file_simple($path) {
