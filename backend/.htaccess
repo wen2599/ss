@@ -1,25 +1,35 @@
-# ==========================================================
-# .htaccess for Serv00 Hosting Environment
-# ==========================================================
+# backend/.htaccess
 
-# ----------------------------------------------------------
-# Section 1: Disable mod_security for Telegram Webhook
-# This is the critical fix for the 403 Forbidden error.
-# It tells the server's firewall to not block requests
-# that are sent to "webhook.php".
-# ----------------------------------------------------------
-<Files "webhook.php">
-  <IfModule mod_security.c>
-    SecFilterEngine Off
-    SecFilterScanPOST Off
-  </IfModule>
+# 启用 URL 重写
+RewriteEngine On
+
+# 强制 HTTPS (如果您的服务器支持)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# 设置 API 路由规则
+RewriteRule ^api/save-result/?$ api/save_result.php [L]
+RewriteRule ^api/get-results/?$ api/get_results.php [L]
+
+# 阻止对敏感文件的直接访问
+<Files "config.php">
+    Order allow,deny
+    Deny from all
 </Files>
 
-# ----------------------------------------------------------
-# Section 2: No Rewrite Rules
-# DO NOT ADD ANY "RewriteEngine On" or "RewriteRule" here.
-# Based on our tests, they cause 502 errors on your server.
-# URL mapping is handled by the Cloudflare Worker (_worker.js).
-# ----------------------------------------------------------
+# 如果需要，可以为 .htaccess 文件本身增加保护
+<Files ".htaccess">
+    Order allow,deny
+    Deny from all
+</Files>
 
-# End of .htaccess file
+# 全局安全设置
+Options -Indexes
+
+# 如果您的服务器支持，可以在这里统一设置 CORS 头部
+# 请注意：这可能需要 mod_headers 模块
+# <IfModule mod_headers.c>
+#     Header set Access-Control-Allow-Origin "https://ss.wenxiuxiu.eu.org"
+#     Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+#     Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+# </IfModule>
