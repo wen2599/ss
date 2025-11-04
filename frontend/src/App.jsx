@@ -1,48 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import Auth from './components/Auth';
-import LotteryDisplay from './components/LotteryDisplay';
-import './App.css'; // 引入一些基本样式
+import Lottery from './components/Lottery';
+import './index.css';
 
 function App() {
-    const [user, setUser] = useState(null);
-
-    // 页面加载时，尝试从 localStorage 恢复用户状态
-    useEffect(() => {
-        const storedUser = localStorage.getItem('lotteryUser');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
+    // 尝试从 localStorage 获取用户信息
+    const [user, setUser] = useState(() => {
+        const savedUser = localStorage.getItem('lottery_user');
+        try {
+            return savedUser ? JSON.parse(savedUser) : null;
+        } catch (e) {
+            return null;
         }
-    }, []);
+    });
 
-    const handleLoginSuccess = (userData) => {
-        setUser(userData);
-        // 将用户信息存入 localStorage，以便刷新页面后保持登录状态
-        localStorage.setItem('lotteryUser', JSON.stringify(userData));
+    // 当 user 状态变化时，更新 localStorage
+    useEffect(() => {
+        if (user) {
+            localStorage.setItem('lottery_user', JSON.stringify(user));
+        } else {
+            localStorage.removeItem('lottery_user');
+        }
+    }, [user]);
+
+    const handleLoginSuccess = (loggedInUser) => {
+        setUser(loggedInUser);
     };
 
     const handleLogout = () => {
         setUser(null);
-        localStorage.removeItem('lotteryUser');
     };
 
     return (
-        <div className="App">
-            <header>
-                <h1>开奖号码展示系统</h1>
-                {user && (
-                    <div className="user-info">
-                        <span>欢迎, {user.email}</span>
-                        <button onClick={handleLogout}>退出登录</button>
-                    </div>
-                )}
-            </header>
-            <main>
-                {user ? (
-                    <LotteryDisplay />
-                ) : (
-                    <Auth onLoginSuccess={handleLoginSuccess} />
-                )}
-            </main>
+        <div className="container">
+            {user ? (
+                <Lottery user={user} onLogout={handleLogout} />
+            ) : (
+                <Auth onLoginSuccess={handleLoginSuccess} />
+            )}
         </div>
     );
 }

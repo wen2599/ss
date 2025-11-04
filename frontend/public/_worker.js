@@ -1,35 +1,32 @@
+// frontend/public/_worker.js
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 只处理 /api/ 开头的请求
-    if (url.pathname.startsWith('/api/')) {
-      // 后端服务器的地址
-      const backendUrl = 'https://wenge.cloudns.ch';
-      
-      // 创建一个新的 URL 指向后端
-      const newUrl = new URL(backendUrl + url.pathname + url.search);
-      
-      // 创建一个新的请求，并直接转发
-      // 注意：这里我们简化了 new Request 的创建，直接传入原始 request 对象
-      // 这样可以更好地保留原始请求的各种属性
-      const newRequest = new Request(newUrl, request);
+    // 后端 API 的地址
+    const backendUrl = "https://wenge.cloudns.ch";
 
-      try {
-        return await fetch(newRequest);
-      } catch (error) {
-        // 如果后端请求失败，返回一个明确的错误
-        // 这部分保留，因为它很有用
-        return new Response(JSON.stringify({ error: `Backend fetch failed: ${error.message}` }), {
-          status: 502,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
+    // 如果请求路径以 /api/ 开头, 我们将其代理到后端
+    if (url.pathname.startsWith('/api/')) {
+      // 创建一个新的 URL 指向后端
+      // 例如：/api/?action=login -> https://wenge.cloudns.ch/index.php?action=login
+      const newPath = "/index.php" + url.search;
+      const backendApiUrl = new URL(newPath, backendUrl);
+      
+      // 创建一个新的请求对象，除了 URL 其他都和原始请求一样
+      const newRequest = new Request(backendApiUrl, request);
+
+      // 添加一些必要的头信息
+      newRequest.headers.set('Host', new URL(backendUrl).hostname);
+      newRequest.headers.set('Origin', url.origin); // 将前端源地址传给后端
+
+      // 发送到后端并返回响应
+      return fetch(newRequest);
     }
 
-    // 对于所有非 /api/ 的请求，
-    // 直接让 Cloudflare Pages 的原生静态资源处理器接管。
-    // 这是最标准、最不容易出错的做法。
-    return env.fetch(request);
-  }
+    // 对于其他所有请求 (例如 /, /index.html, /src/main.jsx 等),
+    // 让 Cloudflare Pages 默认的静态资源处理器来处理
+    return env.ASSETS.fetch(request);
+  },
 };
