@@ -1,59 +1,45 @@
 <?php
 /**
- * telegram_webhook.php (Final, Production-Ready Version)
+ * telegram_webhook.php
  *
  * This script handles all incoming updates from the Telegram Bot API webhook.
- * Key Features:
- * - Robust Secret Token validation from both Header and URL parameter.
- * - Detailed logging for debugging.
- * - Handles specific commands for the admin user.
- * - Includes a dedicated, robust parser for lottery channel messages.
+ * It is the central processing point for all bot interactions.
  */
 
-// --- Early, minimal logging ---
-$earlyLogFile = __DIR__ . '/telegram_early_debug.log';
-$now = date('[Y-m-d H:i:s]');
-$method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
-$uri = $_SERVER['REQUEST_URI'] ?? 'UNKNOWN';
-$headerPreview = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '[HEADER_NOT_SET]';
+// --- Primary Entry Point: Load Central Configuration ---
+// This single include handles .env loading, error reporting, and all helper functions.
+require_once __DIR__ . '/config.php';
 
-// Log all headers for debugging
-$allHeaders = getallheaders();
-$headersLog = 'Received Headers: ' . json_encode($allHeaders);
 
-// Log entire $_SERVER array for comprehensive debugging
-$serverDump = '$_SERVER Dump: ' . json_encode($_SERVER, JSON_PRETTY_PRINT);
-
-file_put_contents($earlyLogFile, "{$now} [EARLY] Method={$method}, URI={$uri}, HeaderPreview={$headerPreview}, {$headersLog}\n{$serverDump}\n", FILE_APPEND | LOCK_EX);
-
-// --- Lightweight .env loader ---
-function load_env_file_simple($path) {
-    if (!file_exists($path) || !is_readable($path)) return false;
-    if (getenv('DB_HOST')) return true; // Already loaded
-    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    if ($lines === false) return false;
-    foreach ($lines as $line) {
-        $trim = trim($line);
-        if ($trim === '' || strpos($trim, '#') === 0) continue;
-        if (strpos($trim, '=') !== false) {
-            list($key, $value) = explode('=', $trim, 2);
-            $key = trim($key);
-            $value = trim($value, "\"'");
-            putenv("{$key}={$value}");
-            $_ENV[$key] = $value;
-            $_SERVER[$key] = $value;
-        }
-    }
-    return true;
+// --- CLI Compatibility Check & Early Logging ---
+function is_cli() {
+    return php_sapi_name() === 'cli';
 }
 
-// Load env early for secret validation
-load_env_file_simple(__DIR__ . '/.env');
-
-// --- Runtime logger ---
+// Early-stage logging for debugging webhook calls vs. CLI execution.
 function write_telegram_debug_log($msg) {
-    $logFile = __DIR__ . '/telegram_debug.log';
-    file_put_contents($logFile, date('[Y-m-d H:i:s]') . " " . $msg . PHP_EOL, FILE_APPEND | LOCK_EX);
+    // Note: This relies on error_log being configured in config.php
+    error_log("TELEGRAM_WEBHOOK: " . $msg);
+}
+
+if (!is_cli()) {
+    $earlyLogFile = __DIR__ . '/telegram_early_debug.log';
+    $now = date('[Y-m-d H:i:s]');
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
+    $uri = $_SERVER['REQUEST_URI'] ?? 'UNKNOWN';
+    $headerToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '[HEADER_NOT_SET]';
+
+    // Safely get all headers
+    $headersLog = '';
+    if (function_exists('getallheaders')) {
+        $headersLog = 'Received Headers: ' . json_encode(getallheaders());
+    } else {
+        $headersLog = 'Received Headers: getallheaders() not available.';
+    }
+
+    $serverDump = '$_SERVER Dump: ' . json_encode($_SERVER, JSON_PRETTY_PRINT);
+
+    file_put_contents($earlyLogFile, "{$now} [EARLY] Method={$method}, URI={$uri}, HeaderToken={$headerToken}\n{$headersLog}\n{$serverDump}\n", FILE_APPEND | LOCK_EX);
 }
 
 // --- Lottery Message Parser & Handler ---
@@ -137,16 +123,8 @@ if ($expectedSecret) {
     write_telegram_debug_log("WARNING: TELEGRAM_WEBHOOK_SECRET is not configured.");
 }
 
-// --- Webhook Authenticated, Load All Helpers ---
-require_once __DIR__ . '/db_operations.php';
-require_once __DIR__ . '/telegram_helpers.php';
-require_once __DIR__ . '/env_manager.php';
-require_once __DIR__ . '/user_state_manager.php';
-require_once __DIR__ . '/api_curl_helper.php';
-require_once __DIR__ . '/gemini_ai_helper.php';
-require_once __DIR__ . '/cloudflare_ai_helper.php';
-
 // --- Process Incoming Update ---
+// Note: All helpers are already loaded via config.php
 $bodyRaw = file_get_contents('php://input');
 $update = json_decode($bodyRaw, true);
 
