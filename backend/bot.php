@@ -3,79 +3,111 @@ require_once 'config.php';
 
 class TelegramBot {
     private $botToken;
-    private $channelUsername;
+    private $channelId;
+    private $apiKey;
     private $db;
-    
+
     public function __construct() {
         $this->botToken = Config::get('BOT_TOKEN');
-        $this->channelUsername = Config::get('CHANNEL_USERNAME');
+        $this->channelId = Config::get('CHANNEL_ID');
+        $this->apiKey = Config::get('API_KEY');
         $this->db = new Database();
     }
-    
+
+    public function handleRequest() {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = file_get_contents('php://input');
+            $update = json_decode($input, true);
+            if ($update) {
+                $this->processUpdate($update);
+            }
+            http_response_code(200);
+            echo 'OK';
+        } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $this->healthCheck();
+        } else {
+            http_response_code(405);
+            echo 'Method Not Allowed';
+        }
+    }
+
+    private function healthCheck() {
+        header('Content-Type: application/json');
+        $dbStatus = 'disconnected';
+        try {
+            $this->db->getConnection();
+            $dbStatus = 'connected';
+        } catch (Exception $e) {
+            $dbStatus = 'error: ' . $e->getMessage();
+        }
+
+        echo json_encode([
+            'status' => 'running',
+            'bot_token' => $this->botToken && $this->botToken !== 'YOUR_TELEGRAM_BOT_TOKEN' ? 'set' : 'not set',
+            'channel_id' => $this->channelId && $this->channelId !== 'YOUR_CHANNEL_ID' ? 'set' : 'not set',
+            'database_status' => $dbStatus,
+            'timestamp' => date('c')
+        ]);
+    }
+
     public function processUpdate($update) {
-        if (!isset($update['message']) && !isset($update['channel_post'])) {
+        $message = $update['channel_post'] ?? null;
+
+        if (!$message) return;
+        
+        $chatId = $message['chat']['id'] ?? null;
+        if ($chatId != $this->channelId) {
+            error_log("Message from ignored chat ID: {$chatId}");
             return;
         }
-        
-        $message = isset($update['message']) ? $update['message'] : $update['channel_post'];
-        
-        // 检查消息是否来自目标频道
-        $chat = $message['chat'];
-        if ($chat['username'] !== str_replace('@', '', $this->channelUsername)) {
-            return;
-        }
-        
+
         if (isset($message['text'])) {
             $this->processTextMessage($message);
         }
     }
-    
+
     private function processTextMessage($message) {
         $text = $message['text'];
-        
-        // 解析开奖号码（这里需要根据实际的格式调整正则表达式）
-        if (preg_match('/(双色球|大乐透).*?(\d{2}\s+\d{2}\s+\d{2}\s+\d{2}\s+\d{2}\s+\d{2}\+\d{2})/', $text, $matches)) {
-            $lotteryType = $matches[1];
-            $lotteryNumber = $matches[2];
-            
-            $this->saveLotteryResult($lotteryType, $lotteryNumber);
+        $messageDate = $message['date'];
+
+        $patterns = [
+            '双色球' => '/(?:红球|蓝球|号码|)\s*[:：]?\s*([\d\s,\uff0c]+?)\s*\+\s*([\d]+)/u',
+            '大乐透' => '/(?:前区|后区|号码|)\s*[:：]?\s*([\d\s,\uff0c]+?)\s*\+\s*([\d\s,\uff0c]+)/u',
+        ];
+
+        foreach ($patterns as $type => $pattern) {
+            if (strpos($text, $type) !== false && preg_match($pattern, $text, $matches)) {
+                $mainNumbers = preg_replace('/[^\d]+/u', ' ', $matches[1]);
+                $specialNumbers = preg_replace('/[^\d]+/u', ' ', $matches[2]);
+                $lotteryNumber = trim($mainNumbers) . ' + ' . trim($specialNumbers);
+                $drawDate = date('Y-m-d', $messageDate);
+
+                $this->saveLotteryResult($type, $lotteryNumber, $drawDate);
+                return; 
+            }
         }
     }
-    
-    private function saveLotteryResult($lotteryType, $lotteryNumber) {
+
+    private function saveLotteryResult($lotteryType, $lotteryNumber, $drawDate) {
         try {
             $pdo = $this->db->getConnection();
-            
-            $sql = "INSERT INTO lottery_results (lottery_number, lottery_type, draw_date) 
-                    VALUES (:number, :type, CURDATE())
-                    ON DUPLICATE KEY UPDATE lottery_number = :number, updated_at = CURRENT_TIMESTAMP";
+            $sql = "INSERT INTO lottery_results (lottery_type, lottery_number, draw_date) VALUES (:type, :number, :date) ON DUPLICATE KEY UPDATE lottery_number = VALUES(lottery_number), updated_at = CURRENT_TIMESTAMP";
             
             $stmt = $pdo->prepare($sql);
             $stmt->execute([
+                ':type' => $lotteryType,
                 ':number' => $lotteryNumber,
-                ':type' => $lotteryType
+                ':date' => $drawDate
             ]);
-            
-            error_log("Lottery result saved: {$lotteryType} - {$lotteryNumber}");
-            
+
+            error_log("Lottery result saved: {$lotteryType} - {$lotteryNumber} for date {$drawDate}");
+
         } catch (Exception $e) {
             error_log("Error saving lottery result: " . $e->getMessage());
         }
     }
 }
 
-// 处理Webhook请求
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = file_get_contents('php://input');
-    $update = json_decode($input, true);
-    
-    $bot = new TelegramBot();
-    $bot->processUpdate($update);
-    
-    http_response_code(200);
-    echo 'OK';
-} else {
-    http_response_code(405);
-    echo 'Method Not Allowed';
-}
+$bot = new TelegramBot();
+$bot->handleRequest();
 ?>

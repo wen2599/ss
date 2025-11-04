@@ -1,15 +1,13 @@
-import React from 'react'
-import './Loading.css'
+import React from 'react';
+import './Loading.css';
 
 const Loading = () => {
-  return (
-    <div className="loading-container">
-      <div className="loading-spinner">
-        <div className="spinner"></div>
-      </div>
-      <p>正在加载开奖数据...</p>
-    </div>
-  )
-}
+    return (
+        <div className="loading-container">
+            <div className="spinner"></div>
+            <p>Loading data...</p>
+        </div>
+    );
+};
 
-export default Loading
+export default Loading;

@@ -1,57 +1,51 @@
-import React from 'react'
-import './LotteryResults.css'
+import React from 'react';
+import './LotteryResults.css';
 
 const LotteryResults = ({ results }) => {
-  if (results.length === 0) {
+
+    if (!results || results.length === 0) {
+        return <p className="no-results">No lottery results found.</p>;
+    }
+
+    const formatDate = (dateString) => {
+        const options = { year: 'numeric', month: 'long', day: 'numeric' };
+        return new Date(dateString).toLocaleDateString(undefined, options);
+    };
+    
+    const renderLotteryNumber = (lotteryNumber, lotteryType) => {
+        const parts = lotteryNumber.split('+');
+        const mainNumbers = parts[0].trim().split(/\s+/);
+        const specialNumber = parts[1] ? parts[1].trim() : '';
+
+        return (
+            <div className="lottery-number">
+                <div className="main-numbers">
+                    {mainNumbers.map((num, index) => (
+                        <span key={index} className={`number-ball ${lotteryType === '双色球' ? 'red' : 'blue'}`}>{num}</span>
+                    ))}
+                </div>
+                {specialNumber && (
+                    <div className="special-number">
+                        <span className={`number-ball ${lotteryType === '双色球' ? 'blue' : 'green'}`}>{specialNumber}</span>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
-      <div className="no-results">
-        <p>暂无开奖数据</p>
-      </div>
-    )
-  }
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
-
-  const formatNumbers = (numberString) => {
-    return numberString.split('+').map((part, index) => (
-      <span key={index}>
-        {part.split(' ').map((num, numIndex) => (
-          <span key={numIndex} className={`ball ${index === 1 ? 'special' : ''}`}>
-            {num}
-          </span>
-        ))}
-        {index === 0 && <span className="plus">+</span>}
-      </span>
-    ))
-  }
-
-  return (
-    <div className="lottery-results">
-      {results.map((result) => (
-        <div key={result.id} className="result-card">
-          <div className="result-header">
-            <h3>{result.lottery_type}</h3>
-            <span className="draw-date">{formatDate(result.draw_date)}</span>
-          </div>
-          <div className="result-numbers">
-            {formatNumbers(result.lottery_number)}
-          </div>
-          <div className="result-footer">
-            <span className="update-time">
-              更新: {new Date(result.updated_at).toLocaleString()}
-            </span>
-          </div>
+        <div className="lottery-results-container">
+            {results.map((result) => (
+                <div key={result.id} className="result-card">
+                    <div className="result-header">
+                        <h2 className="lottery-type">{result.lottery_type}</h2>
+                        <p className="draw-date">{formatDate(result.draw_date)}</p>
+                    </div>
+                    {renderLotteryNumber(result.lottery_number, result.lottery_type)}
+                </div>
+            ))}
         </div>
-      ))}
-    </div>
-  )
-}
+    );
+};
 
-export default LotteryResults
+export default LotteryResults;
