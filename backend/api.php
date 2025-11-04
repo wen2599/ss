@@ -3,13 +3,24 @@ require_once 'config.php';
 
 header('Content-Type: application/json');
 
-class LotteryAPI {
+class APIHandler {
     private $db;
     private $apiKey;
+    private $workerSecret;
 
     public function __construct() {
         $this->db = new Database();
         $this->apiKey = Config::get('API_KEY');
+        $this->workerSecret = Config::get('EMAIL_HANDLER_SECRET');
+    }
+
+    private function validateWorkerSecret() {
+        $clientSecret = $_GET['worker_secret'] ?? $_POST['worker_secret'] ?? null;
+        if (!$this->workerSecret || $clientSecret !== $this->workerSecret) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'Unauthorized worker']);
+            exit;
+        }
     }
 
     private function validateApiKey() {
@@ -22,14 +33,97 @@ class LotteryAPI {
     }
 
     public function handleRequest() {
-        // Apply API Key validation to all API requests
-        $this->validateApiKey();
+        $action = $_GET['action'] ?? 'get_lottery_results';
 
-        $type = $_GET['type'] ?? null;
-        $limit = $_GET['limit'] ?? 20;
+        switch ($action) {
+            case 'get_lottery_results':
+                $this->validateApiKey();
+                $type = $_GET['type'] ?? null;
+                $limit = $_GET['limit'] ?? 20;
+                $response = $this->getResults($type, $limit);
+                break;
 
-        $response = $this->getResults($type, $limit);
+            case 'is_user_registered':
+                $this->validateWorkerSecret();
+                $response = $this->isUserRegistered();
+                break;
+
+            case 'process_email':
+                $this->validateWorkerSecret();
+                $response = $this->processEmail();
+                break;
+
+            default:
+                http_response_code(400);
+                $response = ['success' => false, 'error' => 'Invalid action'];
+                break;
+        }
+
         echo json_encode($response);
+    }
+
+    private function isUserRegistered() {
+        if (!isset($_GET['email'])) {
+            return ['success' => false, 'error' => 'Email parameter is required.'];
+        }
+
+        try {
+            $pdo = $this->db->getConnection();
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = :email");
+            $stmt->execute([':email' => $_GET['email']]);
+            $count = $stmt->fetchColumn();
+
+            return ['success' => true, 'is_registered' => $count > 0];
+        } catch (Exception $e) {
+            http_response_code(500);
+            return ['success' => false, 'error' => 'Database query failed: ' . $e->getMessage()];
+        }
+    }
+
+    private function processEmail() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            return ['success' => false, 'error' => 'Method Not Allowed'];
+        }
+
+        $from = $_POST['from'] ?? null;
+        $subject = $_POST['subject'] ?? null;
+        $body = $_POST['body'] ?? null;
+
+        if (!$from || !$subject || !$body) {
+            return ['success' => false, 'error' => 'Missing required fields: from, subject, body.'];
+        }
+
+        try {
+            $pdo = $this->db->getConnection();
+
+            // Find the user_id from the sender's email
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
+            $stmt->execute([':email' => $from]);
+            $user = $stmt->fetch();
+
+            if (!$user) {
+                // This should theoretically not happen if the worker checks first, but as a safeguard:
+                return ['success' => false, 'error' => 'Sender not found.'];
+            }
+            $userId = $user['id'];
+
+            // Insert the email into the database
+            $sql = "INSERT INTO emails (user_id, sender, subject, body) VALUES (:user_id, :sender, :subject, :body)";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':user_id' => $userId,
+                ':sender' => $from,
+                ':subject' => $subject,
+                ':body' => $body
+            ]);
+
+            return ['success' => true, 'message' => 'Email processed successfully.'];
+
+        } catch (Exception $e) {
+            http_response_code(500);
+            return ['success' => false, 'error' => 'Database operation failed: ' . $e->getMessage()];
+        }
     }
     
     public function getResults($type = null, $limit = 20) {
@@ -72,7 +166,7 @@ class LotteryAPI {
 }
 
 try {
-    $api = new LotteryAPI();
+    $api = new APIHandler();
     $api->handleRequest();
 } catch (Exception $e) {
     http_response_code(500);
