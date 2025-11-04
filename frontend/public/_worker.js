@@ -1,57 +1,53 @@
-// A more robust pass-through worker with error handling.
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 代理 /api/ 开头的请求
+    // 1. 代理 API 请求
     if (url.pathname.startsWith('/api/')) {
       const backendUrl = 'https://wenge.cloudns.ch';
       const newUrl = new URL(backendUrl + url.pathname + url.search);
-
-      const newRequest = new Request(newUrl, {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-        redirect: 'follow'
-      });
+      const newRequest = new Request(newUrl, request);
 
       try {
-        // --- 核心改动：使用 try...catch 包裹 fetch 请求 ---
         const response = await fetch(newRequest);
-        
-        // 创建一个新的响应头以允许跨域
         const headers = new Headers(response.headers);
         headers.set('Access-Control-Allow-Origin', url.origin);
-        headers.set('Access-Control-Allow-Credentials', 'true');
-
         return new Response(response.body, {
           status: response.status,
           statusText: response.statusText,
-          headers: headers
+          headers: headers,
         });
-
       } catch (error) {
-        // --- 如果 fetch 失败 (例如网络不通, SSL错误, DNS问题) ---
-        // 返回一个自定义的 500 错误响应，而不是让 worker 崩溃
         console.error('Fetch to backend failed:', error);
         return new Response(
-          JSON.stringify({
-            message: '无法连接到后端服务，请稍后再试。',
-            error: error.message,
-            cause: error.cause ? error.cause.toString() : 'N/A'
-          }), {
-            status: 502, // 502 Bad Gateway 是一个很合适的错误码
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': url.origin,
-              'Access-Control-Allow-Credentials': 'true'
-            }
+          JSON.stringify({ message: 'Backend service is unavailable.' }),
+          {
+            status: 502,
+            headers: { 'Content-Type': 'application/json' },
           }
         );
       }
     }
 
-    // 对于非 /api/ 的请求，正常返回静态文件
-    return env.fetch(request);
+    // 2. 处理所有其他请求（主要是静态资源）
+    try {
+      // 尝试让 Cloudflare Pages 的静态资源服务处理请求
+      const response = await env.fetch(request);
+      
+      // 检查静态资源是否存在。如果不存在，Pages 可能会返回一个表示404的响应
+      // 我们可以直接返回这个响应，而不是让worker崩溃
+      if (response.status === 404) {
+          console.warn(`Static asset not found: ${url.pathname}`);
+          // 可以返回一个自定义的404页面或简单的文本
+          return new Response('Not Found', { status: 404 });
+      }
+
+      return response;
+
+    } catch (error) {
+      // 如果 env.fetch 本身就抛出了异常
+      console.error('Error fetching static asset:', error);
+      return new Response('An internal error occurred while fetching assets.', { status: 500 });
+    }
   }
 };
