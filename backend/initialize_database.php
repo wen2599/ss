@@ -9,10 +9,18 @@ echo "--- Database Initialization Script ---\n\n";
 // 1. Get Database Connection
 echo "Step 1: Connecting to the database...\n";
 $pdo = get_db_connection();
-if (!$pdo) {
-    echo "[FAILURE] Could not connect to the database. Please check your .env credentials.\n";
+
+// --- FIX: Robust connection check ---
+if (!$pdo || (is_array($pdo) && isset($pdo['db_error']))) {
+    echo "[FAILURE] Could not connect to the database.\n";
+    if (isset($pdo['db_error'])) {
+        echo "  Error details: " . $pdo['db_error'] . "\n";
+    }
+    echo "  Please check your .env credentials and ensure the database server is running.\n";
     exit(1);
 }
+// --- END FIX ---
+
 echo "  [SUCCESS] Database connection established.\n\n";
 
 // 2. Read the SQL Schema File
