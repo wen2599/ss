@@ -1,21 +1,17 @@
-// frontend/public/_worker.js (最终代理版本)
+// frontend/public/_worker.js (Final Version, handles POST body correctly)
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const backendUrl = 'https://wenge.cloudns.ch'; // 您的后端地址
 
-    // --- 路由 1: 代理来自浏览器的 API 请求 ---
-    if (url.pathname.startsWith('/api/')) {
-      // 构造指向后端 API 的 URL (例如: https://wenge.cloudns.ch/api.php)
+    // --- 路由 1: 代理来自浏览器的 API GET 请求 ---
+    if (url.pathname === '/api/get_results') {
       const newUrl = new URL(backendUrl + '/api.php' + url.search);
-
-      // 创建一个新请求，转发到后端
-      const newRequest = new Request(newUrl, request);
+      // 对于简单的 GET 请求，可以直接 fetch newUrl
+      const response = await fetch(newUrl);
       
-      const response = await fetch(newRequest);
-      
-      // 添加 CORS 头，允许前端页面访问
+      // 创建响应副本以添加 CORS 头
       const newResponse = new Response(response.body, response);
       newResponse.headers.set('Access-Control-Allow-Origin', url.origin);
       newResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -23,16 +19,17 @@ export default {
       return newResponse;
     }
 
-    // --- 路由 2: 代理来自 Telegram 的 Webhook 请求 ---
-    if (url.pathname.startsWith('/webhook_proxy')) {
+    // --- 路由 2: 代理来自 Telegram 的 Webhook POST 请求 ---
+    // 这个判断捕获所有指向 /webhook_proxy 的请求
+    if (url.pathname === '/webhook_proxy') {
       // 构造指向后端 webhook.php 的 URL，并附带上 secret 参数
-      // 例如: https://wenge.cloudns.ch/webhook.php?secret=YOUR_SECRET
       const newUrl = new URL(backendUrl + '/webhook.php' + url.search);
 
-      // 创建一个新请求，复制 Telegram 发来的方法、头部和主体数据
+      // 关键修复：创建一个新的 Request 对象，并将原始 request 作为其 init 对象。
+      // 这种方法可以确保 POST body, method, headers 等所有内容都被完整复制并转发。
       const newRequest = new Request(newUrl, request);
 
-      // 将请求发送到您的后端，并直接返回 Telegram 需要的响应
+      // 将构建好的新请求发送到您的后端，并直接返回响应给 Telegram
       return fetch(newRequest);
     }
 
