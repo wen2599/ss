@@ -7,7 +7,6 @@ require_once 'db.php';
 $env = parse_ini_file(__DIR__ . '/.env');
 
 // --- 安全性检查 ---
-// 验证请求路径是否包含秘密字符串
 $request_uri = $_SERVER['REQUEST_URI'];
 $secret_path = $env['WEBHOOK_SECRET_PATH'];
 if (strpos($request_uri, $secret_path) === false) {
@@ -20,33 +19,54 @@ if (strpos($request_uri, $secret_path) === false) {
 $update_json = file_get_contents('php://input');
 $update = json_decode($update_json);
 
-// 记录原始请求用于调试
 error_log("Webhook received: " . $update_json);
 
 if (!$update) {
     http_response_code(400);
-    echo "Bad Request";
     exit;
 }
 
-// 检查是否是来自指定频道的帖子
 if (isset($update->channel_post) && $update->channel_post->chat->id == $env['TELEGRAM_CHANNEL_ID']) {
-    $message_text = $update->channel_post->text;
+    $message_text = trim($update->channel_post->text);
     
-    // 从消息中提取号码 (假设号码是消息中的数字)
-    // 这个正则表达式会提取消息中所有连续的数字
-    if (preg_match('/(\d+)/', $message_text, $matches)) {
-        $lottery_number = $matches[1];
+    // 正则表达式，用于匹配三种模板
+    // (.+?)              - Group 1: 捕获彩票类型 (e.g., 新澳门六合彩)
+    // 第:(\d+)\s*期        - Group 2: 捕获期号 (e.g., 2025301), 允许期号和“期”之间有空格
+    // 开奖结果:\s*\n\s*    - 匹配 "开奖结果:"，换行符，和可选的空格
+    // ([\d\s]+)          - Group 3: 捕获数字行 (e.g., 47  10  09...)
+    $pattern = '/^(.+?)第:(\d+)\s*期开奖结果:\s*\n\s*([\d\s]+)/m';
 
-        // 连接数据库
+    // 为了让 . 匹配换行符之外的所有字符，我们不能用 s 修饰符
+    // 我们将消息按行分割处理，这样更稳定
+    $lines = explode("\n", $message_text);
+    
+    $lottery_type = null;
+    $issue_number = null;
+    $winning_numbers = null;
+
+    if (count($lines) >= 3) {
+        // 第2行应包含类型和期号
+        if (preg_match('/^(.*?)第:(\d+)\s*期开奖结果:$/', trim($lines[1]), $matches)) {
+            $lottery_type = trim($matches[1]);
+            $issue_number = trim($matches[2]);
+            
+            // 第3行应为开奖号码
+            $potential_numbers = trim($lines[2]);
+            if (preg_match('/^[\d\s]+$/', $potential_numbers)) {
+                 // 清理多余的空格，统一用单个空格分隔
+                $winning_numbers = preg_replace('/\s+/', ' ', $potential_numbers);
+            }
+        }
+    }
+
+    if ($lottery_type && $issue_number && $winning_numbers) {
         $conn = get_db_connection();
         if ($conn) {
-            // 使用预处理语句防止 SQL 注入
-            $stmt = $conn->prepare("INSERT INTO lottery_numbers (number) VALUES (?)");
+            $stmt = $conn->prepare("INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers) VALUES (?, ?, ?)");
             if ($stmt) {
-                $stmt->bind_param("s", $lottery_number);
+                $stmt->bind_param("sss", $lottery_type, $issue_number, $winning_numbers);
                 if ($stmt->execute()) {
-                    error_log("Successfully inserted number: " . $lottery_number);
+                    error_log("Successfully inserted: [$lottery_type] #$issue_number - $winning_numbers");
                     http_response_code(200);
                     echo "OK";
                 } else {
@@ -58,14 +78,13 @@ if (isset($update->channel_post) && $update->channel_post->chat->id == $env['TEL
                 error_log("Failed to prepare statement: " . $conn->error);
                 http_response_code(500);
             }
-            // 不需要在这里关闭连接，因为 get_db_connection 使用了静态连接
         } else {
             error_log("Failed to get DB connection.");
             http_response_code(500);
         }
     } else {
-        error_log("No number found in message: " . $message_text);
-        http_response_code(200); // 即使没找到号码也返回200，避免Telegram重试
+        error_log("Failed to parse message: " . $message_text);
+        http_response_code(200); // 即使解析失败也返回200，避免Telegram重试
     }
 } else {
     error_log("Update is not from the target channel or is not a channel post.");

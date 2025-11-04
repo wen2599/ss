@@ -1,6 +1,6 @@
 // src/App.jsx
 import { useState, useEffect } from 'react';
-import './index.css'; // 我们会创建这个文件
+import './index.css';
 
 function App() {
   const [results, setResults] = useState([]);
@@ -11,17 +11,15 @@ function App() {
     const fetchResults = async () => {
       try {
         setLoading(true);
-        // 注意：我们请求的是相对路径 /api/get_results
-        // 这个请求会被 public/_worker.js 拦截并代理
         const response = await fetch('/api/get_results');
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          throw new Error(`网络请求错误: ${response.status}`);
         }
         const data = await response.json();
         if (data.success) {
           setResults(data.data);
         } else {
-          throw new Error(data.message || 'Failed to fetch data');
+          throw new Error(data.message || '获取数据失败');
         }
       } catch (e) {
         setError(e.message);
@@ -32,32 +30,36 @@ function App() {
     };
 
     fetchResults();
-  }, []); // 空依赖数组意味着这个 effect 只在组件挂载时运行一次
+  }, []);
 
   return (
     <div className="container">
       <header>
-        <h1>最新开奖结果</h1>
+        <h1>开奖结果中心</h1>
       </header>
       <main>
-        {loading && <p className="loading">正在加载中...</p>}
-        {error && <p className="error">加载失败: {error}</p>}
+        {loading && <p className="status-info">正在加载中...</p>}
+        {error && <p className="status-info error">加载失败: {error}</p>}
         {!loading && !error && (
           <div className="results-table">
             <div className="table-header">
-              <div>开奖号码</div>
-              <div>开奖时间</div>
+              <div className="col type">类型</div>
+              <div className="col issue">期号</div>
+              <div className="col numbers">开奖号码</div>
+              <div className="col time">时间</div>
             </div>
             <div className="table-body">
               {results.length > 0 ? (
                 results.map((item) => (
-                  <div className="table-row" key={item.id || item.created_at}>
-                    <div className="number">{item.number}</div>
-                    <div className="time">{new Date(item.created_at).toLocaleString('zh-CN')}</div>
+                  <div className="table-row" key={item.id}>
+                    <div className="col type">{item.lottery_type}</div>
+                    <div className="col issue">{item.issue_number}</div>
+                    <div className="col numbers">{item.winning_numbers}</div>
+                    <div className="col time">{new Date(item.created_at).toLocaleString('zh-CN', { hour12: false })}</div>
                   </div>
                 ))
               ) : (
-                <p>暂无数据</p>
+                <p className="status-info">暂无数据</p>
               )}
             </div>
           </div>

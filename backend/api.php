@@ -3,9 +3,8 @@
 
 require_once 'db.php';
 
-// 设置响应头为 JSON
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *'); // 理论上可以设为 *，因为前端代理会处理，但最好设为你的前端域名
+header('Access-Control-Allow-Origin: *'); 
 
 $conn = get_db_connection();
 $response = ['success' => false, 'data' => [], 'message' => ''];
@@ -17,8 +16,8 @@ if (!$conn) {
     exit;
 }
 
-// 查询最新的 20 条记录
-$sql = "SELECT number, created_at FROM lottery_numbers ORDER BY created_at DESC LIMIT 20";
+// 从新表 lottery_results 查询最新的 30 条记录
+$sql = "SELECT id, lottery_type, issue_number, winning_numbers, created_at FROM lottery_results ORDER BY created_at DESC LIMIT 30";
 $result = $conn->query($sql);
 
 if ($result) {
