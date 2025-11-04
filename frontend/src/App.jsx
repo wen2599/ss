@@ -1,122 +1,66 @@
-import React, { useState, useEffect } from 'react'
-import LotteryResults from './components/LotteryResults'
-import Loading from './components/Loading'
-import './App.css'
-
-// API基础URL
-const API_BASE_URL = 'https://wenge.cloudns.ch'
+import React, { useState, useEffect } from 'react';
 
 function App() {
-  const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [lotteryType, setLotteryType] = useState('')
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const fetchResults = async (type = '') => {
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null); // Clear previous errors
+      const params = new URLSearchParams({ limit: '20' });
+      if (type) params.append('type', type);
       
-      const params = new URLSearchParams({
-        limit: '20'
-      })
-      
-      if (type) {
-        params.append('type', type)
-      }
-      
-      const url = `${API_BASE_URL}/api/results?${params}`
-      console.log('Fetching from:', url)
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        mode: 'cors'
-      })
+      // Use a relative path to leverage the API proxy/rewrite
+      const response = await fetch(`/api/results?${params}`);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        // Handle HTTP errors like 404 or 500
+        throw new Error(`请求失败，状态码: ${response.status}`);
       }
-      
-      const data = await response.json()
+
+      const data = await response.json();
       
       if (data.success) {
-        setResults(data.data || [])
+        setResults(data.data);
       } else {
-        setError(data.error || '获取数据失败')
+        setError(data.error || '获取数据时发生未知错误');
       }
     } catch (err) {
-      console.error('Fetch error:', err)
-      setError('网络请求失败: ' + err.message)
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchResults()
-  }, [])
-
-  const handleTypeChange = (type) => {
-    setLotteryType(type)
-    fetchResults(type)
-  }
-
-  const refreshData = () => {
-    fetchResults(lotteryType)
-  }
+    fetchResults();
+  }, []);
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>🎰 彩票开奖结果</h1>
-        <p>实时更新最新开奖号码</p>
-        <button onClick={refreshData} className="refresh-btn">
-          刷新数据
-        </button>
-      </header>
-
-      <div className="controls">
-        <button 
-          className={lotteryType === '' ? 'active' : ''}
-          onClick={() => handleTypeChange('')}
-        >
-          全部
-        </button>
-        <button 
-          className={lotteryType === '双色球' ? 'active' : ''}
-          onClick={() => handleTypeChange('双色球')}
-        >
-          双色球
-        </button>
-        <button 
-          className={lotteryType === '大乐透' ? 'active' : ''}
-          onClick={() => handleTypeChange('大乐透')}
-        >
-          大乐透
-        </button>
+    <div>
+      <h1>彩票开奖结果</h1>
+      <div>
+        <button onClick={() => fetchResults('')}>全部</button>
+        <button onClick={() => fetchResults('双色球')}>双色球</button>
+        <button onClick={() => fetchResults('大乐透')}>大乐透</button>
       </div>
-
-      <main className="app-main">
-        {loading && <Loading />}
-        {error && (
-          <div className="error-message">
-            <p>{error}</p>
-            <button onClick={() => fetchResults(lotteryType)}>重试</button>
+      
+      {loading && <div>加载中...</div>}
+      {error && <div>错误: {error}</div>}
+      
+      <div>
+        {results.map(item => (
+          <div key={item.id}>
+            <h3>{item.lottery_type}</h3>
+            <p>号码: {item.lottery_number}</p>
+            <p>日期: {item.draw_date}</p>
           </div>
-        )}
-        {!loading && !error && (
-          <LotteryResults results={results} />
-        )}
-      </main>
-
-      <footer className="app-footer">
-        <p>数据来源: Telegram 频道 • 最后更新: {new Date().toLocaleString('zh-CN')}</p>
-      </footer>
+        ))}
+      </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
