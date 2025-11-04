@@ -7,15 +7,29 @@ class TelegramBot {
     private $apiKey;
     private $db;
 
+    private $webhookSecret;
+
     public function __construct() {
         $this->botToken = Config::get('BOT_TOKEN');
         $this->channelId = Config::get('CHANNEL_ID');
         $this->apiKey = Config::get('API_KEY');
+        $this->webhookSecret = Config::get('TELEGRAM_WEBHOOK_SECRET');
         $this->db = new Database();
+    }
+
+    private function validateWebhookSecret() {
+        $secretToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
+        if ($this->webhookSecret && $secretToken !== $this->webhookSecret) {
+            http_response_code(403);
+            error_log('Webhook secret validation failed.');
+            echo 'Forbidden';
+            exit;
+        }
     }
 
     public function handleRequest() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $this->validateWebhookSecret();
             $input = file_get_contents('php://input');
             $update = json_decode($input, true);
             if ($update) {
@@ -108,6 +122,18 @@ class TelegramBot {
     }
 }
 
-$bot = new TelegramBot();
-$bot->handleRequest();
+try {
+    $bot = new TelegramBot();
+    $bot->handleRequest();
+} catch (Exception $e) {
+    // A 500 error will cause Telegram to retry the webhook request
+    http_response_code(500);
+    error_log('Bot Initialization Error: ' . $e->getMessage());
+    // Respond with a JSON error if possible, otherwise plain text
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => false,
+        'error' => 'Bot Initialization Error: ' . $e->getMessage()
+    ]);
+}
 ?>

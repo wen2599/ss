@@ -3,7 +3,7 @@ import LotteryResults from './components/LotteryResults';
 import Loading from './components/Loading';
 import './App.css';
 
-const API_KEY = 'YOUR_SECRET_API_KEY';
+const API_BASE_URL = import.meta.env.DEV ? '/api' : '/api';
 
 function App() {
     const [results, setResults] = useState([]);
@@ -15,7 +15,7 @@ function App() {
         setIsLoading(true);
         setError(null);
         
-        let url = '/api/results';
+        let url = `${API_BASE_URL}/results`;
         const params = new URLSearchParams();
         if (lotteryType !== 'all') {
             params.append('type', lotteryType);
@@ -25,11 +25,7 @@ function App() {
         url = `${url}?${params.toString()}`;
 
         try {
-            const response = await fetch(url, {
-                headers: {
-                    'X-API-KEY': API_KEY
-                }
-            });
+            const response = await fetch(url);
             
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));

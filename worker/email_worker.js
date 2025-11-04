@@ -174,23 +174,46 @@ function extractHTMLBody(rawEmail) {
 
 export default {
   /**
-   * Handles HTTP requests, acting as a proxy for the backend API.
+   * Handles HTTP requests.
+   * - Proxies /api/* requests to the backend API.
+   * - Serves the frontend application for all other requests.
    */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const backendServer = env.PUBLIC_API_ENDPOINT ? new URL(env.PUBLIC_API_ENDPOINT).origin : "https://wenge.cloudns.ch";
 
-    // Proxy API calls (e.g., /login.php, /api/users, etc.) to the backend
-    if (url.pathname.endsWith('.php') || url.pathname.startsWith('/api/')) {
-      const backendUrl = new URL(url.pathname, backendServer);
+    // Proxy API calls to the backend
+    if (url.pathname.startsWith('/api/')) {
+      // Note: Ensure PUBLIC_API_ENDPOINT is set in your Worker's environment variables.
+      const backendUrl = new URL(url.pathname, env.PUBLIC_API_ENDPOINT || "https://wenge.cloudns.ch");
       backendUrl.search = url.search;
 
-      const backendRequest = new Request(backendUrl, request);
+      // Create a new request based on the original, but with new headers.
+      const backendRequestHeaders = new Headers(request.headers);
+
+      // Add the secret API key from environment variables.
+      // Note: Ensure API_KEY is set in your Worker's environment variables.
+      if (env.API_KEY) {
+          backendRequestHeaders.set('X-API-KEY', env.API_KEY);
+      }
+
+      // Forward the request to the backend.
+      const backendRequest = new Request(backendUrl, {
+        method: request.method,
+        headers: backendRequestHeaders,
+        body: request.body,
+        redirect: 'follow'
+      });
+
       return fetch(backendRequest);
     }
 
-    // For any other request, return "Not Found".
-    return new Response('Not found.', { status: 404 });
+    // For any other request, serve the frontend application from Pages.
+    // This requires a binding to your Cloudflare Pages project, named ASSETS.
+    if (env.ASSETS) {
+        return env.ASSETS.fetch(request);
+    }
+
+    return new Response('Not found. Pages asset binding (ASSETS) is not configured.', { status: 404 });
   },
 
   /**
