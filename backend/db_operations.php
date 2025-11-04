@@ -1,49 +1,11 @@
 <?php
 /**
- * db_operations.php (MODIFIED TO BE SELF-SUFFICIENT)
- * This file now includes its own lightweight .env loader at the top.
- * This ensures that any script including this file will have the necessary
- * database environment variables loaded automatically.
+ * db_operations.php
+ * This file contains functions for interacting with the database.
+ * It relies on a PDO connection object provided by the central get_db_connection function.
+ * The self-contained .env loader has been REMOVED to prevent conflicts
+ * and ensure that the robust loader in `config.php` is the single source of truth.
  */
-
-// --- START: Self-contained .env loader ---
-if (!function_exists('load_env_if_not_loaded')) {
-    function load_env_if_not_loaded() {
-        // Check if a key known to be in the .env file is already loaded.
-        // If it is, we assume the environment is already set up and do nothing.
-        if (getenv('DB_HOST')) {
-            return;
-        }
-
-        $envPath = __DIR__ . '/.env';
-        if (!file_exists($envPath) || !is_readable($envPath)) return;
-
-        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if ($lines === false) return;
-
-        foreach ($lines as $line) {
-            $trim = trim($line);
-            if ($trim === '' || strpos($trim, '#') === 0) continue;
-            if (strpos($trim, '=') !== false) {
-                list($key, $value) = explode('=', $trim, 2);
-                $key = trim($key);
-                $value = trim($value);
-                // Remove surrounding quotes
-                if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') ||
-                    (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
-                    $value = substr($value, 1, -1);
-                }
-                putenv("{$key}={$value}");
-                $_ENV[$key] = $value;
-                $_SERVER[$key] = $value;
-            }
-        }
-    }
-    // Immediately call the loader function when this file is included.
-    load_env_if_not_loaded();
-}
-// --- END: Self-contained .env loader ---
-
 
 /**
  * Establishes and returns a singleton PDO database connection.
@@ -51,13 +13,13 @@ if (!function_exists('load_env_if_not_loaded')) {
 function get_db_connection() {
     static $pdo = null;
     if ($pdo === null) {
+        // These getenv calls will now correctly use the variables loaded by config.php
         $host = getenv('DB_HOST');
         $port = getenv('DB_PORT');
         $dbname = getenv('DB_DATABASE');
         $user = getenv('DB_USER');
         $pass = getenv('DB_PASSWORD');
 
-        // This check is now more likely to pass.
         if (empty($host) || empty($port) || empty($dbname) || empty($user)) {
              $error_msg = "Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env";
              error_log($error_msg);
@@ -80,9 +42,6 @@ function get_db_connection() {
     }
     return $pdo;
 }
-
-// ... the rest of the functions (getAllUsers, deleteUserByEmail, storeLotteryResult) remain exactly the same ...
-// (You can copy them from your original file or just leave them as they are if you only add the top part)
 
 /**
  * Retrieves all users from the database.
