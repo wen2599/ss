@@ -1,0 +1,83 @@
+.bills-page {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+}
+
+.bills-page h1 {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: var(--primary-text);
+}
+
+.email-list {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.email-item {
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    /* Make email-item a flex container to align content and button */
+    display: flex;
+    justify-content: space-between; /* Pushes button to the right */
+    align-items: center; /* Vertically centers content and button */
+    cursor: pointer;
+}
+
+.email-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+}
+
+.email-content {
+    flex-grow: 1; /* Allows email content to take up available space */
+    cursor: pointer;
+}
+
+.email-sender {
+    font-weight: bold;
+    color: var(--primary-text);
+    margin-bottom: 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.email-subject {
+    color: var(--secondary-text);
+    margin-bottom: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.email-date {
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+    text-align: right;
+}
+
+.delete-button {
+    background-color: var(--danger-color, #dc3545); /* Red color for delete */
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    padding: 0.5rem 1rem;
+    margin-left: 1rem; /* Space between content and button */
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background-color 0.2s ease-in-out;
+    flex-shrink: 0; /* Prevent button from shrinking */
+}
+
+.delete-button:hover {
+    background-color: var(--danger-hover-color, #c82333);
+}

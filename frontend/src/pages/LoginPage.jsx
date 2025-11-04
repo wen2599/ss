@@ -1,53 +1,73 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { loginUser } from '../api/auth';
+import './LoginPage.css';
+import { loginUser } from '../api';
+import { useAuth } from '../context/AuthContext.jsx';
 
-const LoginPage = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    const { login } = useAuth();
-    const navigate = useNavigate();
+function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setLoading(true);
-        try {
-            const data = await loginUser(email, password);
-            if (data.token) {
-                login(data.token);
-                navigate('/');
-            } else {
-                setError(data.error || '登录失败');
-            }
-        } catch (err) {
-            setError('网络错误或服务器无响应');
-        } finally {
-            setLoading(false);
-        }
-    };
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+    setIsLoading(true);
 
-    return (
-        <div>
-            <h2>登录</h2>
-            <form onSubmit={handleSubmit}>
-                <div>
-                    <label>邮箱:</label>
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                </div>
-                <div>
-                    <label>密码:</label>
-                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                </div>
-                {error && <p style={{ color: 'red' }}>{error}</p>}
-                <button type="submit" disabled={loading}>{loading ? '登录中...' : '登录'}</button>
-            </form>
-            <p>还没有账号？ <Link to="/register">去注册</Link></p>
+    try {
+      const response = await loginUser({ email, password });
+      if (response.user) {
+        login(response.user);
+        navigate('/bills');
+      } else {
+        setError(response.error || '登录失败，请检查您的凭据。');
+      }
+    } catch (err) {
+      setError(err.message || '登录时发生错误。');
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="auth-page">
+      <div className="card">
+        <h1>用户登录</h1>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>电子邮件</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={isLoading}
+            />
+          </div>
+          <div className="form-group">
+            <label>密码</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={isLoading}
+            />
+          </div>
+          <button type="submit" className="btn" disabled={isLoading}>
+            {isLoading ? '登录中...' : '登录'}
+          </button>
+          {error && <p className="error-message">{error}</p>}
+        </form>
+        <div className="toggle-link">
+          <p>还没有账户？ <Link to="/register">立即注册</Link></p>
         </div>
-    );
-};
+      </div>
+    </div>
+  );
+}
 
 export default LoginPage;

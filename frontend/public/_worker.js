@@ -1,24 +1,33 @@
+// frontend/public/_worker.js (MODIFIED FOR FRONT CONTROLLER)
+
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env) {
     const url = new URL(request.url);
+    const backendServer = "https://wenge.cloudns.ch"; // Your backend server
 
-    if (url.pathname.startsWith('/api/')) {
-      const backendUrl = `https://wenge.cloudns.ch${url.pathname}${url.search}`;
-      
-      const newRequest = new Request(backendUrl, request);
+    // If the request is for index.php (our API gateway), proxy it.
+    if (url.pathname === '/index.php') {
+      const backendUrl = new URL(url.pathname, backendServer);
+      backendUrl.search = url.search;
 
-      newRequest.headers.set('Host', new URL(backendUrl).hostname);
+      const backendRequest = new Request(backendUrl.toString(), {
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+        redirect: 'follow',
+        duplex: 'half',
+      });
 
-      const response = await fetch(newRequest);
-      
-      const newResponse = new Response(response.body, response);
-      newResponse.headers.set('Access-Control-Allow-Origin', url.origin);
-      newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      
-      return newResponse;
+      try {
+        return await fetch(backendRequest);
+      } catch (error) {
+        console.error(`Backend fetch failed: ${error.message}`);
+        return new Response('Bad Gateway', { status: 502, statusText: 'Bad Gateway' });
+      }
     }
 
+    // Otherwise, serve the static assets from the Pages deployment.
+    // This handles index.html, css, js, images, etc.
     return env.ASSETS.fetch(request);
   },
 };

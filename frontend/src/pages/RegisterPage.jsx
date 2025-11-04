@@ -1,54 +1,83 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { registerUser } from '../api/auth';
+import './LoginPage.css'; // Reusing login page styles
+import { registerUser } from '../api';
+import { useAuth } from '../context/AuthContext.jsx';
 
-const RegisterPage = () => {
+function RegisterPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [message, setMessage] = useState('');
     const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
+    const { login } = useAuth();
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async (event) => {
+        event.preventDefault();
         setError('');
-        setMessage('');
-        setLoading(true);
+        setIsLoading(true);
+
         try {
-            const data = await registerUser(email, password);
-            if (data.success) {
-                setMessage('注册成功！请前往登录。');
-                setTimeout(() => navigate('/login'), 2000);
+            const response = await registerUser({ username: email, email, password });
+            if (response.user) {
+                login(response.user);
+                navigate('/bills');
             } else {
-                setError(data.error || '注册失败');
+                // Check for the detailed db_error field and display it
+                const errorMessage = response.db_error ? `${response.error} (Details: ${response.db_error})` : (response.error || '注册失败。');
+                setError(errorMessage);
             }
         } catch (err) {
-            setError('网络错误或服务器无响应');
+            // Attempt to parse the error message as JSON to get the detailed error
+            try {
+                const errorJson = JSON.parse(err.message);
+                const errorMessage = errorJson.db_error ? `${errorJson.error} (Details: ${errorJson.db_error})` : (errorJson.error || '注册时发生错误。');
+                setError(errorMessage);
+            } catch (e) {
+                setError(err.message || '注册时发生错误。');
+            }
         } finally {
-            setLoading(false);
+            setIsLoading(false);
         }
     };
 
     return (
-        <div>
-            <h2>注册</h2>
-            <form onSubmit={handleSubmit}>
-                <div>
-                    <label>邮箱:</label>
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <div className="auth-page">
+            <div className="card">
+                <h1>创建新账户</h1>
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label>电子邮件</label>
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            disabled={isLoading}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>密码</label>
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            disabled={isLoading}
+                            autoComplete="new-password"
+                        />
+                    </div>
+                    <button type="submit" className="btn" disabled={isLoading}>
+                        {isLoading ? '注册中...' : '注册'}
+                    </button>
+                    {error && <p className="error-message">{error}</p>}
+                </form>
+                <div className="toggle-link">
+                    <p>已经有账户了？ <Link to="/login">立即登录</Link></p>
                 </div>
-                <div>
-                    <label>密码:</label>
-                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                </div>
-                {message && <p style={{ color: 'green' }}>{message}</p>}
-                {error && <p style={{ color: 'red' }}>{error}</p>}
-                <button type="submit" disabled={loading}>{loading ? '注册中...' : '注册'}</button>
-            </form>
-            <p>已有账号？ <Link to="/login">去登录</Link></p>
+            </div>
         </div>
     );
-};
+}
 
 export default RegisterPage;

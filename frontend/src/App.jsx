@@ -1,32 +1,30 @@
-import { Routes, Route } from 'react-router-dom';
-import Layout from './components/Layout';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
-import ProtectedRoute from './components/ProtectedRoute';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar.jsx';
+import HomePage from './pages/HomePage.jsx';
+import BillsPage from './pages/BillsPage.jsx';
+import BillDetailsPage from './pages/BillDetailsPage.jsx';
+import LoginPage from './pages/LoginPage.jsx';
+import RegisterPage from './pages/RegisterPage.jsx';
+import { AuthProvider } from './context/AuthContext.jsx';
+import './App.css';
 
 function App() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        {/* 公开路由 */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        
-        {/* 受保护的路由 */}
-        <Route 
-          path="/" 
-          element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          } 
-        />
-        
-        {/* 可以添加一个 404 页面 */}
-        <Route path="*" element={<h2>404: Page Not Found</h2>} />
-      </Route>
-    </Routes>
+    <AuthProvider>
+      <Router>
+        <Navbar />
+        <div className="main-content">
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/bills" element={<BillsPage />} />
+            <Route path="/bill/:id" element={<BillDetailsPage />} />
+          </Routes>
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 
