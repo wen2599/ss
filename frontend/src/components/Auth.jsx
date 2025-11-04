@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 // API 调用函数封装
 const apiCall = async (action, data) => {
-    // 注意：我们请求的是 /api/ 路径，它会被 _worker.js 代理
+    // 请求会由 public/_worker.js 代理到后端
     const response = await fetch(`/api/?action=${action}`, {
         method: 'POST',
         headers: {
@@ -10,6 +10,7 @@ const apiCall = async (action, data) => {
         },
         body: JSON.stringify(data),
     });
+    // 如果响应不是JSON，这里会抛出错误，可以被catch捕获
     return response.json();
 };
 
@@ -27,19 +28,26 @@ function Auth({ onLoginSuccess }) {
         setMessage('');
         setIsLoading(true);
         
-        const action = isLogin ? 'login' : 'register';
-        const result = await apiCall(action, { email, password });
+        try {
+            const action = isLogin ? 'login' : 'register';
+            const result = await apiCall(action, { email, password });
 
-        setIsLoading(false);
-        if (result.success) {
-            if (isLogin) {
-                onLoginSuccess(result.user);
+            if (result.success) {
+                if (isLogin) {
+                    onLoginSuccess(result.user);
+                } else {
+                    setMessage('注册成功！请切换到登录页面。');
+                    setIsLogin(true); // 注册成功后自动切换到登录
+                }
             } else {
-                setMessage('注册成功！请切换到登录页面。');
-                setIsLogin(true); // 注册成功后自动切换到登录
+                setError(result.message || '操作失败');
             }
-        } else {
-            setError(result.message || '操作失败');
+        } catch (err) {
+            // 这个catch块可以捕获网络错误或JSON解析错误
+            console.error("API call failed:", err);
+            setError('请求失败，请检查网络或联系管理员。可能后端服务异常。');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -53,6 +61,7 @@ function Auth({ onLoginSuccess }) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    autoComplete="email" 
                 />
                 <input
                     type="password"
@@ -61,9 +70,9 @@ function Auth({ onLoginSuccess }) {
                     onChange={(e) => setPassword(e.target.value)}
                     minLength="6"
                     required
+                    autoComplete={isLogin ? "current-password" : "new-password"}
                 />
-                <button type="submit" disabled={isLoading}>
-                    {isLoading ? '处理中...' : (isLogin ? '登录' : '注册')}
+                <button type="submit" disabled={isLoading}>                    {isLoading ? '处理中...' : (isLogin ? '登录' : '注册')}
                 </button>
             </form>
             {error && <p className="error-message">{error}</p>}
