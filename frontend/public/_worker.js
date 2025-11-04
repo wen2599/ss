@@ -1,42 +1,40 @@
-// public/_worker.js
+// frontend/public/_worker.js
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 如果请求路径以 /api/ 开头，则代理到后端服务器
+    // 只代理 /api/ 开头的路径
     if (url.pathname.startsWith('/api/')) {
-      // 你的后端 API 地址
-      const backendUrl = 'https://wenge.cloudns.ch';
+      const backendUrl = 'https://wenge.cloudns.ch'; // 你的后端地址
       
-      // 创建一个新的 URL 对象，指向后端
+      // 构造新的目标 URL
+      // url.pathname 是 /api/get_results
       const newUrl = new URL(backendUrl + url.pathname + url.search);
 
-      // 创建一个新的请求，复制原始请求的方法、头部和主体
-      const newRequest = new Request(newUrl, {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-        redirect: 'follow'
-      });
+      // 创建一个新的请求，转发到后端
+      const newRequest = new Request(newUrl, request);
 
-      // 发送到后端并返回响应
-      const response = await fetch(newRequest);
+      try {
+        const response = await fetch(newRequest);
 
-      // 创建一个新的响应头，允许跨域
-      const headers = new Headers(response.headers);
-      headers.set('Access-Control-Allow-Origin', '*'); // 或者你的前端域名
-      headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      headers.set('Access-Control-Allow-Headers', 'Content-Type');
+        // 创建一个可修改的响应副本
+        const newResponse = new Response(response.body, response);
 
-      return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: headers,
-      });
+        // 设置 CORS 头部，允许你的前端域名访问
+        newResponse.headers.set('Access-Control-Allow-Origin', url.origin); // url.origin 就是 https://ss.wenxiuxiu.eu.org
+        newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+        
+        return newResponse;
+
+      } catch (e) {
+        // 如果后端 fetch 失败，返回一个错误信息
+        return new Response('Backend fetch failed: ' + e.message, { status: 502 });
+      }
     }
 
-    // 对于其他请求（如 HTML, CSS, JS 文件），让 Cloudflare Pages 正常处理
+    // 对于非 /api/ 请求，正常提供静态资源
     return env.ASSETS.fetch(request);
   },
 };
