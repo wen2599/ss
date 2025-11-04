@@ -1,16 +1,19 @@
-# .htaccess for URL rewriting
+# backend/.htaccess
 
+# 启用重写引擎
 RewriteEngine On
 
-# 如果请求的是一个已存在的文件或目录，则直接服务
+# 这一行很重要，它告诉 Apache URL 的基准路径是什么。
+# 如果你的 backend 文件夹是网站的根目录，通常是 /
+# 如果你的 backend 在一个子目录里，比如 public_html/myproject/backend/
+# 那就可能是 /myproject/backend/
+# 通常留空或设为 / 即可。
+RewriteBase /
+
+# 规则：如果请求的不是一个真实存在的文件...
 RewriteCond %{REQUEST_FILENAME} !-f
+# ...并且请求的不是一个真实存在的目录...
 RewriteCond %{REQUEST_FILENAME} !-d
-
-# 将 /api/get_results 重写到 api.php
+# ...那么，将所有请求都转发给 index.php (这里我们改成 api.php)
+# 我们只处理 api/get_results
 RewriteRule ^api/get_results/?$ api.php [L]
-
-# 注意: webhook 的 URL 不需要重写，直接访问即可
-# 例如: https://wenge.cloudns.ch/webhook.php?secret=a_very_secret_string_12345
-# 为了更安全，我们使用了路径来做秘密验证，如 webhook.php/a_very_secret_string_12345
-# 这样 URL 看起来更像一个 RESTful 路由
-RewriteRule ^webhook.php/(.*)$ webhook.php?secret=$1 [L]
