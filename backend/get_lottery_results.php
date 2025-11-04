@@ -1,8 +1,7 @@
 <?php
-// backend/get_lottery_results.php (FIXED AND ENHANCED LOGGING)
+// backend/get_lottery_results.php
 
 require_once __DIR__ . '/api_header.php';
-require_once __DIR__ . '/db_operations.php'; // This now loads .env automatically
 
 function write_lottery_debug_log($message) {
     $logFile = __DIR__ . '/lottery_debug.log';
