@@ -28,9 +28,25 @@ class TelegramBot {
     }
 
     public function handleRequest() {
+        // Log request details for debugging
+        $headers = [];
+        foreach ($_SERVER as $key => $value) {
+            if (substr($key, 0, 5) == 'HTTP_') {
+                $header = str_replace(' ', '-', ucwords(str_replace('_', ' ', strtolower(substr($key, 5)))));
+                $headers[$header] = $value;
+            }
+        }
+        $input = file_get_contents('php://input');
+
+        error_log("===== New Bot Request =====");
+        error_log("Headers: " . json_encode($headers, JSON_PRETTY_PRINT));
+        error_log("Input Body: " . $input);
+        error_log("Loaded Webhook Secret: " . ($this->webhookSecret ? 'SET' : 'NOT SET'));
+        error_log("=========================");
+
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $this->validateWebhookSecret();
-            $input = file_get_contents('php://input');
+
             $update = json_decode($input, true);
             if ($update) {
                 $this->processUpdate($update);
