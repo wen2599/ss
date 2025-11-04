@@ -16,7 +16,12 @@ $now = date('[Y-m-d H:i:s]');
 $method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
 $uri = $_SERVER['REQUEST_URI'] ?? 'UNKNOWN';
 $headerPreview = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '[HEADER_NOT_SET]';
-file_put_contents($earlyLogFile, "{$now} [EARLY] Method={$method}, URI={$uri}, HeaderPreview={$headerPreview}\n", FILE_APPEND | LOCK_EX);
+
+// Log all headers for debugging
+$allHeaders = getallheaders();
+$headersLog = 'Received Headers: ' . json_encode($allHeaders);
+
+file_put_contents($earlyLogFile, "{$now} [EARLY] Method={$method}, URI={$uri}, HeaderPreview={$headerPreview}, {$headersLog}\n", FILE_APPEND | LOCK_EX);
 
 // --- Lightweight .env loader ---
 function load_env_file_simple($path) {
