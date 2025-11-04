@@ -44,5 +44,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Ensure errors are handled, and config is loaded.
+// --- CRITICAL FIX ---
+// Ensure the central configuration, including the robust .env loader and all
+// necessary helper functions (like db_operations), is loaded for all API endpoints.
 require_once __DIR__ . '/config.php';
