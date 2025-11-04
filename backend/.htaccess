@@ -1,35 +1,27 @@
-# backend/.htaccess
-
-# 启用 URL 重写
 RewriteEngine On
 
-# 强制 HTTPS (如果您的服务器支持)
-# RewriteCond %{HTTPS} off
-# RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# 处理前端路由
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 
-# 设置 API 路由规则
-RewriteRule ^api/save-result/?$ api/save_result.php [L]
-RewriteRule ^api/get-results/?$ api/get_results.php [L]
+# API 路由
+RewriteRule ^api/(.*)$ api.php [L,QSA]
 
-# 阻止对敏感文件的直接访问
-<Files "config.php">
+# Bot Webhook 路由
+RewriteRule ^webhook/(.*)$ bot.php [L,QSA]
+
+# 安全设置
+<Files ".env">
     Order allow,deny
     Deny from all
 </Files>
 
-# 如果需要，可以为 .htaccess 文件本身增加保护
-<Files ".htaccess">
+<Files "import.php">
     Order allow,deny
     Deny from all
 </Files>
 
-# 全局安全设置
-Options -Indexes
-
-# 如果您的服务器支持，可以在这里统一设置 CORS 头部
-# 请注意：这可能需要 mod_headers 模块
-# <IfModule mod_headers.c>
-#     Header set Access-Control-Allow-Origin "https://ss.wenxiuxiu.eu.org"
-#     Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
-#     Header set Access-Control-Allow-Headers "Content-Type, Authorization"
-# </IfModule>
+# 启用 CORS
+Header always set Access-Control-Allow-Origin "https://ss.wenxiuxiu.eu.org"
+Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+Header always set Access-Control-Allow-Headers "Content-Type, Authorization"

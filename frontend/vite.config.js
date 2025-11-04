@@ -3,11 +3,8 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  build: {
-    outDir: 'dist',
-    sourcemap: false
-  },
   server: {
+    port: 3000,
     proxy: {
       '/api': {
         target: 'https://wenge.cloudns.ch',
@@ -15,5 +12,9 @@ export default defineConfig({
         secure: false
       }
     }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false
   }
 })
