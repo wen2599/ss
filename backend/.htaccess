@@ -1,19 +1,25 @@
-# backend/.htaccess
+# ==========================================================
+# .htaccess for Serv00 Hosting Environment
+# ==========================================================
 
-# 启用重写引擎
-RewriteEngine On
+# ----------------------------------------------------------
+# Section 1: Disable mod_security for Telegram Webhook
+# This is the critical fix for the 403 Forbidden error.
+# It tells the server's firewall to not block requests
+# that are sent to "webhook.php".
+# ----------------------------------------------------------
+<Files "webhook.php">
+  <IfModule mod_security.c>
+    SecFilterEngine Off
+    SecFilterScanPOST Off
+  </IfModule>
+</Files>
 
-# 这一行很重要，它告诉 Apache URL 的基准路径是什么。
-# 如果你的 backend 文件夹是网站的根目录，通常是 /
-# 如果你的 backend 在一个子目录里，比如 public_html/myproject/backend/
-# 那就可能是 /myproject/backend/
-# 通常留空或设为 / 即可。
-RewriteBase /
+# ----------------------------------------------------------
+# Section 2: No Rewrite Rules
+# DO NOT ADD ANY "RewriteEngine On" or "RewriteRule" here.
+# Based on our tests, they cause 502 errors on your server.
+# URL mapping is handled by the Cloudflare Worker (_worker.js).
+# ----------------------------------------------------------
 
-# 规则：如果请求的不是一个真实存在的文件...
-RewriteCond %{REQUEST_FILENAME} !-f
-# ...并且请求的不是一个真实存在的目录...
-RewriteCond %{REQUEST_FILENAME} !-d
-# ...那么，将所有请求都转发给 index.php (这里我们改成 api.php)
-# 我们只处理 api/get_results
-RewriteRule ^api/get_results/?$ api.php [L]
+# End of .htaccess file

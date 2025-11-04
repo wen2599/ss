@@ -1,5 +1,5 @@
 <?php
-// webhook.php - 接收 Telegram 更新 (最终修正版)
+// webhook.php (适配路由版本)
 
 require_once 'db.php';
 
@@ -7,21 +7,13 @@ $env_path = __DIR__ . '/.env';
 $env = parse_ini_file($env_path);
 if ($env === false) {
     http_response_code(500);
-    error_log("FATAL: Could not read .env file at {$env_path}");
-    echo "Server configuration error.";
+    error_log("FATAL: Could not read .env file.");
     exit;
 }
 
-// =================================================================
-// 1. 安全性检查
-// =================================================================
-// 从 .env 读取预设的 secret
+// 1. 安全性检查 (从 GET 参数获取 secret)
 $expected_secret = $env['TELEGRAM_WEBHOOK_SECRET'];
-
-// 从 URL 的 GET 查询参数中获取传入的 secret
 $received_secret = isset($_GET['secret']) ? $_GET['secret'] : '';
-
-// 严格比较
 if (empty($expected_secret) || $received_secret !== $expected_secret) {
     http_response_code(403);
     error_log("Forbidden access to webhook: Incorrect or missing secret.");
@@ -29,63 +21,71 @@ if (empty($expected_secret) || $received_secret !== $expected_secret) {
     exit;
 }
 
-// =================================================================
-// 2. 获取并处理 Telegram 数据
-// =================================================================
 $update_json = file_get_contents('php://input');
 $update = json_decode($update_json);
 
 if (!$update) {
-    http_response_code(400);
+    http_response_code(200);
     exit;
 }
 
-if (isset($update->channel_post) && $update->channel_post->chat->id == $env['TELEGRAM_CHANNEL_ID']) {
-    $message_text = trim($update->channel_post->text);
-    
-    $lottery_type = null;
-    $issue_number = null;
-    $winning_numbers = null;
-    
+if (isset($update->channel_post) && isset($env['TELEGRAM_CHANNEL_ID']) && $update->channel_post->chat->id == $env['TELEGRAM_CHANNEL_ID']) {
+    handleChannelPost($update->channel_post);
+} elseif (isset($update->message)) {
+    handlePrivateMessage($update->message);
+} else {
+    http_response_code(200);
+}
+
+// === 函数定义 ===
+function handleChannelPost($channel_post) {
+    $message_text = trim($channel_post->text);
+    $lottery_type = null; $issue_number = null; $winning_numbers = null;
     $lines = explode("\n", $message_text);
-    
     if (count($lines) >= 3) {
         if (preg_match('/^(.*?)第:(\d+)\s*期开奖结果:$/', trim($lines[1]), $matches)) {
             $lottery_type = trim($matches[1]);
             $issue_number = trim($matches[2]);
-            
             $potential_numbers = trim($lines[2]);
             if (preg_match('/^[\d\s]+$/', $potential_numbers)) {
                 $winning_numbers = preg_replace('/\s+/', ' ', $potential_numbers);
             }
         }
     }
-
     if ($lottery_type && $issue_number && $winning_numbers) {
         $conn = get_db_connection();
         if ($conn) {
             $stmt = $conn->prepare("INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers) VALUES (?, ?, ?)");
             if ($stmt) {
                 $stmt->bind_param("sss", $lottery_type, $issue_number, $winning_numbers);
-                if ($stmt->execute()) {
-                    http_response_code(200);
-                    echo "OK";
-                } else {
-                    error_log("DB Error: Failed to execute statement: " . $stmt->error);
-                    http_response_code(500);
-                }
+                $stmt->execute();
                 $stmt->close();
-            } else {
-                error_log("DB Error: Failed to prepare statement: " . $conn->error);
-                http_response_code(500);
             }
-        } else {
-            error_log("DB Error: Failed to get database connection.");
-            http_response_code(500);
         }
-    } else {
-        http_response_code(200); 
     }
-} else {
     http_response_code(200);
+}
+
+function handlePrivateMessage($message) {
+    $chat_id = $message->chat->id;
+    $text = isset($message->text) ? trim($message->text) : '';
+    if ($text === '/start') {
+        $reply_text = "您好！我是一个用于接收开奖结果的机器人。\n请在指定频道中发布开奖信息。";
+        sendMessage($chat_id, $reply_text);
+    }
+    http_response_code(200);
+}
+
+function sendMessage($chat_id, $text) {
+    global $env;
+    $bot_token = $env['TELEGRAM_BOT_TOKEN'];
+    $url = "https://api.telegram.org/bot{$bot_token}/sendMessage";
+    $params = ['chat_id' => $chat_id, 'text' => $text];
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_exec($ch);
+    curl_close($ch);
 }
