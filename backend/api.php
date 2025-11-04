@@ -71,6 +71,14 @@ class LotteryAPI {
     }
 }
 
-$api = new LotteryAPI();
-$api->handleRequest();
+try {
+    $api = new LotteryAPI();
+    $api->handleRequest();
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'API Initialization Error: ' . $e->getMessage()
+    ]);
+}
 ?>
