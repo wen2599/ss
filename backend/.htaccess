@@ -1,8 +1,13 @@
 RewriteEngine On
 
-# 处理前端路由
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
+# 设置CORS头
+Header always set Access-Control-Allow-Origin "https://ss.wenxiuxiu.eu.org"
+Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
+
+# 处理预检请求
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ $1 [R=200,L]
 
 # API 路由
 RewriteRule ^api/(.*)$ api.php [L,QSA]
@@ -20,8 +25,3 @@ RewriteRule ^webhook/(.*)$ bot.php [L,QSA]
     Order allow,deny
     Deny from all
 </Files>
-
-# 启用 CORS
-Header always set Access-Control-Allow-Origin "https://ss.wenxiuxiu.eu.org"
-Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
-Header always set Access-Control-Allow-Headers "Content-Type, Authorization"

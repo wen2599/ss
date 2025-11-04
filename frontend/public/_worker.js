@@ -4,9 +4,10 @@ export default {
     
     // 设置CORS头
     const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': 'https://ss.wenxiuxiu.eu.org',
       'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Credentials': 'true'
     };
 
     // 处理预检请求
@@ -20,6 +21,8 @@ export default {
     if (url.pathname.startsWith('/api/')) {
       const backendUrl = `https://wenge.cloudns.ch${url.pathname}${url.search}`;
       
+      console.log('Proxying to:', backendUrl);
+      
       try {
         const response = await fetch(backendUrl, {
           method: request.method,
@@ -29,18 +32,22 @@ export default {
               'Authorization': request.headers.get('Authorization')
             })
           },
-          body: request.method !== 'GET' ? await request.text() : undefined
+          body: request.method !== 'GET' && request.method !== 'HEAD' ? await request.text() : undefined
         });
 
-        const modifiedResponse = new Response(response.body, response);
-        
-        // 添加CORS头
-        Object.entries(corsHeaders).forEach(([key, value]) => {
-          modifiedResponse.headers.set(key, value);
+        // 创建修改后的响应
+        const modifiedResponse = new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: {
+            ...Object.fromEntries(response.headers),
+            ...corsHeaders
+          }
         });
 
         return modifiedResponse;
       } catch (error) {
+        console.error('Proxy error:', error);
         return new Response(JSON.stringify({
           success: false,
           error: 'Backend service unavailable'
