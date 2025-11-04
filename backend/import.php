@@ -20,6 +20,33 @@ try {
     
     $pdo->exec($createTableSQL);
     echo "Table 'lottery_results' created successfully!\n";
+
+    // 创建用户表
+    $createUsersTableSQL = "
+    CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ";
+    $pdo->exec($createUsersTableSQL);
+    echo "Table 'users' created successfully!\n";
+
+    // 创建邮件表
+    $createEmailsTableSQL = "
+    CREATE TABLE IF NOT EXISTS emails (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT,
+        sender VARCHAR(255) NOT NULL,
+        subject VARCHAR(255),
+        body TEXT,
+        received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ";
+    $pdo->exec($createEmailsTableSQL);
+    echo "Table 'emails' created successfully!\n";
     
     // 插入示例数据（可选）
     $sampleDataSQL = "
