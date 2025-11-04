@@ -30,7 +30,7 @@ if (!$emailId) {
 try {
     // Prepare and execute the delete query
     // IMPORTANT: The WHERE clause includes user_id to ensure a user can only delete their own bills.
-    $stmt = $pdo->prepare("DELETE FROM emails WHERE id = ? AND user_id = ?");
+    $stmt = $pdo->prepare("DELETE FROM user_emails WHERE id = ? AND user_id = ?");
     $stmt->execute([$emailId, $userId]);
 
     // Check if any row was actually deleted

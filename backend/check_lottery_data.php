@@ -25,15 +25,15 @@ if (!$pdo) {
 }
 
 echo "Database connection successful.\n\n";
-echo "Querying the 'lottery_results' table for any 10 entries...\n";
+echo "Querying the 'lottery_numbers' table for any 10 entries...\n";
 
 try {
     // A simple query to get a sample of data from the table
-    $stmt = $pdo->query("SELECT * FROM lottery_results LIMIT 10");
+    $stmt = $pdo->query("SELECT * FROM lottery_numbers LIMIT 10");
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if (empty($results)) {
-        echo "RESULT: The 'lottery_results' table is EMPTY or contains no data.\n\n";
+        echo "RESULT: The 'lottery_numbers' table is EMPTY or contains no data.\n\n";
         echo "This is the primary reason why no lottery numbers are displayed.\n";
         echo "Please check the process that is supposed to be populating this table with data.\n";
     } else {

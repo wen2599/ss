@@ -18,8 +18,8 @@ try {
     if ($emailId) {
         // --- Fetch a single email by ID ---
         $stmt = $pdo->prepare(
-            "SELECT id, sender, recipient, subject, html_content, created_at 
-             FROM emails 
+            "SELECT id, from_sender, subject, raw_email, parsed_content, received_at
+             FROM user_emails
              WHERE id = ? AND user_id = ?"
         );
         $stmt->execute([$emailId, $userId]);
@@ -34,10 +34,10 @@ try {
     } else {
         // --- Fetch all emails for the user ---
         $stmt = $pdo->prepare(
-            "SELECT id, sender, subject, created_at 
-             FROM emails 
+            "SELECT id, from_sender, subject, received_at
+             FROM user_emails
              WHERE user_id = ? 
-             ORDER BY created_at DESC"
+             ORDER BY received_at DESC"
         );
         $stmt->execute([$userId]);
         $emails = $stmt->fetchAll(PDO::FETCH_ASSOC);

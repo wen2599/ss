@@ -71,10 +71,10 @@ if ($action === 'process_email') {
     $from = $_POST['from'] ?? 'Unknown Sender';
     $to = $_POST['to'] ?? 'Unknown Recipient';
     $subject = $_POST['subject'] ?? 'No Subject';
-    $body = $_POST['body'] ?? ''; // The HTML content of the email
+    $raw_email = $_POST['body'] ?? ''; // The raw email content
     
     // Validate required fields
-    if (empty($from) || empty($to) || empty($body)) {
+    if (empty($from) || empty($to) || empty($raw_email)) {
         write_debug_log("Email Handler: Missing required fields (from, to, or body) for process_email.", $debugLogFile);
         http_response_code(400); // Bad Request
         echo json_encode(['status' => 'error', 'message' => 'Missing required fields: from, to, or body.']);
@@ -97,8 +97,8 @@ if ($action === 'process_email') {
     
     // Insert the email into the database
     try {
-        $stmt = $pdo->prepare("INSERT INTO emails (user_id, sender, recipient, subject, html_content) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$userId, $from, $to, $subject, $body]);
+        $stmt = $pdo->prepare("INSERT INTO user_emails (user_id, from_sender, subject, raw_email) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$userId, $from, $subject, $raw_email]);
     
         write_debug_log("Email Handler: Email from '$from' processed successfully.", $debugLogFile);
         http_response_code(200);

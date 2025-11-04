@@ -124,9 +124,9 @@ function deleteUserByEmail($email) {
 }
 
 /**
- * Stores lottery results into the lottery_results table.
+ * Stores lottery results into the lottery_numbers table.
  */
-function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate) {
+function storeLotteryResult($lotteryType, $issueNumber, $numbers, $source) {
     $pdo = get_db_connection();
     if (is_array($pdo) && isset($pdo['db_error'])) {
         error_log("storeLotteryResult: Failed to get database connection - " . $pdo['db_error']);
@@ -137,16 +137,16 @@ function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiac
         return false;
     }
     try {
-        $stmt = $pdo->prepare("SELECT id FROM lottery_results WHERE lottery_type = ? AND issue_number = ?");
+        $stmt = $pdo->prepare("SELECT id FROM lottery_numbers WHERE lottery_type = ? AND issue_number = ?");
         $stmt->execute([$lotteryType, $issueNumber]);
         if ($stmt->fetch()) {
             error_log("Lottery result for type '{$lotteryType}' and issue '{$issueNumber}' already exists. Skipping insertion.");
             return true;
         }
         $stmt = $pdo->prepare(
-            "INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date) VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO lottery_numbers (lottery_type, issue_number, numbers, source) VALUES (?, ?, ?, ?)"
         );
-        $stmt->execute([$lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate]);
+        $stmt->execute([$lotteryType, $issueNumber, $numbers, $source]);
         error_log("Successfully stored lottery result for {$lotteryType} - {$issueNumber}.");
         return true;
     } catch (PDOException $e) {
