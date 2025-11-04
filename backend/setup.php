@@ -1,56 +1,67 @@
 <?php
-// setup.php - 数据库表初始化脚本
+// setup.php - Rebuilds the database table
 
-// 警告：运行此脚本将删除现有的 lottery_results 表！
-// 在生产环境中请谨慎操作。
+// 在脚本开始时显示所有错误，方便调试
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
-// 加载 .env 配置
-$env = parse_ini_file('.env');
-if ($env === false) {
-    die("Error: Cannot read .env file.\n");
+// 引入数据库连接函数
+require_once 'db.php';
+
+echo "Script started. Attempting to connect to the database...\n<br>";
+
+// 获取数据库连接
+$conn = get_db_connection();
+
+// 检查连接是否成功
+if (!$conn) {
+    die("FATAL ERROR: Could not connect to the database. Please check your .env file and db.php script.\n<br>");
 }
 
-$db_host = $env['DB_HOST'];
-$db_user = $env['DB_USER'];
-$db_pass = $env['DB_PASS'];
-$db_name = $env['DB_NAME'];
+echo "Database connection successful!\n<br>";
 
-// 创建数据库连接
-$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
-
-// 检查连接
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error . "\n");
-}
-$conn->set_charset("utf8mb4");
-
-// 新的表名和结构
+// 定义表名
 $tableName = "lottery_results";
 
-// SQL to drop old table if it exists
-$dropSql = "DROP TABLE IF EXISTS $tableName;";
+// --- 1. 删除旧表 (如果存在) ---
+$dropSql = "DROP TABLE IF EXISTS `{$tableName}`;";
+echo "Executing: {$dropSql}\n<br>";
+
 if ($conn->query($dropSql) === TRUE) {
-    echo "Table '$tableName' dropped successfully (if it existed).\n";
+    echo "SUCCESS: Old table '{$tableName}' dropped (if it existed).\n<br>";
 } else {
-    echo "Error dropping table: " . $conn->error . "\n";
+    // 即使删除失败也继续，因为可能表本来就不存在
+    echo "WARNING: Could not drop old table. Error: " . $conn->error . ". Continuing anyway...\n<br>";
 }
 
-
-// SQL to create new table
+// --- 2. 创建新表 ---
+// 这是为您的项目量身定制的、最健壮的表结构
+// - 使用 utf8mb4_unicode_ci 排序规则，更好地支持包括 emoji 在内的所有字符
+// - 为 lottery_type 和 issue_number 添加了索引，以提高未来查询性能
 $createSql = "
-CREATE TABLE IF NOT EXISTS lottery_results (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    lottery_type VARCHAR(100) NOT NULL,
-    issue_number VARCHAR(50) NOT NULL,
-    winning_numbers VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE `{$tableName}` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `lottery_type` VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `issue_number` VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `winning_numbers` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_lottery_type` (`lottery_type`),
+  INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ";
 
+echo "Executing CREATE TABLE statement...\n<br>";
+
 if ($conn->query($createSql) === TRUE) {
-    echo "Table '$tableName' created successfully.\n";
+    echo "SUCCESS: Table '{$tableName}' was created successfully with the new structure.\n<br>";
 } else {
-    echo "Error creating table: " . $conn->error . "\n";
+    die("FATAL ERROR: Failed to create new table. Error: " . $conn->error . "\n<br>");
 }
 
+// 关闭连接
 $conn->close();
+
+echo "Script finished.\n<br>";
+?>
