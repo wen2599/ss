@@ -1,0 +1,9 @@
+# Backend .env file
+/backend/.env
+
+# Frontend dependencies and build artifacts
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.DS_Store
+/frontend/.env
+/frontend/.env.*
