@@ -1,97 +1,86 @@
 import React, { useState, useEffect } from 'react';
-import './LotteryPage.css';
+import axios from 'axios';
+import './LotteryPage.css'; // Assuming you'll create a CSS file for this page
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const LotteryPage = () => {
-  const [lotteryData, setLotteryData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+    const [lotteryResults, setLotteryResults] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-  const fetchData = () => {
-    setLoading(true);
-    setError(null);
-    fetch('/get_lottery_results.php?limit=1') // Fetch only the latest result
-      .then(response => {
-        if (!response.ok) {
-          return response.json().then(err => {
-            throw new Error(err.message || `网络错误 (状态: ${response.status})`);
-          }).catch(() => {
-            throw new Error(`网络错误 (状态: ${response.status})`);
-          });
-        }
-        return response.json();
-      })
-      .then(data => {
-        if (data && data.status === 'success' && data.lottery_results && data.lottery_results.length > 0) {
-          setLotteryData(data.lottery_results[0]); // Get the latest result
-        } else {
-          setLotteryData(null); // No data found or empty results
-        }
-      })
-      .catch(error => {
-        console.error('获取开奖数据时出错:', error);
-        setError(error.message || '获取数据失败');
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  };
+    useEffect(() => {
+        const fetchLotteryResults = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                // Fetch results for all lottery types
+                const lotteryTypes = ['新澳门六合彩', '香港六合彩', '老澳门六合彩']; // Example types
+                const fetchPromises = lotteryTypes.map(type =>
+                    axios.get(`${API_BASE_URL}/index.php?endpoint=get_lottery_results&lottery_type=${encodeURIComponent(type)}&limit=10`)
+                );
+                const responses = await Promise.all(fetchPromises);
+                
+                const allResults = responses.flatMap(response => {
+                    if (response.data.status === 'success') {
+                        return response.data.lottery_results;
+                    } else {
+                        console.error('Error fetching lottery results for a type:', response.data.message);
+                        return [];
+                    }
+                });
+                
+                // Sort results by drawing_date and issue_number to interleave them chronologically
+                allResults.sort((a, b) => {
+                    const dateA = new Date(a.drawing_date);
+                    const dateB = new Date(b.drawing_date);
+                    if (dateA.getTime() !== dateB.getTime()) {
+                        return dateB.getTime() - dateA.getTime(); // Latest date first
+                    }
+                    return parseInt(b.issue_number) - parseInt(a.issue_number); // Latest issue first for same date
+                });
 
-  useEffect(() => {
-    fetchData();
-    const intervalId = setInterval(fetchData, 30000); // Fetch every 30 seconds
-    return () => clearInterval(intervalId);
-  }, []);
+                setLotteryResults(allResults);
+            } catch (err) {
+                console.error('Failed to fetch lottery results:', err);
+                setError(err.message || 'Failed to fetch lottery results.');
+            } finally {
+                setLoading(false);
+            }
+        };
 
-  const renderContent = () => {
-    if (loading && !lotteryData) {
-        return <div className="card loading-card">加载中...</div>;
+        fetchLotteryResults();
+    }, []);
+
+    if (loading) {
+        return <div className="lottery-page-container">加载中...</div>;
     }
 
     if (error) {
-      return (
-        <div className="card error-message">
-          <h2>加载失败</h2>
-          <p>{error}</p>
-          <button onClick={fetchData} className="retry-button">重试</button>
-        </div>
-      );
-    }
-
-    if (!lotteryData) {
-        return <div className="card no-data-card">暂无开奖数据</div>;
+        return <div className="lottery-page-container error">错误: {error}</div>;
     }
 
     return (
-      <div className="card lottery-display-card">
-        <h2 className="lottery-type">【{lotteryData.lottery_type || '未知彩票'}】</h2>
-        <p className="lottery-issue">期号: {lotteryData.issue_number || '--'}</p>
-        <p className="lottery-drawing-date">开奖日期: {lotteryData.drawing_date || '--'}</p>
-        <div className="lottery-detail-section">
-            <h3>开奖号码</h3>
-            <p className="lottery-winning-numbers">{lotteryData.winning_numbers || 'N/A'}</p>
+        <div className="lottery-page-container">
+            <h1>开奖结果</h1>
+            {lotteryResults.length === 0 ? (
+                <p>没有可用的开奖结果。</p>
+            ) : (
+                <div className="lottery-results-grid">
+                    {lotteryResults.map((result) => (
+                        <div key={result.id} className="lottery-card">
+                            <h2>{result.lottery_type}</h2>
+                            <p><strong>期号:</strong> {result.issue_number}</p>
+                            <p><strong>开奖日期:</strong> {new Date(result.drawing_date).toLocaleDateString()}</p>
+                            <p><strong>中奖号码:</strong> {result.winning_numbers ? result.winning_numbers.join(', ') : 'N/A'}</p>
+                            <p><strong>生肖:</strong> {result.zodiac_signs ? result.zodiac_signs.join(', ') : 'N/A'}</p>
+                            <p><strong>颜色:</strong> {result.colors ? result.colors.join(', ') : 'N/A'}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
-        <div className="lottery-detail-section">
-            <h3>生肖</h3>
-            <p className="lottery-zodiac-signs">{lotteryData.zodiac_signs || 'N/A'}</p>
-        </div>
-        <div className="lottery-detail-section">
-            <h3>颜色</h3>
-            <p className="lottery-colors">{lotteryData.colors || 'N/A'}</p>
-        </div>
-        <p className="lottery-timestamp">数据更新于: {lotteryData.created_at ? new Date(lotteryData.created_at).toLocaleString() : '--'}</p>
-      </div>
     );
-  };
-
-  return (
-    <div className="page-container">
-      <h1 className="page-title">最新开奖号码</h1>
-      {renderContent()}
-       <footer className="page-footer">
-        <p>请以官方开奖结果为准</p>
-      </footer>
-    </div>
-  );
 };
 
 export default LotteryPage;

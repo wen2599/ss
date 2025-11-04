@@ -1,21 +1,55 @@
-.lottery-container {
+.lottery-page-container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.lottery-page-container h1 {
+    color: #333;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.lottery-results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.lottery-card {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: calc(100vh - 80px);
-    text-align: center;
-    background-color: #f0f2f5;
+    justify-content: space-between;
+    transition: transform 0.2s ease-in-out;
 }
 
-.lottery-title {
-    font-size: 2.5rem;
+.lottery-card:hover {
+    transform: translateY(-5px);
+}
+
+.lottery-card h2 {
+    color: #007bff;
+    font-size: 1.5em;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.lottery-card p {
+    font-size: 0.95em;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+.lottery-card strong {
     color: #333;
-    margin-bottom: 20px;
 }
 
-.lottery-number {
-    font-size: 4rem;
+.lottery-page-container.error {
     color: #d9534f;
-    font-weight: bold;
+    text-align: center;
+    font-size: 1.2em;
 }

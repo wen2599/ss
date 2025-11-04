@@ -19,7 +19,9 @@ const Navbar = () => {
                 <ul className="navbar-links">
                     {isAuthenticated ? (
                         <>
-                            <li><NavLink to="/bills" className={({ isActive }) => isActive ? 'active' : ''}>我的账单</NavLink></li>
+                            <li><NavLink to="/lottery" className={({ isActive }) => isActive ? 'active' : ''}>开奖</NavLink></li>
+                            <li><NavLink to="/emails" className={({ isActive }) => isActive ? 'active' : ''}>邮件原文</NavLink></li>
+                            <li><NavLink to="/bills" className={({ isActive }) => isActive ? 'active' : ''}>结算</NavLink></li>
                             <li><button onClick={handleLogout}>退出登录</button></li>
                         </>
                     ) : (
