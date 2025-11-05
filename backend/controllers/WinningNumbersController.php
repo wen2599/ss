@@ -18,7 +18,21 @@ class WinningNumbersController {
     }
     
     public function getAll() {
-        $stmt = $this->pdo->query("SELECT issue_number, numbers, draw_date FROM winning_numbers ORDER BY draw_date DESC, issue_number DESC LIMIT 100");
+        // --- 关键改动在这里 ---
+        // 从 GET 请求中获取 limit 参数，如果没有则默认为 100
+        // (int) 用于确保它是一个整数，防止SQL注入
+        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
+
+        // 限制最大查询数量，防止滥用
+        if ($limit > 200) {
+            $limit = 200;
+        }
+
+        // 在 SQL 查询中使用 LIMIT
+        $stmt = $this->pdo->prepare("SELECT issue_number, numbers, draw_date FROM winning_numbers ORDER BY draw_date DESC, issue_number DESC LIMIT ?");
+        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        
         $numbers = $stmt->fetchAll();
         send_json_response($numbers);
     }
