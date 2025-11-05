@@ -36,6 +36,7 @@ const request = async (endpoint, options = {}) => {
 export const api = {
     register: (data) => request('/users/register', { method: 'POST', body: JSON.stringify(data) }),
     login: (data) => request('/users/login', { method: 'POST', body: JSON.stringify(data) }),
-    getWinningNumbers: () => request('/winning-numbers', { method: 'GET' }),
+    getWinningNumbers: (limit = 100) => request(`/winning-numbers?limit=${limit}`, { method: 'GET' }),
+    getMyBets: () => request('/my-bets', { method: 'GET' }),
     // ... 其他 API 调用
 };

@@ -1,44 +1,43 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../api';
 
 const AuthContext = createContext(null);
 
-export const AuthProvider = ({ children }) => {
+export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(localStorage.getItem('token'));
-    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (token) {
-            // 这里可以加一个 /api/users/me 的接口来验证 token 并获取用户信息
-            // 暂时简化处理，有 token 就认为已登录
-            setUser({ isAuthenticated: true }); 
+            // 如果有token，可以从后端获取用户信息并设置user
+            // 这里为了简化，我们仅将token作为登录凭证
+            setUser({ token }); // 假设user对象至少包含token
+            localStorage.setItem('token', token);
+        } else {
+            setUser(null);
+            localStorage.removeItem('token');
         }
-        setLoading(false);
     }, [token]);
 
-    const login = async (credentials) => {
-        const data = await api.login(credentials);
-        localStorage.setItem('token', data.token);
-        setToken(data.token);
-        setUser({ isAuthenticated: true });
+    const login = async (email, password) => {
+        const { token } = await api.login({ email, password });
+        setToken(token);
+    };
+
+    const register = async (email, password) => {
+        const { token } = await api.register({ email, password });
+        setToken(token);
     };
 
     const logout = () => {
-        localStorage.removeItem('token');
         setToken(null);
-        setUser(null);
     };
 
-    const value = { user, token, login, logout, loading };
-
     return (
-        <AuthContext.Provider value={value}>
-            {!loading && children}
+        <AuthContext.Provider value={{ user, token, login, register, logout }}>
+            {children}
         </AuthContext.Provider>
     );
-};
+}
 
-export const useAuth = () => {
-    return useContext(AuthContext);
-};
+export const useAuth = () => useContext(AuthContext);

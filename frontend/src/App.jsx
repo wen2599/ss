@@ -1,51 +1,44 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+
+// 布局
+import MainLayout from './components/layout/MainLayout';
+
+// 页面
 import Home from './pages/Home';
 import Login from './pages/Login';
-import Register from './pages/Register'; // 引入注册页
+import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import Navbar from './components/Navbar'; // 引入导航栏
-
-// 私有路由守卫
-function PrivateRoute() {
-    const { user } = useAuth();
-    return user ? <Outlet /> : <Navigate to="/login" />;
-}
-
-// 公开路由，如果已登录则重定向到 dashboard
-function PublicRoute() {
-    const { user } = useAuth();
-    return !user ? <Outlet /> : <Navigate to="/dashboard" />;
-}
+import ResultsPage from './pages/ResultsPage';
+import BetsPage from './pages/BetsPage';
+import HowToPlayPage from './pages/HowToPlayPage';
 
 function App() {
     return (
         <AuthProvider>
             <Router>
-                <Navbar /> {/* 在所有页面顶部显示导航栏 */}
-                <main>
-                    <Routes>
-                        <Route path="/" element={<Home />} />
-
-                        {/* 公开路由 */}
-                        <Route element={<PublicRoute />}>
-                            <Route path="/login" element={<Login />} />
-                            <Route path="/register" element={<Register />} />
-                        </Route>
-
-                        {/* 私有路由 */}
-                        <Route element={<PrivateRoute />}>
-                            <Route path="/dashboard" element={<Dashboard />} />
-                        </Route>
-                        
-                        {/* 404 Not Found */}
-                        <Route path="*" element={<Navigate to="/" />} />
-                    </Routes>
-                </main>
+                <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
+                        <Route index element={<Navigate to="/dashboard" />} />
+                        <Route path="dashboard" element={<Dashboard />} />
+                        <Route path="results" element={<ResultsPage />} />
+                        <Route path="my-bets" element={<BetsPage />} />
+                        <Route path="how-to-play" element={<HowToPlayPage />} />
+                    </Route>
+                    {/* Fallback for non-authenticated users */}
+                    <Route path="*" element={<Navigate to="/login" />} />
+                </Routes>
             </Router>
         </AuthProvider>
     );
+}
+
+function PrivateRoute({ children }) {
+    const { user } = useAuth();
+    return user ? children : <Navigate to="/login" />;
 }
 
 export default App;

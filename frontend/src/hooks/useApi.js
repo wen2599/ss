@@ -1,26 +1,25 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 
-export const useApi = (apiFunc, ...params) => {
+export const useApi = (apiFunc) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const result = await apiFunc(...params);
-            setData(result);
-        } catch (err) {
-            setError(err);
-        } finally {
-            setLoading(false);
-        }
-    }, [apiFunc, ...params]); // 依赖项数组需要展开 params
-
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+                const result = await apiFunc();
+                setData(result);
+            } catch (err) {
+                setError(err);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    return { data, loading, error, refetch: fetchData };
+        fetchData();
+    }, [apiFunc]);
+
+    return { data, loading, error };
 };
