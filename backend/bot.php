@@ -81,13 +81,29 @@ class TelegramBot {
     }
 
     public function processUpdate($update) {
-        $message = $update['channel_post'] ?? null;
+        if (isset($update['channel_post'])) {
+            $this->handleChannelPost($update['channel_post']);
+        } elseif (isset($update['message'])) {
+            $this->handleMessage($update['message']);
+        }
+    }
 
-        if (!$message) return;
-        
+    private function handleMessage($message) {
+        $chatId = $message['chat']['id'];
+        $text = $message['text'] ?? '';
+
+        if ($text === '/start') {
+            $this->sendMessage($chatId, 'Welcome! This bot is active and ready to process channel posts.');
+        } else {
+            // Optionally, handle other direct commands here
+            $this->sendMessage($chatId, 'I am a channel bot and do not have other commands for direct messages.');
+        }
+    }
+
+    private function handleChannelPost($message) {
         $chatId = $message['chat']['id'] ?? null;
         if ($chatId != $this->channelId) {
-            error_log("Message from ignored chat ID: {$chatId}");
+            error_log("Channel post from ignored chat ID: {$chatId}");
             return;
         }
 
@@ -134,6 +150,24 @@ class TelegramBot {
 
         } catch (Exception $e) {
             error_log("Error saving lottery result: " . $e->getMessage());
+        }
+    }
+
+    private function sendMessage($chatId, $text) {
+        $apiUrl = "https://api.telegram.org/bot{$this->botToken}/sendMessage";
+        $params = [
+            'chat_id' => $chatId,
+            'text' => $text,
+        ];
+        $requestUrl = $apiUrl . '?' . http_build_query($params);
+
+        // Use a stream context to handle potential errors gracefully
+        $context = stream_context_create(['http' => ['ignore_errors' => true]]);
+        $response = file_get_contents($requestUrl, false, $context);
+
+        $responseData = json_decode($response, true);
+        if (!$responseData || !$responseData['ok']) {
+            error_log("Failed to send message: " . $response);
         }
     }
 }
