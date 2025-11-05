@@ -1,58 +1,51 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import LotteryResults from './components/LotteryResults';
-import Loading from './components/Loading';
-import './App.css';
-import { getResults } from './services/api';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Register from './pages/Register'; // 引入注册页
+import Dashboard from './pages/Dashboard';
+import Navbar from './components/Navbar'; // 引入导航栏
 
-// This component renders the Lottery part of the application
-const LotteryDashboard = () => {
-    const [results, setResults] = useState([]);
-    const [lotteryType, setLotteryType] = useState('all');
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
+// 私有路由守卫
+function PrivateRoute() {
+    const { user } = useAuth();
+    return user ? <Outlet /> : <Navigate to="/login" />;
+}
 
-    const fetchData = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-        
-        try {
-            const data = await getResults(lotteryType !== 'all' ? lotteryType : null, 20);
-            if (data.success) {
-                setResults(data.data);
-            } else {
-                throw new Error(data.error || 'Failed to fetch results');
-            }
-        } catch (e) {
-            console.error("Fetch error:", e);
-            setError(e.message);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [lotteryType]);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    return (
-        <div className="App">
-            <header className="App-header">
-                <h1>Lottery Results</h1>
-            </header>
-            <main>
-                <div className="lottery-type-selector">
-                    <button onClick={() => setLotteryType('all')} className={lotteryType === 'all' ? 'active' : ''}>All</button>
-                    <button onClick={() => setLotteryType('双色球')} className={lotteryType === '双色球' ? 'active' : ''}>双色球</button>
-                    <button onClick={() => setLotteryType('大乐透')} className={lotteryType === '大乐透' ? 'active' : ''}>大乐透</button>
-                </div>
-                {isLoading ? <Loading /> : error ? <div className="error-message">{error}</div> : <LotteryResults results={results} />}
-            </main>
-        </div>
-    );
-};
+// 公开路由，如果已登录则重定向到 dashboard
+function PublicRoute() {
+    const { user } = useAuth();
+    return !user ? <Outlet /> : <Navigate to="/dashboard" />;
+}
 
 function App() {
-    return <LotteryDashboard />;
+    return (
+        <AuthProvider>
+            <Router>
+                <Navbar /> {/* 在所有页面顶部显示导航栏 */}
+                <main>
+                    <Routes>
+                        <Route path="/" element={<Home />} />
+
+                        {/* 公开路由 */}
+                        <Route element={<PublicRoute />}>
+                            <Route path="/login" element={<Login />} />
+                            <Route path="/register" element={<Register />} />
+                        </Route>
+
+                        {/* 私有路由 */}
+                        <Route element={<PrivateRoute />}>
+                            <Route path="/dashboard" element={<Dashboard />} />
+                        </Route>
+                        
+                        {/* 404 Not Found */}
+                        <Route path="*" element={<Navigate to="/" />} />
+                    </Routes>
+                </main>
+            </Router>
+        </AuthProvider>
+    );
 }
 
 export default App;
