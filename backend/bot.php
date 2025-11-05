@@ -6,6 +6,7 @@ class TelegramBot {
     private $channelId;
     private $apiKey;
     private $db;
+    private $adminId;
 
     private $webhookSecret;
 
@@ -14,6 +15,7 @@ class TelegramBot {
         $this->channelId = Config::get('CHANNEL_ID');
         $this->apiKey = Config::get('API_KEY');
         $this->webhookSecret = Config::get('TELEGRAM_WEBHOOK_SECRET');
+        $this->adminId = Config::get('TELEGRAM_ADMIN_ID');
         $this->db = new Database();
     }
 
@@ -145,6 +147,12 @@ class TelegramBot {
                 ':number' => $lotteryNumber,
                 ':date' => $drawDate
             ]);
+
+            // rowCount() returns 1 for a new INSERT, 2 for an UPDATE.
+            if ($stmt->rowCount() === 1 && $this->adminId) {
+                $message = "✅ New lottery result saved:\nType: {$lotteryType}\nNumber: {$lotteryNumber}\nDate: {$drawDate}";
+                $this->sendMessage($this->adminId, $message);
+            }
 
             error_log("Lottery result saved: {$lotteryType} - {$lotteryNumber} for date {$drawDate}");
 
