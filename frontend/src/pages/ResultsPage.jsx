@@ -1,40 +1,39 @@
 import React from 'react';
-import { useApi } from '../hooks/useApi';
-import { api } from '../api';
-import Card from '../components/common/Card';
+import useApi from '../hooks/useApi'; // 调整路径
 
-function ResultsPage() {
-    const { data: numbers, loading, error } = useApi(api.getWinningNumbers);
-    
+const ResultsPage = () => {
+    const { data: results, loading, error } = useApi('/matches/results');
+
+    if (loading) return <p>加载中...</p>;
+    if (error) return <p>加载结果失败: {error.message}</p>;
+
     return (
-        <Card>
-            <div className="card-header">历史开奖公告</div>
-            {loading && <p>加载中...</p>}
-            {error && <p className="error-message">加载失败: {error.message}</p>}
-            {numbers && (
-                <div className="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>期号</th>
-                                <th>开奖日期</th>
-                                <th>开奖号码</th>
+        <div className="card">
+            <div className="card-header">
+                <h3>比赛结果</h3>
+            </div>
+            <div className="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>比赛</th>
+                            <th>结果</th>
+                            <th>结束时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {results && results.map(result => (
+                            <tr key={result.id}>
+                                <td>{result.match.name}</td>
+                                <td>{result.result}</td>
+                                <td>{new Date(result.match.endTime).toLocaleString()}</td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            {numbers.map(num => (
-                                <tr key={num.issue_number}>
-                                    <td>{num.issue_number}</td>
-                                    <td>{num.draw_date}</td>
-                                    <td><strong>{num.numbers}</strong></td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-            {/* TODO: Pagination controls here */}
-        </Card>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     );
-}
+};
+
 export default ResultsPage;

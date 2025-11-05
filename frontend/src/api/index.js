@@ -1,5 +1,3 @@
-// 注意：这里的 API_BASE_URL 是指向我们自己的前端域名
-// 因为 _worker.js 会代理请求
 const API_BASE_URL = '/api';
 
 const request = async (endpoint, options = {}) => {
@@ -22,11 +20,11 @@ const request = async (endpoint, options = {}) => {
 
     try {
         const response = await fetch(url, config);
+        const data = await response.json();
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Something went wrong');
+            throw new Error(data.error || 'API request failed');
         }
-        return response.json();
+        return data;
     } catch (error) {
         console.error('API Error:', error);
         throw error;
@@ -37,6 +35,5 @@ export const api = {
     register: (data) => request('/users/register', { method: 'POST', body: JSON.stringify(data) }),
     login: (data) => request('/users/login', { method: 'POST', body: JSON.stringify(data) }),
     getWinningNumbers: (limit = 100) => request(`/winning-numbers?limit=${limit}`, { method: 'GET' }),
-    getMyBets: () => request('/my-bets', { method: 'GET' }),
-    // ... 其他 API 调用
+    getMyBets: () => request('/my-bets', { method: 'GET' }), // Placeholder for future API
 };

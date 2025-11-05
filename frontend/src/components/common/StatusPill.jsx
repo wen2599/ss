@@ -4,7 +4,7 @@ function StatusPill({ status }) {
     const statusMap = {
         pending: { text: '待处理', class: 'pill-warning' },
         processing: { text: '处理中', class: 'pill-info' },
-        processed: { text: '已处理', class: 'pill-success' },
+        processed: { text: '已结算', class: 'pill-success' },
         error: { text: '错误', class: 'pill-error' },
     };
 

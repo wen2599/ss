@@ -1,43 +1,58 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../api';
+import api from '../api'; // 调整路径
 
 const AuthContext = createContext(null);
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(localStorage.getItem('token'));
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        const token = localStorage.getItem('token');
         if (token) {
-            // 如果有token，可以从后端获取用户信息并设置user
-            // 这里为了简化，我们仅将token作为登录凭证
-            setUser({ token }); // 假设user对象至少包含token
-            localStorage.setItem('token', token);
+            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            api.get('/users/me')
+                .then(response => {
+                    setUser(response.data);
+                })
+                .catch(() => {
+                    localStorage.removeItem('token');
+                })
+                .finally(() => setLoading(false));
         } else {
-            setUser(null);
-            localStorage.removeItem('token');
+            setLoading(false);
         }
-    }, [token]);
+    }, []);
 
-    const login = async (email, password) => {
-        const { token } = await api.login({ email, password });
-        setToken(token);
+    const login = async (username, password) => {
+        const response = await api.post('/auth/login', { username, password });
+        const { token, user } = response.data;
+        localStorage.setItem('token', token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setUser(user);
     };
 
-    const register = async (email, password) => {
-        const { token } = await api.register({ email, password });
-        setToken(token);
+    const register = async (username, email, password) => {
+        const response = await api.post('/auth/register', { username, email, password });
+        const { token, user } = response.data;
+        localStorage.setItem('token', token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setUser(user);
     };
 
     const logout = () => {
-        setToken(null);
+        localStorage.removeItem('token');
+        delete api.defaults.headers.common['Authorization'];
+        setUser(null);
     };
 
+    const value = { user, login, register, logout, loading };
+
     return (
-        <AuthContext.Provider value={{ user, token, login, register, logout }}>
-            {children}
+        <AuthContext.Provider value={value}>
+            {!loading && children}
         </AuthContext.Provider>
     );
-}
+};
 
 export const useAuth = () => useContext(AuthContext);

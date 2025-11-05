@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
+import api from '../api'; // 调整路径
 
-export const useApi = (apiFunc) => {
+const useApi = (url) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
         const fetchData = async () => {
+            setLoading(true);
             try {
-                setLoading(true);
-                const result = await apiFunc();
-                setData(result);
+                const response = await api.get(url);
+                setData(response.data);
             } catch (err) {
                 setError(err);
             } finally {
@@ -19,7 +20,9 @@ export const useApi = (apiFunc) => {
         };
 
         fetchData();
-    }, [apiFunc]);
+    }, [url]);
 
     return { data, loading, error };
 };
+
+export default useApi;

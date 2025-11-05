@@ -1,42 +1,61 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { NavLink } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext'; // 调整路径
 
-function Navbar() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+const Navbar = () => {
+    const { user, logout } = useAuth();
 
-  const handleLogout = () => {
-      logout();
-      navigate('/login');
-  };
-
-  return (
-    <header className="navbar">
-      <div className="navbar-brand">
-        <NavLink to="/">LottoSys</NavLink>
-      </div>
-      <nav className="navbar-links">
-        <NavLink to="/dashboard">仪表盘</NavLink>
-        <NavLink to="/results">开奖结果</NavLink>
-        <NavLink to="/my-bets">我的注单</NavLink>
-        <NavLink to="/how-to-play">玩法说明</NavLink>
-      </nav>
-      <div className="navbar-user">
-        {user ? (
-          <>
-            <span>欢迎, {user.email}</span>
-            <button onClick={handleLogout} className="btn btn-secondary">登出</button>
-          </>
-        ) : (
-          <>
-            <NavLink to="/login">登录</NavLink>
-            <NavLink to="/register">注册</NavLink>
-          </>
-        )}
-      </div>
-    </header>
-  );
-}
+    return (
+        <nav className="navbar">
+            <div className="nav-container">
+                <NavLink to="/" className="nav-logo">
+                    竞猜平台
+                </NavLink>
+                <ul className="nav-menu">
+                    <li className="nav-item">
+                        <NavLink to="/" className="nav-links">
+                            首页
+                        </NavLink>
+                    </li>
+                    <li className="nav-item">
+                        <NavLink to="/bets" className="nav-links">
+                            我的竞猜
+                        </NavLink>
+                    </li>
+                    <li className="nav-item">
+                        <NavLink to="/results" className="nav-links">
+                            比赛结果
+                        </NavLink>
+                    </li>
+                    <li className="nav-item">
+                        <NavLink to="/how-to-play" className="nav-links">
+                            玩法介绍
+                        </NavLink>
+                    </li>
+                    {user ? (
+                        <>
+                            <li className="nav-item">
+                                <NavLink to="/profile" className="nav-links">
+                                    个人中心
+                                </NavLink>
+                            </li>
+                            <li className="nav-item">
+                                <a onClick={logout} className="nav-links">
+                                    登出
+                                </a>
+                            </li>
+                        </>
+                    ) : (
+                        <li className="nav-item">
+                            <NavLink to="/login" className="nav-links">
+                                登录
+                            </NavLink>
+                        </li>
+                    )}
+                </ul>
+            </div>
+        </nav>
+    );
+};
 
 export default Navbar;

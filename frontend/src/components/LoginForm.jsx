@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-function LoginForm() {
-    const [email, setEmail] = useState('');
+const LoginForm = () => {
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const { login } = useAuth();
@@ -13,20 +13,21 @@ function LoginForm() {
         e.preventDefault();
         setError('');
         try {
-            await login({ email, password });
+            await login(username, password);
             navigate('/dashboard');
         } catch (err) {
-            setError(err.message || '登录失败，请检查您的凭据。');
+            setError('登录失败，请检查您的用户名和密码。');
         }
     };
 
     return (
         <form onSubmit={handleSubmit} className="form-container">
+            {error && <p className="error-message">{error}</p>}
             <input
-                type="email"
-                placeholder="邮箱"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                placeholder="用户名"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
             />
             <input
@@ -36,10 +37,9 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
             />
-            <button type="submit">登录</button>
-            {error && <p className="error-message">{error}</p>}
+            <button type="submit" className="btn">登录</button>
         </form>
     );
-}
+};
 
 export default LoginForm;
