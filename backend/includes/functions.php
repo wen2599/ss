@@ -1,14 +1,28 @@
 <?php
 // 加载 .env 文件
 function load_env() {
-    $dotenv_path = __DIR__ . '/../../.env';
-    if (!file_exists($dotenv_path)) {
-        // 如果在根目录找不到，尝试在当前目录的上一级目录找（兼容旧的部署方式）
-        $dotenv_path = __DIR__ . '/../.env';
-        if (!file_exists($dotenv_path)) {
-            return;
-        }
+    echo "--- Debug: Starting .env load attempt ---\n";
+    echo "--- Debug: Script directory (__DIR__): " . __DIR__ . "\n";
+
+    $path_attempt1 = __DIR__ . '/../../.env';
+    echo "--- Debug: Checking path 1 (project root): " . $path_attempt1 . "\n";
+
+    $path_attempt2 = __DIR__ . '/../.env';
+    echo "--- Debug: Checking path 2 (backend root): " . $path_attempt2 . "\n";
+
+    $dotenv_path = null;
+
+    if (file_exists($path_attempt1)) {
+        echo "--- Debug: .env file found at path 1.\n";
+        $dotenv_path = $path_attempt1;
+    } elseif (file_exists($path_attempt2)) {
+        echo "--- Debug: .env file found at path 2.\n";
+        $dotenv_path = $path_attempt2;
+    } else {
+        echo "--- Debug: .env file not found in any checked paths.\n";
+        return;
     }
+
     $lines = file($dotenv_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
         if (strpos(trim($line), '#') === 0) {
