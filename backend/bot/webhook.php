@@ -1,4 +1,14 @@
 <?php
+// --- Temporary Debugging ---
+$raw_input = file_get_contents('php://input');
+$headers = getallheaders();
+$log_data = "Timestamp: " . date('Y-m-d H:i:s') . "\n";
+$log_data .= "Raw Input: " . $raw_input . "\n";
+$log_data .= "Headers: " . json_encode($headers, JSON_PRETTY_PRINT) . "\n";
+$log_data .= "--------------------------------------------------\n";
+file_put_contents(__DIR__ . '/webhook_log.txt', $log_data, FILE_APPEND);
+// --- End Temporary Debugging ---
+
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../config/database.php';
 
@@ -21,7 +31,7 @@ function sendMessage($chatId, $text) {
     curl_close($ch);
 }
 
-$update = json_decode(file_get_contents('php://input'), true);
+$update = json_decode($raw_input, true); // Use the captured raw input
 if (!$update) { exit(); }
 
 $message = $update['message'] ?? null;
@@ -31,12 +41,14 @@ $userId = $message['from']['id'] ?? null;
 
 // 仅允许管理员操作
 if ($userId != $adminId) {
-    sendMessage($chatId, "抱歉，您无权操作。");
+    if ($chatId) { // Only send a message if we have a valid chat ID
+        sendMessage($chatId, "抱歉，您无权操作。");
+    }
     exit;
 }
 
 // 示例命令: /add 2023123 01,02,03,04,05,06,07
-if (strpos($text, '/add') === 0) {
+if ($text && strpos($text, '/add') === 0) {
     $parts = explode(' ', $text);
     if (count($parts) < 3) {
         sendMessage($chatId, "格式错误。示例: /add 2023123 01,02,03,04,05,06,07");
@@ -73,10 +85,14 @@ if (strpos($text, '/add') === 0) {
 // 注册 webhook 的命令 (一次性)
 // 访问 /bot/webhook.php?setup=true 来设置
 elseif (isset($_GET['setup']) && $_GET['setup'] === 'true'){
+    // --- Add Webhook Secret to Setup ---
+    $webhookSecret = getenv('TELEGRAM_WEBHOOK_SECRET');
     $webhookUrl = $backendUrl . '/bot/webhook.php';
-    $url = "https://api.telegram.org/bot{$botToken}/setWebhook?url=" . urlencode($webhookUrl);
+    $url = "https://api.telegram.org/bot{$botToken}/setWebhook?url=" . urlencode($webhookUrl) . "&secret_token=" . urlencode($webhookSecret);
     $response = file_get_contents($url);
     echo $response;
 } else {
-    sendMessage($chatId, "未知命令。");
+    if ($chatId) { // Only send a message if we have a valid chat ID
+        sendMessage($chatId, "未知命令。");
+    }
 }
