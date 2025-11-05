@@ -1,88 +1,85 @@
 <?php
-// 启用错误日志，将错误输出到文件而不是浏览器
+// 启用最严格的错误处理
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
-ini_set('error_log', __DIR__ . '/../api-error.log'); // 为API设置独立的日志文件
+ini_set('error_log', dirname(__DIR__) . '/api-final-error.log'); // 路径修正
 error_reporting(E_ALL);
 
-// --- 关键顺序：先加载包含函数的依赖文件 ---
-require_once __DIR__ . '/../includes/functions.php';
+// 全局致命错误处理器
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
+        if (ob_get_level()) ob_end_clean();
+        header('Content-Type: application/json');
+        http_response_code(500);
+        error_log("FATAL SHUTDOWN in api/index.php: " . $error['message'] . " in " . $error['file'] . " on line " . $error['line']);
+        echo json_encode(['error' => 'A critical error occurred on the API server.']);
+        exit;
+    }
+});
 
-// 现在可以安全地调用 load_env()
+// -- 1. 加载核心函数 --
+$functions_path = dirname(__DIR__) . '/includes/functions.php'; // 路径修正
+if (!file_exists($functions_path)) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Server misconfiguration: functions.php not found.']);
+    exit;
+}
+require_once $functions_path;
+
+// -- 2. 加载环境变量 --
 load_env();
 
-// --- 再加载其他依赖 ---
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../includes/Auth.php';
-require_once __DIR__ . '/../controllers/AuthController.php';
-require_once __DIR__ . '/../controllers/EmailController.php';
-require_once __DIR__ . '/../controllers/WinningNumbersController.php';
+// -- 3. 加载所有其他依赖 --
+$baseDir = dirname(__DIR__); // 路径修正
+$dependencies = [
+    $baseDir . '/config/database.php',
+    $baseDir . '/includes/Auth.php',
+    $baseDir . '/controllers/AuthController.php',
+    $baseDir . '/controllers/EmailController.php',
+    $baseDir . '/controllers/WinningNumbersController.php'
+];
 
-// 处理CORS预检请求
+foreach ($dependencies as $dep) {
+    if (!file_exists($dep)) {
+        send_json_response(['error' => 'Server misconfiguration: Missing file ' . basename($dep)], 500);
+    }
+    require_once $dep;
+}
+
+// -- 4. CORS 和路由逻辑 --
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     header("Access-Control-Allow-Origin: *");
     header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
     header("Access-Control-Allow-Headers: Content-Type, Authorization");
     exit(0);
 }
-// 为实际请求设置CORS头
 header("Access-Control-Allow-Origin: *");
 
-// --- 路由逻辑 ---
-
-// 从请求URI中解析出干净的路径
 $basePath = dirname($_SERVER['SCRIPT_NAME']);
 $requestUri = $_SERVER['REQUEST_URI'];
-$queryString = $_SERVER['QUERY_STRING'];
-$route = str_replace('?' . $queryString, '', $requestUri);
-if (strpos($route, $basePath) === 0) {
-    $route = substr($route, strlen($basePath));
-}
+$route = parse_url($requestUri, PHP_URL_PATH);
+if ($basePath !== '/' && strpos($route, $basePath) === 0) { $route = substr($route, strlen($basePath)); }
 $route = trim($route, '/');
-
+// 从路由中移除 'api' 前缀
+if (strpos($route, 'api/') === 0) {
+    $route = substr($route, 4);
+}
 $requestParts = explode('/', $route);
 
 $resource = $requestParts[0] ?? null;
-$action = $requestParts[1] ?? null;
 $method = $_SERVER['REQUEST_METHOD'];
+$action = $requestParts[1] ?? null;
 $input = json_decode(file_get_contents('php://input'), true);
 
-try {
-    switch ($resource) {
-        case 'users':
-            $authController = new AuthController();
-            if ($method === 'POST' && $action === 'register') {
-                $authController->register($input);
-            } elseif ($method === 'POST' && $action === 'login') {
-                $authController->login($input);
-            }
-            break;
-
-        case 'emails':
-            verify_internal_secret();
-            $emailController = new EmailController();
-            if ($method === 'POST' && $action === 'receive') {
-                $emailController->receive($input);
-            }
-            break;
-        
-        case 'winning-numbers':
-            $winningNumbersController = new WinningNumbersController();
-            if ($method === 'GET') {
-                $winningNumbersController->getAll();
-            } 
-            elseif ($method === 'POST') {
-                verify_internal_secret();
-                $winningNumbersController->add($input);
-            }
-            break;
-            
-        default:
-            send_json_response(['message' => 'Welcome to the API. Endpoint not found.'], 404);
-            break;
-    }
-} catch (Throwable $e) {
-    // 捕获任何未预料的错误，并以JSON格式返回，而不是让服务器崩溃
-    error_log($e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine());
-    send_json_response(['error' => 'An internal server error occurred.'], 500);
+switch ($resource) {
+    case 'winning-numbers':
+        $controller = new WinningNumbersController();
+        if ($method === 'GET') { $controller->getAll(); }
+        // 可以在这里添加 POST 逻辑
+        break;
+    default:
+        send_json_response(['message' => 'API endpoint not found.'], 404);
+        break;
 }
+?>
