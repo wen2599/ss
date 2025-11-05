@@ -1,12 +1,6 @@
 <IfModule mod_rewrite.c>
-  RewriteEngine On
-
-  # Handle Authorization Header
-  RewriteCond %{HTTP:Authorization} .
-  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-
-  # Redirect all requests to api.php
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule ^(.*)$ api.php?$1 [L,QSA]
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ api.php [QSA,L]
 </IfModule>
