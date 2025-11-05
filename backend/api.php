@@ -92,14 +92,6 @@ class APIHandler {
                 $response = $this->processEmail();
                 break;
 
-            case 'register':
-                $response = $this->registerUser();
-                break;
-
-            case 'login':
-                $response = $this->loginUser();
-                break;
-
             case 'get_emails':
                 $user = $this->validateAuthToken();
                 $response = $this->getEmails($user);
@@ -182,92 +174,7 @@ class APIHandler {
             return array('success' => false, 'error' => 'Database operation failed: ' . $e->getMessage());
         }
     }
-
-    private function registerUser() {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            return array('success' => false, 'error' => 'Method Not Allowed');
-        }
-
-        $email = isset($_POST['email']) ? $_POST['email'] : null;
-        $password = isset($_POST['password']) ? $_POST['password'] : null;
-
-        if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return array('success' => false, 'error' => 'Invalid or missing email.');
-        }
-        if (!$password || strlen($password) < 8) {
-            return array('success' => false, 'error' => 'Password must be at least 8 characters long.');
-        }
-
-        try {
-            $pdo = $this->db->getConnection();
-
-            // Check if user already exists
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = :email");
-            $stmt->execute(array(':email' => $email));
-            if ($stmt->fetchColumn() > 0) {
-                return array('success' => false, 'error' => 'Email already registered.');
-            }
-
-            // Hash password and insert user
-            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-            $sql = "INSERT INTO users (email, password) VALUES (:email, :password)";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute(array(':email' => $email, ':password' => $hashedPassword));
-
-            return array('success' => true, 'message' => 'User registered successfully.');
-
-        } catch (Exception $e) {
-            http_response_code(500);
-            return array('success' => false, 'error' => 'Registration failed: ' . $e->getMessage());
-        }
-    }
-
-    private function loginUser() {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            return array('success' => false, 'error' => 'Method Not Allowed');
-        }
-
-        $email = isset($_POST['email']) ? $_POST['email'] : null;
-        $password = isset($_POST['password']) ? $_POST['password'] : null;
-
-        if (!$email || !$password) {
-            return array('success' => false, 'error' => 'Email and password are required.');
-        }
-
-        try {
-            $pdo = $this->db->getConnection();
-
-            // Find user by email
-            $stmt = $pdo->prepare("SELECT id, password FROM users WHERE email = :email");
-            $stmt->execute(array(':email' => $email));
-            $user = $stmt->fetch();
-
-            if (!$user || !password_verify($password, $user['password'])) {
-                return array('success' => false, 'error' => 'Invalid credentials.');
-            }
-
-            // Generate and save auth token
-            $token = bin2hex(random_bytes(32));
-            $expiresAt = date('Y-m-d H:i:s', time() + 86400); // 24 hours expiry
-
-            $sql = "UPDATE users SET auth_token = :token, token_expires_at = :expires_at WHERE id = :id";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute(array(
-                ':token' => $token,
-                ':expires_at' => $expiresAt,
-                ':id' => $user['id']
-            ));
-
-            return array('success' => true, 'token' => $token);
-
-        } catch (Exception $e) {
-            http_response_code(500);
-            return array('success' => false, 'error' => 'Login failed: ' . $e->getMessage());
-        }
-    }
-
+    
     private function getEmails($user) {
         try {
             $pdo = $this->db->getConnection();
