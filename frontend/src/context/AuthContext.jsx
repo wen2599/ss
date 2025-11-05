@@ -1,58 +1,47 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '../api'; // 调整路径
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+
+// 从 '../api' 导入命名导出的 'api' 对象
+import { api } from '../api'; 
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
+    const [token, setToken] = useState(() => localStorage.getItem('token')); // 初始化时直接读取
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            api.get('/users/me')
-                .then(response => {
-                    setUser(response.data);
-                })
-                .catch(() => {
-                    localStorage.removeItem('token');
-                })
-                .finally(() => setLoading(false));
-        } else {
-            setLoading(false);
+        const storedToken = localStorage.getItem('token');
+        if (storedToken) {
+            setUser({ isAuthenticated: true });
+            setToken(storedToken);
         }
+        setLoading(false);
     }, []);
 
-    const login = async (username, password) => {
-        const response = await api.post('/auth/login', { username, password });
-        const { token, user } = response.data;
-        localStorage.setItem('token', token);
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        setUser(user);
-    };
-
-    const register = async (username, email, password) => {
-        const response = await api.post('/auth/register', { username, email, password });
-        const { token, user } = response.data;
-        localStorage.setItem('token', token);
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        setUser(user);
+    // login 函数现在接收一个完整的 api 调用函数
+    const login = async (loginFunction) => {
+        const data = await loginFunction(); // loginFunction 会是例如 api.login(...)
+        localStorage.setItem('token', data.token);
+        setToken(data.token);
+        setUser({ isAuthenticated: true });
     };
 
     const logout = () => {
         localStorage.removeItem('token');
-        delete api.defaults.headers.common['Authorization'];
+        setToken(null);
         setUser(null);
     };
 
-    const value = { user, login, register, logout, loading };
+    const value = { user, token, login, logout, loading };
 
     return (
         <AuthContext.Provider value={value}>
-            {!loading && children}
+            {children}
         </AuthContext.Provider>
     );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+    return useContext(AuthContext);
+};
