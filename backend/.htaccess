@@ -6,7 +6,7 @@
     RewriteCond %{REQUEST_FILENAME} !-d
     
     # Route API requests
-    RewriteRule ^api/(.*)$ api.php [L]
+    RewriteRule ^api/?$ api.php [L]
     
     # Route Bot webhook requests
     RewriteRule ^webhook$ bot.php [L]
