@@ -1,14 +1,4 @@
 <?php
-// --- Temporary Debugging ---
-$raw_input = file_get_contents('php://input');
-$headers = getallheaders();
-$log_data = "Timestamp: " . date('Y-m-d H:i:s') . "\n";
-$log_data .= "Raw Input: " . $raw_input . "\n";
-$log_data .= "Headers: " . json_encode($headers, JSON_PRETTY_PRINT) . "\n";
-$log_data .= "--------------------------------------------------\n";
-file_put_contents(__DIR__ . '/webhook_log.txt', $log_data, FILE_APPEND);
-// --- End Temporary Debugging ---
-
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../config/database.php';
 
@@ -16,6 +6,17 @@ $botToken = getenv('TELEGRAM_BOT_TOKEN');
 $adminId = getenv('TELEGRAM_ADMIN_ID');
 $internalApiSecret = getenv('INTERNAL_API_SECRET');
 $backendUrl = getenv('BACKEND_URL');
+$webhookSecret = getenv('TELEGRAM_WEBHOOK_SECRET');
+
+// --- Webhook Secret Validation ---
+if (php_sapi_name() !== 'cli') { // Skip validation in CLI mode
+    $secret_header = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
+    if ($secret_header !== $webhookSecret) {
+        http_response_code(403);
+        die('Forbidden: Invalid secret token');
+    }
+}
+// --- End Validation ---
 
 function sendMessage($chatId, $text) {
     global $botToken;
@@ -31,7 +32,7 @@ function sendMessage($chatId, $text) {
     curl_close($ch);
 }
 
-$update = json_decode($raw_input, true); // Use the captured raw input
+$update = json_decode(file_get_contents('php://input'), true);
 if (!$update) { exit(); }
 
 $message = $update['message'] ?? null;
@@ -41,7 +42,7 @@ $userId = $message['from']['id'] ?? null;
 
 // 仅允许管理员操作
 if ($userId != $adminId) {
-    if ($chatId) { // Only send a message if we have a valid chat ID
+    if ($chatId) {
         sendMessage($chatId, "抱歉，您无权操作。");
     }
     exit;
@@ -85,14 +86,12 @@ if ($text && strpos($text, '/add') === 0) {
 // 注册 webhook 的命令 (一次性)
 // 访问 /bot/webhook.php?setup=true 来设置
 elseif (isset($_GET['setup']) && $_GET['setup'] === 'true'){
-    // --- Add Webhook Secret to Setup ---
-    $webhookSecret = getenv('TELEGRAM_WEBHOOK_SECRET');
     $webhookUrl = $backendUrl . '/bot/webhook.php';
     $url = "https://api.telegram.org/bot{$botToken}/setWebhook?url=" . urlencode($webhookUrl) . "&secret_token=" . urlencode($webhookSecret);
     $response = file_get_contents($url);
     echo $response;
 } else {
-    if ($chatId) { // Only send a message if we have a valid chat ID
+    if ($chatId) {
         sendMessage($chatId, "未知命令。");
     }
 }
