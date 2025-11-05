@@ -45,13 +45,9 @@ class Database {
     private $connection;
     
     public function __construct() {
-        $host = Config::get('DB_HOST');
-
-        // --- TEMPORARY DEBUGGING ---
-        echo "Debug output for DB_HOST:\n";
-        var_dump($host);
-        exit;
-        // -------------------------
+        $host_raw = Config::get('DB_HOST');
+        // Final Fix: Forcefully sanitize the host string to remove any potential invisible characters.
+        $host = preg_replace('/[^\w\.\-]/', '', $host_raw);
 
         $port = Config::get('DB_PORT');
         $dbname = Config::get('DB_NAME');
