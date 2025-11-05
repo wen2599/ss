@@ -1,30 +1,41 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-
-// 从 '../api' 导入命名导出的 'api' 对象
-import { api } from '../api'; 
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { api } from '../api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(() => localStorage.getItem('token')); // 初始化时直接读取
+    const [token, setToken] = useState(() => localStorage.getItem('token'));
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const storedToken = localStorage.getItem('token');
-        if (storedToken) {
+        if (token) {
             setUser({ isAuthenticated: true });
-            setToken(storedToken);
         }
         setLoading(false);
-    }, []);
+    }, [token]);
 
-    // login 函数现在接收一个完整的 api 调用函数
-    const login = async (loginFunction) => {
-        const data = await loginFunction(); // loginFunction 会是例如 api.login(...)
-        localStorage.setItem('token', data.token);
-        setToken(data.token);
-        setUser({ isAuthenticated: true });
+    const login = async (email, password) => {
+        try {
+            const data = await api.login({ email, password });
+            localStorage.setItem('token', data.token);
+            setToken(data.token);
+            setUser({ isAuthenticated: true });
+            return data;
+        } catch (error) {
+            console.error("Login failed:", error);
+            throw error;
+        }
+    };
+
+    const register = async (email, password) => {
+        try {
+            const data = await api.register({ email, password });
+            return data;
+        } catch (error) {
+            console.error("Registration failed:", error);
+            throw error;
+        }
     };
 
     const logout = () => {
@@ -33,11 +44,11 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     };
 
-    const value = { user, token, login, logout, loading };
+    const value = { user, token, login, register, logout, loading };
 
     return (
         <AuthContext.Provider value={value}>
-            {children}
+            {!loading && children}
         </AuthContext.Provider>
     );
 };

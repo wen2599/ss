@@ -3,9 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const RegisterForm = () => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
     const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const { register } = useAuth();
     const navigate = useNavigate();
@@ -14,23 +13,16 @@ const RegisterForm = () => {
         e.preventDefault();
         setError('');
         try {
-            await register(username, email, password);
-            navigate('/dashboard');
+            await register(email, password);
+            navigate('/login');
         } catch (err) {
-            setError('注册失败，请稍后再试。');
+            setError(err.message || '注册失败，请稍后再试。');
         }
     };
 
     return (
         <form onSubmit={handleSubmit} className="form-container">
             {error && <p className="error-message">{error}</p>}
-            <input
-                type="text"
-                placeholder="用户名"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-            />
             <input
                 type="email"
                 placeholder="电子邮箱"

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const LoginForm = () => {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const { login } = useAuth();
@@ -13,10 +13,10 @@ const LoginForm = () => {
         e.preventDefault();
         setError('');
         try {
-            await login(username, password);
+            await login(email, password);
             navigate('/dashboard');
         } catch (err) {
-            setError('登录失败，请检查您的用户名和密码。');
+            setError('登录失败，请检查您的邮箱和密码。');
         }
     };
 
@@ -24,10 +24,10 @@ const LoginForm = () => {
         <form onSubmit={handleSubmit} className="form-container">
             {error && <p className="error-message">{error}</p>}
             <input
-                type="text"
-                placeholder="用户名"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                type="email"
+                placeholder="邮箱"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
             />
             <input
