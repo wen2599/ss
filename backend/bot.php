@@ -23,7 +23,9 @@ class TelegramBot {
         $secretToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
         if ($this->webhookSecret && $secretToken !== $this->webhookSecret) {
             http_response_code(403);
-            error_log('Webhook secret validation failed.');
+            error_log('!!! Webhook secret validation FAILED !!!');
+            error_log('Expected Secret: ' . $this->webhookSecret);
+            error_log('Received Secret: ' . $secretToken);
             echo 'Forbidden';
             exit;
         }
