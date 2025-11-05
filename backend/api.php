@@ -15,10 +15,10 @@ class APIHandler {
     }
 
     private function validateWorkerSecret() {
-        $clientSecret = $_GET['worker_secret'] ?? $_POST['worker_secret'] ?? null;
+        $clientSecret = isset($_GET['worker_secret']) ? $_GET['worker_secret'] : (isset($_POST['worker_secret']) ? $_POST['worker_secret'] : null);
         if (!$this->workerSecret || $clientSecret !== $this->workerSecret) {
             http_response_code(401);
-            echo json_encode(['success' => false, 'error' => 'Unauthorized worker']);
+            echo json_encode(array('success' => false, 'error' => 'Unauthorized worker'));
             exit;
         }
     }
@@ -31,12 +31,12 @@ class APIHandler {
             $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
         } elseif (function_exists('getallheaders')) {
             $headers = getallheaders();
-            $authHeader = $headers['Authorization'] ?? null;
+            $authHeader = isset($headers['Authorization']) ? $headers['Authorization'] : null;
         }
 
         if (!$authHeader || !preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
             http_response_code(401);
-            echo json_encode(['success' => false, 'error' => 'Unauthorized: Missing or invalid token.']);
+            echo json_encode(array('success' => false, 'error' => 'Unauthorized: Missing or invalid token.'));
             exit;
         }
 
@@ -50,35 +50,35 @@ class APIHandler {
 
             if (!$user) {
                 http_response_code(401);
-                echo json_encode(['success' => false, 'error' => 'Unauthorized: Invalid or expired token.']);
+                echo json_encode(array('success' => false, 'error' => 'Unauthorized: Invalid or expired token.'));
                 exit;
             }
 
             return $user; // Return user data on success
         } catch (Exception $e) {
             http_response_code(500);
-            echo json_encode(['success' => false, 'error' => 'Token validation failed: ' . $e->getMessage()]);
+            echo json_encode(array('success' => false, 'error' => 'Token validation failed: ' . $e->getMessage()));
             exit;
         }
     }
 
     private function validateApiKey() {
-        $clientApiKey = $_SERVER['HTTP_X_API_KEY'] ?? null;
+        $clientApiKey = isset($_SERVER['HTTP_X_API_KEY']) ? $_SERVER['HTTP_X_API_KEY'] : null;
         if ($clientApiKey !== $this->apiKey) {
             http_response_code(401);
-            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+            echo json_encode(array('success' => false, 'error' => 'Unauthorized'));
             exit;
         }
     }
 
     public function handleRequest() {
-        $action = $_GET['action'] ?? 'get_lottery_results';
+        $action = isset($_GET['action']) ? $_GET['action'] : 'get_lottery_results';
 
         switch ($action) {
             case 'get_lottery_results':
                 $this->validateApiKey();
-                $type = $_GET['type'] ?? null;
-                $limit = $_GET['limit'] ?? 20;
+                $type = isset($_GET['type']) ? $_GET['type'] : null;
+                $limit = isset($_GET['limit']) ? $_GET['limit'] : 20;
                 $response = $this->getResults($type, $limit);
                 break;
 
@@ -112,7 +112,7 @@ class APIHandler {
 
             default:
                 http_response_code(400);
-                $response = ['success' => false, 'error' => 'Invalid action'];
+                $response = array('success' => false, 'error' => 'Invalid action');
                 break;
         }
 
@@ -121,34 +121,34 @@ class APIHandler {
 
     private function isUserRegistered() {
         if (!isset($_GET['email'])) {
-            return ['success' => false, 'error' => 'Email parameter is required.'];
+            return array('success' => false, 'error' => 'Email parameter is required.');
         }
 
         try {
             $pdo = $this->db->getConnection();
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = :email");
-            $stmt->execute([':email' => $_GET['email']]);
+            $stmt->execute(array(':email' => $_GET['email']));
             $count = $stmt->fetchColumn();
 
-            return ['success' => true, 'is_registered' => $count > 0];
+            return array('success' => true, 'is_registered' => $count > 0);
         } catch (Exception $e) {
             http_response_code(500);
-            return ['success' => false, 'error' => 'Database query failed: ' . $e->getMessage()];
+            return array('success' => false, 'error' => 'Database query failed: ' . $e->getMessage());
         }
     }
 
     private function processEmail() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
-            return ['success' => false, 'error' => 'Method Not Allowed'];
+            return array('success' => false, 'error' => 'Method Not Allowed');
         }
 
-        $from = $_POST['from'] ?? null;
-        $subject = $_POST['subject'] ?? null;
-        $body = $_POST['body'] ?? null;
+        $from = isset($_POST['from']) ? $_POST['from'] : null;
+        $subject = isset($_POST['subject']) ? $_POST['subject'] : null;
+        $body = isset($_POST['body']) ? $_POST['body'] : null;
 
         if (!$from || !$subject || !$body) {
-            return ['success' => false, 'error' => 'Missing required fields: from, subject, body.'];
+            return array('success' => false, 'error' => 'Missing required fields: from, subject, body.');
         }
 
         try {
@@ -156,47 +156,47 @@ class APIHandler {
 
             // Find the user_id from the sender's email
             $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
-            $stmt->execute([':email' => $from]);
+            $stmt->execute(array(':email' => $from));
             $user = $stmt->fetch();
 
             if (!$user) {
                 // This should theoretically not happen if the worker checks first, but as a safeguard:
-                return ['success' => false, 'error' => 'Sender not found.'];
+                return array('success' => false, 'error' => 'Sender not found.');
             }
             $userId = $user['id'];
 
             // Insert the email into the database
             $sql = "INSERT INTO emails (user_id, sender, subject, body) VALUES (:user_id, :sender, :subject, :body)";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([
+            $stmt->execute(array(
                 ':user_id' => $userId,
                 ':sender' => $from,
                 ':subject' => $subject,
                 ':body' => $body
-            ]);
+            ));
 
-            return ['success' => true, 'message' => 'Email processed successfully.'];
+            return array('success' => true, 'message' => 'Email processed successfully.');
 
         } catch (Exception $e) {
             http_response_code(500);
-            return ['success' => false, 'error' => 'Database operation failed: ' . $e->getMessage()];
+            return array('success' => false, 'error' => 'Database operation failed: ' . $e->getMessage());
         }
     }
 
     private function registerUser() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
-            return ['success' => false, 'error' => 'Method Not Allowed'];
+            return array('success' => false, 'error' => 'Method Not Allowed');
         }
 
-        $email = $_POST['email'] ?? null;
-        $password = $_POST['password'] ?? null;
+        $email = isset($_POST['email']) ? $_POST['email'] : null;
+        $password = isset($_POST['password']) ? $_POST['password'] : null;
 
         if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return ['success' => false, 'error' => 'Invalid or missing email.'];
+            return array('success' => false, 'error' => 'Invalid or missing email.');
         }
         if (!$password || strlen($password) < 8) {
-            return ['success' => false, 'error' => 'Password must be at least 8 characters long.'];
+            return array('success' => false, 'error' => 'Password must be at least 8 characters long.');
         }
 
         try {
@@ -204,36 +204,36 @@ class APIHandler {
 
             // Check if user already exists
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = :email");
-            $stmt->execute([':email' => $email]);
+            $stmt->execute(array(':email' => $email));
             if ($stmt->fetchColumn() > 0) {
-                return ['success' => false, 'error' => 'Email already registered.'];
+                return array('success' => false, 'error' => 'Email already registered.');
             }
 
             // Hash password and insert user
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
             $sql = "INSERT INTO users (email, password) VALUES (:email, :password)";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([':email' => $email, ':password' => $hashedPassword]);
+            $stmt->execute(array(':email' => $email, ':password' => $hashedPassword));
 
-            return ['success' => true, 'message' => 'User registered successfully.'];
+            return array('success' => true, 'message' => 'User registered successfully.');
 
         } catch (Exception $e) {
             http_response_code(500);
-            return ['success' => false, 'error' => 'Registration failed: ' . $e->getMessage()];
+            return array('success' => false, 'error' => 'Registration failed: ' . $e->getMessage());
         }
     }
 
     private function loginUser() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
-            return ['success' => false, 'error' => 'Method Not Allowed'];
+            return array('success' => false, 'error' => 'Method Not Allowed');
         }
 
-        $email = $_POST['email'] ?? null;
-        $password = $_POST['password'] ?? null;
+        $email = isset($_POST['email']) ? $_POST['email'] : null;
+        $password = isset($_POST['password']) ? $_POST['password'] : null;
 
         if (!$email || !$password) {
-            return ['success' => false, 'error' => 'Email and password are required.'];
+            return array('success' => false, 'error' => 'Email and password are required.');
         }
 
         try {
@@ -241,11 +241,11 @@ class APIHandler {
 
             // Find user by email
             $stmt = $pdo->prepare("SELECT id, password FROM users WHERE email = :email");
-            $stmt->execute([':email' => $email]);
+            $stmt->execute(array(':email' => $email));
             $user = $stmt->fetch();
 
             if (!$user || !password_verify($password, $user['password'])) {
-                return ['success' => false, 'error' => 'Invalid credentials.'];
+                return array('success' => false, 'error' => 'Invalid credentials.');
             }
 
             // Generate and save auth token
@@ -254,17 +254,17 @@ class APIHandler {
 
             $sql = "UPDATE users SET auth_token = :token, token_expires_at = :expires_at WHERE id = :id";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([
+            $stmt->execute(array(
                 ':token' => $token,
                 ':expires_at' => $expiresAt,
                 ':id' => $user['id']
-            ]);
+            ));
 
-            return ['success' => true, 'token' => $token];
+            return array('success' => true, 'token' => $token);
 
         } catch (Exception $e) {
             http_response_code(500);
-            return ['success' => false, 'error' => 'Login failed: ' . $e->getMessage()];
+            return array('success' => false, 'error' => 'Login failed: ' . $e->getMessage());
         }
     }
 
@@ -272,37 +272,37 @@ class APIHandler {
         try {
             $pdo = $this->db->getConnection();
             $stmt = $pdo->prepare("SELECT id, sender, subject, received_at FROM emails WHERE user_id = :user_id ORDER BY received_at DESC");
-            $stmt->execute([':user_id' => $user['id']]);
+            $stmt->execute(array(':user_id' => $user['id']));
             $emails = $stmt->fetchAll();
 
-            return ['success' => true, 'data' => $emails];
+            return array('success' => true, 'data' => $emails);
         } catch (Exception $e) {
             http_response_code(500);
-            return ['success' => false, 'error' => 'Failed to fetch emails: ' . $e->getMessage()];
+            return array('success' => false, 'error' => 'Failed to fetch emails: ' . $e->getMessage());
         }
     }
 
     private function getEmailBody($user) {
-        $emailId = $_GET['id'] ?? null;
+        $emailId = isset($_GET['id']) ? $_GET['id'] : null;
         if (!$emailId) {
-            return ['success' => false, 'error' => 'Email ID is required.'];
+            return array('success' => false, 'error' => 'Email ID is required.');
         }
 
         try {
             $pdo = $this->db->getConnection();
             $stmt = $pdo->prepare("SELECT * FROM emails WHERE id = :id AND user_id = :user_id");
-            $stmt->execute([':id' => $emailId, ':user_id' => $user['id']]);
+            $stmt->execute(array(':id' => $emailId, ':user_id' => $user['id']));
             $email = $stmt->fetch();
 
             if (!$email) {
                 http_response_code(404);
-                return ['success' => false, 'error' => 'Email not found or you do not have permission to view it.'];
+                return array('success' => false, 'error' => 'Email not found or you do not have permission to view it.');
             }
 
-            return ['success' => true, 'data' => $email];
+            return array('success' => true, 'data' => $email);
         } catch (Exception $e) {
             http_response_code(500);
-            return ['success' => false, 'error' => 'Failed to fetch email body: ' . $e->getMessage()];
+            return array('success' => false, 'error' => 'Failed to fetch email body: ' . $e->getMessage());
         }
     }
     
@@ -311,9 +311,9 @@ class APIHandler {
             $pdo = $this->db->getConnection();
             $limit = max(1, intval($limit));
 
-            $params = [];
+            $params = array();
             
-            if ($type && in_array($type, ['双色球', '大乐透'])) {
+            if ($type && in_array($type, array('双色球', '大乐透'))) {
                 $sql = "SELECT * FROM lottery_results WHERE lottery_type = :type ORDER BY draw_date DESC, id DESC LIMIT :limit";
                 $params[':type'] = $type;
             } else {
@@ -329,18 +329,18 @@ class APIHandler {
             $stmt->execute();
             $results = $stmt->fetchAll();
             
-            return [
+            return array(
                 'success' => true,
                 'data' => $results,
                 'count' => count($results)
-            ];
+            );
             
         } catch (Exception $e) {
             http_response_code(500);
-            return [
+            return array(
                 'success' => false,
                 'error' => 'API Error: ' . $e->getMessage()
-            ];
+            );
         }
     }
 }
