@@ -8,35 +8,12 @@ class TelegramBot {
     private $db;
     private $adminId;
 
-    private $webhookSecret;
-
     public function __construct() {
         $this->botToken = Config::get('BOT_TOKEN');
         $this->channelId = Config::get('CHANNEL_ID');
         $this->apiKey = Config::get('API_KEY');
-        $this->webhookSecret = Config::get('TELEGRAM_WEBHOOK_SECRET');
         $this->adminId = Config::get('TELEGRAM_ADMIN_ID');
         $this->db = new Database();
-    }
-
-    private function validateWebhookSecret() {
-        $secretToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
-        if ($this->webhookSecret && $secretToken !== $this->webhookSecret) {
-            http_response_code(403);
-
-            // Send debug message to admin instead of logging to file
-            if ($this->adminId) {
-                $debugMessage = "⚠️ Webhook Secret Validation FAILED! ⚠️\n\n";
-                $debugMessage .= "Expected:\n`" . $this->webhookSecret . "`\n\n";
-                $debugMessage .= "Received:\n`" . ($secretToken ? $secretToken : "NONE") . "`\n\n";
-                $debugMessage .= "From IP: " . ($_SERVER['REMOTE_ADDR'] ?? 'Unknown');
-
-                $this->sendMessage($this->adminId, $debugMessage);
-            }
-
-            echo 'Forbidden';
-            exit;
-        }
     }
 
     public function handleRequest() {
@@ -53,12 +30,9 @@ class TelegramBot {
         error_log("===== New Bot Request =====");
         error_log("Headers: " . json_encode($headers, JSON_PRETTY_PRINT));
         error_log("Input Body: " . $input);
-        error_log("Loaded Webhook Secret: " . ($this->webhookSecret ? 'SET' : 'NOT SET'));
         error_log("=========================");
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $this->validateWebhookSecret();
-
             $update = json_decode($input, true);
             if ($update) {
                 $this->processUpdate($update);
