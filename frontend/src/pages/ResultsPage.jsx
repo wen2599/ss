@@ -1,39 +1,41 @@
 import React from 'react';
-import useApi from '../hooks/useApi'; // 调整路径
+import { useApi } from '../hooks/useApi'; // 使用花括号进行命名导入
+import { api } from '../api';
+import Card from '../components/common/Card';
 
-const ResultsPage = () => {
-    const { data: results, loading, error } = useApi('/matches/results');
-
-    if (loading) return <p>加载中...</p>;
-    if (error) return <p>加载结果失败: {error.message}</p>;
-
+function ResultsPage() {
+    // 调用 useApi，不带参数即表示 limit=100 (api.js中的默认值)
+    const { data: numbers, loading, error } = useApi(api.getWinningNumbers);
+    
     return (
-        <div className="card">
-            <div className="card-header">
-                <h3>比赛结果</h3>
-            </div>
-            <div className="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>比赛</th>
-                            <th>结果</th>
-                            <th>结束时间</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {results && results.map(result => (
-                            <tr key={result.id}>
-                                <td>{result.match.name}</td>
-                                <td>{result.result}</td>
-                                <td>{new Date(result.match.endTime).toLocaleString()}</td>
+        <Card>
+            <div className="card-header">历史开奖公告</div>
+            {loading && <p>加载中...</p>}
+            {error && <p style={{ color: 'var(--error-color)'}}>加载失败: {error.message}</p>}
+            {numbers && (
+                <div className="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>期号</th>
+                                <th>开奖日期</th>
+                                <th>开奖号码</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                        </thead>
+                        <tbody>
+                            {numbers.map(num => (
+                                <tr key={num.issue_number}>
+                                    <td>{num.issue_number}</td>
+                                    <td>{num.draw_date}</td>
+                                    <td><strong>{num.numbers}</strong></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </Card>
     );
-};
+}
 
 export default ResultsPage;
