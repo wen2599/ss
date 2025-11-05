@@ -2,11 +2,6 @@
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/config/database.php';
 
-// --- Debug: Check if DB_HOST is loaded ---
-$db_host = getenv('DB_HOST');
-echo "--- Debug: DB_HOST value is: " . ($db_host ? $db_host : "NOT SET") . " ---\n";
-// --- End Debug ---
-
 try {
     $pdo = get_db_connection();
     echo "数据库连接成功...\n";

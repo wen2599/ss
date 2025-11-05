@@ -1,28 +1,14 @@
 <?php
 // 加载 .env 文件
 function load_env() {
-    echo "--- Debug: Starting .env load attempt ---\n";
-    echo "--- Debug: Script directory (__DIR__): " . __DIR__ . "\n";
-
-    $path_attempt1 = __DIR__ . '/../../.env';
-    echo "--- Debug: Checking path 1 (project root): " . $path_attempt1 . "\n";
-
-    $path_attempt2 = __DIR__ . '/../.env';
-    echo "--- Debug: Checking path 2 (backend root): " . $path_attempt2 . "\n";
-
-    $dotenv_path = null;
-
-    if (file_exists($path_attempt1)) {
-        echo "--- Debug: .env file found at path 1.\n";
-        $dotenv_path = $path_attempt1;
-    } elseif (file_exists($path_attempt2)) {
-        echo "--- Debug: .env file found at path 2.\n";
-        $dotenv_path = $path_attempt2;
-    } else {
-        echo "--- Debug: .env file not found in any checked paths.\n";
-        return;
+    $dotenv_path = __DIR__ . '/../../.env';
+    if (!file_exists($dotenv_path)) {
+        // 如果在根目录找不到，尝试在当前目录的上一级目录找（兼容旧的部署方式）
+        $dotenv_path = __DIR__ . '/../.env';
+        if (!file_exists($dotenv_path)) {
+            return;
+        }
     }
-
     $lines = file($dotenv_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
         if (strpos(trim($line), '#') === 0) {
@@ -31,6 +17,12 @@ function load_env() {
         list($name, $value) = explode('=', $line, 2);
         $name = trim($name);
         $value = trim($value);
+
+        // Strip surrounding quotes from value
+        if (strlen($value) > 1 && (($value[0] === '"' && $value[strlen($value) - 1] === '"') || ($value[0] === "'" && $value[strlen($value) - 1] === "'"))) {
+            $value = substr($value, 1, -1);
+        }
+
         if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
             putenv(sprintf('%s=%s', $name, $value));
             $_ENV[$name] = $value;
