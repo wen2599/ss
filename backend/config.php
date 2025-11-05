@@ -12,18 +12,31 @@ class Config {
     
     private static function loadConfig() {
         $envFile = __DIR__ . '/.env';
-        if (!file_exists($envFile)) {
-            throw new Exception('.env file not found');
+        if (!file_exists($envFile) || !is_readable($envFile)) {
+            throw new Exception('.env file not found or is not readable');
         }
-        
-        $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
         self::$config = [];
-        
+        $content = file_get_contents($envFile);
+        $lines = preg_split('/(\r\n|\n|\r)/', $content);
+
         foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) continue;
-            
-            list($key, $value) = explode('=', $line, 2);
-            self::$config[trim($key)] = trim($value);
+            $line = trim($line);
+            if (empty($line) || strpos($line, '#') === 0) {
+                continue;
+            }
+
+            if (preg_match('/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.*)$/', $line, $matches)) {
+                $key = $matches[1];
+                $value = $matches[2];
+
+                // Remove surrounding quotes (single or double) if they exist
+                if (preg_match('/^"(.*)"$/', $value, $q_matches) || preg_match("/^'(.*)'$/", $value, $q_matches)) {
+                    $value = $q_matches[1];
+                }
+
+                self::$config[$key] = $value;
+            }
         }
     }
 }
@@ -33,6 +46,13 @@ class Database {
     
     public function __construct() {
         $host = Config::get('DB_HOST');
+
+        // --- TEMPORARY DEBUGGING ---
+        echo "Debug output for DB_HOST:\n";
+        var_dump($host);
+        exit;
+        // -------------------------
+
         $port = Config::get('DB_PORT');
         $dbname = Config::get('DB_NAME');
         $username = Config::get('DB_USER');
