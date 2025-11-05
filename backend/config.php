@@ -7,7 +7,7 @@ class Config {
             self::loadConfig();
         }
         
-        return isset(self::$config[$key]) ? self::$config[$key] : null;
+        return self::$config[$key] ?? null;
     }
     
     private static function loadConfig() {
