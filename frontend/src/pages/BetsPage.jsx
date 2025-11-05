@@ -1,41 +1,59 @@
 import React from 'react';
-import useApi from '../hooks/useApi'; // 调整路径
+import { useApi } from '../hooks/useApi'; // 使用花括号进行命名导入
+import { api } from '../api';
+import Card from '../components/common/Card';
+import StatusPill from '../components/common/StatusPill';
 
-const BetsPage = () => {
-    const { data: bets, loading, error } = useApi('/bets');
+// 模拟数据，直到后端API就绪
+const mockBets = [
+    { id: 1, issue_number: '2023125', status: 'processed', winning_amount: 1500.00 },
+    { id: 2, issue_number: '2023125', status: 'error', winning_amount: 0.00 },
+    { id: 3, issue_number: '2023126', status: 'pending', winning_amount: 0.00 },
+    { id: 4, issue_number: '2023126', status: 'processing', winning_amount: 0.00 },
+];
 
-    if (loading) return <p>加载中...</p>;
-    if (error) return <p>加载竞猜失败: {error.message}</p>;
+function BetsPage() {
+    // 当后端API就绪时，解除下面的注释即可
+    // const { data: bets, loading, error } = useApi(api.getMyBets);
+    
+    // 暂时使用模拟数据
+    const bets = mockBets;
+    const loading = false;
+    const error = null;
 
     return (
-        <div className="card">
-            <div className="card-header">
-                <h3>我的竞猜</h3>
-            </div>
-            <div className="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>比赛</th>
-                            <th>我的选择</th>
-                            <th>金额</th>
-                            <th>状态</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {bets && bets.map(bet => (
-                            <tr key={bet.id}>
-                                <td>{bet.match.name}</td>
-                                <td>{bet.prediction}</td>
-                                <td>{bet.amount}</td>
-                                <td><span className={`pill pill-${bet.status === 'won' ? 'success' : bet.status === 'lost' ? 'error' : 'warning'}`}>{bet.status}</span></td>
+        <Card>
+            <div className="card-header">我的注单</div>
+            {loading && <p>加载中...</p>}
+            {error && <p style={{ color: 'var(--error-color)'}}>加载失败</p>}
+            {bets && (
+                <div className="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>注单ID</th>
+                                <th>期号</th>
+                                <th>状态</th>
+                                <th>结算金额</th>
+                                <th>操作</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                        </thead>
+                        <tbody>
+                            {bets.map(bet => (
+                                <tr key={bet.id}>
+                                    <td>#{bet.id}</td>
+                                    <td>{bet.issue_number}</td>
+                                    <td><StatusPill status={bet.status} /></td>
+                                    <td>¥{bet.winning_amount.toFixed(2)}</td>
+                                    <td><button className="btn btn-secondary">查看详情</button></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </Card>
     );
-};
+}
 
 export default BetsPage;
