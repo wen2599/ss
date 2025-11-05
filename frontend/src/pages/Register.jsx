@@ -1,46 +1,23 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import RegisterForm from '../components/RegisterForm'; // 我们将在下一步创建这个组件
+import Card from '../components/common/Card';
 
 function Register() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const { register } = useAuth();
-  const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      await register(email, password);
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err.message || '注册失败，请稍后重试。');
-    }
-  };
-
   return (
-    <div className="form-container">
-      <h2>注册</h2>
-      <form onSubmit={handleSubmit}>
-        {error && <p className="error-message">{error}</p>}
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="邮箱"
-          required
-        />
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="密码"
-          required
-        />
-        <button type="submit" className="btn">注册</button>
-      </form>
+    // 使用一个 wrapper 来居中卡片
+    <div style={{ maxWidth: '500px', margin: '4rem auto' }}>
+      <Card>
+        <div className="card-header">
+          <h2>创建您的账户</h2>
+          <p style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem', margin: '0.5rem 0 0 0' }}>
+            已有账户？ <Link to="/login">立即登录</Link>
+          </p>
+        </div>
+        <div style={{ padding: '1.5rem 0 0 0' }}>
+          <RegisterForm />
+        </div>
+      </Card>
     </div>
   );
 }

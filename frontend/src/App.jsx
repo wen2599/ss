@@ -19,17 +19,21 @@ function App() {
         <AuthProvider>
             <Router>
                 <Routes>
+                    {/* === PUBLIC ROUTES === */}
+                    <Route path="/" element={<Home />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
-                    <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
+                    
+                    {/* === PRIVATE ROUTES (需要登录) === */}
+                    <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
                         <Route index element={<Navigate to="/dashboard" />} />
                         <Route path="dashboard" element={<Dashboard />} />
                         <Route path="results" element={<ResultsPage />} />
                         <Route path="my-bets" element={<BetsPage />} />
                         <Route path="how-to-play" element={<HowToPlayPage />} />
                     </Route>
-                    {/* Fallback for non-authenticated users */}
-                    <Route path="*" element={<Navigate to="/login" />} />
+                    
+                    <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
             </Router>
         </AuthProvider>
