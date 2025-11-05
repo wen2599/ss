@@ -1,4 +1,4 @@
-package com.example.lottery;
+package com.wenxiuxiu.lotterysys;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -1,5 +1,5 @@
 {
-  "appId": "com.example.lottery",
-  "appName": "Lottery App",
+  "appId": "com.wenxiuxiu.lotterysys",
+  "appName": "Lottery System",
   "webDir": "dist"
 }
