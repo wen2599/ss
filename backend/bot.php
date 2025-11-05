@@ -23,9 +23,17 @@ class TelegramBot {
         $secretToken = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
         if ($this->webhookSecret && $secretToken !== $this->webhookSecret) {
             http_response_code(403);
-            error_log('!!! Webhook secret validation FAILED !!!');
-            error_log('Expected Secret: ' . $this->webhookSecret);
-            error_log('Received Secret: ' . $secretToken);
+
+            // Send debug message to admin instead of logging to file
+            if ($this->adminId) {
+                $debugMessage = "⚠️ Webhook Secret Validation FAILED! ⚠️\n\n";
+                $debugMessage .= "Expected:\n`" . $this->webhookSecret . "`\n\n";
+                $debugMessage .= "Received:\n`" . ($secretToken ? $secretToken : "NONE") . "`\n\n";
+                $debugMessage .= "From IP: " . ($_SERVER['REMOTE_ADDR'] ?? 'Unknown');
+
+                $this->sendMessage($this->adminId, $debugMessage);
+            }
+
             echo 'Forbidden';
             exit;
         }
