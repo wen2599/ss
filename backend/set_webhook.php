@@ -7,7 +7,6 @@ require_once 'config.php';
 
 try {
     $botToken = Config::get('TELEGRAM_BOT_TOKEN');
-    $webhookSecret = Config::get('TELEGRAM_WEBHOOK_SECRET');
 
     // Your server's public URL to the bot.php script
     $webhookUrl = 'https://wenge.cloudns.ch/bot.php';
@@ -19,22 +18,16 @@ try {
     // The URL for the Telegram setWebhook API
     $apiUrl = "https://api.telegram.org/bot{$botToken}/setWebhook";
 
-    // The parameters for the request
+    // The parameters for the request (now without secret_token)
     $params = [
         'url' => $webhookUrl,
     ];
-
-    // Add the secret token only if it's configured
-    if ($webhookSecret) {
-        $params['secret_token'] = $webhookSecret;
-    }
 
     // Build the final URL with query parameters
     $requestUrl = $apiUrl . '?' . http_build_query($params);
 
     echo "Setting webhook to:\n";
-    echo "URL: {$webhookUrl}\n";
-    echo "Secret Token: " . ($webhookSecret ? "Set" : "Not Set") . "\n\n";
+    echo "URL: {$webhookUrl}\n\n";
 
     // Send the request to the Telegram API
     $response = file_get_contents($requestUrl);
