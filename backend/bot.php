@@ -78,11 +78,34 @@ class TelegramBot {
         $chatId = $message['chat']['id'];
         $text = $message['text'] ?? '';
 
-        if ($text === '/start') {
-            $this->sendMessage($chatId, 'Welcome! This bot is active and ready to process channel posts.');
-        } else {
-            // Optionally, handle other direct commands here
-            $this->sendMessage($chatId, 'I am a channel bot and do not have other commands for direct messages.');
+        $keyboard = [
+            'keyboard' => [
+                ['获取最新双色球', '获取最新大乐透'],
+                ['帮助']
+            ],
+            'resize_keyboard' => true,
+            'one_time_keyboard' => false
+        ];
+
+        switch ($text) {
+            case '/start':
+                $this->sendMessage($chatId, '欢迎使用！请选择一个操作：', $keyboard);
+                break;
+            case '获取最新双色球':
+                $response = $this->getLatestResult('双色球');
+                $this->sendMessage($chatId, $response, $keyboard);
+                break;
+            case '获取最新大乐透':
+                $response = $this->getLatestResult('大乐透');
+                $this->sendMessage($chatId, $response, $keyboard);
+                break;
+            case '帮助':
+                $helpText = "这是一个彩票结果查询机器人。\n\n- 我会自动监控指定频道，保存最新的开奖结果。\n- 您可以通过下方的键盘按钮查询已保存的最新结果。";
+                $this->sendMessage($chatId, $helpText, $keyboard);
+                break;
+            default:
+                $this->sendMessage($chatId, '抱歉，我不理解您的指令。请使用下方的键盘按钮。', $keyboard);
+                break;
         }
     }
 
@@ -145,12 +168,15 @@ class TelegramBot {
         }
     }
 
-    private function sendMessage($chatId, $text) {
+    private function sendMessage($chatId, $text, $reply_markup = null) {
         $apiUrl = "https://api.telegram.org/bot{$this->botToken}/sendMessage";
         $params = [
             'chat_id' => $chatId,
             'text' => $text,
         ];
+        if ($reply_markup) {
+            $params['reply_markup'] = json_encode($reply_markup);
+        }
         $requestUrl = $apiUrl . '?' . http_build_query($params);
 
         // Use a stream context to handle potential errors gracefully
@@ -160,6 +186,25 @@ class TelegramBot {
         $responseData = json_decode($response, true);
         if (!$responseData || !$responseData['ok']) {
             error_log("Failed to send message: " . $response);
+        }
+    }
+
+    private function getLatestResult($lotteryType) {
+        try {
+            $pdo = $this->db->getConnection();
+            $sql = "SELECT lottery_number, draw_date FROM lottery_results WHERE lottery_type = :type ORDER BY draw_date DESC, id DESC LIMIT 1";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([':type' => $lotteryType]);
+            $result = $stmt->fetch();
+
+            if ($result) {
+                return "最新一期 {$lotteryType} 结果:\n日期: {$result['draw_date']}\n号码: {$result['lottery_number']}";
+            } else {
+                return "抱歉，暂未找到 {$lotteryType} 的开奖结果。";
+            }
+        } catch (Exception $e) {
+            error_log("Error fetching latest result: " . $e->getMessage());
+            return "查询数据时出错，请稍后再试。";
         }
     }
 }
