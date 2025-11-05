@@ -1,74 +1,88 @@
 <?php
-// 允许来自前端的跨域请求 (主要由 Cloudflare Worker 处理，这里是备用)
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
+// 启用错误日志，将错误输出到文件而不是浏览器
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/../api-error.log'); // 为API设置独立的日志文件
+error_reporting(E_ALL);
 
-if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-    exit(0);
-}
-
+// --- 关键顺序：先加载包含函数的依赖文件 ---
 require_once __DIR__ . '/../includes/functions.php';
+
+// 现在可以安全地调用 load_env()
+load_env();
+
+// --- 再加载其他依赖 ---
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/Auth.php';
-
-// 引入所有控制器
 require_once __DIR__ . '/../controllers/AuthController.php';
 require_once __DIR__ . '/../controllers/EmailController.php';
 require_once __DIR__ . '/../controllers/WinningNumbersController.php';
-// ... 其他控制器
 
-$requestUri = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
-$requestParts = explode('/', $requestUri);
-$api_prefix = array_shift($requestParts); // 应该是 'api'
-
-if (empty($requestParts)) {
-    send_json_response(['message' => 'Welcome to the API'], 200);
+// 处理CORS预检请求
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    header("Access-Control-Allow-Origin: *");
+    header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization");
+    exit(0);
 }
+// 为实际请求设置CORS头
+header("Access-Control-Allow-Origin: *");
+
+// --- 路由逻辑 ---
+
+// 从请求URI中解析出干净的路径
+$basePath = dirname($_SERVER['SCRIPT_NAME']);
+$requestUri = $_SERVER['REQUEST_URI'];
+$queryString = $_SERVER['QUERY_STRING'];
+$route = str_replace('?' . $queryString, '', $requestUri);
+if (strpos($route, $basePath) === 0) {
+    $route = substr($route, strlen($basePath));
+}
+$route = trim($route, '/');
+
+$requestParts = explode('/', $route);
 
 $resource = $requestParts[0] ?? null;
 $action = $requestParts[1] ?? null;
 $method = $_SERVER['REQUEST_METHOD'];
 $input = json_decode(file_get_contents('php://input'), true);
 
-$authController = new AuthController();
-$emailController = new EmailController();
-$winningNumbersController = new WinningNumbersController();
+try {
+    switch ($resource) {
+        case 'users':
+            $authController = new AuthController();
+            if ($method === 'POST' && $action === 'register') {
+                $authController->register($input);
+            } elseif ($method === 'POST' && $action === 'login') {
+                $authController->login($input);
+            }
+            break;
 
-// 路由分发
-switch ($resource) {
-    case 'users':
-        if ($method === 'POST' && $action === 'register') {
-            $authController->register($input);
-        } elseif ($method === 'POST' && $action === 'login') {
-            $authController->login($input);
-        }
-        break;
-
-    case 'emails':
-        // 这个接口由 Cloudflare Worker 调用，使用内部密钥验证
-        if ($method === 'POST' && $action === 'receive') {
+        case 'emails':
             verify_internal_secret();
-            $emailController->receive($input);
-        }
-        break;
-    
-    case 'winning-numbers':
-        // 获取历史开奖号码 (公开或需要用户登录)
-        if ($method === 'GET') {
-            // 如果需要登录才能看，则在这里调用 Auth::verifyToken()
-            $winningNumbersController->getAll();
-        } 
-        // 这个接口由 Telegram Bot 调用，使用内部密钥验证
-        elseif ($method === 'POST') {
-            verify_internal_secret();
-            $winningNumbersController->add($input);
-        }
-        break;
+            $emailController = new EmailController();
+            if ($method === 'POST' && $action === 'receive') {
+                $emailController->receive($input);
+            }
+            break;
         
-    // ... 其他路由
-
-    default:
-        send_json_response(['error' => 'Not Found'], 404);
-        break;
+        case 'winning-numbers':
+            $winningNumbersController = new WinningNumbersController();
+            if ($method === 'GET') {
+                $winningNumbersController->getAll();
+            } 
+            elseif ($method === 'POST') {
+                verify_internal_secret();
+                $winningNumbersController->add($input);
+            }
+            break;
+            
+        default:
+            send_json_response(['message' => 'Welcome to the API. Endpoint not found.'], 404);
+            break;
+    }
+} catch (Throwable $e) {
+    // 捕获任何未预料的错误，并以JSON格式返回，而不是让服务器崩溃
+    error_log($e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine());
+    send_json_response(['error' => 'An internal server error occurred.'], 500);
 }
