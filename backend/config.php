@@ -11,9 +11,27 @@ class Config {
     }
     
     private static function loadConfig() {
-        $envFile = __DIR__ . '/.env';
-        if (!file_exists($envFile) || !is_readable($envFile)) {
-            throw new Exception('.env file not found or is not readable');
+        $envPaths = [
+            __DIR__ . '/.env',
+            __DIR__ . '/../.env'
+        ];
+
+        $envFile = null;
+        foreach ($envPaths as $path) {
+            if (file_exists($path) && is_readable($path)) {
+                $envFile = $path;
+                break;
+            }
+        }
+
+        if ($envFile === null) {
+            http_response_code(503);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'error' => 'Configuration error: .env file not found or is not readable.'
+            ]);
+            exit;
         }
 
         self::$config = [];
