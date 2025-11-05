@@ -1,10 +1,15 @@
 <?php
 // 加载 .env 文件
 function load_env() {
-    if (!file_exists(__DIR__ . '/../.env')) {
-        return;
+    $dotenv_path = __DIR__ . '/../../.env';
+    if (!file_exists($dotenv_path)) {
+        // 如果在根目录找不到，尝试在当前目录的上一级目录找（兼容旧的部署方式）
+        $dotenv_path = __DIR__ . '/../.env';
+        if (!file_exists($dotenv_path)) {
+            return;
+        }
     }
-    $lines = file(__DIR__ . '/../.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $lines = file($dotenv_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
         if (strpos(trim($line), '#') === 0) {
             continue;
