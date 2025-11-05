@@ -11,10 +11,10 @@ class Config {
     }
     
     private static function loadConfig() {
-        $envPaths = [
+        $envPaths = array(
             __DIR__ . '/.env',
             __DIR__ . '/../.env'
-        ];
+        );
 
         $envFile = null;
         foreach ($envPaths as $path) {
@@ -27,14 +27,14 @@ class Config {
         if ($envFile === null) {
             http_response_code(503);
             header('Content-Type: application/json');
-            echo json_encode([
+            echo json_encode(array(
                 'success' => false,
                 'error' => 'Configuration error: .env file not found or is not readable.'
-            ]);
+            ));
             exit;
         }
 
-        self::$config = [];
+        self::$config = array();
         $content = file_get_contents($envFile);
         $lines = preg_split('/(\r\n|\n|\r)/', $content);
 
@@ -75,10 +75,10 @@ class Database {
         $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
         
         try {
-            $this->connection = new PDO($dsn, $username, $password, [
+            $this->connection = new PDO($dsn, $username, $password, array(
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-            ]);
+            ));
         } catch (PDOException $e) {
             throw new Exception("Database connection failed: " . $e->getMessage());
         }
