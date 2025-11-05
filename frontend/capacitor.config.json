@@ -1,0 +1,5 @@
+{
+  "appId": "com.yourcompany.lotteryapp",
+  "appName": "LotteryApp",
+  "webDir": "dist"
+}
