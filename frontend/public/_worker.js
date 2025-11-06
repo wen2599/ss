@@ -4,7 +4,19 @@ export default {
     const pathname = url.pathname;
 
     try {
-      // 规则 1: 代理所有 /api/ 开头的请求到后端服务器
+      // ================= 规则 0: 终极防御 =================
+      // 在所有逻辑之前，首先拦截对 /favicon.ico 的请求。
+      // 如果文件不存在，我们就直接返回 404，不让这个请求
+      // 进入下面任何可能导致 env.fetch() 崩溃的逻辑。
+      if (pathname === '/favicon.ico') {
+        // 直接返回一个明确的 "404 Not Found" 响应。
+        // 这样浏览器就知道图标不存在，也不会显示错误。
+        // 最重要的是，我们完全绕过了 env.fetch()。
+        return new Response('Not Found', { status: 404 });
+      }
+      // ====================================================
+
+      // 规则 1: 代理 API 请求
       if (pathname.startsWith('/api/')) {
         const backendUrl = 'https://wenge.cloudns.ch';
         const newUrl = new URL(backendUrl + pathname + url.search);
@@ -12,28 +24,20 @@ export default {
         return await fetch(backendRequest);
       }
 
-      // 规则 2: 检查请求的是否是静态资源 (判断路径中是否包含文件后缀)
-      // 正则表达式 /\.[^/]+$/ 用于匹配路径末尾的 ".文件名" 模式
+      // 规则 2: 判断是否是静态资源 (排除 favicon.ico, 因为上面已经处理了)
       const isStaticAsset = /\.[^/]+$/.test(pathname);
-
       if (isStaticAsset) {
-        // 如果是静态资源 (如 .js, .css, .svg), 
-        // 则让 Cloudflare Pages 的原生服务来提供它。
         return await env.fetch(request);
       }
 
-      // 规则 3: 如果不是 API 请求，也不是静态资源请求，
-      // 那么它就是一个页面导航请求 (如 /, /login, /dashboard)。
-      // 对于所有这类请求，我们都应该返回应用的入口 index.html。
-      // React Router 会在客户端接管后续的路由。
+      // 规则 3: 返回单页应用的 index.html
       const indexHtmlRequest = new Request(new URL('/index.html', url.origin), request);
       return await env.fetch(indexHtmlRequest);
 
     } catch (e) {
-      console.error(`Worker Exception: ${e.message}`);
+      console.error(`Worker Exception: ${e.message} for path: ${pathname}`);
       console.error(`Stack Trace: ${e.stack}`);
-      // 为了确认是这个版本的worker在报错，我改了一下错误信息
-      return new Response('Internal Server Error (SPA routing version)', { status: 500 });
+      return new Response('Internal Server Error (Final Defensive Version)', { status: 500 });
     }
   },
 };
