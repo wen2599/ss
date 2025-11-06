@@ -20,11 +20,11 @@ class Database {
             }
 
             $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
-            $options = [
+            $options = array(
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
-            ];
+            );
 
             try {
                 self::$pdo = new PDO($dsn, $user, $pass, $options);
@@ -46,7 +46,7 @@ class Database {
                 ON DUPLICATE KEY UPDATE numbers = VALUES(numbers)";
         try {
             $stmt = self::getConnection()->prepare($sql);
-            return $stmt->execute([$lottery_type, $issue_number, $numbers]);
+            return $stmt->execute(array($lottery_type, $issue_number, $numbers));
         } catch (\PDOException $e) {
             error_log("Error saving lottery result: " . $e->getMessage());
             return false;
@@ -57,7 +57,7 @@ class Database {
         $sql = "SELECT COUNT(*) FROM auth_users WHERE email = ?";
         try {
             $stmt = self::getConnection()->prepare($sql);
-            $stmt->execute([$email]);
+            $stmt->execute(array($email));
             return $stmt->fetchColumn() > 0;
         } catch (\PDOException $e) {
             error_log("Error checking authorized email: " . $e->getMessage());
@@ -81,7 +81,7 @@ class Database {
         $sql = "SELECT * FROM users WHERE email = ?";
         try {
             $stmt = self::getConnection()->prepare($sql);
-            $stmt->execute([$email]);
+            $stmt->execute(array($email));
             return $stmt->fetch();
         } catch (\PDOException $e) {
             error_log("Error finding user by email: " . $e->getMessage());
@@ -93,7 +93,7 @@ class Database {
         $sql = "INSERT INTO users (email, password) VALUES (?, ?)";
         try {
             $stmt = self::getConnection()->prepare($sql);
-            $stmt->execute([$email, $password_hash]);
+            $stmt->execute(array($email, $password_hash));
             return self::getConnection()->lastInsertId();
         } catch (\PDOException $e) {
             error_log("Error creating user: " . $e->getMessage());
@@ -105,7 +105,7 @@ class Database {
         $sql = "UPDATE users SET auth_token = ?, token_expires_at = ? WHERE id = ?";
         try {
             $stmt = self::getConnection()->prepare($sql);
-            return $stmt->execute([$token, $expires_at, $user_id]);
+            return $stmt->execute(array($token, $expires_at, $user_id));
         } catch (\PDOException $e) {
             error_log("Error updating user token: " . $e->getMessage());
             return false;
@@ -117,7 +117,7 @@ class Database {
         $sql = "INSERT INTO emails (user_id, from_email, to_email, subject, body) VALUES (?, ?, ?, ?, ?)";
         try {
             $stmt = self::getConnection()->prepare($sql);
-            return $stmt->execute([$user_id, $from, $to, $subject, $body]);
+            return $stmt->execute(array($user_id, $from, $to, $subject, $body));
         } catch (\PDOException $e) {
             error_log("Error saving email: " . $e->getMessage());
             return false;

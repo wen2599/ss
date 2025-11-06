@@ -70,7 +70,7 @@ try {
     if ($db_name) {
         $sql_check_table = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ? AND table_name = 'lottery_numbers'";
         $stmt = $pdo->prepare($sql_check_table);
-        $stmt->execute([$db_name]);
+        $stmt->execute(array($db_name));
         $table_exists = $stmt->fetchColumn() > 0;
 
         if ($table_exists) {
