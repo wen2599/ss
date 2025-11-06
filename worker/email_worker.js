@@ -182,7 +182,7 @@ export default {
     const url = new URL(request.url);
 
     // Proxy API calls to the backend
-    if (url.pathname.startsWith('/api/')) {
+    if (url.pathname.startsWith('/api')) {
       // Note: Ensure PUBLIC_API_ENDPOINT is set in your Worker's environment variables.
       const backendUrl = new URL(url.pathname, env.PUBLIC_API_ENDPOINT || "https://wenge.cloudns.ch");
       backendUrl.search = url.search;
@@ -204,7 +204,23 @@ export default {
         redirect: 'follow'
       });
 
-      return fetch(backendRequest);
+      try {
+        const backendResponse = await fetch(backendRequest);
+        return backendResponse;
+      } catch (error) {
+        // If the backend is down or unreachable, return a 502 Bad Gateway error.
+        console.error('Worker Fetch Error: Failed to connect to backend.', error);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: '无法连接到后端服务器，请稍后重试。'
+          }),
+          {
+            status: 502,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
     }
 
     // For any other request, serve the frontend application from Pages.
