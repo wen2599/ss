@@ -1,55 +1,65 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-const Login = () => {
+function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const { login } = useAuth();
+    const [error, setError] = useState('');
+    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError(null);
-        setLoading(true);
+        setError('');
+
         try {
-            const response = await login(email, password);
-            if (!response.success) {
-                setError(response.error || 'Login failed.');
+            const response = await fetch('/api/?action=login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || '登录失败。');
             }
-            // If login is successful, the AuthContext will handle the state change
+
+            localStorage.setItem('authToken', data.data.token);
+            navigate('/'); // 登录成功后重定向到首页
         } catch (err) {
-            setError(err.message || 'An error occurred during login.');
-        } finally {
-            setLoading(false);
+            setError(err.message);
         }
     };
 
     return (
-        <div className="auth-form">
-            <h2>Login</h2>
-            <form onSubmit={handleSubmit}>
-                <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                />
-                <input
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                />
-                <button type="submit" disabled={loading}>
-                    {loading ? 'Logging in...' : 'Login'}
-                </button>
-                {error && <p className="error-message">{error}</p>}
+        <div className="auth-container">
+            <form onSubmit={handleSubmit} className="auth-form">
+                <h2>登录</h2>
+                {error && <p className="error">{error}</p>}
+                <div className="form-group">
+                    <label htmlFor="email">邮箱</label>
+                    <input
+                        type="email"
+                        id="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                    />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="password">密码</label>
+                    <input
+                        type="password"
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                    />
+                </div>
+                <button type="submit">登录</button>
             </form>
         </div>
     );
-};
+}
 
 export default Login;

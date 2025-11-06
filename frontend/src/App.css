@@ -1,196 +1,205 @@
-:root {
-    --primary-color: #282c34;
-    --secondary-color: #61dafb;
-    --text-color: #ffffff;
-    --background-color: #f0f2f5;
+/* General Body Styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: #f0f2f5;
+    margin: 0;
+    padding: 0;
+    color: #333;
 }
 
-.App {
+/* Main Container */
+.container {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 1rem;
     text-align: center;
 }
 
-.App-header {
-    background-color: var(--primary-color);
-    padding: 20px;
-    color: var(--text-color);
-    margin-bottom: 2rem;
-}
-
-h1 {
-    margin-top: 0;
+/* Header */
+.app-header h1 {
     font-size: 2.5rem;
+    color: #1a1a1a;
+    margin-bottom: 0.5rem;
 }
 
-.lottery-type-selector {
+/* Card for Lottery Result */
+.card {
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    padding: 2rem;
     margin-top: 1rem;
+    min-height: 200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-.lottery-type-selector button {
-    background-color: transparent;
-    border: 2px solid var(--secondary-color);
-    color: var(--secondary-color);
-    padding: 10px 20px;
-    margin: 0 10px;
-    cursor: pointer;
-    font-size: 1rem;
-    border-radius: 5px;
-    transition: all 0.3s ease;
+/* Status Messages */
+.status-message {
+    font-size: 1.2rem;
+    color: #666;
 }
 
-.lottery-type-selector button:hover, 
-.lottery-type-selector button.active {
-    background-color: var(--secondary-color);
-    color: var(--primary-color);
-}
-
-main {
-    padding: 0 1rem;
-}
-
-.error-message {
+.status-message.error {
     color: #d9534f;
-    background-color: #f2dede;
-    border: 1px solid #ebccd1;
-    padding: 15px;
-    border-radius: 4px;
-    margin: 20px auto;
-    max-width: 800px;
+    font-weight: 500;
 }
 
-/* Auth Styles */
+/* Result Grid Layout */
+.result-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 1rem 2rem;
+    text-align: left;
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.grid-item {
+    padding: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.grid-item.label {
+    font-weight: bold;
+    color: #333;
+    text-align: right;
+    border-right: 2px solid #eee;
+}
+
+.grid-item.value {
+    color: #555;
+}
+
+.grid-item.value.numbers {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #007bff;
+    letter-spacing: 2px;
+}
+
+/* Footer */
+.app-footer {
+    margin-top: 2rem;
+    color: #888;
+    font-size: 0.9rem;
+}
+
+/* --- Authentication Form Styles --- */
 .auth-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-}
-
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 2rem;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  background-color: #f9f9f9;
-  width: 300px;
-  color: #333; /* Text color for form content */
+    max-width: 400px;
+    margin: 3rem auto;
+    padding: 2rem;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .auth-form h2 {
-  text-align: center;
-  margin-top: 0;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: #333;
 }
 
-.auth-form input {
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+.form-group {
+    margin-bottom: 1rem;
+    text-align: left;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
 }
 
 .auth-form button {
-  padding: 0.75rem;
-  border: none;
-  border-radius: 4px;
-  background-color: #007bff;
-  color: white;
-  cursor: pointer;
-  font-size: 1rem;
+    width: 100%;
+    padding: 0.75rem;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
 }
 
-.auth-form button:disabled {
-  background-color: #aaa;
+.auth-form button:hover {
+    background-color: #0056b3;
 }
 
-.link-button {
-  background: none;
-  border: none;
-  color: #007bff;
-  cursor: pointer;
-  text-decoration: underline;
-  padding: 0;
-  font-size: 0.9rem;
+.error {
+    color: #d9534f;
+    margin-bottom: 1rem;
+    text-align: center;
 }
 
-.logout-button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  background-color: #dc3545;
-  color: white;
-  cursor: pointer;
-  margin-left: auto; /* Pushes it to the right */
-  align-self: center;
+.success {
+    color: #5cb85c;
+    margin-bottom: 1rem;
+    text-align: center;
 }
 
-/* Email Viewer Styles */
-.email-viewer {
-  display: flex;
-  height: calc(100vh - 150px); /* Adjust height based on header */
-  border: 1px solid #ccc;
-  margin: 1rem;
+
+/* --- Navigation Bar Styles --- */
+.navbar {
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 0.75rem 2rem;
 }
 
-.email-list {
-  width: 30%;
-  border-right: 1px solid #ccc;
-  overflow-y: auto;
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.email-list h2 {
-  padding: 1rem;
-  margin: 0;
-  border-bottom: 1px solid #ccc;
+.nav-logo {
+    color: #333;
+    text-decoration: none;
+    font-size: 1.5rem;
+    font-weight: bold;
 }
 
-.email-item {
-  padding: 1rem;
-  border-bottom: 1px solid #eee;
-  cursor: pointer;
+.nav-menu {
+    list-style: none;
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
 }
 
-.email-item:hover {
-  background-color: #f5f5f5;
+.nav-links {
+    color: #555;
+    text-decoration: none;
+    font-size: 1rem;
+    transition: color 0.2s;
 }
 
-.email-item p {
-  margin: 0.2rem 0;
+.nav-links:hover {
+    color: #007bff;
 }
 
-.email-body {
-  width: 70%;
-  padding: 1rem;
-  overflow-y: auto;
+.nav-links-button {
+    background: none;
+    border: none;
+    color: #555;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0;
 }
 
-.email-body h3 {
-  margin-top: 0;
-}
-
-/* Navigation Styles */
-.main-nav {
-  display: flex;
-  gap: 1rem;
-  flex-grow: 1; /* Allows nav to take up space */
-}
-
-.main-nav button {
-  background: none;
-  border: none;
-  color: #ccc;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 0.5rem 0;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s ease-in-out;
-}
-
-.main-nav button:hover {
-  color: white;
-}
-
-.main-nav button.active {
-  color: var(--secondary-color);
-  border-bottom-color: var(--secondary-color);
+.nav-links-button:hover {
+    color: #007bff;
 }

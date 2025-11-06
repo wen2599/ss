@@ -1,51 +1,76 @@
 <?php
-// set_webhook.php
-// This script sets up the Telegram bot webhook.
-// Run this once from the command line after deploying your bot.
+// backend/set_webhook.php
 
-require_once 'config.php';
+// This script is intended to be run from the command line.
+if (php_sapi_name() !== 'cli') {
+    die("This script can only be run from the command line.");
+}
 
 try {
-    $botToken = Config::get('TELEGRAM_BOT_TOKEN');
+    require_once 'config.php';
 
-    // Your server's public URL to the bot.php script
-    $webhookUrl = 'https://wenge.cloudns.ch/bot.php';
+    // --- Configuration ---
+    $bot_token = get_env_variable('TELEGRAM_BOT_TOKEN');
+$webhook_secret = get_env_variable('TELEGRAM_WEBHOOK_SECRET');
+$backend_url = get_env_variable('BACKEND_URL');
 
-    if (!$botToken || $botToken === 'YOUR_TELEGRAM_BOT_TOKEN') {
-        throw new Exception("TELEGRAM_BOT_TOKEN is not configured in your .env file.");
-    }
+if (empty($bot_token) || empty($webhook_secret) || empty($backend_url)) {
+    die("Error: Missing required environment variables (TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, BACKEND_URL) in your .env file.\n");
+}
 
-    // The URL for the Telegram setWebhook API
-    $apiUrl = "https://api.telegram.org/bot{$botToken}/setWebhook";
+// The URL of your webhook script
+$webhook_url = rtrim($backend_url, '/') . '/webhook.php';
 
-    // The parameters for the request (now without secret_token)
-    $params = [
-        'url' => $webhookUrl,
-    ];
+// Telegram API URL for setting the webhook
+$api_url = "https://api.telegram.org/bot{$bot_token}/setWebhook";
 
-    // Build the final URL with query parameters
-    $requestUrl = $apiUrl . '?' . http_build_query($params);
+// --- cURL Request ---
+$ch = curl_init();
 
-    echo "Setting webhook to:\n";
-    echo "URL: {$webhookUrl}\n\n";
+curl_setopt_array($ch, [
+    CURLOPT_URL => $api_url,
+    CURLOPT_POST => true,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HTTPHEADER => [
+        "Content-Type: application/json"
+    ],
+    CURLOPT_POSTFIELDS => json_encode([
+        'url' => $webhook_url,
+        'secret_token' => $webhook_secret,
+        'allowed_updates' => ['message', 'channel_post'] // Specify desired updates
+    ]),
+]);
 
-    // Send the request to the Telegram API
-    $response = file_get_contents($requestUrl);
+echo "Setting webhook to: {$webhook_url}\n";
+$response_json = curl_exec($ch);
+$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$curl_error = curl_error($ch);
+curl_close($ch);
 
-    // Decode the JSON response
-    $responseData = json_decode($response, true);
+// --- Handle Response ---
+if ($curl_error) {
+    echo "cURL Error: {$curl_error}\n";
+    exit(1);
+}
 
-    // Print the response from Telegram
-    echo "Telegram API Response:\n";
-    if ($responseData && $responseData['ok']) {
-        echo "SUCCESS: " . $responseData['description'] . "\n";
-    } else {
-        echo "ERROR: Webhook could not be set.\n";
-        echo $response . "\n";
-    }
+if ($http_code !== 200) {
+    echo "HTTP Error: Received status code {$http_code}\n";
+}
+
+$response = json_decode($response_json, true);
+
+if (isset($response['ok']) && $response['ok']) {
+    echo "Success! Webhook was set.\n";
+    echo "Description: " . ($response['description'] ?? 'No description provided.') . "\n";
+} else {
+    echo "Error setting webhook.\n";
+    echo "Response from Telegram: " . $response_json . "\n";
+    exit(1);
+}
+
+exit(0);
 
 } catch (Exception $e) {
-    echo "An error occurred:\n";
-    echo $e->getMessage() . "\n";
+    die("An unexpected error occurred: ". $e->getMessage(). "\n");
 }
 ?>

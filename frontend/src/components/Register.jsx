@@ -1,55 +1,69 @@
 import React, { useState } from 'react';
-import * as api from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
-const Register = ({ onRegisterSuccess }) => {
+function Register() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [message, setMessage] = useState('');
+    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError(null);
-        setLoading(true);
+        setError('');
+        setMessage('');
+
         try {
-            const response = await api.register(email, password);
-            if (response.success) {
-                onRegisterSuccess();
-            } else {
-                setError(response.error || 'Registration failed.');
+            const response = await fetch('/api/?action=register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || '注册失败。');
             }
+
+            setMessage('注册成功！请登录。');
+            setTimeout(() => navigate('/login'), 2000); // 2秒后重定向
         } catch (err) {
-            setError(err.message || 'An error occurred during registration.');
-        } finally {
-            setLoading(false);
+            setError(err.message);
         }
     };
 
     return (
-        <div className="auth-form">
-            <h2>Register</h2>
-            <form onSubmit={handleSubmit}>
-                <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                />
-                <input
-                    type="password"
-                    placeholder="Password (min. 8 characters)"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                />
-                <button type="submit" disabled={loading}>
-                    {loading ? 'Registering...' : 'Register'}
-                </button>
-                {error && <p className="error-message">{error}</p>}
+        <div className="auth-container">
+            <form onSubmit={handleSubmit} className="auth-form">
+                <h2>注册</h2>
+                {error && <p className="error">{error}</p>}
+                {message && <p className="success">{message}</p>}
+                <div className="form-group">
+                    <label htmlFor="email">邮箱</label>
+                    <input
+                        type="email"
+                        id="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                    />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="password">密码</label>
+                    <input
+                        type="password"
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        minLength="6"
+                        required
+                    />
+                </div>
+                <button type="submit">注册</button>
             </form>
         </div>
     );
-};
+}
 
 export default Register;

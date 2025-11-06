@@ -1,73 +1,63 @@
 <?php
-class Config {
-    private static $config = null;
-    
-    public static function get($key) {
-        if (self::$config === null) {
-            self::loadConfig();
-        }
-        
-        return self::$config[$key] ?? null;
+// config.php
+
+/**
+ * 加载 .env 文件到环境变量中。
+ * 增强版，以适应不同服务器环境。
+ */
+function load_env() {
+    // 路径现在是正确的，因为 config.php 就在根目录
+    $env_path = __DIR__ . '/.env';
+
+    if (!is_readable($env_path)) {
+        // Throw an exception instead of dying to allow for graceful error handling.
+        throw new RuntimeException("FATAL ERROR in config.php: Cannot read .env file at path: " . htmlspecialchars($env_path));
     }
-    
-    private static function loadConfig() {
-        $envFile = __DIR__ . '/.env';
-        if (!file_exists($envFile) || !is_readable($envFile)) {
-            throw new Exception('.env file not found or is not readable');
+
+    $lines = file($env_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines === false) {
+        // Throw an exception for failed read operations.
+        throw new RuntimeException("FATAL ERROR in config.php: Failed to read content from .env file.");
+    }
+
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) {
+            continue;
         }
 
-        self::$config = [];
-        $content = file_get_contents($envFile);
-        $lines = preg_split('/(\r\n|\n|\r)/', $content);
+        if (strpos($line, '=') !== false) {
+            list($key, $value) = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
 
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (empty($line) || strpos($line, '#') === 0) {
-                continue;
+            // 去除值两边的引号
+            if (substr($value, 0, 1) == '"' && substr($value, -1) == '"') {
+                $value = substr($value, 1, -1);
             }
 
-            if (preg_match('/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.*)$/', $line, $matches)) {
-                $key = $matches[1];
-                $value = $matches[2];
-
-                // Remove surrounding quotes (single or double) if they exist
-                if (preg_match('/^"(.*)"$/', $value, $q_matches) || preg_match("/^'(.*)'$/", $value, $q_matches)) {
-                    $value = $q_matches[1];
-                }
-
-                self::$config[$key] = $value;
-            }
+            // 关键：同时设置到多个地方，增加兼容性
+            putenv(sprintf('%s=%s', $key, $value));
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
         }
     }
 }
 
-class Database {
-    private $connection;
-    
-    public function __construct() {
-        $host_raw = Config::get('DB_HOST');
-        // Final Fix: Forcefully sanitize the host string to remove any potential invisible characters.
-        $host = preg_replace('/[^\w\.\-]/', '', $host_raw);
+// 立即执行加载函数
+load_env();
 
-        $port = Config::get('DB_PORT');
-        $dbname = Config::get('DB_NAME');
-        $username = Config::get('DB_USER');
-        $password = Config::get('DB_PASS');
-        
-        $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
-        
-        try {
-            $this->connection = new PDO($dsn, $username, $password, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-            ]);
-        } catch (PDOException $e) {
-            throw new Exception("Database connection failed: " . $e->getMessage());
-        }
+/**
+ * 增加一个全局函数来获取环境变量，优先从 $_ENV 或 $_SERVER 读取
+ * 这样就不再完全依赖 getenv()
+ */
+function get_env_variable($key, $default = null) {
+    if (isset($_ENV[$key])) {
+        return $_ENV[$key];
     }
-    
-    public function getConnection() {
-        return $this->connection;
+    if (isset($_SERVER[$key])) {
+        return $_SERVER[$key];
     }
+    $value = getenv($key);
+    return $value !== false ? $value : $default;
 }
 ?>

@@ -1,358 +1,184 @@
 <?php
-require_once 'config.php';
+// api.php
 
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+error_reporting(E_ALL);
+
+// --- Global Headers ---
 header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 
-class APIHandler {
-    private $db;
-    private $apiKey;
-    private $workerSecret;
+// --- Handle pre-flight OPTIONS requests ---
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
 
-    public function __construct() {
-        $this->db = new Database();
-        $this->apiKey = Config::get('API_KEY');
-        $this->workerSecret = Config::get('EMAIL_HANDLER_SECRET');
-    }
+// --- Helper function for sending JSON responses ---
+function json_response($data, $status_code = 200) {
+    http_response_code($status_code);
+    echo json_encode($data);
+    exit();
+}
 
-    private function validateWorkerSecret() {
-        $clientSecret = $_GET['worker_secret'] ?? $_POST['worker_secret'] ?? null;
-        if (!$this->workerSecret || $clientSecret !== $this->workerSecret) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'error' => 'Unauthorized worker']);
-            exit;
-        }
-    }
+// --- Security function to verify worker secret ---
+function verify_worker_secret() {
+    $worker_secret = isset($_REQUEST['worker_secret']) ? $_REQUEST['worker_secret'] : '';
+    $expected_secret = get_env_variable('EMAIL_HANDLER_SECRET');
 
-    private function validateAuthToken() {
-        $authHeader = null;
-        if (isset($_SERVER['Authorization'])) {
-            $authHeader = $_SERVER['Authorization'];
-        } elseif (isset($_SERVER['HTTP_AUTHORIZATION'])) { // Nginx or fast CGI
-            $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
-        } elseif (function_exists('getallheaders')) {
-            $headers = getallheaders();
-            $authHeader = $headers['Authorization'] ?? null;
-        }
-
-        if (!$authHeader || !preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'error' => 'Unauthorized: Missing or invalid token.']);
-            exit;
-        }
-
-        $token = $matches[1];
-
-        try {
-            $pdo = $this->db->getConnection();
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE auth_token = :token AND token_expires_at > NOW()");
-            $stmt->execute([':token' => $token]);
-            $user = $stmt->fetch();
-
-            if (!$user) {
-                http_response_code(401);
-                echo json_encode(['success' => false, 'error' => 'Unauthorized: Invalid or expired token.']);
-                exit;
-            }
-
-            return $user; // Return user data on success
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => 'Token validation failed: ' . $e->getMessage()]);
-            exit;
-        }
-    }
-
-    private function validateApiKey() {
-        $clientApiKey = $_SERVER['HTTP_X_API_KEY'] ?? null;
-        if ($clientApiKey !== $this->apiKey) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-            exit;
-        }
-    }
-
-    public function handleRequest() {
-        $action = $_GET['action'] ?? 'get_lottery_results';
-
-        switch ($action) {
-            case 'get_lottery_results':
-                $this->validateApiKey();
-                $type = $_GET['type'] ?? null;
-                $limit = $_GET['limit'] ?? 20;
-                $response = $this->getResults($type, $limit);
-                break;
-
-            case 'is_user_registered':
-                $this->validateWorkerSecret();
-                $response = $this->isUserRegistered();
-                break;
-
-            case 'process_email':
-                $this->validateWorkerSecret();
-                $response = $this->processEmail();
-                break;
-
-            case 'register':
-                $response = $this->registerUser();
-                break;
-
-            case 'login':
-                $response = $this->loginUser();
-                break;
-
-            case 'get_emails':
-                $user = $this->validateAuthToken();
-                $response = $this->getEmails($user);
-                break;
-
-            case 'get_email_body':
-                $user = $this->validateAuthToken();
-                $response = $this->getEmailBody($user);
-                break;
-
-            default:
-                http_response_code(400);
-                $response = ['success' => false, 'error' => 'Invalid action'];
-                break;
-        }
-
-        echo json_encode($response);
-    }
-
-    private function isUserRegistered() {
-        if (!isset($_GET['email'])) {
-            return ['success' => false, 'error' => 'Email parameter is required.'];
-        }
-
-        try {
-            $pdo = $this->db->getConnection();
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = :email");
-            $stmt->execute([':email' => $_GET['email']]);
-            $count = $stmt->fetchColumn();
-
-            return ['success' => true, 'is_registered' => $count > 0];
-        } catch (Exception $e) {
-            http_response_code(500);
-            return ['success' => false, 'error' => 'Database query failed: ' . $e->getMessage()];
-        }
-    }
-
-    private function processEmail() {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            return ['success' => false, 'error' => 'Method Not Allowed'];
-        }
-
-        $from = $_POST['from'] ?? null;
-        $subject = $_POST['subject'] ?? null;
-        $body = $_POST['body'] ?? null;
-
-        if (!$from || !$subject || !$body) {
-            return ['success' => false, 'error' => 'Missing required fields: from, subject, body.'];
-        }
-
-        try {
-            $pdo = $this->db->getConnection();
-
-            // Find the user_id from the sender's email
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
-            $stmt->execute([':email' => $from]);
-            $user = $stmt->fetch();
-
-            if (!$user) {
-                // This should theoretically not happen if the worker checks first, but as a safeguard:
-                return ['success' => false, 'error' => 'Sender not found.'];
-            }
-            $userId = $user['id'];
-
-            // Insert the email into the database
-            $sql = "INSERT INTO emails (user_id, sender, subject, body) VALUES (:user_id, :sender, :subject, :body)";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([
-                ':user_id' => $userId,
-                ':sender' => $from,
-                ':subject' => $subject,
-                ':body' => $body
-            ]);
-
-            return ['success' => true, 'message' => 'Email processed successfully.'];
-
-        } catch (Exception $e) {
-            http_response_code(500);
-            return ['success' => false, 'error' => 'Database operation failed: ' . $e->getMessage()];
-        }
-    }
-
-    private function registerUser() {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            return ['success' => false, 'error' => 'Method Not Allowed'];
-        }
-
-        $email = $_POST['email'] ?? null;
-        $password = $_POST['password'] ?? null;
-
-        if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return ['success' => false, 'error' => 'Invalid or missing email.'];
-        }
-        if (!$password || strlen($password) < 8) {
-            return ['success' => false, 'error' => 'Password must be at least 8 characters long.'];
-        }
-
-        try {
-            $pdo = $this->db->getConnection();
-
-            // Check if user already exists
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = :email");
-            $stmt->execute([':email' => $email]);
-            if ($stmt->fetchColumn() > 0) {
-                return ['success' => false, 'error' => 'Email already registered.'];
-            }
-
-            // Hash password and insert user
-            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-            $sql = "INSERT INTO users (email, password) VALUES (:email, :password)";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([':email' => $email, ':password' => $hashedPassword]);
-
-            return ['success' => true, 'message' => 'User registered successfully.'];
-
-        } catch (Exception $e) {
-            http_response_code(500);
-            return ['success' => false, 'error' => 'Registration failed: ' . $e->getMessage()];
-        }
-    }
-
-    private function loginUser() {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            return ['success' => false, 'error' => 'Method Not Allowed'];
-        }
-
-        $email = $_POST['email'] ?? null;
-        $password = $_POST['password'] ?? null;
-
-        if (!$email || !$password) {
-            return ['success' => false, 'error' => 'Email and password are required.'];
-        }
-
-        try {
-            $pdo = $this->db->getConnection();
-
-            // Find user by email
-            $stmt = $pdo->prepare("SELECT id, password FROM users WHERE email = :email");
-            $stmt->execute([':email' => $email]);
-            $user = $stmt->fetch();
-
-            if (!$user || !password_verify($password, $user['password'])) {
-                return ['success' => false, 'error' => 'Invalid credentials.'];
-            }
-
-            // Generate and save auth token
-            $token = bin2hex(random_bytes(32));
-            $expiresAt = date('Y-m-d H:i:s', time() + 86400); // 24 hours expiry
-
-            $sql = "UPDATE users SET auth_token = :token, token_expires_at = :expires_at WHERE id = :id";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([
-                ':token' => $token,
-                ':expires_at' => $expiresAt,
-                ':id' => $user['id']
-            ]);
-
-            return ['success' => true, 'token' => $token];
-
-        } catch (Exception $e) {
-            http_response_code(500);
-            return ['success' => false, 'error' => 'Login failed: ' . $e->getMessage()];
-        }
-    }
-
-    private function getEmails($user) {
-        try {
-            $pdo = $this->db->getConnection();
-            $stmt = $pdo->prepare("SELECT id, sender, subject, received_at FROM emails WHERE user_id = :user_id ORDER BY received_at DESC");
-            $stmt->execute([':user_id' => $user['id']]);
-            $emails = $stmt->fetchAll();
-
-            return ['success' => true, 'data' => $emails];
-        } catch (Exception $e) {
-            http_response_code(500);
-            return ['success' => false, 'error' => 'Failed to fetch emails: ' . $e->getMessage()];
-        }
-    }
-
-    private function getEmailBody($user) {
-        $emailId = $_GET['id'] ?? null;
-        if (!$emailId) {
-            return ['success' => false, 'error' => 'Email ID is required.'];
-        }
-
-        try {
-            $pdo = $this->db->getConnection();
-            $stmt = $pdo->prepare("SELECT * FROM emails WHERE id = :id AND user_id = :user_id");
-            $stmt->execute([':id' => $emailId, ':user_id' => $user['id']]);
-            $email = $stmt->fetch();
-
-            if (!$email) {
-                http_response_code(404);
-                return ['success' => false, 'error' => 'Email not found or you do not have permission to view it.'];
-            }
-
-            return ['success' => true, 'data' => $email];
-        } catch (Exception $e) {
-            http_response_code(500);
-            return ['success' => false, 'error' => 'Failed to fetch email body: ' . $e->getMessage()];
-        }
-    }
-    
-    public function getResults($type = null, $limit = 20) {
-        try {
-            $pdo = $this->db->getConnection();
-            $limit = max(1, intval($limit));
-
-            $params = [];
-            
-            if ($type && in_array($type, ['双色球', '大乐透'])) {
-                $sql = "SELECT * FROM lottery_results WHERE lottery_type = :type ORDER BY draw_date DESC, id DESC LIMIT :limit";
-                $params[':type'] = $type;
-            } else {
-                $sql = "SELECT * FROM lottery_results ORDER BY draw_date DESC, id DESC LIMIT :limit";
-            }
-            
-            $stmt = $pdo->prepare($sql);
-            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-            if (isset($params[':type'])) {
-                 $stmt->bindValue(':type', $params[':type'], PDO::PARAM_STR);
-            }
-
-            $stmt->execute();
-            $results = $stmt->fetchAll();
-            
-            return [
-                'success' => true,
-                'data' => $results,
-                'count' => count($results)
-            ];
-            
-        } catch (Exception $e) {
-            http_response_code(500);
-            return [
-                'success' => false,
-                'error' => 'API Error: ' . $e->getMessage()
-            ];
-        }
+    if (empty($expected_secret) || $worker_secret !== $expected_secret) {
+        error_log("API Security: Worker secret mismatch or not configured.");
+        json_response(['success' => false, 'message' => 'Forbidden.'], 403);
     }
 }
 
+// --- Security function to verify user authentication token ---
+function verify_auth_token() {
+    $headers = get_all_headers();
+    $auth_header = isset($headers['Authorization']) ? $headers['Authorization'] : '';
+
+    if (empty($auth_header) || !preg_match('/^Bearer\s+(.+)$/', $auth_header, $matches)) {
+        json_response(['success' => false, 'message' => 'Unauthorized: Missing or invalid token.'], 401);
+    }
+
+    $token = $matches[1];
+    $user = Database::findUserByToken($token);
+
+    if (!$user) {
+        json_response(['success' => false, 'message' => 'Unauthorized: Invalid or expired token.'], 401);
+    }
+
+    // Return the authenticated user object so it can be used by the endpoint.
+    return $user;
+}
+
+
+// --- Main API Logic ---
 try {
-    $api = new APIHandler();
-    $api->handleRequest();
+    // Load configuration and database inside the try block.
+    // This ensures that any failure during initialization is caught
+    // and returned as a proper JSON error.
+    require_once 'config.php';
+    require_once 'database.php';
+    require_once 'utils.php';
+
+    $action = isset($_REQUEST['action']) ? $_REQUEST['action'] : '';
+
+    switch ($action) {
+
+        case 'get_latest_lottery_result':
+            $latest_result = Database::getLatestLotteryResult();
+            if ($latest_result) {
+                json_response(['success' => true, 'data' => $latest_result]);
+            } else {
+                json_response(['success' => false, 'message' => 'No lottery results found.']);
+            }
+            break;
+
+        case 'is_user_registered':
+            verify_worker_secret();
+            $email = isset($_GET['email']) ? trim($_GET['email']) : '';
+            if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                json_response(['success' => false, 'message' => 'Invalid email provided.'], 400);
+            }
+            $user = Database::findUserByEmail($email);
+            json_response(['success' => true, 'is_registered' => (bool)$user]);
+            break;
+
+        case 'register':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                json_response(['success' => false, 'message' => 'Invalid request method.'], 405);
+            }
+            $input = json_decode(file_get_contents('php://input'), true);
+            $email = isset($input['email']) ? trim($input['email']) : '';
+            $password = isset($input['password']) ? $input['password'] : '';
+
+            if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL) || empty($password)) {
+                json_response(['success' => false, 'message' => 'Email and password are required.'], 400);
+            }
+            if (strlen($password) < 6) {
+                json_response(['success' => false, 'message' => 'Password must be at least 6 characters long.'], 400);
+            }
+            if (Database::findUserByEmail($email)) {
+                json_response(['success' => false, 'message' => 'Email already registered.'], 409);
+            }
+
+            $password_hash = password_hash($password, PASSWORD_DEFAULT);
+            $user_id = Database::createUser($email, $password_hash);
+
+            if ($user_id) {
+                json_response(['success' => true, 'message' => 'User registered successfully.'], 201);
+            } else {
+                json_response(['success' => false, 'message' => 'Failed to register user.'], 500);
+            }
+            break;
+
+        case 'login':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                json_response(['success' => false, 'message' => 'Invalid request method.'], 405);
+            }
+            $input = json_decode(file_get_contents('php://input'), true);
+            $email = isset($input['email']) ? trim($input['email']) : '';
+            $password = isset($input['password']) ? $input['password'] : '';
+
+            if (empty($email) || empty($password)) {
+                json_response(['success' => false, 'message' => 'Email and password are required.'], 400);
+            }
+
+            $user = Database::findUserByEmail($email);
+            if (!$user || !password_verify($password, $user['password'])) {
+                json_response(['success' => false, 'message' => 'Invalid credentials.'], 401);
+            }
+
+            // Generate and save token
+            $token = bin2hex(random_bytes(32));
+            $expires_at = date('Y-m-d H:i:s', time() + (3600 * 24 * 7)); // 7 days
+            Database::updateUserToken($user['id'], $token, $expires_at);
+
+            json_response(['success' => true, 'data' => ['token' => $token]]);
+            break;
+
+        case 'process_email':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                json_response(['success' => false, 'message' => 'Invalid request method.'], 405);
+            }
+            $user = verify_auth_token();
+
+            $from = isset($_POST['from']) ? trim($_POST['from']) : '';
+            $to = isset($_POST['to']) ? trim($_POST['to']) : '';
+            $subject = isset($_POST['subject']) ? trim($_POST['subject']) : '';
+            $body = isset($_POST['body']) ? trim($_POST['body']) : '';
+
+            if (empty($from)) {
+                 json_response(['success' => false, 'message' => 'Sender email is required.'], 400);
+            }
+
+            // Security enhancement: Ensure the 'from' email belongs to the authenticated user.
+            if ($from !== $user['email']) {
+                json_response(['success' => false, 'message' => 'Forbidden: You can only process emails from your own account.'], 403);
+            }
+
+            if (Database::saveEmail($user['id'], $from, $to, $subject, $body)) {
+                json_response(['success' => true, 'message' => 'Email processed successfully.']);
+            } else {
+                json_response(['success' => false, 'message' => 'Failed to save email.'], 500);
+            }
+            break;
+
+        case 'get_emails':
+            $user = verify_auth_token();
+            $emails = Database::getEmailsByUserId($user['id']);
+            json_response(['success' => true, 'data' => $emails]);
+            break;
+
+        default:
+            json_response(['success' => false, 'message' => 'Invalid action specified.'], 400);
+            break;
+    }
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => 'API Initialization Error: ' . $e->getMessage()
-    ]);
+    error_log("API Unhandled Exception: " . $e->getMessage());
+    json_response(['success' => false, 'message' => 'An internal server error occurred.'], 500);
 }
 ?>
