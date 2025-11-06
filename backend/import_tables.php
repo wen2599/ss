@@ -4,9 +4,11 @@ if (php_sapi_name() !== 'cli') {
     die("This script can only be run from the command line.");
 }
 
+// Re-enable our .env loader
 require_once __DIR__ . '/utils/env_loader.php';
 load_env(__DIR__ . '/.env');
 
+// Read credentials from the environment variables loaded by our fixed loader
 $dbHost = $_ENV['DB_HOST'];
 $dbName = $_ENV['DB_NAME'];
 $dbUser = $_ENV['DB_USER'];
@@ -15,7 +17,7 @@ $dbPass = $_ENV['DB_PASS'];
 try {
     $pdo = new PDO("mysql:host=$dbHost;dbname=$dbName", $dbUser, $dbPass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    echo "Database connected successfully.\n";
+    echo "Database connected successfully using .env file.\n";
 
     $sql = "
     CREATE TABLE IF NOT EXISTS `users` (
@@ -55,14 +57,6 @@ try {
 
     $pdo->exec($sql);
     echo "Tables created or already exist successfully.\n";
-
-    // You can add a default admin user here if you want
-    // $admin_id = $_ENV['TELEGRAM_ADMIN_ID'];
-    // if ($admin_id) {
-    //     $stmt = $pdo->prepare("INSERT IGNORE INTO admins (telegram_user_id, name) VALUES (?, ?)");
-    //     $stmt->execute([$admin_id, 'Default Admin']);
-    //     echo "Default admin user ensured.\n";
-    // }
 
 } catch (PDOException $e) {
     die("Could not connect to the database $dbName :" . $e->getMessage());
