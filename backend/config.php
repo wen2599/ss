@@ -10,13 +10,14 @@ function load_env() {
     $env_path = __DIR__ . '/.env';
 
     if (!is_readable($env_path)) {
-        // 如果无法读取，为了调试，我们直接让程序崩溃并显示原因
-        die("FATAL ERROR in config.php: Cannot read .env file at path: " . htmlspecialchars($env_path));
+        // Throw an exception instead of dying to allow for graceful error handling.
+        throw new RuntimeException("FATAL ERROR in config.php: Cannot read .env file at path: " . htmlspecialchars($env_path));
     }
 
     $lines = file($env_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     if ($lines === false) {
-        die("FATAL ERROR in config.php: Failed to read content from .env file.");
+        // Throw an exception for failed read operations.
+        throw new RuntimeException("FATAL ERROR in config.php: Failed to read content from .env file.");
     }
 
     foreach ($lines as $line) {

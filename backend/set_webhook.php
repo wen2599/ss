@@ -6,10 +6,11 @@ if (php_sapi_name() !== 'cli') {
     die("This script can only be run from the command line.");
 }
 
-require_once 'config.php';
+try {
+    require_once 'config.php';
 
-// --- Configuration ---
-$bot_token = get_env_variable('TELEGRAM_BOT_TOKEN');
+    // --- Configuration ---
+    $bot_token = get_env_variable('TELEGRAM_BOT_TOKEN');
 $webhook_secret = get_env_variable('TELEGRAM_WEBHOOK_SECRET');
 $backend_url = get_env_variable('BACKEND_URL');
 
@@ -68,4 +69,8 @@ if (isset($response['ok']) && $response['ok']) {
 }
 
 exit(0);
+
+} catch (Exception $e) {
+    die("An unexpected error occurred: ". $e->getMessage(). "\n");
+}
 ?>
