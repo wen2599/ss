@@ -1,20 +1,25 @@
 <?php
-// backend/database.php
+// database.php
 
 require_once 'config.php';
 
 class Database {
     private static $pdo = null;
 
-    // 获取数据库连接（单例模式）
     public static function getConnection() {
         if (self::$pdo === null) {
-            $host = getenv('DB_HOST');
-            $db   = getenv('DB_NAME');
-            $user = getenv('DB_USER');
-            $pass = getenv('DB_PASS');
-            $port = getenv('DB_PORT');
+            // 使用新的辅助函数来获取配置
+            $host = get_env_variable('DB_HOST');
+            $db   = get_env_variable('DB_NAME');
+            $user = get_env_variable('DB_USER');
+            $pass = get_env_variable('DB_PASS');
+            $port = get_env_variable('DB_PORT', '3306');
             $charset = 'utf8mb4';
+
+            // 增加一个检查，如果关键配置为空则直接报错
+            if (empty($host) || empty($db) || empty($user)) {
+                 die("FATAL ERROR in database.php: Database configuration is missing. Please check your .env file.");
+            }
 
             $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
             $options = [
@@ -26,16 +31,13 @@ class Database {
             try {
                 self::$pdo = new PDO($dsn, $user, $pass, $options);
             } catch (\PDOException $e) {
-                // 记录错误日志，而不是在生产环境中暴露错误信息
                 error_log("Database Connection Error: " . $e->getMessage());
-                // 抛出通用错误，避免泄露敏感信息
-                throw new \PDOException("Could not connect to the database.", (int)$e->getCode());
+                die("FATAL ERROR: Could not connect to the database. Check connection details and server status.");
             }
         }
         return self::$pdo;
     }
 
-    // 保存新的开奖号码
     public static function saveLotteryNumber($number) {
         if (empty($number)) {
             return false;
@@ -50,13 +52,11 @@ class Database {
         }
     }
 
-    // 获取最新的开奖号码
     public static function getLatestLotteryNumber() {
         $sql = "SELECT number, draw_time FROM lottery_numbers ORDER BY id DESC LIMIT 1";
         try {
             $stmt = self::getConnection()->query($sql);
-            $result = $stmt->fetch();
-            return $result ? $result : null;
+            return $stmt->fetch() ?: null;
         } catch (\PDOException $e) {
             error_log("Error fetching latest lottery number: " . $e->getMessage());
             return null;

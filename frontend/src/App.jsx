@@ -5,29 +5,40 @@ function App() {
   const [lotteryData, setLotteryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // 新增一个状态，用于显示来自API的友好提示信息
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     const fetchLotteryNumber = async () => {
       setLoading(true);
       setError(null);
+      setMessage(''); // 每次请求前重置消息
+
       try {
-        // 请求我们自己的 /api 路径，Cloudflare Worker会将其代理到后端
-        const response = await fetch('/api/data'); // 路径可以是任意 /api/* 开头的
+        const response = await fetch('/api/data'); 
         
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          // 处理真正的网络或服务器错误 (如 500, 502 等)
+          throw new Error(`服务器响应错误，状态码: ${response.status}`);
         }
         
         const data = await response.json();
 
+        // --- 核心修改在这里 ---
         if (data.success) {
+          // API 返回成功，且有数据
           setLotteryData(data.data);
         } else {
-          throw new Error(data.message || 'Failed to fetch data.');
+          // API 返回成功，但业务上失败 (例如没有数据)
+          // 我们不再抛出错误，而是设置提示信息
+          setLotteryData(null); // 确保没有旧数据显示
+          setMessage(data.message || '暂无数据');
         }
+        // --- 修改结束 ---
 
       } catch (e) {
         console.error("Fetch error:", e);
+        // 只有在捕获到真正的异常时，才设置错误状态
         setError(e.message);
       } finally {
         setLoading(false);
@@ -36,12 +47,10 @@ function App() {
 
     fetchLotteryNumber();
 
-    // 设置一个定时器，例如每分钟刷新一次数据
-    const intervalId = setInterval(fetchLotteryNumber, 60000); // 60秒
+    const intervalId = setInterval(fetchLotteryNumber, 60000); 
 
-    // 组件卸载时清除定时器
     return () => clearInterval(intervalId);
-  }, []); // 空依赖数组表示只在组件挂载时运行一次初始 fetch
+  }, []);
 
   return (
     <div className="container">
@@ -51,21 +60,28 @@ function App() {
       <main>
         <div className="card">
           {loading && <p className="status">正在加载...</p>}
+          
+          {/* 显示真正的错误 */}
           {error && <p className="status error">加载失败: {error}</p>}
-          {lotteryData && (
+          
+          {/* 显示来自API的友好提示 (例如 "No lottery numbers found.") */}
+          {!loading && !error && message && <p className="status">{message}</p>}
+
+          {/* 成功获取并显示数据 */}
+          {!loading && !error && lotteryData && (
             <div className="result">
               <span className="number-label">开奖号码:</span>
               <span className="number">{lotteryData.number}</span>
-              <span className="time">开奖时间: {new Date(lotteryData.time).toLocaleString()}</span>
+              {/* 检查 time 字段是否存在，避免 undefined 错误 */}
+              <span className="time">
+                开奖时间: {lotteryData.time ? new Date(lotteryData.time).toLocaleString() : 'N/A'}
+              </span>
             </div>
-          )}
-          {!loading && !lotteryData && !error && (
-             <p className="status">暂无开奖数据</p>
           )}
         </div>
       </main>
       <footer>
-        <p>数据自动更新</p>
+        <p>数据每分钟自动刷新</p>
       </footer>
     </div>
   );

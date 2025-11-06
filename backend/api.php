@@ -1,13 +1,14 @@
 <?php
-// backend/api.php
+// api.php
+
+// 开启日志记录，但不直接显示错误
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+error_reporting(E_ALL);
 
 require_once 'database.php';
 
-// 设置响应头为 JSON
 header('Content-Type: application/json');
-
-// 这里允许所有来源的请求，因为最终是由 Cloudflare Worker 控制的
-// 但在后端也设置一下是良好的实践
 header('Access-Control-Allow-Origin: *'); 
 
 try {
@@ -28,12 +29,13 @@ try {
         ];
     }
 } catch (\Exception $e) {
+    // 记录通用错误
+    error_log("API Error: " . $e->getMessage());
     http_response_code(500);
     $response = [
         'success' => false,
         'message' => 'An internal server error occurred.'
     ];
-    // 错误日志已在 Database 类中记录
 }
 
 echo json_encode($response);
