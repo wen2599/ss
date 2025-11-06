@@ -8,7 +8,6 @@ class Database {
 
     public static function getConnection() {
         if (self::$pdo === null) {
-            // 使用新的辅助函数来获取配置
             $host = get_env_variable('DB_HOST');
             $db   = get_env_variable('DB_NAME');
             $user = get_env_variable('DB_USER');
@@ -16,7 +15,6 @@ class Database {
             $port = get_env_variable('DB_PORT', '3306');
             $charset = 'utf8mb4';
 
-            // 增加一个检查，如果关键配置为空则直接报错
             if (empty($host) || empty($db) || empty($user)) {
                  die("FATAL ERROR in database.php: Database configuration is missing. Please check your .env file.");
             }
@@ -38,28 +36,78 @@ class Database {
         return self::$pdo;
     }
 
-    public static function saveLotteryNumber($number) {
-        if (empty($number)) {
+    // --- Lottery ---
+    public static function saveLotteryResult($lottery_type, $issue_number, $numbers) {
+        if (empty($numbers)) {
             return false;
         }
-        $sql = "INSERT INTO lottery_numbers (number) VALUES (?)";
+        $sql = "INSERT INTO lottery_results (lottery_type, issue_number, numbers) VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE numbers = VALUES(numbers)";
         try {
             $stmt = self::getConnection()->prepare($sql);
-            return $stmt->execute([$number]);
+            return $stmt->execute([$lottery_type, $issue_number, $numbers]);
         } catch (\PDOException $e) {
-            error_log("Error saving lottery number: " . $e->getMessage());
+            error_log("Error saving lottery result: " . $e->getMessage());
             return false;
         }
     }
 
-    public static function getLatestLotteryNumber() {
-        $sql = "SELECT number, draw_time FROM lottery_numbers ORDER BY id DESC LIMIT 1";
+    public static function getLatestLotteryResult() {
+        $sql = "SELECT lottery_type, issue_number, numbers, draw_time FROM lottery_results ORDER BY id DESC LIMIT 1";
         try {
             $stmt = self::getConnection()->query($sql);
             return $stmt->fetch() ?: null;
         } catch (\PDOException $e) {
-            error_log("Error fetching latest lottery number: " . $e->getMessage());
+            error_log("Error fetching latest lottery result: " . $e->getMessage());
             return null;
+        }
+    }
+
+    // --- Users ---
+    public static function findUserByEmail($email) {
+        $sql = "SELECT * FROM users WHERE email = ?";
+        try {
+            $stmt = self::getConnection()->prepare($sql);
+            $stmt->execute([$email]);
+            return $stmt->fetch();
+        } catch (\PDOException $e) {
+            error_log("Error finding user by email: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public static function createUser($email, $password_hash) {
+        $sql = "INSERT INTO users (email, password) VALUES (?, ?)";
+        try {
+            $stmt = self::getConnection()->prepare($sql);
+            $stmt->execute([$email, $password_hash]);
+            return self::getConnection()->lastInsertId();
+        } catch (\PDOException $e) {
+            error_log("Error creating user: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public static function updateUserToken($user_id, $token, $expires_at) {
+        $sql = "UPDATE users SET auth_token = ?, token_expires_at = ? WHERE id = ?";
+        try {
+            $stmt = self::getConnection()->prepare($sql);
+            return $stmt->execute([$token, $expires_at, $user_id]);
+        } catch (\PDOException $e) {
+            error_log("Error updating user token: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    // --- Emails ---
+    public static function saveEmail($user_id, $from, $to, $subject, $body) {
+        $sql = "INSERT INTO emails (user_id, from_email, to_email, subject, body) VALUES (?, ?, ?, ?, ?)";
+        try {
+            $stmt = self::getConnection()->prepare($sql);
+            return $stmt->execute([$user_id, $from, $to, $subject, $body]);
+        } catch (\PDOException $e) {
+            error_log("Error saving email: " . $e->getMessage());
+            return false;
         }
     }
 }
