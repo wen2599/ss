@@ -6,19 +6,19 @@ const Navbar = () => {
 
     return (
         <nav className="navbar">
-            <Link to="/"><h1>Email Bet Processor</h1></Link>
+            <Link to="/"><h1>电子邮件投注处理器</h1></Link>
             <ul>
                 {user ? (
                     <>
                         <li><span>{user.email}</span></li>
                         <li>
-                            <button onClick={logout}>Logout</button>
+                            <button onClick={logout}>登出</button>
                         </li>
                     </>
                 ) : (
                     <>
-                        <li><Link to="/login">Login</Link></li>
-                        <li><Link to="/register">Register</Link></li>
+                        <li><Link to="/login">登录</Link></li>
+                        <li><Link to="/register">注册</Link></li>
                     </>
                 )}
             </ul>

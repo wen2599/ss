@@ -19,29 +19,29 @@ const LoginPage = () => {
                 login(response.data.token);
                 navigate('/');
             } else {
-                setError(response.data.message || 'Login failed.');
+                setError(response.data.message || '登录失败。');
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'An error occurred.');
+            setError(err.response?.data?.message || '发生错误。');
         }
     };
 
     return (
         <div className="form-container">
             <form onSubmit={handleSubmit}>
-                <h2>Login</h2>
+                <h2>登录</h2>
                 {error && <p className="error-message">{error}</p>}
                 <div className="form-group">
-                    <label>Email</label>
+                    <label>电子邮件</label>
                     <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                 </div>
                 <div className="form-group">
-                    <label>Password</label>
+                    <label>密码</label>
                     <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 </div>
-                <button type="submit" className="btn">Login</button>
+                <button type="submit" className="btn">登录</button>
                 <p style={{ textAlign: 'center', marginTop: '1rem' }}>
-                    Don't have an account? <Link to="/register">Register</Link>
+                    没有帐户？ <Link to="/register">注册</Link>
                 </p>
             </form>
         </div>
