@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Email Bet Processor</string>
+    <string name="title_activity_main">Email Bet Processor</string>
+    <string name="package_name">com.example.emailbetprocessor</string>
+    <string name="custom_url_scheme">com.example.emailbetprocessor</string>
+</resources>
