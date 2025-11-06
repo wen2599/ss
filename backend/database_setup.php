@@ -54,6 +54,16 @@ try {
     $pdo->exec($sql_lottery_results);
     echo "Table 'lottery_results' created or already exists.\n";
 
+    // Table: auth_users
+    $sql_auth_users = "
+    CREATE TABLE IF NOT EXISTS `auth_users` (
+      `id` INT AUTO_INCREMENT PRIMARY KEY,
+      `email` VARCHAR(255) NOT NULL UNIQUE,
+      `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+    $pdo->exec($sql_auth_users);
+    echo "Table 'auth_users' created or already exists.\n";
+
     // --- Legacy Table Rename (Compatible with older MySQL) ---
     // Check if the old table 'lottery_numbers' exists before trying to rename it.
     $db_name = get_env_variable('DB_NAME');

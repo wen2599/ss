@@ -66,6 +66,15 @@ try {
             json_response(['success' => true, 'is_registered' => (bool)$user]);
             break;
 
+        case 'check_auth':
+            $email = isset($_GET['email']) ? trim($_GET['email']) : '';
+            if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                json_response(['success' => false, 'message' => 'Invalid email provided.'], 400);
+            }
+            $is_authorized = Database::isEmailAuthorized($email);
+            json_response(['success' => true, 'is_authorized' => $is_authorized]);
+            break;
+
         case 'register':
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                 json_response(['success' => false, 'message' => 'Invalid request method.'], 405);
@@ -79,6 +88,9 @@ try {
             }
             if (strlen($password) < 6) {
                 json_response(['success' => false, 'message' => 'Password must be at least 6 characters long.'], 400);
+            }
+            if (!Database::isEmailAuthorized($email)) {
+                json_response(['success' => false, 'message' => 'This email is not authorized to register.'], 403);
             }
             if (Database::findUserByEmail($email)) {
                 json_response(['success' => false, 'message' => 'Email already registered.'], 409);

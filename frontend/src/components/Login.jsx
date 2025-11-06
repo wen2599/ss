@@ -5,11 +5,13 @@ function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setLoading(true);
 
         try {
             const response = await fetch('/api/?action=login', {
@@ -18,9 +20,14 @@ function Login() {
                 body: JSON.stringify({ email, password }),
             });
 
+            const contentType = response.headers.get("content-type");
+            if (!response.ok || !contentType || !contentType.includes("application/json")) {
+                throw new Error('服务器响应异常，请稍后重试。');
+            }
+
             const data = await response.json();
 
-            if (!response.ok || !data.success) {
+            if (!data.success) {
                 throw new Error(data.message || '登录失败。');
             }
 
@@ -28,6 +35,8 @@ function Login() {
             navigate('/'); // 登录成功后重定向到首页
         } catch (err) {
             setError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -44,6 +53,7 @@ function Login() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
+                        disabled={loading}
                     />
                 </div>
                 <div className="form-group">
@@ -54,9 +64,12 @@ function Login() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        disabled={loading}
                     />
                 </div>
-                <button type="submit">登录</button>
+                <button type="submit" disabled={loading}>
+                    {loading ? '登录中...' : '登录'}
+                </button>
             </form>
         </div>
     );
