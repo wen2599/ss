@@ -5,9 +5,6 @@ ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
-// The config file must be loaded first to ensure all environment variables are available.
-require_once 'config.php';
-
 // --- Global Headers ---
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -40,8 +37,10 @@ function verify_worker_secret() {
 
 // --- Main API Logic ---
 try {
-    // The database connection is now inside the try block.
-    // If it fails, the catch block will handle it and return a proper JSON error.
+    // Load configuration and database inside the try block.
+    // This ensures that any failure during initialization is caught
+    // and returned as a proper JSON error.
+    require_once 'config.php';
     require_once 'database.php';
 
     $action = isset($_REQUEST['action']) ? $_REQUEST['action'] : '';
