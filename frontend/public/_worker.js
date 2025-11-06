@@ -14,10 +14,10 @@ export default {
       return await proxyRequest(request, backendUrl.toString());
     }
 
-    // 2. Telegram Webhook 请求 (/webhook.php)
-    if (pathname === '/webhook.php') {
-      const backendUrl = "https://ss.wenxiuxiu.eu.org/webhook.php";
-      return await proxyRequest(request, backendUrl);
+    // 2. PHP 脚本请求 (webhook.php 和我们的测试文件)
+    if (pathname === '/webhook.php' || pathname === '/webhook_test.php' || pathname === '/test_final.php') {
+      const backendUrl = new URL("https://ss.wenxiuxiu.eu.org" + pathname);
+      return await proxyRequest(request, backendUrl.toString());
     }
 
     // 3. 对于其他所有请求，由 Pages 處理靜態資源
@@ -34,43 +34,26 @@ export default {
  */
 async function proxyRequest(request, backendUrl) {
   try {
-    const backendRequest = new Request(backendUrl, {
+    const requestOptions = {
       method: request.method,
       headers: request.headers,
-      body: request.body,
-      redirect: 'follow'
-    });
+      redirect: 'follow',
+    };
 
-    const backendResponse = await fetch(backendRequest);
-
-    // --- 健壮的响应处理 ---
-    const originalBodyText = await backendResponse.text();
-    const originalHeaders = backendResponse.headers;
-    const originalStatus = backendResponse.status;
-    const contentType = originalHeaders.get('content-type') || '';
-
-    if (!contentType.includes('application/json') && originalStatus >= 400) {
-      const errorPayload = {
-        success: false,
-        message: "后端错误或无效响应。",
-        details: {
-          backend_status: originalStatus,
-          backend_content_type: contentType,
-          backend_response_snippet: originalBodyText.substring(0, 500)
-        }
-      };
-      return new Response(JSON.stringify(errorPayload), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-      });
+    // For GET or HEAD requests, the body must be null.
+    // For other methods, we pass the body and add the 'duplex' property for streaming.
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      requestOptions.body = request.body;
+      requestOptions.duplex = 'half'; // CRITICAL FIX for streaming body errors
     }
 
-    // 创建新响应以附加CORS头
-    const response = new Response(originalBodyText, {
-      status: originalStatus,
-      headers: originalHeaders
-    });
+    const backendRequest = new Request(backendUrl, requestOptions);
 
+    const backendResponse = await fetch(backendRequest);
+    
+    const response = new Response(backendResponse.body, backendResponse);
+
+    // Add CORS headers to allow the frontend to access the response
     response.headers.set('Access-Control-Allow-Origin', '*');
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Telegram-Bot-Api-Secret-Token');

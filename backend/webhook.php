@@ -1,6 +1,14 @@
 <?php
 // webhook.php
 
+// --- TEMPORARY DEBUGGING ---
+// Force PHP to display errors directly. This will show us the fatal error.
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+// --- END TEMPORARY DEBUGGING ---
+
+
 // --- Enhanced Debug Logging ---
 // Log file path
 $log_file = __DIR__ . '/webhook_debug.log';
@@ -29,7 +37,7 @@ file_put_contents($log_file, $log_entry, FILE_APPEND);
 
 // --- Main Webhook Logic ---
 try {
-    ini_set('display_errors', 0);
+    ini_set('display_errors', 0); // We will turn it off again inside the main logic
     ini_set('log_errors', 1);
     error_reporting(E_ALL);
 
