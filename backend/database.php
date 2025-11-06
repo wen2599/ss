@@ -113,11 +113,11 @@ class Database {
     }
 
     // --- Emails ---
-    public static function saveEmail($user_id, $from, $to, $subject, $body) {
-        $sql = "INSERT INTO emails (user_id, from_email, to_email, subject, body) VALUES (?, ?, ?, ?, ?)";
+    public static function saveEmail($user_id, $from, $to, $subject, $body, $raw_email) {
+        $sql = "INSERT INTO emails (user_id, from_email, to_email, subject, body, raw_email) VALUES (?, ?, ?, ?, ?, ?)";
         try {
             $stmt = self::getConnection()->prepare($sql);
-            return $stmt->execute(array($user_id, $from, $to, $subject, $body));
+            return $stmt->execute(array($user_id, $from, $to, $subject, $body, $raw_email));
         } catch (\PDOException $e) {
             error_log("Error saving email: " . $e->getMessage());
             return false;

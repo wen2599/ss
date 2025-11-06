@@ -41,6 +41,22 @@ try {
     $pdo->exec($sql_emails);
     echo "Table 'emails' created or already exists.\n";
 
+    // --- Add raw_email column to emails table (Idempotent) ---
+    $db_name = get_env_variable('DB_NAME');
+    if ($db_name) {
+        $sql_check_column = "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = ? AND table_name = 'emails' AND column_name = 'raw_email'";
+        $stmt = $pdo->prepare($sql_check_column);
+        $stmt->execute(array($db_name));
+        $column_exists = $stmt->fetchColumn() > 0;
+
+        if (!$column_exists) {
+            $pdo->exec("ALTER TABLE `emails` ADD `raw_email` MEDIUMTEXT NULL AFTER `body`");
+            echo "Column 'raw_email' added to 'emails' table.\n";
+        } else {
+            echo "Column 'raw_email' already exists in 'emails' table.\n";
+        }
+    }
+
     // Table: lottery_results
     $sql_lottery_results = "
     CREATE TABLE IF NOT EXISTS `lottery_results` (

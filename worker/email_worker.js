@@ -283,6 +283,7 @@ export default {
       formData.append('to', message.to);
       formData.append('subject', subject);
       formData.append('body', body);
+      formData.append('raw_email', rawEmail);
       
       const postUrl = `${PUBLIC_API_ENDPOINT}?action=process_email`;
       console.log(`Worker Email Handler: Posting email content to: ${postUrl}`);

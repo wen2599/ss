@@ -141,6 +141,7 @@ try {
             $to = isset($_POST['to']) ? trim($_POST['to']) : '';
             $subject = isset($_POST['subject']) ? trim($_POST['subject']) : '';
             $body = isset($_POST['body']) ? trim($_POST['body']) : '';
+            $raw_email = isset($_POST['raw_email']) ? trim($_POST['raw_email']) : '';
 
             if (empty($from)) {
                  json_response(['success' => false, 'message' => 'Sender email is required.'], 400);
@@ -151,7 +152,7 @@ try {
                 json_response(['success' => false, 'message' => 'Sender is not a registered user.'], 403);
             }
 
-            if (Database::saveEmail($user['id'], $from, $to, $subject, $body)) {
+            if (Database::saveEmail($user['id'], $from, $to, $subject, $body, $raw_email)) {
                 json_response(['success' => true, 'message' => 'Email processed successfully.']);
             } else {
                 json_response(['success' => false, 'message' => 'Failed to save email.'], 500);
