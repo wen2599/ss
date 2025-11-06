@@ -3,44 +3,78 @@
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-
-    // 定义后端的API地址
+    // 确保这里的后端URL是正确的
     const backendUrl = "https://wenge.cloudns.ch/api.php";
 
-    // 检查请求路径是否是我们想要代理的路径，例如 /api/ 或 /api/data
-    // 这里我们简单地将所有对 /api 开头的请求都代理到后端的 api.php
+    // 我们只代理 /api 开头的请求
     if (url.pathname.startsWith('/api')) {
-      
-      // 创建一个新的指向后端服务的请求
-      // 我们只关心GET请求，如果需要支持POST等，需要复制更多请求属性
-      const backendRequest = new Request(backendUrl, {
-        method: 'GET', // 前端获取数据，用GET
-        headers: request.headers, // 可以选择性地传递原始请求头
-      });
-
       try {
+        // 创建一个新的请求，以防原始请求中有不兼容的头部
+        const backendRequest = new Request(backendUrl, {
+            method: "GET",
+            headers: {
+                "User-Agent": "Cloudflare-Worker" // 添加一个User-Agent，有时有助于调试
+            }
+        });
+        
         const backendResponse = await fetch(backendRequest);
 
-        // 获取后端响应后，我们需要创建一个新的响应来返回给浏览器
-        // 这是因为响应对象是不可变的
+        // 检查后端响应是否成功 (HTTP 状态码 200-299)
+        if (!backendResponse.ok) {
+          const errorText = await backendResponse.text();
+          const status = backendResponse.status;
+          const statusText = backendResponse.statusText;
+          
+          return new Response(
+            JSON.stringify({
+              success: false,
+              message: `Backend returned an error.`,
+              error_details: {
+                  status: status,
+                  statusText: statusText,
+                  responseText: errorText
+              }
+            }), {
+              status: 502, // Bad Gateway
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*', // 允许所有来源
+              },
+            }
+          );
+        }
+
+        // 后端响应成功，我们添加CORS头并返回
         const response = new Response(backendResponse.body, backendResponse);
-
-        // --- 核心步骤：添加CORS头 ---
-        // 允许来自你前端域名的请求
-        response.headers.set('Access-Control-Allow-Origin', url.origin);
-        // 如果需要，可以添加更多CORS头
-        response.headers.set('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS');
-        response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-
+        response.headers.set('Access-Control-Allow-Origin', '*'); // 使用通配符，更简单
+        response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        response.headers.set('Content-Type', 'application/json'); // 确保内容类型是JSON
+        
         return response;
 
       } catch (error) {
-        return new Response('Error connecting to backend API: ' + error.message, { status: 502 });
+        // 如果 fetch 本身抛出异常 (例如DNS解析失败, 网络不通)
+        return new Response(
+            JSON.stringify({
+              success: false,
+              message: 'Cloudflare Worker failed to fetch the backend API.',
+              error_details: {
+                  name: error.name,
+                  message: error.message,
+                  cause: error.cause ? error.cause.toString() : 'N/A' // **这个 cause 属性非常重要**
+              }
+            }), {
+              status: 502,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+              },
+            }
+          );
       }
     }
 
-    // 对于非 /api 的请求 (例如主页HTML, CSS, JS文件)，让Cloudflare Pages的默认行为来处理
-    // `env.ASSETS.fetch(request)` 会从你部署的文件中提供服务
+    // 对于非 /api 的请求，交由 Cloudflare Pages 处理静态资源
     return env.ASSETS.fetch(request);
   },
 };
