@@ -54,10 +54,20 @@ try {
     $pdo->exec($sql_lottery_results);
     echo "Table 'lottery_results' created or already exists.\n";
 
-    // Rename old table if it exists
-    $sql_rename = "RENAME TABLE IF EXISTS `lottery_numbers` TO `lottery_results_old`;";
-    $pdo->exec($sql_rename);
-    echo "Renamed old 'lottery_numbers' table to 'lottery_results_old' if it existed.\n";
+    // --- Legacy Table Rename (Compatible with older MySQL) ---
+    // Check if the old table 'lottery_numbers' exists before trying to rename it.
+    $db_name = get_env_variable('DB_NAME');
+    if ($db_name) {
+        $sql_check_table = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ? AND table_name = 'lottery_numbers'";
+        $stmt = $pdo->prepare($sql_check_table);
+        $stmt->execute([$db_name]);
+        $table_exists = $stmt->fetchColumn() > 0;
+
+        if ($table_exists) {
+            $pdo->exec("RENAME TABLE `lottery_numbers` TO `lottery_results_old`");
+            echo "Renamed old 'lottery_numbers' table to 'lottery_results_old'.\n";
+        }
+    }
 
     echo "\nDatabase setup completed successfully.\n";
 
