@@ -16,7 +16,7 @@ function HomePage() {
         const response = await fetch('/api/?action=get_latest_lottery_result');
 
         if (!response.ok) {
-          throw new Error(`Server responded with status: ${response.status}`);
+          throw new Error(`服务器响应状态: ${response.status}`);
         }
 
         const data = await response.json();
@@ -25,11 +25,11 @@ function HomePage() {
           setLotteryData(data.data);
         } else {
           setLotteryData(null);
-          setMessage(data.message || 'No data available.');
+          setMessage(data.message || '暂无数据');
         }
 
       } catch (e) {
-        console.error("Fetch error:", e);
+        console.error("获取开奖数据时出错:", e);
         setError(e.message);
       } finally {
         setLoading(false);
@@ -44,26 +44,26 @@ function HomePage() {
   return (
     <div className="container">
       <header>
-        <h1>Latest Lottery Result</h1>
+        <h1>最新开奖结果</h1>
       </header>
       <main>
         <div className="card">
-          {loading && <p className="status">Loading...</p>}
-          {error && <p className="status error">Failed to load: {error}</p>}
+          {loading && <p className="status">正在加载...</p>}
+          {error && <p className="status error">加载失败: {error}</p>}
           {!loading && !error && message && <p className="status">{message}</p>}
           {!loading && !error && lotteryData && (
             <div className="result">
               <span className="number-label">{lotteryData.lottery_type} ({lotteryData.issue_number}):</span>
               <span className="number">{lotteryData.numbers}</span>
               <span className="time">
-                Draw Time: {lotteryData.draw_time ? new Date(lotteryData.draw_time).toLocaleString() : 'N/A'}
+                开奖时间: {lotteryData.draw_time ? new Date(lotteryData.draw_time).toLocaleString() : 'N/A'}
               </span>
             </div>
           )}
         </div>
       </main>
       <footer>
-        <p>Data refreshes automatically every minute.</p>
+        <p>数据每分钟自动刷新</p>
       </footer>
     </div>
   );

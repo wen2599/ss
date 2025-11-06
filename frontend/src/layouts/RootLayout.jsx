@@ -14,24 +14,24 @@ function RootLayout() {
         <>
             <nav className="navbar">
                 <div className="nav-container">
-                    <Link to="/" className="nav-logo">Lottery App</Link>
+                    <Link to="/" className="nav-logo">开奖应用</Link>
                     <ul className="nav-menu">
                         {authToken ? (
                             <>
                                 <li className="nav-item">
-                                    <Link to="/" className="nav-links">Home</Link>
+                                    <Link to="/" className="nav-links">首页</Link>
                                 </li>
                                 <li className="nav-item">
-                                    <button onClick={handleLogout} className="nav-links-button">Logout</button>
+                                    <button onClick={handleLogout} className="nav-links-button">登出</button>
                                 </li>
                             </>
                         ) : (
                             <>
                                 <li className="nav-item">
-                                    <Link to="/login" className="nav-links">Login</Link>
+                                    <Link to="/login" className="nav-links">登录</Link>
                                 </li>
                                 <li className="nav-item">
-                                    <Link to="/register" className="nav-links">Register</Link>
+                                    <Link to="/register" className="nav-links">注册</Link>
                                 </li>
                             </>
                         )}

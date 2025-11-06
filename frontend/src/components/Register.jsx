@@ -23,11 +23,11 @@ function Register() {
             const data = await response.json();
 
             if (!response.ok || !data.success) {
-                throw new Error(data.message || 'Registration failed.');
+                throw new Error(data.message || '注册失败。');
             }
 
-            setMessage('Registration successful! Please login.');
-            setTimeout(() => navigate('/login'), 2000); // Redirect after 2s
+            setMessage('注册成功！请登录。');
+            setTimeout(() => navigate('/login'), 2000); // 2秒后重定向
         } catch (err) {
             setError(err.message);
         }
@@ -36,11 +36,11 @@ function Register() {
     return (
         <div className="auth-container">
             <form onSubmit={handleSubmit} className="auth-form">
-                <h2>Register</h2>
+                <h2>注册</h2>
                 {error && <p className="error">{error}</p>}
                 {message && <p className="success">{message}</p>}
                 <div className="form-group">
-                    <label htmlFor="email">Email</label>
+                    <label htmlFor="email">邮箱</label>
                     <input
                         type="email"
                         id="email"
@@ -50,7 +50,7 @@ function Register() {
                     />
                 </div>
                 <div className="form-group">
-                    <label htmlFor="password">Password</label>
+                    <label htmlFor="password">密码</label>
                     <input
                         type="password"
                         id="password"
@@ -60,7 +60,7 @@ function Register() {
                         required
                     />
                 </div>
-                <button type="submit">Register</button>
+                <button type="submit">注册</button>
             </form>
         </div>
     );
