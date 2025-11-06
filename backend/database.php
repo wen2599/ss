@@ -53,6 +53,18 @@ class Database {
         }
     }
 
+    public static function isEmailAuthorized($email) {
+        $sql = "SELECT COUNT(*) FROM auth_users WHERE email = ?";
+        try {
+            $stmt = self::getConnection()->prepare($sql);
+            $stmt->execute([$email]);
+            return $stmt->fetchColumn() > 0;
+        } catch (\PDOException $e) {
+            error_log("Error checking authorized email: " . $e->getMessage());
+            return false;
+        }
+    }
+
     public static function getLatestLotteryResult() {
         $sql = "SELECT lottery_type, issue_number, numbers, draw_time FROM lottery_results ORDER BY id DESC LIMIT 1";
         try {
