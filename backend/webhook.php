@@ -1,6 +1,34 @@
 <?php
 // webhook.php
 
+// --- Enhanced Debug Logging ---
+// Log file path
+$log_file = __DIR__ . '/webhook_debug.log';
+
+// Get raw request body
+$input = file_get_contents('php://input');
+
+// Get all headers
+$headers = [];
+foreach ($_SERVER as $key => $value) {
+    if (substr($key, 0, 5) === 'HTTP_') {
+        $header = str_replace(' ', '-', ucwords(str_replace('_', ' ', strtolower(substr($key, 5)))));
+        $headers[$header] = $value;
+    }
+}
+
+// Prepare log entry
+$log_entry = "--- [" . date('Y-m-d H:i:s') . "] ---\n";
+$log_entry .= "Request Body:\n" . ($input ? $input : "Empty") . "\n\n";
+$log_entry .= "Headers:\n" . json_encode($headers, JSON_PRETTY_PRINT) . "\n\n";
+$log_entry .= "------------------------------------------\n\n";
+
+// Append to log file
+file_put_contents($log_file, $log_entry, FILE_APPEND);
+
+
+// --- Main Webhook Logic ---
+
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
@@ -8,7 +36,7 @@ error_reporting(E_ALL);
 require_once 'database.php';
 
 // --- Security Check ---
-$secret_token_header = isset($_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN']) ? $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] : '';
+$secret_token_header = isset($headers['X-Telegram-Bot-Api-Secret-Token']) ? $headers['X-Telegram-Bot-Api-Secret-Token'] : '';
 $expected_secret = get_env_variable('TELEGRAM_WEBHOOK_SECRET');
 
 if (empty($expected_secret) || $secret_token_header !== $expected_secret) {
@@ -22,8 +50,8 @@ if (empty($expected_secret) || $secret_token_header !== $expected_secret) {
 }
 
 // --- Input Handling ---
-$update_json = file_get_contents('php://input');
-$update = json_decode($update_json, true);
+// We already read the input for logging, so we reuse it here.
+$update = json_decode($input, true);
 
 if (!$update) {
     http_response_code(400);
