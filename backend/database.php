@@ -16,7 +16,7 @@ class Database {
             $charset = 'utf8mb4';
 
             if (empty($host) || empty($db) || empty($user)) {
-                 die("FATAL ERROR in database.php: Database configuration is missing. Please check your .env file.");
+                 throw new RuntimeException("FATAL ERROR in database.php: Database configuration is missing. Please check your .env file.");
             }
 
             $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
@@ -29,8 +29,9 @@ class Database {
             try {
                 self::$pdo = new PDO($dsn, $user, $pass, $options);
             } catch (\PDOException $e) {
-                error_log("Database Connection Error: " . $e->getMessage());
-                die("FATAL ERROR: Could not connect to the database. Check connection details and server status.");
+                error_log("Database Connection Error: ". $e->getMessage());
+                // Re-throw the exception to be caught by the global error handler in api.php
+                throw $e;
             }
         }
         return self::$pdo;

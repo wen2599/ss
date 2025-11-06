@@ -28,38 +28,40 @@ file_put_contents($log_file, $log_entry, FILE_APPEND);
 
 
 // --- Main Webhook Logic ---
+try {
+    ini_set('display_errors', 0);
+    ini_set('log_errors', 1);
+    error_reporting(E_ALL);
 
-ini_set('display_errors', 0);
-ini_set('log_errors', 1);
-error_reporting(E_ALL);
+    // Config and Database are now loaded inside the try block for graceful error handling.
+    require_once 'database.php';
 
-require_once 'database.php';
+    // --- Security Check ---
+    $secret_token_header = isset($headers['X-Telegram-Bot-Api-Secret-Token']) ? $headers['X-Telegram-Bot-Api-Secret-Token'] : '';
+    $expected_secret = get_env_variable('TELEGRAM_WEBHOOK_SECRET');
 
-// --- Security Check ---
-$secret_token_header = isset($headers['X-Telegram-Bot-Api-Secret-Token']) ? $headers['X-Telegram-Bot-Api-Secret-Token'] : '';
-$expected_secret = get_env_variable('TELEGRAM_WEBHOOK_SECRET');
-
-if (empty($expected_secret) || $secret_token_header !== $expected_secret) {
-    if (empty($expected_secret)) {
-        error_log("Webhook Forbidden: TELEGRAM_WEBHOOK_SECRET is empty in .env or failed to load.");
-    } else {
-        error_log("Webhook Forbidden: Secret token mismatch. Header: [".$secret_token_header."], Expected: [".$expected_secret."]");
+    if (empty($expected_secret) || $secret_token_header !== $expected_secret) {
+        if (empty($expected_secret)) {
+            error_log("Webhook Forbidden: TELEGRAM_WEBHOOK_SECRET is empty in .env or failed to load.");
+        } else {
+            error_log("Webhook Forbidden: Secret token mismatch. Header: [".$secret_token_header."], Expected: [".$expected_secret."]");
+        }
+        http_response_code(403);
+        // Exit cleanly after setting the status code.
+        exit();
     }
-    http_response_code(403);
-    exit('Forbidden');
-}
 
-// --- Input Handling ---
-// We already read the input for logging, so we reuse it here.
-$update = json_decode($input, true);
+    // --- Input Handling ---
+    // We already read the input for logging, so we reuse it here.
+    $update = json_decode($input, true);
 
-if (!$update) {
-    http_response_code(400);
-    exit('Bad Request');
-}
+    if (!$update) {
+        http_response_code(400);
+        exit(); // Exit cleanly.
+    }
 
-// --- Parsing Logic ---
-function parseLotteryText($text) {
+    // --- Parsing Logic ---
+    function parseLotteryText($text) {
     $lottery_type = null;
     $issue_number = null;
     $numbers = null;
@@ -102,6 +104,17 @@ if (isset($update['channel_post']['text'])) {
     }
 }
 
+// --- Success Response ---
+// If we reach here, everything was successful.
 http_response_code(200);
 echo "OK";
+
+} catch (Exception $e) {
+    // --- Global Exception Handler ---
+    // Log any exceptions that were not caught earlier.
+    error_log("Webhook Unhandled Exception: " . $e->getMessage());
+    // Respond with a generic 500 error to avoid leaking implementation details.
+    http_response_code(500);
+    echo "Internal Server Error";
+}
 ?>

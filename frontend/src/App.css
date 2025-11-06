@@ -16,9 +16,10 @@ body {
 }
 
 /* Header */
-header h1 {
+.app-header h1 {
     font-size: 2.5rem;
     color: #1a1a1a;
+    margin-bottom: 0.5rem;
 }
 
 /* Card for Lottery Result */
@@ -28,45 +29,62 @@ header h1 {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     padding: 2rem;
     margin-top: 1rem;
-}
-
-.status {
-    font-size: 1.2rem;
-    color: #888;
-}
-
-.status.error {
-    color: #d9534f;
-}
-
-.result {
+    min-height: 200px;
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    gap: 1rem;
 }
 
-.number-label {
+/* Status Messages */
+.status-message {
     font-size: 1.2rem;
+    color: #666;
+}
+
+.status-message.error {
+    color: #d9534f;
+    font-weight: 500;
+}
+
+/* Result Grid Layout */
+.result-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 1rem 2rem;
+    text-align: left;
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.grid-item {
+    padding: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.grid-item.label {
+    font-weight: bold;
+    color: #333;
+    text-align: right;
+    border-right: 2px solid #eee;
+}
+
+.grid-item.value {
     color: #555;
 }
 
-.number {
-    font-size: 2.5rem;
+.grid-item.value.numbers {
+    font-size: 1.5rem;
     font-weight: bold;
     color: #007bff;
     letter-spacing: 2px;
 }
 
-.time {
-    font-size: 1rem;
-    color: #777;
-}
-
 /* Footer */
-footer {
+.app-footer {
     margin-top: 2rem;
     color: #888;
+    font-size: 0.9rem;
 }
 
 /* --- Authentication Form Styles --- */

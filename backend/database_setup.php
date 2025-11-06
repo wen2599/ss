@@ -6,9 +6,10 @@ if (php_sapi_name() !== 'cli') {
     die("This script can only be run from the command line.");
 }
 
-require_once 'database.php';
+require_once 'config.php'; // Load config first
 
 try {
+    require_once 'database.php';
     $pdo = Database::getConnection();
     echo "Successfully connected to the database.\n";
 
@@ -62,5 +63,7 @@ try {
 
 } catch (PDOException $e) {
     die("Database setup failed: " . $e->getMessage() . "\n");
+} catch (Exception $e) {
+    die("An unexpected error occurred: ". $e->getMessage(). "\n");
 }
 ?>

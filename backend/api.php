@@ -5,7 +5,8 @@ ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
-require_once 'database.php';
+// The config file must be loaded first to ensure all environment variables are available.
+require_once 'config.php';
 
 // --- Global Headers ---
 header('Content-Type: application/json');
@@ -38,9 +39,13 @@ function verify_worker_secret() {
 
 
 // --- Main API Logic ---
-$action = isset($_REQUEST['action']) ? $_REQUEST['action'] : '';
-
 try {
+    // The database connection is now inside the try block.
+    // If it fails, the catch block will handle it and return a proper JSON error.
+    require_once 'database.php';
+
+    $action = isset($_REQUEST['action']) ? $_REQUEST['action'] : '';
+
     switch ($action) {
 
         case 'get_latest_lottery_result':
