@@ -1,0 +1,12 @@
+name = "my-email-handler-worker"
+main = "src/index.js" # or "index.js" if it's in the root
+compatibility_date = "2023-10-30"
+
+[vars]
+# You should set these secrets using `wrangler secret put` command
+# wrangler secret put BACKEND_RECEIVE_URL
+# wrangler secret put BACKEND_SECRET_TOKEN
+
+# Example values (DO NOT COMMIT REAL VALUES)
+# BACKEND_RECEIVE_URL = "https://wenge.cloudns.ch/internal/receive_email"
+# BACKEND_SECRET_TOKEN = "your-secret-from-backend-env"
