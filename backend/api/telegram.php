@@ -5,7 +5,7 @@
 // It logs incoming requests and any errors to a file.
 $log_file = __DIR__ . '/webhook_log.txt';
 $raw_input = file_get_contents("php://input");
-$headers = [];
+$headers = array();
 foreach ($_SERVER as $key => $value) {
     if (substr($key, 0, 5) == 'HTTP_') {
         $headers[$key] = $value;
