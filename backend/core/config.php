@@ -2,7 +2,7 @@
 // Loads configuration from .env file
 if (!function_exists('load_config')) {
     function load_config() {
-        $config = [];
+        $config = array();
         $env_file = __DIR__ . '/../.env';
         if (!file_exists($env_file)) {
             // Throw an exception if the .env file is missing.

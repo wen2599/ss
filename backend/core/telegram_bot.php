@@ -6,10 +6,10 @@ function send_telegram_message($chat_id, $text) {
     $token = $config['TELEGRAM_BOT_TOKEN'];
     $url = "https://api.telegram.org/bot{$token}/sendMessage";
     
-    $data = [
+    $data = array(
         'chat_id' => $chat_id,
         'text' => $text,
-    ];
+    );
 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
