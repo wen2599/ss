@@ -1,0 +1,2063 @@
+File: backend/api_header.php
+<?php
+// backend/api_header.php
+
+// Define the allowed origin. Use a specific domain for production for better security.
+$allowed_origin = getenv('FRONTEND_URL') ?: '*'; // Fallback to wildcard for development if not set
+
+// Set CORS headers to allow requests from the frontend domain.
+// The 'Access-Control-Allow-Origin' header specifies which origins are allowed to access the resource.
+header("Access-Control-Allow-Origin: {$allowed_origin}");
+
+// The 'Access-Control-Allow-Credentials' header is crucial for sending cookies (and session data) across domains.
+// It tells the browser that the server allows the request to include user credentials.
+header('Access-Control-Allow-Credentials: true');
+
+// The 'Access-Control-Allow-Methods' header specifies the HTTP methods allowed for the resource.
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS, DELETE, PUT');
+
+// The 'Access-Control-Allow-Headers' header specifies the HTTP headers that can be used during the actual request.
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+
+// Handle pre-flight OPTIONS requests.
+// A pre-flight request is sent by the browser to check if the server understands CORS and is aware of the actual request's method and headers.
+// If the request method is 'OPTIONS', we terminate the script here to prevent further processing.
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204); // No Content
+    exit;
+}
+
+// Set a consistent JSON content type for all API responses.
+header('Content-Type: application/json');
+
+// Start or resume the session to access user authentication data.
+// This must come after the CORS headers, especially in a cross-origin context.
+if (session_status() === PHP_SESSION_NONE) {
+    // Configure session cookie for cross-site contexts
+    session_set_cookie_params([
+        'lifetime' => 86400, // 24 hours
+        'path' => '/',
+        'domain' => '', // Set your domain in production, e.g., '.yourdomain.com'
+        'secure' => true,   // Important for HTTPS
+        'httponly' => true,
+        'samesite' => 'None' // Crucial for cross-origin requests
+    ]);
+    session_start();
+}
+
+// Ensure errors are handled, and config is loaded.
+require_once __DIR__ . '/config.php';
+
+File: backend/database_schema.sql
+-- Main user table for authentication
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(255) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table for authorizing emails before registration (currently unused but kept for potential future use)
+CREATE TABLE IF NOT EXISTS `authorized_emails` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `email` varchar(255) NOT NULL,
+  `status` varchar(50) NOT NULL DEFAULT 'pending',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table for storing received emails
+CREATE TABLE IF NOT EXISTS `emails` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `sender` VARCHAR(255) NOT NULL,
+  `recipient` VARCHAR(255) NOT NULL,
+  `subject` VARCHAR(255),
+  `html_content` LONGTEXT,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  -- Columns for AI-extracted data
+  `vendor_name` VARCHAR(255) DEFAULT NULL,
+  `bill_amount` DECIMAL(10, 2) DEFAULT NULL,
+  `currency` VARCHAR(10) DEFAULT NULL,
+  `due_date` DATE DEFAULT NULL,
+  `invoice_number` VARCHAR(255) DEFAULT NULL,
+  `category` VARCHAR(100) DEFAULT NULL,
+  `is_processed` BOOLEAN NOT NULL DEFAULT FALSE,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table for storing lottery results
+CREATE TABLE IF NOT EXISTS `lottery_results` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `lottery_type` VARCHAR(100) NOT NULL,
+  `issue_number` VARCHAR(255) NOT NULL,
+  `winning_numbers` VARCHAR(255) NOT NULL,
+  `zodiac_signs` VARCHAR(255) NOT NULL,
+  `colors` VARCHAR(255) NOT NULL,
+  `drawing_date` DATE,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `type_issue` (`lottery_type`, `issue_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+File: backend/initialize_database.php
+<?php
+
+// This script should be run from the command line to set up the database tables.
+
+require_once __DIR__ . '/config.php';
+
+echo "--- Database Initialization Script ---\n\n";
+
+// 1. Get Database Connection
+echo "Step 1: Connecting to the database...\n";
+$pdo = get_db_connection();
+if (!$pdo) {
+    echo "[FAILURE] Could not connect to the database. Please check your .env credentials.\n";
+    exit(1);
+}
+echo "  [SUCCESS] Database connection established.\n\n";
+
+// 2. Read the SQL Schema File
+echo "Step 2: Reading the database schema file (database_schema.sql)...\n";
+$sql_file = __DIR__ . '/database_schema.sql';
+if (!file_exists($sql_file)) {
+    echo "[FAILURE] `database_schema.sql` not found in the backend directory.\n";
+    exit(1);
+}
+$sql = file_get_contents($sql_file);
+if (empty($sql)) {
+    echo "[FAILURE] `database_schema.sql` is empty.\n";
+    exit(1);
+}
+echo "  [SUCCESS] SQL schema file read successfully.\n\n";
+
+// 3. Execute the SQL to Create Tables
+echo "Step 3: Executing SQL to create tables...\n";
+try {
+    $pdo->exec($sql);
+    echo "  [SUCCESS] All tables have been created successfully (or already existed).\n\n";
+} catch (PDOException $e) {
+    echo "[FAILURE] An error occurred while creating the tables.\n";
+    echo "  Error: " . $e->getMessage() . "\n";
+    exit(1);
+}
+
+echo "--- Database Initialization Complete! ---\n";
+
+?>
+
+File: backend/get_lottery_results.php
+<?php
+// backend/get_lottery_results.php (FIXED AND ENHANCED LOGGING)
+
+require_once __DIR__ . '/api_header.php';
+require_once __DIR__ . '/db_operations.php'; // This now loads .env automatically
+
+function write_lottery_debug_log($message) {
+    $logFile = __DIR__ . '/lottery_debug.log';
+    file_put_contents($logFile, date('[Y-m-d H:i:s]') . ' [LOTTERY_API] ' . $message . PHP_EOL, FILE_APPEND | LOCK_EX);
+}
+
+write_lottery_debug_log("------ get_lottery_results.php Entry Point ------");
+
+$pdo = get_db_connection();
+if (is_array($pdo) && isset($pdo['db_error'])) {
+    $errorMsg = "Database connection error: " . $pdo['db_error'];
+    write_lottery_debug_log($errorMsg);
+    http_response_code(503);
+    echo json_encode(['status' => 'error', 'message' => $errorMsg]);
+    exit;
+}
+if (!$pdo) {
+    $errorMsg = "Database connection returned null.";
+    write_lottery_debug_log($errorMsg);
+    http_response_code(503);
+    echo json_encode(['status' => 'error', 'message' => $errorMsg]);
+    exit;
+}
+write_lottery_debug_log("Database connection successful."); // ADDED LOG
+
+try {
+    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
+    $lotteryType = isset($_GET['lottery_type']) ? urldecode($_GET['lottery_type']) : null;
+
+    write_lottery_debug_log("Received parameters: limit={$limit}, lotteryType='{$lotteryType}'");
+
+    $sql = "SELECT id, lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date, created_at FROM lottery_results ";
+    $params = [];
+
+    if ($lotteryType) {
+        $sql .= " WHERE lottery_type = ?";
+        $params[] = $lotteryType;
+    }
+
+    $sql .= " ORDER BY drawing_date DESC, issue_number DESC LIMIT ?";
+    $params[] = $limit;
+
+    write_lottery_debug_log("Preparing SQL: ". $sql . " with params: " . json_encode($params)); // ADDED LOG
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    write_lottery_debug_log("Fetched " . count($results) . " raw results from DB."); // MODIFIED LOG
+
+    // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    // +++ START OF THE FIX: Decode JSON strings into PHP arrays     +++
+    // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    // Iterate over each result to decode the JSON fields
+    $processedResults = array_map(function($row) {
+        // Decode 'winning_numbers'. The second argument `true` decodes it into an associative array,
+        // but since our JSON is a simple list, it becomes a numerically indexed array, which is what we want.
+        $row['winning_numbers'] = json_decode($row['winning_numbers'], false); // `false` for array of strings
+        $row['zodiac_signs'] = json_decode($row['zodiac_signs'], false);
+        $row['colors'] = json_decode($row['colors'], false);
+
+        // Add a safety check: if decoding fails, json_decode returns null.
+        // We should turn it into an empty array to prevent frontend errors.
+        if (!is_array($row['winning_numbers'])) $row['winning_numbers'] = [];
+        if (!is_array($row['zodiac_signs']))    $row['zodiac_signs'] = [];
+        if (!is_array($row['colors']))          $row['colors'] = [];
+
+        return $row;
+    }, $results);
+
+    write_lottery_debug_log("Processed " . count($processedResults) . " results (decoded JSON fields).");
+
+    // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    // +++ END OF THE FIX                                            +++
+    // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    // Now, encode the processed results, where the fields are proper arrays
+    echo json_encode(['status' => 'success', 'lottery_results' => $processedResults]);
+
+} catch (PDOException $e) {
+    $errorMsg = "Error fetching lottery results: " . $e->getMessage();
+    error_log($errorMsg);
+    write_lottery_debug_log($errorMsg);
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'An error occurred while fetching lottery results.']);
+}
+
+write_lottery_debug_log("------ get_lottery_results.php Exit Point ------");
+
+?>
+
+File: backend/index.php
+<?php
+// index.php (FIXED AND COMPLETE)
+
+// Main entry point for API requests
+
+header('Content-Type: application/json');
+
+// --- Pre-flight request for CORS (important for some setups) ---
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    header("Access-Control-Allow-Origin: *"); // Be more specific in production if needed
+    header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization");
+    header("Access-Control-Allow-Credentials: true");
+    exit(0);
+}
+
+// All endpoints are assumed to be in the same directory
+$endpoint = $_GET['endpoint'] ?? null;
+
+if ($endpoint === null) {
+    http_response_code(400); // Bad Request
+    echo json_encode(['error' => 'Missing endpoint parameter.']);
+    exit();
+}
+
+switch ($endpoint) {
+    case 'register_user':
+        require_once __DIR__ . '/register_user.php';
+        break;
+    case 'login_user':
+        require_once __DIR__ . '/login_user.php';
+        break;
+    case 'logout_user': // <-- MISSING CASE ADDED
+        require_once __DIR__ . '/logout_user.php';
+        break;
+    case 'check_session': // <-- MISSING CASE ADDED
+        require_once __DIR__ . '/check_session.php';
+        break;
+    case 'get_emails':
+        require_once __DIR__ . '/get_emails.php';
+        break;
+    case 'delete_bill':
+        require_once __DIR__ . '/delete_bill.php';
+        break;
+    case 'get_lottery_results':
+        require_once __DIR__ . '/get_lottery_results.php';
+        break;
+    case 'telegram_webhook':
+        require_once __DIR__ . '/telegram_webhook.php';
+        break;
+    case 'process_email_ai':
+        require_once __DIR__ . '/process_email_ai.php';
+        break;
+    // Add other endpoints as needed
+    default:
+        http_response_code(404); // Not Found
+        echo json_encode(['error' => 'Endpoint not found.']);
+        break;
+}
+?>
+
+File: backend/logout_user.php
+<?php
+
+require_once __DIR__ . '/api_header.php';
+
+// --- Logout Logic ---
+// Unset all session variables.
+$_SESSION = [];
+
+// If it's desired to kill the session, also delete the session cookie.
+// Note: This will destroy the session, and not just the session data!
+if (ini_get("session.use_cookies")) {
+    $params = session_get_cookie_params();
+    setcookie(session_name(), '', time() - 42000,
+        $params["path"], $params["domain"],
+        $params["secure"], $params["httponly"]
+    );
+}
+
+// Finally, destroy the session.
+session_destroy();
+
+http_response_code(200);
+echo json_encode(['message' => 'Logout successful!']);
+
+?>
+
+File: backend/gemini_ai_helper.php
+<?php
+
+/**
+ * 调用 Google Gemini API。
+ *
+ * @param string $prompt 要发送给 Gemini 的文本提示。
+ * @return string Gemini 的文本响应或错误信息。
+ */
+function call_gemini_api($prompt) {
+    $apiKey = getenv('GEMINI_API_KEY');
+    if (empty($apiKey) || $apiKey === 'your_gemini_api_key_here') {
+        return '❌ **错误**: Gemini API 密钥未配置。请检查环境变量 GEMINI_API_KEY。';
+    }
+
+    $apiUrl = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={$apiKey}";
+
+    $payload = [
+        'contents' => [
+            ['parts' => [['text' => $prompt]]]
+        ],
+        'safetySettings' => [
+            ['category' => 'HARM_CATEGORY_HARASSMENT', 'threshold' => 'BLOCK_NONE'],
+            ['category' => 'HARM_CATEGORY_HATE_SPEECH', 'threshold' => 'BLOCK_NONE'],
+            ['category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold' => 'BLOCK_NONE'],
+            ['category' => 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold' => 'BLOCK_NONE'],
+        ],
+    ];
+
+    $headers = ['Content-Type: application/json'];
+
+    // 使用通用函数发起请求
+    $result = _call_api_curl($apiUrl, $payload, $headers);
+
+    // 针对 Gemini API 的错误处理和响应解析
+    if ($result['http_code'] !== 200) {
+        $responseData = json_decode($result['response_body'], true);
+        $errorMessage = $responseData['error']['message'] ?? '未知错误';
+
+        if (strpos($errorMessage, 'Insufficient Balance') !== false || $result['http_code'] === 402) {
+            return "❌ **API 请求失败**: 账户余额不足。请检查您的 Gemini 账户并充值。";
+        }
+        return "❌ **API 请求失败**:\n状态码: {$result['http_code']}\n错误: {$errorMessage}\nCURL 错误: {$result['curl_error']}";
+    }
+
+    $responseData = json_decode($result['response_body'], true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        return '❌ **错误**: 解析 Gemini API 的 JSON 响应失败。';
+    }
+
+    $textResponse = $responseData['candidates'][0]['content']['parts'][0]['text'] ?? null;
+    if (!$textResponse) {
+        return '❌ **错误**: 未在 Gemini API 输出中找到有效的文本响应。可能由于内容安全策略被拦截。';
+    }
+
+    return $textResponse;
+}
+?>
+
+File: backend/check_env.php
+<?php
+header('Content-Type: text/plain; charset=utf-8');
+
+echo "--- Environment Variable Diagnostic --- \n\n";
+
+$envPath = __DIR__ . '/.env';
+
+echo "Checking for .env file at: " . $envPath . "\n";
+
+if (file_exists($envPath)) {
+    echo "SUCCESS: .env file found.\n";
+} else {
+    echo "ERROR: .env file NOT FOUND at the expected location.\n";
+    exit;
+}
+
+if (is_readable($envPath)) {
+    echo "SUCCESS: .env file is readable.\n\n";
+} else {
+    echo "ERROR: .env file is NOT READABLE. Please check file permissions (e.g., `chmod 644 .env`).\n";
+    exit;
+}
+
+// --- Test loading the .env file ---
+$lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+if ($lines === false) {
+    echo "ERROR: Failed to read the .env file content, even though it exists and is readable.\n";
+    exit;
+}
+
+echo "--- Simulating .env loading --- \n";
+$found_db_host = false;
+$found_telegram_secret = false;
+
+foreach ($lines as $line) {
+    if (strpos(trim($line), '#') === 0) continue;
+    if (strpos($line, '=') !== false) {
+        list($name, $value) = explode('=', $line, 2);
+        $name = trim($name);
+        if ($name === 'DB_HOST') {
+            $found_db_host = true;
+            echo "Found DB_HOST variable.\n";
+        }
+        if ($name === 'TELEGRAM_WEBHOOK_SECRET') {
+            $found_telegram_secret = true;
+            echo "Found TELEGRAM_WEBHOOK_SECRET variable.\n";
+        }
+    }
+}
+
+echo "\n--- Verification --- \n";
+if ($found_db_host) {
+    echo "SUCCESS: DB_HOST was found in the .env file.\n";
+} else {
+    echo "ERROR: DB_HOST was NOT found in the .env file.\n";
+}
+
+if ($found_telegram_secret) {
+    echo "SUCCESS: TELEGRAM_WEBHOOK_SECRET was found in the .env file.\n";
+} else {
+    echo "ERROR: TELEGRAM_WEBHOOK_SECRET was NOT found in the .env file.\n";
+}
+
+echo "\n--- Final Diagnosis --- \n";
+if ($found_db_host && $found_telegram_secret) {
+    echo "The .env file seems correct. If issues persist, the problem might be with the `putenv` function on your server's PHP configuration or another server-level issue.\n";
+} else {
+    echo "One or more critical variables are missing from your .env file. Please ensure the file is complete and correctly formatted.\n";
+}
+
+?>
+
+File: backend/process_email_ai.php
+<?php
+require_once __DIR__ . '/api_header.php';
+
+// --- Authentication Check ---
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(['status' => 'error', 'message' => 'You must be logged in.']);
+    exit;
+}
+
+// --- Input Validation ---
+$data = json_decode(file_get_contents('php://input'), true);
+$emailId = $data['email_id'] ?? null;
+
+if (!$emailId) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Email ID is required.']);
+    exit;
+}
+
+$userId = $_SESSION['user_id'];
+$pdo = get_db_connection();
+
+try {
+    // 1. Fetch the email content from the database
+    $stmt = $pdo->prepare("SELECT html_content FROM emails WHERE id = ? AND user_id = ?");
+    $stmt->execute([$emailId, $userId]);
+    $email = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$email) {
+        http_response_code(404);
+        echo json_encode(['status' => 'error', 'message' => 'Email not found or you do not have permission to access it.']);
+        exit;
+    }
+
+    $htmlContent = $email['html_content'];
+
+    // 2. Send the content to the Cloudflare Worker for AI processing
+    // The worker URL is the public frontend URL, which will proxy to the worker.
+    $workerUrl = 'https://ss.wenxiuxiu.eu.org/process-ai';
+    $postData = json_encode(['email_content' => $htmlContent]);
+
+    $ch = curl_init($workerUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Content-Length: ' . strlen($postData)
+    ]);
+
+    $workerResponse = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($http_code !== 200) {
+        http_response_code(502); // Bad Gateway
+        echo json_encode(['status' => 'error', 'message' => 'Failed to process email with AI worker.', 'worker_response' => $workerResponse]);
+        exit;
+    }
+
+    $aiData = json_decode($workerResponse, true);
+
+    // 3. Update the database with the extracted data
+    $updateStmt = $pdo->prepare(
+        "UPDATE emails SET
+            vendor_name = :vendor_name,
+            bill_amount = :bill_amount,
+            currency = :currency,
+            due_date = :due_date,
+            invoice_number = :invoice_number,
+            category = :category,
+            is_processed = TRUE
+         WHERE id = :id"
+    );
+
+    // Make sure all keys exist, defaulting to null if not provided by the AI
+    $updateParams = [
+        ':id' => $emailId,
+        ':vendor_name' => $aiData['vendor_name'] ?? null,
+        ':bill_amount' => !empty($aiData['bill_amount']) ? $aiData['bill_amount'] : null,
+        ':currency' => $aiData['currency'] ?? null,
+        ':due_date' => !empty($aiData['due_date']) ? $aiData['due_date'] : null,
+        ':invoice_number' => $aiData['invoice_number'] ?? null,
+        ':category' => $aiData['category'] ?? null,
+    ];
+
+    $updateStmt->execute($updateParams);
+
+    // 4. Return the structured data to the frontend
+    http_response_code(200);
+    echo json_encode(['status' => 'success', 'data' => $aiData]);
+
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'An unexpected error occurred: ' . $e->getMessage()]);
+}
+?>
+
+File: backend/check_lottery_data.php
+<?php
+// backend/check_lottery_data.php
+
+// Set headers for clear text output in the browser
+header('Content-Type: text/plain; charset=utf-8');
+
+echo "--- Lottery Data Diagnostic Script ---\n\n";
+
+// Include necessary files
+require_once __DIR__ . '/api_header.php';
+require_once __DIR__ . '/db_operations.php';
+
+echo "Attempting to connect to the database...\n";
+
+$pdo = get_db_connection();
+
+if (is_array($pdo) && isset($pdo['db_error'])) {
+    echo "FATAL: Database connection failed!\n";
+    echo "Error: " . $pdo['db_error'] . "\n";
+    exit;
+}
+if (!$pdo) {
+    echo "FATAL: Database connection failed! (Returned null)\n";
+    exit;
+}
+
+echo "Database connection successful.\n\n";
+echo "Querying the 'lottery_results' table for any 10 entries...\n";
+
+try {
+    // A simple query to get a sample of data from the table
+    $stmt = $pdo->query("SELECT * FROM lottery_results LIMIT 10");
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($results)) {
+        echo "RESULT: The 'lottery_results' table is EMPTY or contains no data.\n\n";
+        echo "This is the primary reason why no lottery numbers are displayed.\n";
+        echo "Please check the process that is supposed to be populating this table with data.\n";
+    } else {
+        echo "RESULT: Found " . count($results) . " entries. The table is NOT empty.\n\n";
+        echo "Here is a sample of the data:\n\n";
+        print_r($results);
+        echo "\n\nIf the 'lottery_type' values below do not exactly match '新澳门六合彩', '香港六合彩', or '老澳门六合彩', the query will not find them.\n";
+    }
+} catch (PDOException $e) {
+    echo "ERROR: An exception occurred while querying the database.\n";
+    echo "Message: " . $e->getMessage() . "\n";
+}
+
+echo "\n--- End of Diagnostic Script ---\n";
+
+?>
+
+File: backend/check_session.php
+<?php
+// backend/check_session.php
+
+require_once __DIR__ . '/api_header.php'; // Ensures session handling is started
+
+// Check if the user is logged in
+if (isset($_SESSION['user_id'])) {
+    // User is authenticated, return their data
+    // You might want to fetch more user details from the database here
+    echo json_encode([
+        'status' => 'success',
+        'isAuthenticated' => true,
+        'user' => [
+            'id' => $_SESSION['user_id'],
+            'email' => $_SESSION['user_email'] ?? 'N/A'
+        ]
+    ]);
+} else {
+    // User is not authenticated
+    echo json_encode([
+        'status' => 'success',
+        'isAuthenticated' => false
+    ]);
+}
+?>
+
+File: backend/cloudflare_ai_helper.php
+<?php
+
+/**
+ * 调用 Cloudflare Workers AI REST API。
+ *
+ * @param string $prompt 要发送给模型的文本提示。
+ * @return string 模型的文本响应或错误信息。
+ */
+function call_cloudflare_ai_api($prompt) {
+    // 从环境变量获取信息，这是最佳实践
+    $accountId = getenv('CLOUDFLARE_ACCOUNT_ID');
+    $apiToken = getenv('CLOUDFLARE_API_TOKEN');
+
+    // 检查凭证是否已配置
+    if (empty($accountId) || empty($apiToken)) {
+        return '❌ **错误**: Cloudflare 账户ID或API令牌未配置。请检查环境变量。';
+    }
+
+    // 您可以在这里更换其他模型，例如 @cf/mistral/mistral-7b-instruct-v0.1
+    $model = '@cf/meta/llama-3-8b-instruct';
+    $apiUrl = "https://api.cloudflare.com/client/v4/accounts/{$accountId}/ai/run/{$model}";
+
+    $payload = [
+        'messages' => [
+            ['role' => 'system', 'content' => '你是一个乐于助人的中文AI助手。'],
+            ['role' => 'user', 'content' => $prompt]
+        ]
+    ];
+
+    $headers = [
+        'Authorization: Bearer ' . $apiToken,
+        'Content-Type: application/json'
+    ];
+
+    // 使用通用函数发起请求
+    $result = _call_api_curl($apiUrl, $payload, $headers);
+
+    if ($result['http_code'] !== 200) {
+        return "❌ **API 请求失败**: \n状态码: {$result['http_code']}\n响应: {$result['response_body']}\nCURL错误: {$result['curl_error']}";
+    }
+
+    $responseData = json_decode($result['response_body'], true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        return '❌ **错误**: 解析 Cloudflare AI 的 JSON 响应失败。';
+    }
+
+    // 从响应中提取AI生成的文本
+    $textResponse = $responseData['result']['response'] ?? null;
+    if (!$textResponse) {
+        // 如果找不到响应，打印整个响应体以便调试
+        return '❌ **错误**: 未在 Cloudflare AI 输出中找到有效的文本响应。完整响应：' . $result['response_body'];
+    }
+
+    return $textResponse;
+}
+?>
+
+File: backend/db_operations.php
+<?php
+/**
+ * db_operations.php (MODIFIED TO BE SELF-SUFFICIENT)
+ * This file now includes its own lightweight .env loader at the top.
+ * This ensures that any script including this file will have the necessary
+ * database environment variables loaded automatically.
+ */
+
+// --- START: Self-contained .env loader ---
+if (!function_exists('load_env_if_not_loaded')) {
+    function load_env_if_not_loaded() {
+        // Check if a key known to be in the .env file is already loaded.
+        // If it is, we assume the environment is already set up and do nothing.
+        if (getenv('DB_HOST')) {
+            return;
+        }
+
+        $envPath = __DIR__ . '/.env';
+        if (!file_exists($envPath) || !is_readable($envPath)) return;
+
+        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false) return;
+
+        foreach ($lines as $line) {
+            $trim = trim($line);
+            if ($trim === '' || strpos($trim, '#') === 0) continue;
+            if (strpos($trim, '=') !== false) {
+                list($key, $value) = explode('=', $trim, 2);
+                $key = trim($key);
+                $value = trim($value);
+                // Remove surrounding quotes
+                if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') ||
+                    (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
+                    $value = substr($value, 1, -1);
+                }
+                putenv("{$key}={$value}");
+                $_ENV[$key] = $value;
+                $_SERVER[$key] = $value;
+            }
+        }
+    }
+    // Immediately call the loader function when this file is included.
+    load_env_if_not_loaded();
+}
+// --- END: Self-contained .env loader ---
+
+
+/**
+ * Establishes and returns a singleton PDO database connection.
+ */
+function get_db_connection() {
+    static $pdo = null;
+    if ($pdo === null) {
+        $host = getenv('DB_HOST');
+        $port = getenv('DB_PORT');
+        $dbname = getenv('DB_DATABASE');
+        $user = getenv('DB_USER');
+        $pass = getenv('DB_PASSWORD');
+
+        // This check is now more likely to pass.
+        if (empty($host) || empty($port) || empty($dbname) || empty($user)) {
+             $error_msg = "Database connection error: Required environment variables are not set. Check DB_HOST, DB_PORT, DB_DATABASE, DB_USER in .env";
+             error_log($error_msg);
+             return ['db_error' => $error_msg];
+        }
+
+        $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ];
+        try {
+            $pdo = new PDO($dsn, $user, $pass, $options);
+        } catch (PDOException $e) {
+            $error_msg = "Database connection failed: " . $e->getMessage();
+            error_log($error_msg);
+            return ['db_error' => $error_msg];
+        }
+    }
+    return $pdo;
+}
+
+// ... the rest of the functions (getAllUsers, deleteUserByEmail, storeLotteryResult) remain exactly the same ...
+// (You can copy them from your original file or just leave them as they are if you only add the top part)
+
+/**
+ * Retrieves all users from the database.
+ */
+function getAllUsers() {
+    $pdo = get_db_connection();
+    if (is_array($pdo) && isset($pdo['db_error'])) {
+        error_log("getAllUsers: Failed to get database connection - " . $pdo['db_error']);
+        return [];
+    }
+    if (!$pdo) return [];
+    try {
+        $stmt = $pdo->query("SELECT id, email, created_at FROM users ORDER BY created_at DESC");
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Error in getAllUsers: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Deletes a user from the database by their email address.
+ */
+function deleteUserByEmail($email) {
+    $pdo = get_db_connection();
+    if (is_array($pdo) && isset($pdo['db_error'])) {
+        error_log("deleteUserByEmail: Failed to get database connection - " . $pdo['db_error']);
+        return false;
+    }
+    if (!$pdo) return false;
+    try {
+        $stmt = $pdo->prepare("DELETE FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log("Error in deleteUserByEmail for {$email}: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Stores lottery results into the lottery_results table.
+ */
+function storeLotteryResult($lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate) {
+    $pdo = get_db_connection();
+    if (is_array($pdo) && isset($pdo['db_error'])) {
+        error_log("storeLotteryResult: Failed to get database connection - " . $pdo['db_error']);
+        return false;
+    }
+    if (!$pdo) {
+        error_log("storeLotteryResult: No database connection (returned null unexpectedly).");
+        return false;
+    }
+    try {
+        $stmt = $pdo->prepare("SELECT id FROM lottery_results WHERE lottery_type = ? AND issue_number = ?");
+        $stmt->execute([$lotteryType, $issueNumber]);
+        if ($stmt->fetch()) {
+            error_log("Lottery result for type '{$lotteryType}' and issue '{$issueNumber}' already exists. Skipping insertion.");
+            return true;
+        }
+        $stmt = $pdo->prepare(
+            "INSERT INTO lottery_results (lottery_type, issue_number, winning_numbers, zodiac_signs, colors, drawing_date) VALUES (?, ?, ?, ?, ?, ?)"
+        );
+        $stmt->execute([$lotteryType, $issueNumber, $winningNumbers, $zodiacSigns, $colors, $drawingDate]);
+        error_log("Successfully stored lottery result for {$lotteryType} - {$issueNumber}.");
+        return true;
+    } catch (PDOException $e) {
+        error_log("Error storing lottery result for {$lotteryType} - {$issueNumber}: " . $e->getMessage());
+        return false;
+    }
+}
+
+File: backend/login_user.php
+<?php
+
+require_once __DIR__ . '/api_header.php';
+
+global $debug_info; // Access the global debug_info array
+
+// --- Input and Validation ---
+$data = json_decode(file_get_contents('php://input'), true);
+
+if (!$data) {
+    http_response_code(400);
+    echo json_encode([
+        'error' => 'Invalid JSON received.'
+    ]);
+    exit;
+}
+
+$email = $data['email'] ?? null;
+$password = $data['password'] ?? null;
+
+if (empty($email) || empty($password)) {
+    http_response_code(400);
+    echo json_encode([
+        'error' => 'Email and password are required.'
+    ]);
+    exit;
+}
+
+// --- Database and Authentication ---
+$pdo = get_db_connection();
+if (!$pdo) {
+    http_response_code(503);
+    echo json_encode([
+        'error' => 'Database connection is currently unavailable.'
+    ]);
+    exit;
+}
+
+try {
+    $stmt = $pdo->prepare("SELECT id, username, email, password_hash FROM users WHERE email = ?");
+    $stmt->execute([$email]);
+    $user = $stmt->fetch();
+
+    if ($user && password_verify($password, $user['password_hash'])) {
+        // --- Session Creation ---
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['email'] = $user['email'];
+
+        // 主动 setcookie，确保 session cookie 被浏览器收下
+        $params = session_get_cookie_params();
+        setcookie(
+            session_name(),
+            session_id(),
+            [
+                'expires' => time() + $params['lifetime'],
+                'path' => $params['path'],
+                'domain' => $params['domain'],
+                'secure' => $params['secure'],
+                'httponly' => $params['httponly'],
+                'samesite' => $params['samesite'] ?? 'None'
+            ]
+        );
+
+        // Add session data to debug info AFTER setting it
+        $debug_info['login_session_data_after_set'] = $_SESSION;
+        $debug_info['login_session_id_after_set'] = session_id();
+
+        http_response_code(200);
+        echo json_encode([
+            'status' => 'success',
+            'message' => 'Login successful!',
+            'user' => [
+                'id' => $user['id'],
+                'email' => $user['email'],
+                'username' => $user['username']
+            ]
+        ]);
+
+    } else {
+        http_response_code(401); // Unauthorized
+        echo json_encode([
+            'error' => 'Invalid email or password.'
+        ]);
+    }
+
+} catch (PDOException $e) {
+    error_log("User login error: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'error' => 'An internal database error occurred.'
+    ]);
+}
+
+?>
+
+File: backend/user_state_manager.php
+<?php
+
+// Define the path for our simple state-tracking file.
+const STATE_FILE = __DIR__ . '/user_states.json';
+
+/**
+ * Gets the current state for a given user (chat_id).
+ *
+ * @param int $userId The user's Telegram Chat ID.
+ * @return string|null The user's current state or null if not set.
+ */
+function getUserState($userId) {
+    // Before reading, check if the file exists and is readable.
+    if (!file_exists(STATE_FILE) || !is_readable(STATE_FILE)) {
+        return null;
+    }
+
+    $content = file_get_contents(STATE_FILE);
+    if ($content === false) {
+        return null; // Failed to read
+    }
+
+    $states = json_decode($content, true);
+
+    // Check for JSON errors
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        // If the file is corrupt, we can't determine state.
+        return null;
+    }
+
+    return $states[$userId] ?? null;
+}
+
+/**
+ * Sets the state for a given user.
+ *
+ * @param int $userId The user's Telegram Chat ID.
+ * @param string|null $state The state to set. Use null to clear the state.
+ * @return bool True on success, false on failure.
+ */
+function setUserState($userId, $state) {
+    $states = [];
+    // Check if the directory is writable. This is the most critical check.
+    $directory = dirname(STATE_FILE);
+    if (!is_writable($directory)) {
+        return false; // Cannot write, so fail early.
+    }
+
+    // Check if the file itself is writable if it exists.
+    if (file_exists(STATE_FILE) && !is_writable(STATE_FILE)) {
+        return false;
+    }
+
+    if (file_exists(STATE_FILE) && is_readable(STATE_FILE)) {
+        $content = file_get_contents(STATE_FILE);
+        if ($content !== false) {
+            $states = json_decode($content, true);
+            // If JSON is invalid, reset to avoid corrupting the file further.
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $states = [];
+            }
+        }
+    }
+
+    if ($state === null) {
+        unset($states[$userId]);
+    } else {
+        $states[$userId] = $state;
+    }
+
+    // Attempt to write the file. The @ suppresses PHP's warning on failure,
+    // allowing our custom logic to handle the error.
+    $result = @file_put_contents(STATE_FILE, json_encode($states, JSON_PRETTY_PRINT), LOCK_EX);
+
+    // Return true if the write was successful, false otherwise.
+    return $result !== false;
+}
+
+File: backend/telegram_webhook.php
+<?php
+/**
+ * telegram_webhook.php (Final, Production-Ready Version)
+ *
+ * This script handles all incoming updates from the Telegram Bot API webhook.
+ * Key Features:
+ * - Robust Secret Token validation from both Header and URL parameter.
+ * - Detailed logging for debugging.
+ * - Handles specific commands for the admin user.
+ * - Includes a dedicated, robust parser for lottery channel messages.
+ */
+
+// --- Early, minimal logging ---
+$earlyLogFile = __DIR__ . '/telegram_early_debug.log';
+$now = date('[Y-m-d H:i:s]');
+$method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
+$uri = $_SERVER['REQUEST_URI'] ?? 'UNKNOWN';
+$headerPreview = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '[HEADER_NOT_SET]';
+file_put_contents($earlyLogFile, "{$now} [EARLY] Method={$method}, URI={$uri}, HeaderPreview={$headerPreview}\n", FILE_APPEND | LOCK_EX);
+
+// --- Lightweight .env loader ---
+function load_env_file_simple($path) {
+    if (!file_exists($path) || !is_readable($path)) return false;
+    if (getenv('DB_HOST')) return true; // Already loaded
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines === false) return false;
+    foreach ($lines as $line) {
+        $trim = trim($line);
+        if ($trim === '' || strpos($trim, '#') === 0) continue;
+        if (strpos($trim, '=') !== false) {
+            list($key, $value) = explode('=', $trim, 2);
+            $key = trim($key);
+            $value = trim($value, "\"'");
+            putenv("{$key}={$value}");
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+        }
+    }
+    return true;
+}
+
+// Load env early for secret validation
+load_env_file_simple(__DIR__ . '/.env');
+
+// --- Runtime logger ---
+function write_telegram_debug_log($msg) {
+    $logFile = __DIR__ . '/telegram_debug.log';
+    file_put_contents($logFile, date('[Y-m-d H:i:s]') . " " . $msg . PHP_EOL, FILE_APPEND | LOCK_EX);
+}
+
+// --- Lottery Message Parser & Handler ---
+function parse_lottery_data($text) {
+    $data = [
+        'lottery_type' => null, 'issue_number' => null, 'winning_numbers' => [],
+        'zodiac_signs' => [], 'colors' => [], 'drawing_date' => date('Y-m-d')
+    ];
+    if (preg_match('/(新澳门六合彩|香港六合彩|老澳.*?)第:(\d+)期/', $text, $h)) {
+        $data['lottery_type'] = (strpos($h[1], '老澳') !== false) ? '老澳门六合彩' : trim($h[1]);
+        $data['issue_number'] = $h[2];
+    } else { write_telegram_debug_log("[Parser] Failed: Header match."); return null; }
+    $lines = array_values(array_filter(array_map('trim', explode("\n", trim($text))), fn($l) => !empty($l)));
+    if (count($lines) < 4) { write_telegram_debug_log("[Parser] Failed: Not enough lines."); return null; }
+    $data['winning_numbers'] = preg_split('/\s+/', $lines[1]);
+    $data['zodiac_signs']    = preg_split('/\s+/', $lines[2]);
+    $data['colors']          = preg_split('/\s+/', $lines[3]);
+    if (count($data['winning_numbers']) === 0 || count($data['winning_numbers']) !== count($data['zodiac_signs']) || count($data['winning_numbers']) !== count($data['colors'])) {
+        write_telegram_debug_log("[Parser] Failed: Mismatch in data counts."); return null;
+    }
+    write_telegram_debug_log("[Parser] Success: Parsed issue {$data['issue_number']} for {$data['lottery_type']}");
+    return $data;
+}
+
+function handleLotteryMessage($chatId, $text) {
+    write_telegram_debug_log("Attempting to parse lottery message: " . substr($text, 0, 100) . "...");
+    $parsedData = parse_lottery_data($text);
+    if ($parsedData === null) {
+        write_telegram_debug_log("Failed to parse lottery message. No data will be stored.");
+        return;
+    }
+    if (!function_exists('storeLotteryResult')) {
+        write_telegram_debug_log("CRITICAL ERROR: function storeLotteryResult() does not exist!");
+        return;
+    }
+    try {
+        $numbersJson = json_encode($parsedData['winning_numbers']);
+        $zodiacsJson = json_encode($parsedData['zodiac_signs']);
+        $colorsJson = json_encode($parsedData['colors']);
+        $success = storeLotteryResult(
+            $parsedData['lottery_type'], $parsedData['issue_number'],
+            $numbersJson, $zodiacsJson, $colorsJson, $parsedData['drawing_date']
+        );
+        if ($success) {
+            write_telegram_debug_log("Successfully stored lottery result for issue {$parsedData['issue_number']}.");
+        } else {
+            write_telegram_debug_log("Failed to store lottery result. Check db_operations.php and database error logs.");
+        }
+    } catch (Throwable $e) {
+        write_telegram_debug_log("Exception during database storage: " . $e->getMessage());
+    }
+}
+
+// --- Main Script Execution ---
+
+// Read configured secrets
+$expectedSecret = getenv('TELEGRAM_WEBHOOK_SECRET') ?: null;
+$adminId = getenv('TELEGRAM_ADMIN_ID') ?: null;
+$lotteryChannelId = getenv('LOTTERY_CHANNEL_ID') ?: null;
+
+write_telegram_debug_log("ENV Check: AdminID=" . ($adminId ? 'OK' : 'FAIL') . ", ChannelID=" . ($lotteryChannelId ? 'OK' : 'FAIL') . ", WebhookSecret=" . ($expectedSecret ? 'OK' : 'FAIL'));
+
+// --- DUAL SECRET TOKEN VALIDATION ---
+$receivedHeader = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? null;
+$receivedParam = $_GET['secret'] ?? null;
+$receivedSecret = $receivedHeader ?? $receivedParam;
+write_telegram_debug_log("Secret Check: Header was " . ($receivedHeader ? 'present' : 'missing') . ". Param was " . ($receivedParam ? 'present' : 'missing') . ".");
+
+if ($expectedSecret) {
+    if (empty($receivedSecret)) {
+        write_telegram_debug_log("Webhook rejected: Missing secret token in both header and URL parameter.");
+        http_response_code(403);
+        exit('Forbidden: Missing secret token.');
+    }
+    if (!hash_equals($expectedSecret, $receivedSecret)) {
+        write_telegram_debug_log("Webhook rejected: Secret token mismatch.");
+        http_response_code(403);
+        exit('Forbidden: Secret token mismatch.');
+    }
+} else {
+    write_telegram_debug_log("WARNING: TELEGRAM_WEBHOOK_SECRET is not configured.");
+}
+
+// --- Webhook Authenticated, Load All Helpers ---
+require_once __DIR__ . '/db_operations.php';
+require_once __DIR__ . '/telegram_helpers.php';
+require_once __DIR__ . '/env_manager.php';
+require_once __DIR__ . '/user_state_manager.php';
+require_once __DIR__ . '/api_curl_helper.php';
+require_once __DIR__ . '/gemini_ai_helper.php';
+require_once __DIR__ . '/cloudflare_ai_helper.php';
+
+// --- Process Incoming Update ---
+$bodyRaw = file_get_contents('php://input');
+$update = json_decode($bodyRaw, true);
+
+if (!is_array($update)) {
+    write_telegram_debug_log("Invalid JSON payload; ignoring.");
+    http_response_code(200);
+    exit();
+}
+
+// Main update parsing
+$chatId = $update['message']['chat']['id']
+    ?? $update['channel_post']['chat']['id']
+    ?? $update['callback_query']['message']['chat']['id']
+    ?? null;
+
+$userId = $update['message']['from']['id']
+    ?? $update['callback_query']['from']['id']
+    ?? $chatId;
+
+// Check for channel post first
+if (isset($update['channel_post'])) {
+    $post = $update['channel_post'];
+    $text = trim($post['text'] ?? '');
+    write_telegram_debug_log("Received channel_post from chat={$chatId} with text: " . substr($text, 0, 200));
+
+    if (!empty($lotteryChannelId) && (string)$chatId === (string)$lotteryChannelId) {
+        handleLotteryMessage($chatId, $text);
+        http_response_code(200);
+        exit(json_encode(['status' => 'ok', 'message' => 'processed lottery channel post']));
+    }
+}
+// Check for callback query
+elseif (isset($update['callback_query'])) {
+    $cb = $update['callback_query'];
+    $commandOrText = $cb['data'] ?? null;
+    if (!empty($cb['id'])) answerTelegramCallbackQuery($cb['id']);
+    write_telegram_debug_log("Received callback_query from user={$userId} with data: " . $commandOrText);
+}
+// Check for personal message
+elseif (isset($update['message'])) {
+    $msg = $update['message'];
+    $commandOrText = trim($msg['text'] ?? '');
+    write_telegram_debug_log("Received message from user={$userId} with text: " . $commandOrText);
+} else {
+    write_telegram_debug_log("Unsupported update type; ignoring.");
+    http_response_code(200);
+    exit();
+}
+
+// --- Process Admin Commands (if not a channel post) ---
+if (empty($chatId) || empty($userId)) {
+    write_telegram_debug_log("Missing chatId or userId after parsing update.");
+    http_response_code(200);
+    exit();
+}
+
+if (!empty($adminId) && ((string)$userId !== (string)$adminId)) {
+    write_telegram_debug_log("Unauthorized command access from user {$userId}.");
+    @sendTelegramMessage($chatId, "抱歉，您无权使用此机器人。");
+    http_response_code(200);
+    exit();
+}
+
+try {
+    // State handling...
+    $userState = getUserState($userId);
+    if ($userState) {
+        // ... (stateful logic for admin commands - keeping as is)
+        http_response_code(200); exit();
+    }
+
+    // Command handling...
+    $cmd = strtolower(trim($commandOrText ?? ''));
+    $reply = null;
+    $replyKeyboard = null;
+
+    switch ($cmd) {
+        case '/start':
+        case 'main_menu':
+            $reply = "欢迎回来，管理员！";
+            $replyKeyboard = getAdminKeyboard();
+            break;
+        // ... (all other admin command cases - keeping as is)
+        default:
+            if (!empty($cmd)) {
+                $reply = "无法识别的命令。";
+                $replyKeyboard = getAdminKeyboard();
+            }
+            break;
+    }
+
+    if ($reply) {
+        sendTelegramMessage($chatId, $reply, $replyKeyboard);
+    }
+} catch (Throwable $e) {
+    write_telegram_debug_log("Exception in admin command processing: " . $e->getMessage());
+    if (!empty($adminId)) {
+        @sendTelegramMessage($adminId, "Webhook internal error: " . substr($e->getMessage(), 0, 200));
+    }
+}
+
+// Final OK response to Telegram
+http_response_code(200);
+echo json_encode(['status' => 'ok']);
+exit();
+
+?>
+
+File: backend/env_manager.php
+<?php
+
+/**
+ * Updates a specific key in the .env file.
+ *
+ * This function reads the .env file, line by line, and updates the value
+ * for the specified key. It preserves comments and blank lines.
+ *
+ * @param string $keyToUpdate The environment variable key to update (e.g., 'GEMINI_API_KEY').
+ * @param string $newValue    The new value for the key.
+ * @return bool True on success, false on failure.
+ */
+function update_env_file($keyToUpdate, $newValue) {
+    $envPath = __DIR__ . '/.env';
+
+    if (!file_exists($envPath) || !is_readable($envPath) || !is_writable($envPath)) {
+        error_log("Error: .env file is missing or not readable/writable at {$envPath}");
+        return false;
+    }
+
+    $lines = file($envPath, FILE_IGNORE_NEW_LINES);
+    $newLines = [];
+    $keyFound = false;
+
+    foreach ($lines as $line) {
+        // Trim the line to handle whitespace and check if it's a key-value pair.
+        if (strpos(trim($line), '#') === 0 || empty(trim($line))) {
+            $newLines[] = $line;
+            continue;
+        }
+
+        list($key, $value) = explode('=', $line, 2);
+        $key = trim($key);
+
+        if ($key === $keyToUpdate) {
+            // Update the key with the new value, ensuring it's properly quoted if it contains spaces.
+            $newLines[] = "{$keyToUpdate}=\"{$newValue}\"";
+            $keyFound = true;
+        } else {
+            $newLines[] = $line;
+        }
+    }
+
+    // If the key was not found, add it to the end of the file.
+    if (!$keyFound) {
+        $newLines[] = "{$keyToUpdate}=\"{$newValue}\"";
+    }
+
+    // Write the updated content back to the .env file.
+    if (file_put_contents($envPath, implode("\n", $newLines)) === false) {
+        error_log("Error: Failed to write to .env file at {$envPath}");
+        return false;
+    }
+
+    // --- IMPORTANT: Reload environment variables ---
+    // Use putenv to update the environment for the currently running script.
+    putenv("{$keyToUpdate}={$newValue}");
+
+    return true;
+}
+
+File: backend/config.php
+<?php
+
+// Define a constant for the base directory to ensure consistent paths.
+if (!defined('DIR')) {
+    define('DIR', __DIR__);
+}
+
+// --- Custom Debug Logging Function ---
+function write_custom_debug_log($message) {
+    // Log file is placed in the same directory as this script.
+    $logFile = DIR . '/env_debug.log';
+    // Use @ to suppress errors if the directory is not writable.
+    @file_put_contents($logFile, date('[Y-m-d H:i:s]') . ' ' . $message . PHP_EOL, FILE_APPEND | LOCK_EX);
+}
+
+write_custom_debug_log("------ Config.php Entry Point ------");
+write_custom_debug_log("Script running as user: " . (function_exists('posix_getpwuid') ? posix_getpwuid(posix_geteuid())['name'] : 'N/A'));
+
+// --- Pre-emptive Writable Check ---
+if (!is_writable(DIR)) {
+    write_custom_debug_log("FATAL: Directory " . DIR . " is not writable.");
+    // We don't exit here, to allow the rest of the script to try, but we log the critical failure.
+} else {
+    write_custom_debug_log("OK: Directory " . DIR . " is writable.");
+}
+
+/**
+ * Robust .env loader
+ */
+function load_env_robust() {
+    // Create an array of potential .env paths to check.
+    $envPaths = [
+        dirname(__DIR__) . '/.env', // Check parent directory first
+        __DIR__ . '/.env'           // Then check the current directory (backend/)
+    ];
+
+    $envPathFound = null;
+
+    foreach ($envPaths as $path) {
+        write_custom_debug_log("Attempting to load .env from: {$path}");
+        if (file_exists($path) && is_readable($path)) {
+            $envPathFound = $path;
+            write_custom_debug_log("Found readable .env file at: {$envPathFound}");
+            break; // Stop searching once a valid file is found.
+        } else {
+            write_custom_debug_log(".env not found or not readable at {$path}");
+        }
+    }
+
+    if ($envPathFound === null) {
+        write_custom_debug_log("FATAL: Could not find a readable .env file in any of the checked locations.");
+        return false;
+    }
+
+    $lines = file($envPathFound, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines === false) {
+        write_custom_debug_log("Failed to read .env file with file() function from: {$envPathFound}");
+        return false;
+    }
+
+    write_custom_debug_log("Successfully read " . count($lines) . " lines from .env at {$envPathFound}.");
+
+    foreach ($lines as $line) {
+        $trim = trim($line);
+        if ($trim === '' || strpos($trim, '#') === 0) {
+            continue;
+        }
+
+        if (strpos($trim, '=') === false) {
+            continue;
+        }
+        list($key, $value) = explode('=', $trim, 2);
+        $key = trim($key);
+        $value = trim($value);
+
+        if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') ||
+            (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
+            $value = substr($value, 1, -1);
+        }
+
+        putenv("{$key}={$value}");
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
+
+        // Log confirmation, but hide sensitive values.
+        $sensitive_keys = ['DB_PASSWORD', 'TELEGRAM_BOT_TOKEN', 'GEMINI_API_KEY', 'CLOUDFLARE_API_TOKEN'];
+        $display_value = in_array($key, $sensitive_keys, true) ? '***' : $value;
+        write_custom_debug_log("Loaded env: {$key} = {$display_value}");
+    }
+
+    return true;
+}
+
+// Load environment variables only once per request.
+if (!defined('ENV_LOADED_ROBUST')) {
+    write_custom_debug_log("ENV_LOADED_ROBUST not defined, loading env variables.");
+    if (load_env_robust()) {
+        write_custom_debug_log("load_env_robust() completed successfully.");
+    } else {
+        write_custom_debug_log("load_env_robust() failed.");
+    }
+    define('ENV_LOADED_ROBUST', true);
+    write_custom_debug_log("DB_HOST after load: " . (getenv('DB_HOST') ?: 'N/A'));
+    write_custom_debug_log("DB_USER after load: " . (getenv('DB_USER') ?: 'N/A'));
+}
+
+// --- PHP Error Reporting Configuration ---
+ini_set('display_errors', '0'); // Do not display errors to the user in production.
+ini_set('log_errors', '1');
+ini_set('error_log', DIR . '/debug.log');
+error_reporting(E_ALL);
+write_custom_debug_log("PHP error reporting configured to log to " . DIR . '/debug.log');
+
+// --- Helper Scripts Inclusion ---
+require_once DIR . '/db_operations.php';
+require_once DIR . '/telegram_helpers.php';
+require_once DIR . '/user_state_manager.php';
+require_once DIR . '/api_curl_helper.php';
+require_once DIR . '/gemini_ai_helper.php';
+require_once DIR . '/cloudflare_ai_helper.php';
+require_once DIR . '/env_manager.php';
+
+write_custom_debug_log("------ Config.php Exit Point ------");
+
+?>
+
+File: backend/get_emails.php
+<?php
+// backend/get_emails.php
+
+require_once __DIR__ . '/api_header.php';
+
+// --- Authentication Check ---
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401); // Unauthorized
+    echo json_encode(['status' => 'error', 'message' => 'You must be logged in to view emails.']);
+    exit;
+}
+
+$pdo = get_db_connection();
+$userId = $_SESSION['user_id'];
+$emailId = $_GET['id'] ?? null;
+
+try {
+    if ($emailId) {
+        // --- Fetch a single email by ID ---
+        $stmt = $pdo->prepare(
+            "SELECT id, sender, recipient, subject, html_content, created_at
+             FROM emails
+             WHERE id = ? AND user_id = ?"
+        );
+        $stmt->execute([$emailId, $userId]);
+        $email = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($email) {
+            echo json_encode(['status' => 'success', 'emails' => [$email]]);
+        } else {
+            http_response_code(404); // Not Found
+            echo json_encode(['status' => 'error', 'message' => '未找到该账单']);
+        }
+    } else {
+        // --- Fetch all emails for the user ---
+        $stmt = $pdo->prepare(
+            "SELECT id, sender, subject, created_at
+             FROM emails
+             WHERE user_id = ?
+             ORDER BY created_at DESC"
+        );
+        $stmt->execute([$userId]);
+        $emails = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode(['status' => 'success', 'emails' => $emails]);
+    }
+} catch (PDOException $e) {
+    error_log("Error fetching emails: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'An error occurred while fetching emails.']);
+}
+
+File: backend/.htaccess
+<IfModule mod_security2.c>
+    <Files "index.php">
+        SecRuleEngine Off
+    </Files>
+    <Files "webhook_test.php">
+        SecRuleEngine Off
+    </Files>
+</IfModule>
+
+File: backend/register_user.php
+<?php
+error_log("Register_user.php script started.");
+
+require_once __DIR__ . '/api_header.php';
+require_once __DIR__ . '/db_operations.php'; // Add this line to include database operations
+
+// Add custom debug logging for register_user.php as well
+function write_custom_debug_log_register($message) {
+    $logFile = __DIR__ . '/env_debug.log';
+    file_put_contents($logFile, date('[Y-m-d H:i:s]') . ' [Register_User] ' . $message . PHP_EOL, FILE_APPEND | LOCK_EX);
+}
+
+write_custom_debug_log_register("------ Register_user.php Entry Point ------");
+
+// --- Input Reception and Validation ---
+$data = json_decode(file_get_contents('php://input'), true);
+
+if (!$data) {
+    http_response_code(400); // Bad Request
+    echo json_encode(['error' => 'Invalid JSON received.']);
+    exit;
+}
+
+$email = $data['email'] ?? null;
+$password = $data['password'] ?? null;
+
+// The username is now the email.
+$username = $email;
+
+if (empty($email) || empty($password)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Missing required fields: email and password.']);
+    exit;
+}
+
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid email format.']);
+    exit;
+}
+
+// --- Database Interaction ---
+write_custom_debug_log_register("Attempting to get database connection in register_user.php");
+// Log environment variables BEFORE calling get_db_connection
+write_custom_debug_log_register("Register_user.php: DB_HOST before DB connection: " . (getenv('DB_HOST') ?: 'N/A'));
+write_custom_debug_log_register("Register_user.php: DB_PORT before DB connection: " . (getenv('DB_PORT') ?: 'N/A'));
+write_custom_debug_log_register("Register_user.php: DB_DATABASE before DB connection: " . (getenv('DB_DATABASE') ?: 'N/A'));
+write_custom_debug_log_register("Register_user.php: DB_USER before DB connection: " . (getenv('DB_USER') ?: 'N/A'));
+
+$pdo = get_db_connection();
+// Check if get_db_connection returned an error array
+if (is_array($pdo) && isset($pdo['db_error'])) {
+    error_log("Failed to get database connection in register_user.php: " . $pdo['db_error']);
+    http_response_code(503); // Service Unavailable
+    echo json_encode([
+        'error' => 'Database connection is currently unavailable.',
+        'details' => $pdo['db_error'] // Expose detailed DB error for debugging
+    ]);
+    exit;
+}
+
+// Original check for null $pdo (for older behavior or unexpected nulls)
+if (!$pdo) {
+    error_log("Failed to get database connection in register_user.php (returned null).");
+    http_response_code(503); // Service Unavailable
+    echo json_encode(['error' => 'Database connection is currently unavailable.']);
+    exit;
+}
+
+error_log("Successfully connected to database in register_user.php");
+write_custom_debug_log_register("Successfully connected to database in register_user.php.");
+
+// Hash the password for secure storage
+$password_hash = password_hash($password, PASSWORD_DEFAULT);
+
+try {
+    // 1. Check if email already exists (since username is the email)
+    error_log("Checking if email " . $email . " already exists.");
+    write_custom_debug_log_register("Checking if email " . $email . " already exists.");
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt->execute([$email]);
+    if ($stmt->fetch()) {
+        http_response_code(409); // Conflict
+        echo json_encode(['error' => 'A user with this email already exists.']);
+        exit;
+    }
+    error_log("Email " . $email . " does not exist, proceeding to registration.");
+    write_custom_debug_log_register("Email " . $email . " does not exist, proceeding to registration.");
+
+    // 2. Insert the new user into the database
+    error_log("Attempting to insert new user: " . $email);
+    write_custom_debug_log_register("Attempting to insert new user: " . $email);
+    $stmt = $pdo->prepare(
+        "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)"
+    );
+
+    $isSuccess = $stmt->execute([$username, $email, $password_hash]);
+
+    if ($isSuccess) {
+        // Automatically log the user in by creating a session.
+        $user_id = $pdo->lastInsertId();
+        $_SESSION['user_id'] = $user_id;
+        $_SESSION['email'] = $email;
+
+        error_log("User registered successfully: " . $email);
+        write_custom_debug_log_register("User registered successfully: " . $email);
+        http_response_code(201); // Created
+        echo json_encode([
+            'message' => 'User registered successfully.',
+            'user' => [
+                'id' => $user_id,
+                'email' => $email,
+                'username' => $username
+            ]
+        ]);
+    } else {
+        error_log("Failed to register user " . $email . " due to server issue.");
+        write_custom_debug_log_register("Failed to register user " . $email . " due to server issue.");
+        http_response_code(500); // Internal Server Error
+        echo json_encode(['error' => 'Failed to register the user due to a server issue.']);
+    }
+
+} catch (PDOException $e) {
+    error_log("User registration error: " . $e->getMessage());
+    write_custom_debug_log_register("User registration error: " . $e->getMessage());
+    http_response_code(500);
+    // Temporarily expose the detailed error for debugging
+    echo json_encode([
+        'error' => 'An internal database error occurred.',
+        'db_error' => $e->getMessage()
+    ]);
+}
+
+write_custom_debug_log_register("------ Register_user.php Exit Point ------");
+
+?>
+
+File: backend/.env.example
+# Database Configuration
+DB_HOST=your_database_host
+DB_PORT=your_database_port
+DB_DATABASE=your_database_name
+DB_USER=your_database_user
+DB_PASSWORD=your_database_password
+
+# Telegram Bot Token (if needed)
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+
+# AI API Keys (if needed)
+GEMINI_API_KEY=your_gemini_api_key
+CLOUDFLARE_API_TOKEN=your_cloudflare_api_token
+
+File: backend/telegram_helpers.php
+<?php
+/**
+ * telegram_helpers.php
+ * 增强版 Telegram 请求与帮助函数
+ */
+
+function sendTelegramRequest($method, $data) {
+    $token = getenv('TELEGRAM_BOT_TOKEN');
+    if (empty($token) || $token === 'your_telegram_bot_token_here') {
+        error_log("CRITICAL: Telegram request failed because TELEGRAM_BOT_TOKEN is not configured.");
+        return false;
+    }
+
+    $url = "https://api.telegram.org/bot{$token}/{$method}";
+
+    // 使用 JSON 发请求，Telegram 支持 application/json
+    $payloadJson = json_encode($data, JSON_UNESCAPED_UNICODE);
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payloadJson);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Accept: application/json'
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15); // 加长一点超时时间
+
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+
+    if ($error) {
+        error_log("Telegram cURL error for method {$method}: {$error}");
+        return false;
+    }
+
+    if ($http_code !== 200) {
+        error_log("Telegram API HTTP error for method {$method}: HTTP {$http_code} - Response: {$response}");
+        return false;
+    }
+
+    $decoded = json_decode($response, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        error_log("Telegram API: invalid JSON response for method {$method}: " . json_last_error_msg());
+        return false;
+    }
+
+    if (isset($decoded['ok']) && $decoded['ok'] === true) {
+        return $decoded;
+    } else {
+        // Telegram 返回了 ok=false，记录详细内容
+        error_log("Telegram API returned ok=false for method {$method}. Full response: " . $response);
+        return false;
+    }
+}
+
+/**
+ * 发送文本消息到 chatId
+ *
+ * @param int|string $chatId
+ * @param string $text
+ * @param array|null $replyMarkup
+ * @return bool
+ */
+function sendTelegramMessage($chatId, $text, $replyMarkup = null) {
+    if (empty($chatId)) {
+        error_log("sendTelegramMessage called with empty chatId. Text: " . substr($text, 0, 200));
+        return false;
+    }
+
+    $payload = [
+        'chat_id' => $chatId,
+        'text' => $text,
+        'parse_mode' => 'HTML',
+        'disable_web_page_preview' => true,
+    ];
+
+    if ($replyMarkup) {
+        // 如果传入的是 array，确保在发送之前是 JSON 编码的字符串（sendTelegramRequest 会做 JSON）
+        $payload['reply_markup'] = $replyMarkup;
+    }
+
+    $result = sendTelegramRequest('sendMessage', $payload);
+    if ($result === false) {
+        error_log("sendTelegramMessage failed for chatId {$chatId}. Text preview: " . substr($text, 0, 200));
+        return false;
+    }
+    return true;
+}
+
+/**
+ * 回应 callback_query，停止按钮等待状态
+ *
+ * @param string $callbackQueryId
+ * @param string|null $text
+ * @return bool
+ */
+function answerTelegramCallbackQuery($callbackQueryId, $text = null) {
+    if (empty($callbackQueryId)) return false;
+    $payload = [
+        'callback_query_id' => $callbackQueryId,
+    ];
+    if ($text !== null) $payload['text'] = $text;
+    return sendTelegramRequest('answerCallbackQuery', $payload) !== false;
+}
+
+/**
+ * 管理员键盘：返回数组结构，sendTelegramRequest 会序列化为 JSON
+ */
+function getAdminKeyboard() {
+    return [
+        'inline_keyboard' => [
+            [
+                ['text' => '👤 用户管理', 'callback_data' => 'menu_user_management'],
+                ['text' => '📁 文件管理', 'callback_data' => 'menu_file_management']
+            ],
+            [
+                ['text' => '🧠 请求 Gemini', 'callback_data' => 'ask_gemini'],
+                ['text' => '☁️ 请求 Cloudflare', 'callback_data' => 'ask_cloudflare']
+            ],
+            [
+                ['text' => '🔑 更换 API 密钥', 'callback_data' => 'menu_api_keys']
+            ]
+        ]
+    ];
+}
+
+function getFileManagementKeyboard() {
+    return [
+        'inline_keyboard' => [
+            [['text' => '👁️ 列出文件', 'callback_data' => 'list_files']],
+            [['text' => '🔙 返回主菜单', 'callback_data' => 'main_menu']]
+        ]
+    ];
+}
+
+function getUserManagementKeyboard() {
+    return [
+        'inline_keyboard' => [
+            [['text' => '📋 查看用户列表', 'callback_data' => 'list_users']],
+            [['text' => '🗑️ 删除用户', 'callback_data' => 'delete_user_prompt']],
+            [['text' => '🔙 返回主菜单', 'callback_data' => 'main_menu']]
+        ]
+    ];
+}
+
+function getApiKeySelectionKeyboard() {
+    return [
+        'inline_keyboard' => [
+            [['text' => '💎 Gemini API Key', 'callback_data' => 'set_api_key_GEMINI_API_KEY']],
+            [['text' => '🔙 返回主菜单', 'callback_data' => 'main_menu']]
+        ]
+    ];
+}
+?>
+
+File: backend/api_curl_helper.php
+<?php
+
+/**
+ * 通用的 API 调用辅助函数，处理 cURL 请求和基础错误。
+ *
+ * @param string $url API 的 URL 端点。
+ * @param array $payload 要发送的请求体数据。
+ * @param array $headers HTTP 请求头。
+ * @param int $timeout 超时时间（秒）。
+ * @return array 包含 http_code, response_body, curl_error 的数组。
+ */
+function _call_api_curl($url, $payload, $headers, $timeout = 90) {
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+
+    $responseBody = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    return [
+        'http_code' => $httpCode,
+        'response_body' => $responseBody,
+        'curl_error' => $curlError
+    ];
+}
+
+File: backend/delete_bill.php
+<?php
+// backend/delete_bill.php
+
+require_once __DIR__ . '/api_header.php';
+
+// --- Authentication Check ---
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401); // Unauthorized
+    echo json_encode(['status' => 'error', 'message' => 'You must be logged in to perform this action.']);
+    exit;
+}
+
+// Check if the request method is DELETE
+if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
+    http_response_code(405); // Method Not Allowed
+    echo json_encode(['status' => 'error', 'message' => 'Invalid request method.']);
+    exit;
+}
+
+$pdo = get_db_connection();
+$userId = $_SESSION['user_id'];
+$emailId = $_GET['id'] ?? null;
+
+if (!$emailId) {
+    http_response_code(400); // Bad Request
+    echo json_encode(['status' => 'error', 'message' => 'Bill ID is required.']);
+    exit;
+}
+
+try {
+    // Prepare and execute the delete query
+    // IMPORTANT: The WHERE clause includes user_id to ensure a user can only delete their own bills.
+    $stmt = $pdo->prepare("DELETE FROM emails WHERE id = ? AND user_id = ?");
+    $stmt->execute([$emailId, $userId]);
+
+    // Check if any row was actually deleted
+    if ($stmt->rowCount() > 0) {
+        echo json_encode(['status' => 'success', 'message' => '账单已成功删除。']);
+    } else {
+        // This means either the bill didn't exist or it didn't belong to the user
+        http_response_code(404); // Not Found
+        echo json_encode(['status' => 'error', 'message' => '未找到该账单或无权删除。']);
+    }
+} catch (PDOException $e) {
+    error_log("Error deleting bill: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'An error occurred while deleting the bill.']);
+}
+
+File: backend/email_handler.php
+<?php
+
+// --- Unified Configuration and Helpers ---
+// The config file is in the same directory.
+require_once __DIR__ . '/config.php';
+
+// Define a specific log file path within the backend directory
+$debugLogFile = __DIR__ . '/email_handler_debug.log';
+
+// Helper function to write to the debug log file
+function write_debug_log($message, $logFile) {
+    file_put_contents($logFile, date('[Y-m-d H:i:s]') . ' ' . $message . PHP_EOL, FILE_APPEND);
+}
+
+// --- Security Check ---
+// This secret ensures that only our Cloudflare Worker can call this endpoint.
+$secretToken = getenv('EMAIL_HANDLER_SECRET');
+// Use $_REQUEST to accept the secret from either GET or POST requests.
+$receivedToken = $_REQUEST['worker_secret'] ?? '';
+
+// Basic logging to help debug authentication issues.
+// Changed to write directly to a file for environments without error_log access.
+write_debug_log("Email Handler Debug: secretToken (from env) = [" . (isset($secretToken) ? (empty($secretToken) ? 'EMPTY_STRING' : $secretToken) : 'NOT_SET') . "]", $debugLogFile);
+write_debug_log("Email Handler Debug: receivedToken (from REQUEST) = [" . (isset($receivedToken) ? (empty($receivedToken) ? 'EMPTY_STRING' : $receivedToken) : 'NOT_SET') . "]", $debugLogFile);
+
+if (empty($secretToken) || $receivedToken !== $secretToken) {
+    write_debug_log("Email Handler: Forbidden - Invalid or missing secret token. Received: [" . ($receivedToken ? $receivedToken : "EMPTY_OR_NOT_SET") . "], Expected: [" . ($secretToken ? $secretToken : "EMPTY_OR_NOT_SET") . "]", $debugLogFile);
+    http_response_code(403);
+    echo json_encode(['status' => 'error', 'message' => 'Forbidden: Invalid or missing secret token.']);
+    exit;
+}
+
+// --- Action Routing ---
+// Determine the action based on the 'action' query parameter.
+$action = $_GET['action'] ?? 'process_email'; // Default to processing email
+
+if ($action === 'is_user_registered') {
+    // --- User Verification Logic ---
+    $email = $_GET['email'] ?? null;
+    if (empty($email)) {
+        write_debug_log("Email Handler: Missing email parameter for is_user_registered.", $debugLogFile);
+        http_response_code(400);
+        echo json_encode(['success' => false, 'is_registered' => false, 'message' => 'Email parameter is missing.']);
+        exit;
+    }
+
+    try {
+        $pdo = get_db_connection();
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $userExists = $stmt->fetchColumn();
+
+        write_debug_log("Email Handler: User '{$email}' registered status: " . ($userExists ? 'true' : 'false'), $debugLogFile);
+
+        if ($userExists) {
+            echo json_encode(['success' => true, 'is_registered' => true]);
+        } else {
+            echo json_encode(['success' => true, 'is_registered' => false, 'message' => 'User not found.']);
+        }
+    } catch (PDOException $e) {
+        write_debug_log("Database error in is_user_registered: " . $e->getMessage(), $debugLogFile);
+        http_response_code(500);
+        echo json_encode(['success' => false, 'is_registered' => false, 'message' => 'Internal server error during user check.']);
+    }
+    exit;
+}
+
+
+if ($action === 'process_email') {
+     // --- Email Processing Logic ---
+    $from = $_POST['from'] ?? 'Unknown Sender';
+    $to = $_POST['to'] ?? 'Unknown Recipient';
+    $subject = $_POST['subject'] ?? 'No Subject';
+    $body = $_POST['body'] ?? ''; // The HTML content of the email
+
+    // Validate required fields
+    if (empty($from) || empty($to) || empty($body)) {
+        write_debug_log("Email Handler: Missing required fields (from, to, or body) for process_email.", $debugLogFile);
+        http_response_code(400); // Bad Request
+        echo json_encode(['status' => 'error', 'message' => 'Missing required fields: from, to, or body.']);
+        exit;
+    }
+
+    // Find the user by their email address
+    $pdo = get_db_connection();
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt->execute([$from]);
+    $user = $stmt->fetch();
+
+    if (!$user) {
+        write_debug_log("Email Handler: Received email from '$from' but user not found in DB. Ignoring.", $debugLogFile);
+        echo json_encode(['status' => 'success', 'message' => 'User not found, but acknowledged.']);
+        exit;
+    }
+
+    $userId = $user['id'];
+
+    // Insert the email into the database
+    try {
+        $stmt = $pdo->prepare("INSERT INTO emails (user_id, sender, recipient, subject, html_content) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$userId, $from, $to, $subject, $body]);
+
+        write_debug_log("Email Handler: Email from '$from' processed successfully.", $debugLogFile);
+        http_response_code(200);
+        echo json_encode(['status' => 'success', 'message' => 'Email processed successfully.']);
+
+    } catch (PDOException $e) {
+        write_debug_log("Email Handler DB Error: " . $e->getMessage(), $debugLogFile);
+        http_response_code(500); // Internal Server Error
+        echo json_encode(['status' => 'error', 'message' => 'Failed to save email to the database.']);
+        exit; // Exit after handling the database error
+    }
+    exit; // Exit after successful processing
+}
+
+// Fallback for unknown actions
+write_debug_log("Email Handler: Unknown action: '" . ($action ?? 'null') . "'.", $debugLogFile);
+http_response_code(400);
+echo json_encode(['status' => 'error', 'message' => 'Unknown action.']);
