@@ -1,19 +1,20 @@
-// File: frontend/src/App.jsx (Corrected)
+// File: frontend/src/App.jsx (Refactored Routing)
 
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext'; // Corrected path
+import { AuthProvider } from './context/AuthContext';
 
-// --- 1. 核心组件导入 ---
+// --- Core Components ---
 import Navbar from './components/Navbar';
 import RequireAuth from './components/RequireAuth';
 
-// --- 2. 页面级组件导入 ---
+// --- Page-Level Components ---
 import HomePage from './pages/HomePage';
 import AuthPage from './pages/AuthPage';
-import EmailsPage from './pages/EmailsPage'; // Corrected path
-import EmailDetailPage from './pages/EmailDetailPage';
-import SettlementsPage from './pages/SettlementsPage';
+import EmailsPage from './pages/EmailsPage';
+import EmailDetailPage from './pages/EmailDetailPage'; // Will become plain text view
+import SettlementsListPage from './pages/SettlementsListPage'; // Renamed from SettlementsPage
+import SettlementDetailPage from './pages/SettlementDetailPage'; // New settlement workbench
 
 function App() {
   return (
@@ -21,28 +22,20 @@ function App() {
       <Navbar />
       <main className="container">
         <Routes>
-          {/* --- 公共路由 --- */}
+          {/* --- Public Routes --- */}
           <Route path="/" element={<HomePage />} />
           <Route path="/auth" element={<AuthPage />} />
 
-          {/* --- 受保护的路由 (需要登录) --- */}
-          <Route 
-            path="/emails" 
-            element={<RequireAuth><EmailsPage /></RequireAuth>} 
-          />
-          <Route 
-            path="/emails/:emailId" 
-            element={<RequireAuth><EmailDetailPage /></RequireAuth>} 
-          />
-          <Route 
-            path="/settlements" 
-            element={<RequireAuth><SettlementsPage /></RequireAuth>} 
-          />
+          {/* --- Protected Routes --- */}
+          <Route path="/emails" element={<RequireAuth><EmailsPage /></RequireAuth>} />
+          <Route path="/emails/:emailId" element={<RequireAuth><EmailDetailPage /></RequireAuth>} />
+
+          {/* --- New Settlement Routes --- */}
+          <Route path="/settlements" element={<RequireAuth><SettlementsListPage /></RequireAuth>} />
+          <Route path="/settlements/:emailId" element={<RequireAuth><SettlementDetailPage /></RequireAuth>} />
           
-          {/* --- 404 回退路由 --- */}
-          <Route path="*" element={
-            <div className="card"><h1>404 - 页面未找到</h1></div>
-          } />
+          {/* --- 404 Fallback --- */}
+          <Route path="*" element={<div className="card"><h1>404 - Page Not Found</h1></div>} />
         </Routes>
       </main>
     </AuthProvider>
