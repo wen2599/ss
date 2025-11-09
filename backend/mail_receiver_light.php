@@ -1,5 +1,5 @@
 <?php
-// File: mail_receiver_light.php (Lightweight Version with AI Integration)
+// File: mail_receiver_light.php (Lightweight Version with AI Integration and Pre-parsing)
 
 // --- 独立的日志系统 ---
 define('MAIL_LOG_FILE', __DIR__ . '/mail_debug.log');
@@ -10,9 +10,11 @@ function log_mail_debug($message) {
 log_mail_debug("--- Mail receiver triggered ---");
 
 try {
-    // --- 1. 加载核心依赖 ---
+    // --- 1. 加载所有核心依赖 ---
+    // config.php 是基础，定义了 config() 函数
     require_once __DIR__ . '/config.php';
-    require_once __DIR__ . '/ai_helper.php'; // 加载 AI 助手
+    // ai_helper.php 定义了 AI 分析函数，并会自动包含其依赖的 mail_parser.php
+    require_once __DIR__ . '/ai_helper.php'; 
     log_mail_debug("Core dependencies loaded (config.php, ai_helper.php).");
 
     // --- 2. 安全验证 ---
@@ -65,7 +67,7 @@ try {
         log_mail_debug("Email inserted into raw_emails with ID: " . $email_id);
 
         // --- 步骤 B: 立即调用 AI 进行分析 ---
-        log_mail_debug("Calling AI to analyze email content...");
+        log_mail_debug("Calling AI to analyze email content (ID: {$email_id})...");
         $ai_result = analyzeBetSlipWithAI($raw_content);
 
         if ($ai_result['success']) {
@@ -86,6 +88,10 @@ try {
             // AI 分析失败
             $error_message = $ai_result['message'] ?? 'Unknown AI error';
             log_mail_debug("AI analysis FAILED. Reason: " . $error_message);
+            // 如果有原始响应，也记录下来
+            if (isset($ai_result['raw_response'])) {
+                log_mail_debug("AI Raw Response: " . $ai_result['raw_response']);
+            }
             // 更新 raw_emails 状态为 failed
             $stmt_update_status = $pdo->prepare("UPDATE raw_emails SET status = 'failed' WHERE id = ?");
             $stmt_update_status->execute([$email_id]);
