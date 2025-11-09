@@ -1,11 +1,10 @@
 // File: frontend/src/api/index.js
 
-const API_BASE_URL = 'https://wenge.cloudns.ch/index.php'; // 使用你的后端 URL
+const API_BASE_URL = 'https://wenge.cloudns.ch/index.php';
 
-// 统一的请求函数
-async function request(endpoint, options = {}) {
-  options.credentials = 'include'; // 确保每次请求都携带 session cookie
-  const url = `${API_BASE_URL}?endpoint=${endpoint}`;
+async function request(endpoint, options = {}, queryParams = '') {
+  options.credentials = 'include';
+  const url = `${API_BASE_URL}?endpoint=${endpoint}${queryParams}`;
   
   try {
     const response = await fetch(url, options);
@@ -21,58 +20,51 @@ async function request(endpoint, options = {}) {
 }
 
 export const apiService = {
-  // --- Auth Endpoints ---
-  register(email, password) { /* ... (保持不变) */ },
-  login(email, password) { /* ... (保持不变) */ },
-  logout() { /* ... (保持不变) */ },
-  checkSession() { /* ... (保持不变) */ },
+  // Auth
+  register(email, password) { /* ... */ },
+  login(email, password) { /* ... */ },
+  logout() { /* ... */ },
+  checkSession() { /* ... */ },
   
-  // --- Lottery Endpoints ---
-  getLotteryResults() {
-    return request('get_lottery_results');
-  },
+  // Lottery
+  getLotteryResults() { /* ... */ },
 
-  // --- Mails Endpoints ---
-  /**
-   * Fetches the list of emails for the currently logged-in user.
-   */
+  // Mails
   getEmails() {
-    // 【核心修改】替换掉之前的模拟数据
     return request('get_emails');
   },
   
-  // TODO: Add getEmailContent(id) if needed to fetch full email content
+  /**
+   * Fetches the full content of a single email by its ID.
+   */
+  getEmailContent(id) {
+    // 将 ID 作为查询参数传递
+    return request('get_email_content', {}, `&id=${id}`);
+  },
 
-  // --- Settlements Endpoints (仍然是模拟数据) ---
-  getSettlements() {
-    return Promise.resolve({
-        status: 'success',
-        data: [
-            { id: 1, bet_id: 101, total_win: 500, created_at: new Date().toISOString() },
-            { id: 2, bet_id: 102, total_win: 0, created_at: new Date().toISOString() },
-        ]
-    });
-  }
+  // Settlements (模拟数据)
+  getSettlements() { /* ... */ },
 };
 
-// 我们把不变的 Auth 函数也放进来，让代码更完整
+// --- 补全其他函数 ---
 apiService.register = function(email, password) {
-  return request('register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
+  return request('register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
 };
 apiService.login = function(email, password) {
-  return request('login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
+  return request('login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
 };
 apiService.logout = function() {
   return request('logout', { method: 'POST' });
 };
 apiService.checkSession = function() {
   return request('check_session');
+};
+apiService.getLotteryResults = function() {
+  return request('get_lottery_results');
+};
+apiService.getSettlements = function() {
+    return Promise.resolve({
+        status: 'success',
+        data: [ { id: 1, bet_id: 101, total_win: 500, created_at: new Date().toISOString() } ]
+    });
 };

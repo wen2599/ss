@@ -21,8 +21,9 @@ $routes = [
     'login' => 'auth/login.php',
     'logout' => 'auth/logout.php',
     'check_session' => 'auth/check_session.php',
+    'get_emails' => 'auth/get_emails.php',
+    'get_email_content' => 'auth/get_email_content.php', // <-- 新增路由
     'get_lottery_results' => 'lottery/get_results.php',
-    'get_emails' => 'auth/get_emails.php', // <-- 【新增路由】
 ];
 
 // 4. 根据路由加载对应的端点文件
