@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext'; // Corrected path
+import { AuthProvider } from './context/AuthContext'; // Corrected path
 
 // --- 1. 核心组件导入 ---
 import Navbar from './components/Navbar';
@@ -10,8 +10,8 @@ import RequireAuth from './components/RequireAuth';
 
 // --- 2. 页面级组件导入 ---
 import HomePage from './pages/HomePage';
-import AuthPage from './pages/AuthPage'; // Corrected path
-import EmailsPage from './pages/EmailsPage';
+import AuthPage from './pages/AuthPage';
+import EmailsPage from './pages/EmailsPage'; // Corrected path
 import EmailDetailPage from './pages/EmailDetailPage';
 import SettlementsPage from './pages/SettlementsPage';
 
