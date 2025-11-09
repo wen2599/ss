@@ -149,3 +149,38 @@ button { /* ... (之前的按钮样式) */ }
     grid-template-columns: repeat(6, 1fr) 0.3fr 1fr; /* 缩小特码间距 */
   }
 }
+
+/* src/index.css (追加) */
+
+.settlement-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin: 2rem 0;
+  padding: 1rem;
+}
+
+.settlement-details {
+  background-color: #fff8e1; /* 淡黄色背景 */
+  border: 1px solid #ffecb3;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-top: 1rem;
+}
+
+.settlement-details p {
+  margin: 0.5rem 0;
+  font-size: 1.15rem; /* 更大的字体 */
+  color: #c51162; /* 红色字体 */
+}
+
+.settlement-details p strong {
+  color: #333; /* 标题用深色 */
+}
+
+.email-content-background {
+  white-space: pre-wrap;
+  word-break: break-all;
+  background-color: #f9f9f9;
+  padding: 1rem;
+  border-radius: 4px;
+}

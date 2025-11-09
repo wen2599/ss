@@ -1,20 +1,16 @@
-// File: frontend/src/App.jsx (Refactored Routing)
+// File: frontend/src/App.jsx (Simplified Routes)
 
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 
-// --- Core Components ---
 import Navbar from './components/Navbar';
 import RequireAuth from './components/RequireAuth';
 
-// --- Page-Level Components ---
 import HomePage from './pages/HomePage';
 import AuthPage from './pages/AuthPage';
-import EmailsPage from './pages/EmailsPage';
-import EmailDetailPage from './pages/EmailDetailPage'; // Will become plain text view
-import SettlementsListPage from './pages/SettlementsListPage'; // Renamed from SettlementsPage
-import SettlementDetailPage from './pages/SettlementDetailPage'; // New settlement workbench
+import EmailsListPage from './pages/EmailsListPage'; // Renamed for clarity
+import EmailDetailPage from './pages/EmailDetailPage'; // This is now the core workbench
 
 function App() {
   return (
@@ -22,20 +18,21 @@ function App() {
       <Navbar />
       <main className="container">
         <Routes>
-          {/* --- Public Routes --- */}
           <Route path="/" element={<HomePage />} />
           <Route path="/auth" element={<AuthPage />} />
 
-          {/* --- Protected Routes --- */}
-          <Route path="/emails" element={<RequireAuth><EmailsPage /></RequireAuth>} />
-          <Route path="/emails/:emailId" element={<RequireAuth><EmailDetailPage /></RequireAuth>} />
-
-          {/* --- New Settlement Routes --- */}
-          <Route path="/settlements" element={<RequireAuth><SettlementsListPage /></RequireAuth>} />
-          <Route path="/settlements/:emailId" element={<RequireAuth><SettlementDetailPage /></RequireAuth>} />
+          <Route 
+            path="/emails" 
+            element={<RequireAuth><EmailsListPage /></RequireAuth>} 
+          />
+          <Route 
+            path="/emails/:emailId" 
+            element={<RequireAuth><EmailDetailPage /></RequireAuth>} 
+          />
           
-          {/* --- 404 Fallback --- */}
-          <Route path="*" element={<div className="card"><h1>404 - Page Not Found</h1></div>} />
+          <Route path="*" element={
+            <div className="card"><h1>404 - 页面未找到</h1></div>
+          } />
         </Routes>
       </main>
     </AuthProvider>
