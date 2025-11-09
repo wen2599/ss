@@ -1,12 +1,12 @@
 <?php
-// File: backend/index.php (Centralized Dependency Loading)
+// File: backend/index.php
 
-// --- 1. Load ALL core dependencies in one place, in the correct order ---
-require_once __DIR__ . '/config.php';       // Defines config()
-require_once __DIR__ . '/db_operations.php'; // Defines get_db_connection(), uses config()
-require_once __DIR__ . '/api_header.php';    // Handles headers and session, uses config()
+// 1. 加载所有核心公共文件
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/db_operations.php';
+require_once __DIR__ . '/api_header.php';
 
-// --- 2. Get endpoint and route ---
+// 2. 获取端点参数
 $endpoint = $_GET['endpoint'] ?? null;
 
 if ($endpoint === null) {
@@ -15,19 +15,20 @@ if ($endpoint === null) {
     exit();
 }
 
+// 3. 定义路由
 $routes = [
     'register' => 'auth/register.php',
     'login' => 'auth/login.php',
     'logout' => 'auth/logout.php',
     'check_session' => 'auth/check_session.php',
     'get_lottery_results' => 'lottery/get_results.php',
+    'get_emails' => 'auth/get_emails.php', // <-- 【新增路由】
 ];
 
+// 4. 根据路由加载对应的端点文件
 if (isset($routes[$endpoint])) {
-    // Now, when we require the endpoint file, all necessary functions are already defined.
     require_once __DIR__ . '/' . $routes[$endpoint];
 } else {
     http_response_code(404);
     echo json_encode(['status' => 'error', 'message' => 'Endpoint not found.']);
 }
-?>

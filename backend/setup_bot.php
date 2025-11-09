@@ -8,7 +8,7 @@ $bot_token = config('TELEGRAM_BOT_TOKEN');
 
 // 【关键】将此 URL 替换为你自己的 Cloudflare Worker 的 URL
 // 它应该看起来像 https://<你的Worker名字>.<你的Cloudflare子域>.workers.dev
-$worker_url = "https://btt.wenge666.workers.dev"; // <-- ！！！请务必替换这里！！！
+$worker_url = "https://ssgamil.wenge666.workers.dev"; // <-- ！！！请务必替换这里！！！
 
 // 构建 Telegram API URL for setWebhook
 $api_url = "https://api.telegram.org/bot{$bot_token}/setWebhook?url=" . urlencode($worker_url);
