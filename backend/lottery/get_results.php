@@ -1,65 +1,54 @@
 <?php
-// File: backend/lottery/get_results.php (Debug Enhanced)
+// File: backend/lottery/get_results.php (Grouped Latest Version)
 
-// 在调试期间，强制显示所有错误
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
-// index.php 应该已经包含了 api_header.php 和 config.php
-// 但为了独立测试的健壮性，我们再次包含
-if (!defined('DB_OPERATIONS_LOADED')) {
-    require_once __DIR__ . '/../db_operations.php';
-}
+require_once __DIR__ . '/../db_operations.php';
 
 try {
     $pdo = get_db_connection();
-    
-    // 增加一个明确的检查，看数据库连接是否成功
-    if (!$pdo instanceof PDO) {
-        // 如果 get_db_connection() 返回的不是一个 PDO 对象，说明连接失败
-        throw new Exception("Failed to get a valid database connection object.");
-    }
 
-    $stmt = $pdo->query("SELECT * FROM lottery_results ORDER BY drawing_date DESC, issue_number DESC LIMIT 10");
+    // 这是一个更高级的 SQL 查询，用于获取每个 lottery_type 的最新记录。
+    // 工作原理：
+    // 1. 内层子查询 `(SELECT lottery_type, MAX(id) as max_id FROM lottery_results GROUP BY lottery_type)`
+    //    会找出每个彩票类型中 ID 最大（也就是最新）的那条记录的 ID。
+    // 2. 外层查询通过 `JOIN` 将原始表与这个结果连接起来，只保留那些 ID 匹配的记录。
+    $sql = "
+        SELECT r1.*
+        FROM lottery_results r1
+        JOIN (
+            SELECT lottery_type, MAX(id) AS max_id
+            FROM lottery_results
+            GROUP BY lottery_type
+        ) r2 ON r1.lottery_type = r2.lottery_type AND r1.id = r2.max_id
+    ";
+
+    $stmt = $pdo->query($sql);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $processed = array_map(function($row) {
+    // 将结果从一个扁平数组，转换为一个以 lottery_type 为键的关联数组，方便前端使用。
+    $grouped_results = [];
+    foreach ($results as $row) {
+        // 解码 JSON 字段
         foreach(['winning_numbers', 'zodiac_signs', 'colors'] as $key) {
-            // 增加检查，防止字段不存在
-            if (isset($row[$key])) {
-                $decoded = json_decode($row[$key]);
-                $row[$key] = $decoded ?: [];
-            } else {
-                $row[$key] = []; // 如果字段缺失，给个默认值
-            }
+            $decoded = json_decode($row[$key]);
+            $row[$key] = $decoded ?: [];
         }
-        return $row;
-    }, $results);
-
-    // 如果成功，也要确保 header 是 json
-    if (!headers_sent()) {
-        header('Content-Type: application/json');
+        // 按彩票类型分组
+        $grouped_results[$row['lottery_type']] = $row;
     }
-    echo json_encode(['status' => 'success', 'data' => $processed]);
 
-} catch (Throwable $e) { // 使用 Throwable 可以捕获 Error 和 Exception
-    // 在调试阶段，我们返回详细的错误信息
+    // 定义前端期望的三种彩票类型，确保即使数据库中没有某个类型的数据，前端也能收到一个空占位
+    $lottery_types = ['香港六合彩', '新澳门六合彩', '老澳门六合彩'];
+    $final_data = [];
+    foreach ($lottery_types as $type) {
+        $final_data[$type] = $grouped_results[$type] ?? null; // 如果存在则使用，否则为 null
+    }
+
+    echo json_encode(['status' => 'success', 'data' => $final_data]);
+
+} catch (PDOException $e) {
     http_response_code(500);
-    
-    if (!headers_sent()) {
-        header('Content-Type: application/json');
-    }
-    
-    echo json_encode([
-        'status' => 'error',
-        'message' => 'An error occurred while fetching lottery results.',
-        'error_details' => [
-            'type' => get_class($e),
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'trace' => $e->getTraceAsString() // 完整的堆栈跟踪
-        ]
-    ]);
+    // 调试时可以打开下面这行来查看详细错误
+    // echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    echo json_encode(['status' => 'error', 'message' => 'Could not fetch lottery results.']);
 }
 ?>
