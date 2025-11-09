@@ -1,21 +1,19 @@
-// File: frontend/src/App.jsx
+// File: frontend/src/App.jsx (Corrected)
+
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import Navbar from './components/Navbar';
-import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
-import EmailsPage from './pages/EmailsPage';
-import EmailDetailPage from './pages/EmailDetailPage'; // <-- 新增
-import SettlementsPage from './pages/SettlementsPage';
-import ResultsPage from './pages/ResultsPage';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext'; // Corrected path
 
-const RequireAuth = ({ children }) => {
-  const { user } = useAuth();
-  return user ? children : <LoginPage />;
-};
+// --- 1. 核心组件导入 ---
+import Navbar from './components/Navbar';
+import RequireAuth from './components/RequireAuth';
+
+// --- 2. 页面级组件导入 ---
+import HomePage from './pages/HomePage';
+import AuthPage from './pages/AuthPage'; // Corrected path
+import EmailsPage from './pages/EmailsPage';
+import EmailDetailPage from './pages/EmailDetailPage';
+import SettlementsPage from './pages/SettlementsPage';
 
 function App() {
   return (
@@ -23,14 +21,28 @@ function App() {
       <Navbar />
       <main className="container">
         <Routes>
+          {/* --- 公共路由 --- */}
           <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
-          <Route path="/emails" element={<RequireAuth><EmailsPage /></RequireAuth>} />
-          <Route path="/emails/:emailId" element={<RequireAuth><EmailDetailPage /></RequireAuth>} /> {/* <-- 新增详情页路由 */}
-          <Route path="/settlements" element={<RequireAuth><SettlementsPage /></RequireAuth>} />
-          <Route path="/results" element={<RequireAuth><ResultsPage /></RequireAuth>} />
+          <Route path="/auth" element={<AuthPage />} />
+
+          {/* --- 受保护的路由 (需要登录) --- */}
+          <Route 
+            path="/emails" 
+            element={<RequireAuth><EmailsPage /></RequireAuth>} 
+          />
+          <Route 
+            path="/emails/:emailId" 
+            element={<RequireAuth><EmailDetailPage /></RequireAuth>} 
+          />
+          <Route 
+            path="/settlements" 
+            element={<RequireAuth><SettlementsPage /></RequireAuth>} 
+          />
+          
+          {/* --- 404 回退路由 --- */}
+          <Route path="*" element={
+            <div className="card"><h1>404 - 页面未找到</h1></div>
+          } />
         </Routes>
       </main>
     </AuthProvider>
