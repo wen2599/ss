@@ -1,8 +1,20 @@
 <?php
-// File: backend/index.php
-require_once __DIR__ . '/api_header.php';
+// File: backend/index.php (Ensured Load Order)
 
+// 1. 加载所有核心公共文件
+require_once __DIR__ . '/api_header.php';
+require_once __DIR__ . '/db_operations.php'; // 确保 db_operations 在这里被加载
+
+// 2. 获取端点参数
 $endpoint = $_GET['endpoint'] ?? null;
+
+if ($endpoint === null) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Missing endpoint parameter.']);
+    exit();
+}
+
+// 3. 定义路由
 $routes = [
     'register' => 'auth/register.php',
     'login' => 'auth/login.php',
@@ -11,9 +23,11 @@ $routes = [
     'get_lottery_results' => 'lottery/get_results.php',
 ];
 
+// 4. 根据路由加载对应的端点文件
 if (isset($routes[$endpoint])) {
     require_once __DIR__ . '/' . $routes[$endpoint];
 } else {
     http_response_code(404);
     echo json_encode(['status' => 'error', 'message' => 'Endpoint not found.']);
 }
+?>

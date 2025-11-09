@@ -1,16 +1,19 @@
 <?php
-// File: backend/lottery/get_results.php (Grouped Latest Version)
+// File: backend/lottery/get_results.php (Simplified Version)
 
-require_once __DIR__ . '/../db_operations.php';
+// DO NOT add require_once for db_operations.php or config.php here.
+// index.php is responsible for loading them before including this file.
+
+// We should already have a db_connection function available.
+if (!function_exists('get_db_connection')) {
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'Core function get_db_connection() is missing.']);
+    exit;
+}
 
 try {
     $pdo = get_db_connection();
 
-    // 这是一个更高级的 SQL 查询，用于获取每个 lottery_type 的最新记录。
-    // 工作原理：
-    // 1. 内层子查询 `(SELECT lottery_type, MAX(id) as max_id FROM lottery_results GROUP BY lottery_type)`
-    //    会找出每个彩票类型中 ID 最大（也就是最新）的那条记录的 ID。
-    // 2. 外层查询通过 `JOIN` 将原始表与这个结果连接起来，只保留那些 ID 匹配的记录。
     $sql = "
         SELECT r1.*
         FROM lottery_results r1
@@ -24,31 +27,38 @@ try {
     $stmt = $pdo->query($sql);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // 将结果从一个扁平数组，转换为一个以 lottery_type 为键的关联数组，方便前端使用。
     $grouped_results = [];
     foreach ($results as $row) {
-        // 解码 JSON 字段
         foreach(['winning_numbers', 'zodiac_signs', 'colors'] as $key) {
             $decoded = json_decode($row[$key]);
             $row[$key] = $decoded ?: [];
         }
-        // 按彩票类型分组
         $grouped_results[$row['lottery_type']] = $row;
     }
 
-    // 定义前端期望的三种彩票类型，确保即使数据库中没有某个类型的数据，前端也能收到一个空占位
     $lottery_types = ['香港六合彩', '新澳门六合彩', '老澳门六合彩'];
     $final_data = [];
     foreach ($lottery_types as $type) {
-        $final_data[$type] = $grouped_results[$type] ?? null; // 如果存在则使用，否则为 null
+        $final_data[$type] = $grouped_results[$type] ?? null;
     }
 
     echo json_encode(['status' => 'success', 'data' => $final_data]);
 
 } catch (PDOException $e) {
     http_response_code(500);
-    // 调试时可以打开下面这行来查看详细错误
-    // echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
-    echo json_encode(['status' => 'error', 'message' => 'Could not fetch lottery results.']);
+    // 在调试期间，暴露详细的错误信息
+    echo json_encode([
+        'status' => 'error', 
+        'message' => 'A database error occurred.',
+        'details' => $e->getMessage() // <-- 输出具体DB错误
+    ]);
+} catch (Throwable $e) {
+    http_response_code(500);
+    // 捕获其他所有错误
+     echo json_encode([
+        'status' => 'error', 
+        'message' => 'A general error occurred.',
+        'details' => $e->getMessage()
+    ]);
 }
 ?>
