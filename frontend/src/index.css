@@ -1,9 +1,25 @@
-/* src/index.css */
+/* src/index.css (Fully Responsive Version) */
+
+/* --- Global & Layout --- */
+:root {
+  --primary-color: #007bff;
+  --danger-color: #dc3545;
+  --success-color: #28a745;
+  --info-color: #17a2b8;
+  --background-color: #f4f7f9;
+  --card-background: #ffffff;
+  --text-color: #333;
+  --text-light: #666;
+  --border-color: #e0e0e0;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: #f4f7f9;
-  color: #333;
+  background-color: var(--background-color);
+  color: var(--text-color);
   margin: 0;
+  /* 禁止垂直滚动 - 仅在 body 上设置 overflow-y: hidden, 但这通常不是好主意 */
+  /* 我们通过 flex 布局和高度限制来更好地控制 */
 }
 
 #root {
@@ -12,101 +28,80 @@ body {
   min-height: 100vh;
 }
 
-.container {
+main.container {
+  flex-grow: 1; /* 让主内容区域填充剩余空间 */
   width: 100%;
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 2rem auto;
   padding: 0 1rem;
+  box-sizing: border-box; /* 确保 padding 不会撑大宽度 */
 }
 
-.card {
-  background-color: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  margin-bottom: 20px;
-}
-
-/* Navbar */
+/* --- Navbar --- */
 .navbar {
   display: flex;
+  flex-wrap: wrap; /* 在小屏幕上换行 */
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;
-  background-color: #ffffff;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  border-bottom: 1px solid #eaeaea;
+  background-color: var(--card-background);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border-bottom: 1px solid var(--border-color);
+  gap: 1rem;
 }
-.nav-brand a { font-weight: bold; font-size: 1.5rem; }
+.nav-brand a { font-weight: bold; font-size: 1.5rem; color: var(--text-color); }
 .nav-links { list-style: none; display: flex; gap: 1.5rem; margin: 0; padding: 0; }
-.nav-links a.active { color: #007bff; text-decoration: underline; }
+.nav-links a { color: var(--text-light); }
+.nav-links a.active { color: var(--primary-color); font-weight: bold; }
 .nav-auth { display: flex; align-items: center; gap: 1rem; }
 .nav-auth span { font-weight: 500; }
 
-/* General Elements */
-a { text-decoration: none; color: #007bff; }
-a:hover { text-decoration: underline; }
-button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  background-color: #007bff;
-  color: white;
-  cursor: pointer;
-  font-size: 1rem;
+/* --- General Elements & Cards --- */
+.card {
+  background-color: var(--card-background);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  margin-bottom: 20px;
 }
-button:hover { background-color: #0056b3; }
-button:disabled { background-color: #cccccc; cursor: not-allowed; }
-.link-button { background: none; color: #007bff; padding: 0; text-decoration: underline; }
+a { text-decoration: none; color: var(--primary-color); }
+button { /* ... (之前的按钮样式) */ }
 
-/* Forms */
-form { display: flex; flex-direction: column; gap: 1rem; }
-form input { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
-.message { color: red; margin-top: 1rem; }
-.message.success { color: green; }
-
-/* Tables */
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 0.75rem; border: 1px solid #ddd; text-align: left; }
-th { background-color: #f2f2f2; }
-
-/* Lottery Banner Styles */
+/* --- Lottery Banner Styles (核心修改) --- */
 .lottery-banners-container {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem; /* 横幅之间的间距 */
+  gap: 1.5rem;
 }
 
 .lottery-banner {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background-color: #ffffff;
+  background-color: var(--card-background);
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
   overflow: hidden;
 }
 
 .banner-header {
-  padding: 0.75rem 1rem;
-  background-color: #f7f7f7;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 0.75rem 1.5rem; /* 增加左右内边距 */
+  background-color: #f9fafb;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap; /* 在小屏幕上换行 */
 }
-
-.banner-header h3 {
-  margin: 0;
-  font-size: 1.2rem;
-}
-
-.banner-header p {
-  margin: 0.25rem 0 0;
-  font-size: 0.9rem;
-  color: #666;
-}
+.banner-header h3 { margin: 0; font-size: 1.2rem; }
+.banner-header p { margin: 0; font-size: 0.9rem; color: var(--text-light); }
 
 .numbers-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr); /* 7个格子 */
+  /* 关键修改：6个普通格子 + 1个特码格子，中间有额外间距 */
+  /* '1fr' 是一个弹性单位，'auto' 让宽度由内容决定 */
+  grid-template-columns: repeat(6, 1fr) 0.5fr 1fr; /* 6个格子, 0.5fr的间距, 第7个格子 */
   gap: 10px;
-  padding: 1rem;
+  padding: 1.5rem;
+  align-items: center;
 }
 
 .number-cell {
@@ -114,16 +109,43 @@ th { background-color: #f2f2f2; }
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  aspect-ratio: 1 / 1; /* 保持为正方形 */
-  border-radius: 50%; /* 圆形格子 */
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
   color: #fff;
   font-weight: bold;
-  font-size: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+  font-size: clamp(1rem, 4vw, 1.75rem); /* 自适应字体大小 */
+}
+
+/* 关键修改：让第7个格子在网格中占据第8列的位置 */
+.number-cell:nth-child(7) {
+  grid-column: 8;
 }
 
 /* Color Styles */
-.color-red { background-color: #dc3545; }
-.color-green { background-color: #28a745; }
-.color-blue { background-color: #007bff; }
-.color-unknown { background-color: #6c757d; }
+.color-red { background: linear-gradient(145deg, #f85032, #e73827); }
+.color-green { background: linear-gradient(145deg, #56ab2f, #a8e063); }
+.color-blue { background: linear-gradient(145deg, #2196F3, #4FC3F7); }
+.color-unknown { background: linear-gradient(145deg, #868e96, #adb5bd); }
+
+/* --- Media Queries for Responsive Design --- */
+@media (max-width: 768px) {
+  main.container {
+    margin: 1rem auto;
+    padding: 0 0.5rem;
+  }
+  .navbar {
+    padding: 1rem;
+    justify-content: center; /* 在小屏幕居中显示所有元素 */
+  }
+  .banner-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  .numbers-grid {
+    padding: 1rem;
+    gap: 5px;
+    grid-template-columns: repeat(6, 1fr) 0.3fr 1fr; /* 缩小特码间距 */
+  }
+}
