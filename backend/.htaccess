@@ -1,8 +1,0 @@
-<IfModule mod_security2.c>
-    <Files "index.php">
-        SecRuleEngine Off
-    </Files>
-    <Files "webhook_test.php">
-        SecRuleEngine Off
-    </Files>
-</IfModule>
