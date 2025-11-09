@@ -18,8 +18,6 @@ body {
   background-color: var(--background-color);
   color: var(--text-color);
   margin: 0;
-  /* 禁止垂直滚动 - 仅在 body 上设置 overflow-y: hidden, 但这通常不是好主意 */
-  /* 我们通过 flex 布局和高度限制来更好地控制 */
 }
 
 #root {
@@ -29,18 +27,18 @@ body {
 }
 
 main.container {
-  flex-grow: 1; /* 让主内容区域填充剩余空间 */
+  flex-grow: 1;
   width: 100%;
   max-width: 1200px;
   margin: 2rem auto;
   padding: 0 1rem;
-  box-sizing: border-box; /* 确保 padding 不会撑大宽度 */
+  box-sizing: border-box;
 }
 
 /* --- Navbar --- */
 .navbar {
   display: flex;
-  flex-wrap: wrap; /* 在小屏幕上换行 */
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;
@@ -65,9 +63,9 @@ main.container {
   margin-bottom: 20px;
 }
 a { text-decoration: none; color: var(--primary-color); }
-button { /* ... (之前的按钮样式) */ }
 
-/* --- Lottery Banner Styles (核心修改) --- */
+
+/* --- Lottery Banner Styles --- */
 .lottery-banners-container {
   display: flex;
   flex-direction: column;
@@ -83,22 +81,20 @@ button { /* ... (之前的按钮样式) */ }
 }
 
 .banner-header {
-  padding: 0.75rem 1.5rem; /* 增加左右内边距 */
+  padding: 0.75rem 1.5rem;
   background-color: #f9fafb;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap; /* 在小屏幕上换行 */
+  flex-wrap: wrap;
 }
 .banner-header h3 { margin: 0; font-size: 1.2rem; }
 .banner-header p { margin: 0; font-size: 0.9rem; color: var(--text-light); }
 
 .numbers-grid {
   display: grid;
-  /* 关键修改：6个普通格子 + 1个特码格子，中间有额外间距 */
-  /* '1fr' 是一个弹性单位，'auto' 让宽度由内容决定 */
-  grid-template-columns: repeat(6, 1fr) 0.5fr 1fr; /* 6个格子, 0.5fr的间距, 第7个格子 */
+  grid-template-columns: repeat(6, 1fr) 0.5fr 1fr;
   gap: 10px;
   padding: 1.5rem;
   align-items: center;
@@ -114,19 +110,70 @@ button { /* ... (之前的按钮样式) */ }
   color: #fff;
   font-weight: bold;
   box-shadow: 0 2px 4px rgba(0,0,0,0.25);
-  font-size: clamp(1rem, 4vw, 1.75rem); /* 自适应字体大小 */
+  font-size: clamp(1rem, 4vw, 1.75rem);
 }
 
-/* 关键修改：让第7个格子在网格中占据第8列的位置 */
 .number-cell:nth-child(7) {
   grid-column: 8;
 }
 
-/* Color Styles */
 .color-red { background: linear-gradient(145deg, #f85032, #e73827); }
 .color-green { background: linear-gradient(145deg, #56ab2f, #a8e063); }
 .color-blue { background: linear-gradient(145deg, #2196F3, #4FC3F7); }
 .color-unknown { background: linear-gradient(145deg, #868e96, #adb5bd); }
+
+/* --- Settlement & Email Page Styles --- */
+.settlement-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin: 2rem 0;
+  padding: 1rem;
+}
+
+.settlement-details {
+  background-color: #fff8e1;
+  border: 1px solid #ffecb3;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-top: 1rem;
+}
+
+.settlement-details p {
+  margin: 0.5rem 0;
+  font-size: 1.15rem;
+  color: #c51162;
+}
+
+.settlement-details p strong {
+  color: #333;
+}
+
+.email-content-background {
+  white-space: pre-wrap;
+  word-break: break-all;
+  background-color: #f9f9f9;
+  padding: 1rem;
+  border-radius: 4px;
+}
+
+.global-totals-card {
+  background-color: #e3f2fd;
+  border: 1px solid #bbdefb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+  font-size: 1.2rem;
+}
+
+.global-totals-card p {
+  margin: 0.75rem 0;
+}
+
+.global-totals-card hr {
+  border: none;
+  border-top: 1px dashed #90caf9;
+  margin: 1rem 0;
+}
 
 /* --- Media Queries for Responsive Design --- */
 @media (max-width: 768px) {
@@ -136,7 +183,7 @@ button { /* ... (之前的按钮样式) */ }
   }
   .navbar {
     padding: 1rem;
-    justify-content: center; /* 在小屏幕居中显示所有元素 */
+    justify-content: center;
   }
   .banner-header {
     flex-direction: column;
@@ -146,41 +193,6 @@ button { /* ... (之前的按钮样式) */ }
   .numbers-grid {
     padding: 1rem;
     gap: 5px;
-    grid-template-columns: repeat(6, 1fr) 0.3fr 1fr; /* 缩小特码间距 */
+    grid-template-columns: repeat(6, 1fr) 0.3fr 1fr;
   }
-}
-
-/* src/index.css (追加) */
-
-.settlement-card {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  margin: 2rem 0;
-  padding: 1rem;
-}
-
-.settlement-details {
-  background-color: #fff8e1; /* 淡黄色背景 */
-  border: 1px solid #ffecb3;
-  padding: 1rem;
-  border-radius: 4px;
-  margin-top: 1rem;
-}
-
-.settlement-details p {
-  margin: 0.5rem 0;
-  font-size: 1.15rem; /* 更大的字体 */
-  color: #c51162; /* 红色字体 */
-}
-
-.settlement-details p strong {
-  color: #333; /* 标题用深色 */
-}
-
-.email-content-background {
-  white-space: pre-wrap;
-  word-break: break-all;
-  background-color: #f9f9f9;
-  padding: 1rem;
-  border-radius: 4px;
 }

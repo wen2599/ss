@@ -1,103 +1,9 @@
-// File: frontend/pages/EmailDetailPage.jsx (New Core Workbench)
-
+// File: frontend/pages/EmailDetailPage.jsx (Final Version)
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiService } from '../api';
+import SettlementCard from '../components/SettlementCard'; // 引入新的子组件
 
-// --- SettlementCard Sub-component ---
-const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
-  const { batch_id, data } = batch;
-  const [isEditing, setIsEditing] = useState(false);
-  const [editableData, setEditableData] = useState(JSON.stringify(data.bets, null, 2));
-  const [isSaving, setIsSaving] = useState(false);
-
-  const { totalBetAmount, winningBets } = useMemo(() => {
-    let total = 0;
-    const winners = [];
-    const specialNumber = lotteryResult?.winning_numbers?.[6];
-
-    if (data.bets) {
-      data.bets.forEach(bet => {
-        if ((bet.bet_type === '号码' || bet.bet_type === '特码') && bet.targets) {
-          bet.targets.forEach(targetNumber => {
-            total += bet.amount;
-            if (specialNumber && targetNumber === specialNumber) {
-              winners.push({ number: targetNumber, amount: bet.amount });
-            }
-          });
-        }
-      });
-    }
-    return { totalBetAmount: total, winningBets: winners };
-  }, [data.bets, lotteryResult]);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const updatedBets = JSON.parse(editableData);
-      const updatedBatchData = { ...data, bets: updatedBets };
-      
-      await apiService.updateBetBatch(batch_id, updatedBatchData);
-      
-      onUpdate(batch_id, updatedBatchData);
-      setIsEditing(false);
-      alert('修改已保存！');
-    } catch (e) {
-      alert("JSON 格式错误或保存失败: " + e.message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const renderWinningDetails = (odds) => {
-    if (winningBets.length === 0) return <span style={{ color: 'green' }}>未中奖</span>;
-    const totalWinAmount = winningBets.reduce((sum, bet) => sum + (bet.amount * odds), 0);
-    const netProfit = totalWinAmount - totalBetAmount;
-    return (
-      <>
-        中 {winningBets.length} 注, 赢 {totalWinAmount} |{' '}
-        <span style={{ fontWeight: 'bold', color: netProfit >= 0 ? 'red' : 'green' }}>
-          净{netProfit >= 0 ? '赢' : '亏'} {Math.abs(netProfit)} 元
-        </span>
-      </>
-    );
-  };
-
-  return (
-    <div className="settlement-card">
-      <p style={{ whiteSpace: 'pre-wrap', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
-        <strong>原始文本:</strong> {data.raw_text}
-      </p>
-      
-      <div className="settlement-details">
-        <p><strong>AI识别概要:</strong> 总下注 {totalBetAmount} 元</p>
-        
-        {lotteryResult && (
-          <div className="results-grid">
-            <p><strong>中奖详情:</strong> {winningBets.map(b => `${b.number}(${b.amount}元)`).join(', ') || '无'}</p>
-            <p><strong>赔率 45:</strong> {renderWinningDetails(45)}</p>
-            <p><strong>赔率 46:</strong> {renderWinningDetails(46)}</p>
-            <p><strong>赔率 47:</strong> {renderWinningDetails(47)}</p>
-          </div>
-        )}
-
-        <button onClick={() => setIsEditing(!isEditing)} className="link-button">
-          {isEditing ? '取消修改' : '修改AI识别结果'}
-        </button>
-      </div>
-      
-      {isEditing && (
-        <div className="edit-mode" style={{ marginTop: '1rem' }}>
-          <textarea value={editableData} onChange={(e) => setEditableData(e.target.value)} style={{ width: '95%', height: '150px' }} />
-          <button onClick={handleSave} disabled={isSaving}>{isSaving ? '保存中...' : '保存修改'}</button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-
-// --- Main Page Component ---
 function EmailDetailPage() {
   const { emailId } = useParams();
   const [loading, setLoading] = useState(true);
@@ -111,12 +17,9 @@ function EmailDetailPage() {
     apiService.getEmailDetails(emailId)
       .then(res => {
         if (res.status === 'success') {
-            setPageData(res.data);
-            if (res.data.bet_batches && res.data.bet_batches.length > 0) {
-                setIssueInput(prev => ({...prev, issue: res.data.bet_batches[0].issue_number}));
-            }
+          setPageData(res.data);
         } else {
-            setError({ message: res.message });
+          setError({ message: res.message });
         }
       })
       .catch(setError)
@@ -133,25 +36,57 @@ function EmailDetailPage() {
   };
   
   const handleFetchLottery = () => {
-      if (!issueInput.issue) { alert('请输入期号以进行结算'); return; }
-      setLotteryResult(null); 
-      apiService.getLotteryResultByIssue(issueInput.type, issueInput.issue)
-          .then(res => {
-            if (res.status === 'success') {
-                setLotteryResult(res.data);
-            } else {
-                alert(res.message);
-            }
-          })
-          .catch(err => alert('获取开奖结果时出错: ' + err.message));
+    if (!issueInput.issue) { alert('请输入期号'); return; }
+    setLotteryResult(null);
+    apiService.getLotteryResultByIssue(issueInput.type, issueInput.issue)
+      .then(res => {
+        if (res.status === 'success') setLotteryResult(res.data);
+        else alert(res.message);
+      })
+      .catch(err => alert(err.message));
   };
-  
-  if (loading) return <p>正在加载邮件与结算详情...</p>;
-  if (error) return <p style={{ color: 'red' }}>错误: {error.message}</p>;
+
+  // --- 全局合计计算 ---
+  const globalTotals = useMemo(() => {
+    let totalBet = 0;
+    let totalWin45 = 0, totalWin46 = 0, totalWin47 = 0;
+
+    if (lotteryResult && Array.isArray(pageData.bet_batches)) {
+        const specialNumber = lotteryResult.winning_numbers[6];
+        pageData.bet_batches.forEach(batch => {
+            if(Array.isArray(batch.data.bets)) {
+                batch.data.bets.forEach(bet => {
+                    if (bet.bet_type === '号码' || bet.bet_type === '特码') {
+                        if (Array.isArray(bet.targets)) {
+                            bet.targets.forEach(targetNumber => {
+                                totalBet += (bet.amount || 0);
+                                if (targetNumber === specialNumber) {
+                                    totalWin45 += (bet.amount || 0) * 45;
+                                    totalWin46 += (bet.amount || 0) * 46;
+                                    totalWin47 += (bet.amount || 0) * 47;
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    }
+    return {
+        totalBet,
+        netProfit45: totalWin45 - totalBet,
+        netProfit46: totalWin46 - totalBet,
+        netProfit47: totalWin47 - totalBet,
+    };
+  }, [pageData.bet_batches, lotteryResult]);
+
+
+  if (loading) return <p>正在加载结算详情...</p>;
+  if (error) return <p style={{color: 'red'}}>错误: {error.message}</p>;
 
   return (
     <div className="card">
-      <h2>邮件详情 & 结算工作台 (ID: {emailId})</h2>
+      <h2>结算工作台 (基于邮件 ID: {emailId})</h2>
       
       <div className="settlement-controls">
         <select value={issueInput.type} onChange={e => setIssueInput({ ...issueInput, type: e.target.value })}>
@@ -171,6 +106,17 @@ function EmailDetailPage() {
       {pageData.bet_batches.map(batch => (
         <SettlementCard key={batch.batch_id} batch={batch} lotteryResult={lotteryResult} onUpdate={handleBatchUpdate} />
       ))}
+
+      <hr style={{ border: 'none', borderTop: '2px solid #ccc', margin: '2rem 0' }} />
+
+      <h3>全局合计</h3>
+      <div className="global-totals-card">
+        <p><strong>总下注金额: {globalTotals.totalBet} 元</strong></p>
+        <hr />
+        <p><strong>赔率 45:</strong> 总盈亏 <span style={{ fontWeight: 'bold', color: globalTotals.netProfit45 >= 0 ? 'red' : 'green' }}>{globalTotals.netProfit45 >= 0 ? '+' : ''}{globalTotals.netProfit45} 元</span></p>
+        <p><strong>赔率 46:</strong> 总盈亏 <span style={{ fontWeight: 'bold', color: globalTotals.netProfit46 >= 0 ? 'red' : 'green' }}>{globalTotals.netProfit46 >= 0 ? '+' : ''}{globalTotals.netProfit46} 元</span></p>
+        <p><strong>赔率 47:</strong> 总盈亏 <span style={{ fontWeight: 'bold', color: globalTotals.netProfit47 >= 0 ? 'red' : 'green' }}>{globalTotals.netProfit47 >= 0 ? '+' : ''}{globalTotals.netProfit47} 元</span></p>
+      </div>
     </div>
   );
 }
