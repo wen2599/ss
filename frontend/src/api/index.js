@@ -21,13 +21,26 @@ async function request(endpoint, options = {}, queryParams = '') {
 
 export const apiService = {
   // Auth
-  register(email, password) { /* ... */ },
-  login(email, password) { /* ... */ },
-  logout() { /* ... */ },
-  checkSession() { /* ... */ },
+  register(email, password) {
+    return request('register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+  },
+  login(email, password) {
+    return request('login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+  },
+  logout() {
+    return request('logout', { method: 'POST' });
+  },
+  checkSession() {
+    return request('check_session');
+  },
   
   // Lottery
-  getLotteryResults() { /* ... */ },
+  getLotteryResults() {
+    return request('get_lottery_results');
+  },
+  getLotteryResultByIssue(type, issue) {
+    return request('get_lottery_result_by_issue', {}, `&type=${encodeURIComponent(type)}&issue=${issue}`);
+  },
 
   // Mails
   getEmails() {
@@ -38,33 +51,26 @@ export const apiService = {
    * Fetches the full content of a single email by its ID.
    */
   getEmailContent(id) {
-    // 将 ID 作为查询参数传递
     return request('get_email_content', {}, `&id=${id}`);
   },
 
-  // Settlements (模拟数据)
-  getSettlements() { /* ... */ },
-};
+  getEmailDetails(id) {
+    return request('get_email_details', {}, `&id=${id}`);
+  },
 
-// --- 补全其他函数 ---
-apiService.register = function(email, password) {
-  return request('register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-};
-apiService.login = function(email, password) {
-  return request('login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-};
-apiService.logout = function() {
-  return request('logout', { method: 'POST' });
-};
-apiService.checkSession = function() {
-  return request('check_session');
-};
-apiService.getLotteryResults = function() {
-  return request('get_lottery_results');
-};
-apiService.getSettlements = function() {
+  updateBetBatch(batchId, data) {
+    return request('update_bet_batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ batch_id: batchId, data: data }),
+    });
+  },
+  
+  // Settlements (模拟数据)
+  getSettlements() {
     return Promise.resolve({
         status: 'success',
         data: [ { id: 1, bet_id: 101, total_win: 500, created_at: new Date().toISOString() } ]
     });
+  },
 };
