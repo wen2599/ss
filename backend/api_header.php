@@ -1,14 +1,20 @@
 <?php
-// File: backend/api_header.php (Simplified)
-
-// 【关键修改】移除 require_once __DIR__ . '/config.php';
-// index.php is now responsible for loading config.php before this file.
+// File: backend/api_header.php
 
 if (defined('API_HEADER_LOADED')) return;
 define('API_HEADER_LOADED', true);
 
-// Use the config() function which is guaranteed to be available.
-header("Access-control-Allow-Origin: " . (config('FRONTEND_URL', '*')));
+// 使用 config() 函数，并提供一个安全的备用值（尽管我们期望它能读到正确的URL）
+$frontend_url = config('FRONTEND_URL');
+
+// 如果 frontend_url 为空或未设置，则不发送任何 CORS 头，以便在浏览器中看到更明确的错误
+if ($frontend_url) {
+    header("Access-Control-Allow-Origin: " . $frontend_url);
+} else {
+    // 故意不设置，这样浏览器会报一个关于缺少头的错误，而不是关于 '*' 的错误
+    // 这能帮助我们确认问题就是 FRONTEND_URL 没读到
+}
+
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS, DELETE, PUT');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
