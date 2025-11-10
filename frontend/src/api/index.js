@@ -33,7 +33,7 @@ async function request(endpoint, options = {}, queryParams = '') {
   try {
     console.log(`Making API request to: ${endpoint}`);
     const response = await fetch(url, finalOptions);
-    
+
     // 检查响应状态
     if (!response.ok) {
       // 如果是401未授权，可能是session过期，重定向到登录页
@@ -43,7 +43,7 @@ async function request(endpoint, options = {}, queryParams = '') {
         }
         throw new Error('登录已过期，请重新登录');
       }
-      
+
       // 尝试解析错误信息
       let errorMessage = `Error ${response.status}`;
       try {
@@ -56,25 +56,25 @@ async function request(endpoint, options = {}, queryParams = '') {
         // 如果无法解析JSON，使用原始错误文本
         errorMessage = await response.text() || errorMessage;
       }
-      
+
       throw new Error(errorMessage);
     }
 
     // 解析响应数据
     const data = await response.json();
-    
+
     // 记录成功的API调用
     console.log(`API request to ${endpoint} successful`);
-    
+
     return data;
   } catch (error) {
     console.error(`API request to ${endpoint} failed:`, error);
-    
+
     // 如果是网络错误，提供更友好的错误信息
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
       throw new Error('网络连接失败，请检查网络连接后重试');
     }
-    
+
     throw error;
   }
 }
@@ -82,7 +82,7 @@ async function request(endpoint, options = {}, queryParams = '') {
 // API服务对象
 export const apiService = {
   // ==================== 认证相关 ====================
-  
+
   /**
    * 用户注册
    * @param {string} email - 邮箱
@@ -126,7 +126,7 @@ export const apiService = {
   },
 
   // ==================== 彩票相关 ====================
-  
+
   /**
    * 获取彩票结果
    * @param {string} type - 彩票类型
@@ -148,7 +148,7 @@ export const apiService = {
   },
 
   // ==================== 邮件相关 ====================
-  
+
   /**
    * 获取邮件列表
    * @returns {Promise}
@@ -189,7 +189,7 @@ export const apiService = {
   },
 
   /**
-   * 重新解析邮件
+   * 重新解析邮件 - 新增方法
    * @param {number} emailId - 邮件ID
    * @returns {Promise}
    */
@@ -201,7 +201,7 @@ export const apiService = {
   },
 
   // ==================== 结算相关 ====================
-  
+
   /**
    * 获取结算列表（模拟数据）
    * @returns {Promise}
@@ -211,20 +211,20 @@ export const apiService = {
     return Promise.resolve({
       status: 'success',
       data: [
-        { 
-          id: 1, 
-          bet_id: 101, 
-          total_win: 500, 
+        {
+          id: 1,
+          bet_id: 101,
+          total_win: 500,
           created_at: new Date().toISOString(),
           lottery_type: '香港六合彩',
           issue_number: '2024001'
         },
-        { 
-          id: 2, 
-          bet_id: 102, 
-          total_win: -200, 
+        {
+          id: 2,
+          bet_id: 102,
+          total_win: -200,
           created_at: new Date(Date.now() - 86400000).toISOString(),
-          lottery_type: '澳门六合彩', 
+          lottery_type: '澳门六合彩',
           issue_number: '2024001'
         }
       ]
@@ -265,9 +265,9 @@ export const apiService = {
  */
 export function handleApiError(error, context = '操作') {
   console.error(`${context}失败:`, error);
-  
+
   let userMessage = error.message;
-  
+
   // 根据错误类型提供更友好的错误信息
   if (error.message.includes('网络连接失败')) {
     userMessage = '网络连接失败，请检查网络连接';
@@ -282,13 +282,13 @@ export function handleApiError(error, context = '操作') {
   } else if (error.message.includes('500')) {
     userMessage = '服务器内部错误，请稍后重试';
   }
-  
+
   // 在实际应用中，这里可以集成到通知系统
   if (typeof window !== 'undefined') {
     // 可以在这里添加全局通知
     alert(`${context}失败: ${userMessage}`);
   }
-  
+
   return userMessage;
 }
 
@@ -313,7 +313,7 @@ export function withRetry(apiCall, maxRetries = 3, delay = 1000) {
           }
         });
     };
-    
+
     attempt(0);
   });
 }
@@ -326,7 +326,7 @@ export function withRetry(apiCall, maxRetries = 3, delay = 1000) {
  */
 export function debounceApiCall(apiCall, delay = 300) {
   let timeoutId;
-  
+
   return (...args) => {
     return new Promise((resolve, reject) => {
       clearTimeout(timeoutId);
