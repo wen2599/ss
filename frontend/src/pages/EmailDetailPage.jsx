@@ -1,116 +1,17 @@
-// File: frontend/pages/EmailDetailPage.jsx (Final Intelligent Workbench Version)
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiService } from '../api';
-import SettlementCard from '../components/SettlementCard';
-// #region --- 子组件: SettlementCard ---
-const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
-  const { batch_id, data } = batch;
-  const [isEditing, setIsEditing] = useState(false);
-  const [editableData, setEditableData] = useState(JSON.stringify(data.bets, null, 2));
-  const [isSaving, setIsSaving] = useState(false);
+import SettlementCard from '../components/SettlementCard'; // <-- 【关键】在这里正确导入 SettlementCard 组件
 
-  // 使用 useMemo 进行性能优化，只有在数据变化时才重新计算
-  const { totalBetAmount, winningBets } = useMemo(() => {
-    let total = 0;
-    const winners = [];
-    const specialNumber = lotteryResult?.winning_numbers[6];
-
-    if (Array.isArray(data.bets)) {
-      data.bets.forEach(bet => {
-        const amount = Number(bet.amount) || 0;
-        if ((bet.bet_type === '号码' || bet.bet_type === '特码') && Array.isArray(bet.targets)) {
-          bet.targets.forEach(targetNumber => {
-            total += amount;
-            if (lotteryResult && specialNumber && String(targetNumber) === String(specialNumber)) {
-              winners.push({ number: targetNumber, amount: amount });
-            }
-          });
-        }
-        // TODO: 在此添加对'生肖'等其他玩法的计算逻辑
-      });
-    }
-    return { totalBetAmount: total, winningBets: winners };
-  }, [data.bets, lotteryResult]);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const updatedBets = JSON.parse(editableData);
-      const updatedBatchData = { ...data, bets: updatedBets };
-      await apiService.updateBetBatch(batch_id, updatedBatchData);
-      onUpdate(batch_id, updatedBatchData);
-      setIsEditing(false);
-      alert('修改已保存！');
-    } catch (e) {
-      alert("JSON 格式错误或保存失败: " + e.message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const renderWinningDetails = (odds) => {
-    if (!lotteryResult) return <span>等待开奖号码...</span>;
-    if (winningBets.length === 0) {
-      return <span style={{ fontWeight: 'bold', color: 'green' }}>未中奖 | 净亏 {totalBetAmount} 元</span>;
-    }
-    
-    const totalWinAmount = winningBets.reduce((sum, bet) => sum + (bet.amount * odds), 0);
-    const netProfit = totalWinAmount - totalBetAmount;
-
-    return (
-      <>
-        <span style={{ color: 'blue', fontWeight: 'bold' }}>中 {winningBets.length} 注, 赢 {totalWinAmount}元</span> |{' '}
-        <span style={{ fontWeight: 'bold', color: netProfit >= 0 ? 'red' : 'green' }}>
-          净{netProfit >= 0 ? '赢' : '亏'} {Math.abs(netProfit)} 元
-        </span>
-      </>
-    );
-  };
-
-  return (
-    <div className="settlement-card">
-      <p style={{ whiteSpace: 'pre-wrap', borderBottom: '1px solid #eee', paddingBottom: '1rem', margin: '0 0 1rem 0', fontFamily: 'monospace' }}>
-        {data.raw_text}
-      </p>
-      
-      <div className="settlement-details">
-        <p><strong>AI识别概要:</strong> 总下注 {totalBetAmount} 元</p>
-        
-        <div className="results-grid">
-          <p><strong>赔率 45:</strong> {renderWinningDetails(45)}</p>
-          <p><strong>赔率 46:</strong> {renderWinningDetails(46)}</p>
-          <p><strong>赔率 47:</strong> {renderWinningDetails(47)}</p>
-        </div>
-
-        <button onClick={() => setIsEditing(!isEditing)} className="link-button" style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
-          {isEditing ? '取消修改' : '修改AI识别结果'}
-        </button>
-      </div>
-      
-      {isEditing && (
-        <div className="edit-mode" style={{ marginTop: '1rem' }}>
-          <p style={{fontSize: '0.9rem', color: '#666'}}>请直接编辑以下代表下注内容的 JSON 数据：</p>
-          <textarea 
-            value={editableData} 
-            onChange={(e) => setEditableData(e.target.value)} 
-            style={{ width: '98%', height: '150px', fontFamily: 'monospace', fontSize: '0.9rem' }}
-          />
-          <button onClick={handleSave} disabled={isSaving} style={{ marginTop: '0.5rem' }}>
-            {isSaving ? '保存中...' : '保存修改'}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
-// #endregion --- 子组件: SettlementCard ---
-
-
-// #region --- 页面主组件 ---
+/**
+ * EmailDetailPage 组件
+ * 作为“智能核算面板”，负责展示邮件原文、加载 AI 解析的下注批次，
+ * 并自动匹配最新开奖结果，进行即时结算演算和汇总。
+ */
 function EmailDetailPage() {
   const { emailId } = useParams();
+
+  // --- State Management ---
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pageData, setPageData] = useState({
@@ -119,8 +20,10 @@ function EmailDetailPage() {
     latest_lottery_results: {}
   });
 
+  // --- Data Fetching ---
   useEffect(() => {
     setLoading(true);
+    // 页面加载时，调用后端的“超级接口”一次性获取所有需要的数据
     apiService.getEmailDetails(emailId)
       .then(res => {
         if (res.status === 'success') {
@@ -131,8 +34,10 @@ function EmailDetailPage() {
       })
       .catch(setError)
       .finally(() => setLoading(false));
-  }, [emailId]);
+  }, [emailId]); // 当 emailId 变化时（例如从一个详情页跳转到另一个），重新获取数据
 
+  // --- Event Handlers ---
+  // 当子组件 SettlementCard 保存修改后，此函数被调用以更新整个页面的状态
   const handleBatchUpdate = (batchId, updatedData) => {
     setPageData(prevData => ({
       ...prevData,
@@ -142,14 +47,16 @@ function EmailDetailPage() {
     }));
   };
   
-  // --- 全局合计计算 ---
+  // --- Global Totals Calculation ---
   const globalTotals = useMemo(() => {
     let totalBet = 0;
     let totalWin45 = 0, totalWin46 = 0, totalWin47 = 0;
 
     if (pageData && Array.isArray(pageData.bet_batches)) {
         pageData.bet_batches.forEach(batch => {
+            // 确保 batch.data 和 batch.data.bets 存在且是数组
             if (batch.data && Array.isArray(batch.data.bets)) {
+                // 为当前批次找到对应的开奖结果
                 const lotteryResult = pageData.latest_lottery_results[batch.data.lottery_type];
                 const specialNumber = lotteryResult?.winning_numbers[6];
 
@@ -158,7 +65,8 @@ function EmailDetailPage() {
                     if ((bet.bet_type === '号码' || bet.bet_type === '特码') && Array.isArray(bet.targets)) {
                         bet.targets.forEach(targetNumber => {
                             totalBet += amount;
-                            if (lotteryResult && specialNumber && String(targetNumber) === String(specialNumber)) {
+                            // 只有在开奖结果存在时才计算中奖
+                            if (lotteryResult && specialNumber && String(targetNumber).trim() === String(specialNumber).trim()) {
                                 totalWin45 += amount * 45;
                                 totalWin46 += amount * 46;
                                 totalWin47 += amount * 47;
@@ -175,28 +83,38 @@ function EmailDetailPage() {
         netProfit46: totalWin46 - totalBet,
         netProfit47: totalWin47 - totalBet,
     };
-  }, [pageData]);
+  }, [pageData]); // 只有当 pageData 变化时（加载完成或用户修改），才重新计算总计
 
-  // --- 渲染逻辑 ---
-  if (loading) return <p>正在加载智能核算面板...</p>;
-  if (error) return <p style={{color: 'red'}}>错误: {error.message}</p>;
+  // --- Rendering Logic ---
+  if (loading) {
+    return <div className="card"><p>正在加载智能核算面板...</p></div>;
+  }
+  if (error) {
+    return <div className="card" style={{color: 'red'}}><p>错误: {error.message}</p></div>;
+  }
 
-  // 将邮件原文与结算卡片交错渲染
+  // 将邮件原文与结算卡片交错渲染的函数
   const renderContentWithCards = () => {
     let remainingContent = pageData.email_content;
     const elements = [];
     
     pageData.bet_batches.forEach((batch, index) => {
-      // 查找原始文本在邮件内容中的位置
+      // AI 返回的原始文本可能包含特殊字符，需要一个稳健的查找方式
       const rawText = batch.data.raw_text;
+      if (!rawText) return; // 如果没有原始文本，无法定位，跳过
+
       const position = remainingContent.indexOf(rawText);
       
       if (position !== -1) {
         // 添加原始文本之前的部分
         elements.push(<span key={`text-${index}`}>{remainingContent.substring(0, position)}</span>);
-        // 添加结算卡片
+        
+        // 找到与当前批次匹配的开奖结果
         const lotteryResult = pageData.latest_lottery_results[batch.data.lottery_type];
+        
+        // 添加结算卡片
         elements.push(<SettlementCard key={batch.batch_id} batch={batch} lotteryResult={lotteryResult} onUpdate={handleBatchUpdate} />);
+        
         // 更新剩余内容
         remainingContent = remainingContent.substring(position + rawText.length);
       }
@@ -205,6 +123,7 @@ function EmailDetailPage() {
     // 添加最后剩余的文本
     elements.push(<span key="text-last">{remainingContent}</span>);
     
+    // 使用 pre 标签来保留原文的换行和空格
     return <pre className="email-content-background">{elements}</pre>;
   };
 
@@ -229,6 +148,5 @@ function EmailDetailPage() {
     </div>
   );
 }
-// #endregion --- 页面主组件 ---
 
 export default EmailDetailPage;
