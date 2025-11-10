@@ -1,7 +1,13 @@
-// File: Cloudflare Worker (e.g., btt) - Final Merged Version
+// File: Cloudflare Worker (ssgamil) - 使用 Bearer Token 认证
 
-// ========== 1. Helper Function for UTF-8 to Base64 (for Telegram Proxy) ==========
+/**
+ * Base64 编码函数
+ */
 function utf8_to_b64(str) {
+  try {
+    return btoa(unescape(encodeURIComponent(str)));
+  } catch (e) {
+    // 备用编码方案
     try {
       const encoder = new TextEncoder();
       const uint8Array = encoder.encode(str);
@@ -10,125 +16,118 @@ function utf8_to_b64(str) {
         binaryString += String.fromCharCode(byte);
       });
       return btoa(binaryString);
-    } catch (e) {
-      return btoa(unescape(encodeURIComponent(str)));
+    } catch (error) {
+      console.error("Base64 编码失败:", error);
+      throw new Error("数据编码失败");
     }
   }
-  
-  // ========== 2. Helper Function for Email Stream to String ==========
-  async function streamToString(stream) {
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
-    let result = '';
+}
+
+/**
+ * 流转换为字符串
+ */
+async function streamToString(stream) {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let result = '';
+  try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       result += decoder.decode(value, { stream: true });
     }
-    return result;
+  } finally {
+    reader.releaseLock();
   }
-  
-  
-  export default {
-    // ========== 3. FETCH HANDLER (for Telegram Proxy) ==========
-    /**
-     * Handles HTTP requests. Currently configured to proxy requests for the Telegram Bot.
-     * @param {Request} request
-     * @param {object} env - Environment variables
-     */
-    async fetch(request, env) {
-      // This part is for the Telegram Bot proxy.
-      // It disguises POST requests as multipart/form-data.
-      try {
-        const TELEGRAM_TARGET_URL = env.TELEGRAM_TARGET_URL; // e.g., 'https://wenge.cloudns.ch/telegram/receiver.php'
-        const TELEGRAM_SECRET = env.TELEGRAM_SECRET; // Your Telegram webhook secret
-  
-        if (!TELEGRAM_TARGET_URL || !TELEGRAM_SECRET) {
-          return new Response('Worker environment variables for Telegram are not configured.', { status: 500 });
-        }
-  
-        if (request.method !== 'POST') {
-          // We only expect POST from Telegram. For other methods, just say hello.
-          return new Response('Worker is active. Ready for Telegram POST or Email events.', { status: 200 });
-        }
-  
-        const telegramUpdate = await request.json();
-        const jsonString = JSON.stringify(telegramUpdate);
-        const base64Data = utf8_to_b64(jsonString);
-  
-        const formData = new FormData();
-        formData.append('secret', TELEGRAM_SECRET);
-        formData.append('data', base64Data);
-  
-        const response = await fetch(TELEGRAM_TARGET_URL, {
-          method: 'POST',
-          body: formData,
-        });
-  
-        return new Response(await response.text(), {
-          status: response.status,
-          headers: response.headers
-        });
-  
-      } catch (error) {
-        console.error("Error in Telegram proxy fetch handler:", error.stack);
-        return new Response(`Error in worker's fetch handler: ${error.message}`, { status: 500 });
+  return result;
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    return new Response('邮件处理 Worker 运行中', {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+    });
+  },
+
+  async email(message, env, ctx) {
+    let requestSuccess = false;
+    
+    try {
+      const EMAIL_TARGET_URL = env.EMAIL_TARGET_URL;
+      const EMAIL_SECRET = env.EMAIL_WORKER_SECRET;
+
+      // 环境变量检查
+      if (!EMAIL_TARGET_URL || !EMAIL_SECRET) {
+        console.error("Worker: 缺少必要的环境变量");
+        message.setReject("服务器配置错误");
+        return;
       }
-    },
-  
-    // ========== 4. EMAIL HANDLER (for Mail Processing) ==========
-    /**
-     * Handles incoming email messages from Cloudflare Email Routing.
-     * @param {EmailMessage} message
-     * @param {object} env - Environment variables
-     */
-    async email(message, env) {
-      // This part is for receiving emails.
+
+      console.log(`Worker: 开始处理来自 ${message.from} 的邮件`);
+
+      // 获取原始邮件内容
+      const rawEmail = await streamToString(message.raw);
+      const sender = message.from;
+
+      // 构建数据包
+      const dataToSend = {
+        sender: sender,
+        raw_content: rawEmail
+      };
+
+      const jsonString = JSON.stringify(dataToSend);
+
+      console.log(`Worker: 准备发送 POST 请求到 ${EMAIL_TARGET_URL}`);
+      console.log(`Worker: 数据大小: ${jsonString.length} 字符`);
+
+      // 发送 POST 请求 - 使用 Bearer Token 认证
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
       try {
-        const EMAIL_TARGET_URL = env.EMAIL_TARGET_URL; // e.g., 'https://wenge.cloudns.ch/mail/receive.php'
-        const EMAIL_SECRET = env.EMAIL_WORKER_SECRET; // Your secret for email communication
-  
-        if (!EMAIL_TARGET_URL || !EMAIL_SECRET) {
-          console.error("Worker environment variables for Email are not configured.");
-          // Reject the email to notify sender of a server-side issue.
-          message.setReject("Internal server configuration error.");
-          return;
-        }
-  
-        // Get the raw email content. It's the most reliable source.
-        const rawEmail = await streamToString(message.raw);
-        const sender = message.from;
-  
-        // We send the raw content directly to the backend.
-        // The backend is better suited for complex parsing and validation.
-        const dataToSend = {
-          sender: sender,
-          raw_content: rawEmail,
-        };
-  
-        const response = await fetch(EMAIL_TARGET_URL, {
+        const response = await fetch(EMAIL_TARGET_URL, { 
           method: 'POST',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${EMAIL_SECRET}` // Use Authorization header for security
+            'Authorization': `Bearer ${EMAIL_SECRET}`,
+            'User-Agent': 'Cloudflare-Email-Worker/1.0'
           },
-          body: JSON.stringify(dataToSend)
+          body: jsonString
         });
-  
+
+        clearTimeout(timeoutId);
+
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`Backend failed to process email. Status: ${response.status}, Body: ${errorText}`);
-          // Reject the email if the backend signals an error.
-          message.setReject(`Backend server rejected the email with status ${response.status}.`);
+          console.error(`Worker: 后端请求失败。状态: ${response.status}, 响应: ${errorText}`);
+          
+          if (response.status === 403) {
+            message.setReject('认证失败 (403)');
+          } else {
+            message.setReject(`服务器错误 (${response.status})`);
+          }
         } else {
-          console.log(`Email from ${sender} successfully forwarded to backend.`);
+          const responseData = await response.text();
+          console.log(`Worker: 邮件处理成功，响应: ${responseData}`);
+          requestSuccess = true;
         }
-        
-      } catch (error) {
-        console.error("An uncaught error occurred in the email handler:", error.stack);
-        // Re-throw the error to let Mail Channels know the processing failed,
-        // which may trigger a retry.
-        throw error;
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          console.error('Worker: 请求超时');
+          message.setReject('处理超时');
+        } else {
+          console.error('Worker: 请求失败:', fetchError.message);
+          message.setReject('网络请求失败: ' + fetchError.message);
+        }
+      }
+      
+    } catch (error) {
+      console.error("Worker: 邮件处理未捕获错误:", error.stack);
+      if (!requestSuccess) {
+        message.setReject('处理过程中发生错误: ' . error.message);
       }
     }
-  };
+  }
+};
