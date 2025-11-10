@@ -49,6 +49,7 @@ function EmailDetailPage() {
       
       if (result.status === 'success') {
         alert('重新解析成功！');
+        // 重新加载数据
         fetchEmailDetails();
       } else {
         alert('重新解析失败: ' + result.message);
@@ -101,24 +102,6 @@ function EmailDetailPage() {
       ? pageData.enhanced_content 
       : pageData.email_content;
 
-    // 如果是增强内容且包含HTML，使用dangerouslySetInnerHTML
-    if (viewMode === 'enhanced' && pageData.enhanced_content && pageData.enhanced_content.includes('<span')) {
-      return (
-        <div
-          className="email-content-background"
-          style={{
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            lineHeight: '1.5',
-            fontSize: '14px',
-            fontFamily: 'inherit'
-          }}
-          dangerouslySetInnerHTML={{ __html: content }}
-        />
-      );
-    }
-
-    // 普通文本内容
     return (
       <pre
         className="email-content-background"
@@ -127,12 +110,33 @@ function EmailDetailPage() {
           wordBreak: 'break-word',
           lineHeight: '1.5',
           fontSize: '14px',
-          fontFamily: 'inherit'
+          fontFamily: 'inherit',
+          backgroundColor: '#f9f9f9',
+          padding: '1rem',
+          borderRadius: '8px',
+          border: '1px solid #e0e0e0'
         }}
-      >
-        {content}
-      </pre>
+        dangerouslySetInnerHTML={{ __html: formatContentForDisplay(content) }}
+      />
     );
+  };
+
+  // 格式化内容显示 - 处理HTML实体和换行
+  const formatContentForDisplay = (content) => {
+    if (!content) return '';
+    
+    // 替换HTML实体
+    let formatted = content
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'");
+    
+    // 确保换行正确显示
+    formatted = formatted.replace(/\n/g, '<br/>');
+    
+    return formatted;
   };
 
   // 渲染结算卡片
@@ -328,16 +332,31 @@ function EmailDetailPage() {
         </small>
       </div>
 
+      {/* 调试信息 */}
+      {process.env.NODE_ENV === 'development' && (
+        <details style={{ marginBottom: '1rem', border: '1px solid #ccc', padding: '0.5rem', borderRadius: '4px' }}>
+          <summary>调试信息</summary>
+          <div style={{ fontSize: '0.8rem', background: '#f5f5f5', padding: '0.5rem' }}>
+            <p><strong>批次数量:</strong> {pageData.bet_batches?.length || 0}</p>
+            <p><strong>增强内容长度:</strong> {pageData.enhanced_content?.length || 0}</p>
+            <p><strong>原始内容长度:</strong> {pageData.email_content?.length || 0}</p>
+            <p><strong>彩票结果:</strong> {Object.keys(pageData.latest_lottery_results || {}).length} 种</p>
+            <p><strong>增强内容预览:</strong> {pageData.enhanced_content?.substring(0, 100)}...</p>
+          </div>
+        </details>
+      )}
+
       <hr />
 
       {/* 内容显示区域 */}
       <div style={{
         border: '1px solid #e0e0e0',
         borderRadius: '8px',
-        padding: '1rem',
+        padding: '0',
         backgroundColor: '#fafafa',
         marginBottom: '1rem',
-        minHeight: '200px'
+        minHeight: '200px',
+        overflow: 'auto'
       }}>
         {renderContent()}
       </div>
