@@ -24,7 +24,7 @@ function EmailDetailPage() {
   const fetchEmailDetails = () => {
     setLoading(true);
     setError(null);
-    
+
     apiService.getEmailDetails(emailId)
       .then(res => {
         if (res.status === 'success') {
@@ -41,20 +41,12 @@ function EmailDetailPage() {
       .finally(() => setLoading(false));
   };
 
-  // 重新解析邮件
+  // 重新解析邮件 - 修复版
   const handleReanalyze = async () => {
     setReanalyzing(true);
     try {
-      const response = await fetch('/api/reanalyze_email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email_id: parseInt(emailId) }),
-        credentials: 'include'
-      });
-      
-      const result = await response.json();
+      // 使用 apiService 而不是直接 fetch，确保认证信息正确传递
+      const result = await apiService.reanalyzeEmail(parseInt(emailId));
       
       if (result.status === 'success') {
         alert('重新解析成功！');
@@ -64,6 +56,7 @@ function EmailDetailPage() {
         alert('重新解析失败: ' + result.message);
       }
     } catch (error) {
+      console.error('重新解析错误:', error);
       alert('重新解析请求失败: ' + error.message);
     } finally {
       setReanalyzing(false);
@@ -106,14 +99,14 @@ function EmailDetailPage() {
 
   // 渲染内容
   const renderContent = () => {
-    const content = viewMode === 'enhanced' ? 
-      pageData.enhanced_content : 
+    const content = viewMode === 'enhanced' ?
+      pageData.enhanced_content :
       pageData.email_content;
 
     return (
-      <pre 
+      <pre
         className="email-content-background"
-        style={{ 
+        style={{
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
           lineHeight: '1.5',
@@ -130,7 +123,7 @@ function EmailDetailPage() {
   const renderSettlementCards = () => {
     if (!Array.isArray(pageData.bet_batches) || pageData.bet_batches.length === 0) {
       return (
-        <div className="settlement-card" style={{ 
+        <div className="settlement-card" style={{
           border: '2px solid #ffc107',
           borderRadius: '8px',
           margin: '1rem 0',
@@ -141,7 +134,7 @@ function EmailDetailPage() {
           <p style={{ color: '#856404', margin: '0 0 1rem 0' }}>
             📝 未检测到AI解析的下注信息
           </p>
-          <button 
+          <button
             onClick={handleReanalyze}
             disabled={reanalyzing}
             style={{
@@ -161,13 +154,13 @@ function EmailDetailPage() {
 
     return pageData.bet_batches.map(batch => {
       const lotteryResult = pageData.latest_lottery_results[batch.data?.lottery_type];
-      
+
       return (
-        <SettlementCard 
-          key={batch.batch_id} 
-          batch={batch} 
-          lotteryResult={lotteryResult} 
-          onUpdate={handleBatchUpdate} 
+        <SettlementCard
+          key={batch.batch_id}
+          batch={batch}
+          lotteryResult={lotteryResult}
+          onUpdate={handleBatchUpdate}
         />
       );
     });
@@ -178,9 +171,9 @@ function EmailDetailPage() {
       <div className="card">
         <div style={{ textAlign: 'center', padding: '2rem' }}>
           <p>正在加载智能核算面板...</p>
-          <div style={{ 
-            width: '40px', 
-            height: '40px', 
+          <div style={{
+            width: '40px',
+            height: '40px',
             border: '4px solid #f3f3f3',
             borderTop: '4px solid #007bff',
             borderRadius: '50%',
@@ -197,7 +190,7 @@ function EmailDetailPage() {
       <div className="card" style={{ color: 'red', textAlign: 'center' }}>
         <h3>加载失败</h3>
         <p>错误: {error.message}</p>
-        <button 
+        <button
           onClick={fetchEmailDetails}
           style={{
             padding: '0.5rem 1rem',
@@ -211,7 +204,7 @@ function EmailDetailPage() {
         >
           重新加载
         </button>
-        <button 
+        <button
           onClick={handleReanalyze}
           disabled={reanalyzing}
           style={{
@@ -234,9 +227,9 @@ function EmailDetailPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h2>智能核算面板 (邮件ID: {emailId})</h2>
         <div>
-          <button 
+          <button
             onClick={() => setViewMode('original')}
-            style={{ 
+            style={{
               marginRight: '0.5rem',
               padding: '0.5rem 1rem',
               backgroundColor: viewMode === 'original' ? '#007bff' : '#f8f9fa',
@@ -248,9 +241,9 @@ function EmailDetailPage() {
           >
             原始内容
           </button>
-          <button 
+          <button
             onClick={() => setViewMode('enhanced')}
-            style={{ 
+            style={{
               padding: '0.5rem 1rem',
               backgroundColor: viewMode === 'enhanced' ? '#007bff' : '#f8f9fa',
               color: viewMode === 'enhanced' ? 'white' : '#333',
@@ -265,15 +258,15 @@ function EmailDetailPage() {
       </div>
 
       {/* 操作按钮 */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '0.5rem', 
+      <div style={{
+        display: 'flex',
+        gap: '0.5rem',
         marginBottom: '1rem',
         padding: '0.5rem',
         backgroundColor: '#f8f9fa',
         borderRadius: '4px'
       }}>
-        <button 
+        <button
           onClick={handleReanalyze}
           disabled={reanalyzing}
           style={{
@@ -288,7 +281,7 @@ function EmailDetailPage() {
         >
           {reanalyzing ? '🔄 解析中...' : '🔄 重新解析邮件'}
         </button>
-        <button 
+        <button
           onClick={fetchEmailDetails}
           style={{
             padding: '0.5rem 1rem',
@@ -305,8 +298,8 @@ function EmailDetailPage() {
       </div>
 
       {/* 视图模式提示 */}
-      <div style={{ 
-        padding: '0.5rem', 
+      <div style={{
+        padding: '0.5rem',
         backgroundColor: viewMode === 'enhanced' ? '#e7f3ff' : '#f8f9fa',
         borderLeft: `4px solid ${viewMode === 'enhanced' ? '#007bff' : '#6c757d'}`,
         marginBottom: '1rem',
@@ -314,17 +307,30 @@ function EmailDetailPage() {
       }}>
         <small>
           当前模式: <strong>{viewMode === 'enhanced' ? '结算视图' : '原始内容'}</strong>
-          {viewMode === 'enhanced' && pageData.enhanced_content === pageData.email_content && 
+          {viewMode === 'enhanced' && pageData.enhanced_content === pageData.email_content &&
             ' - 未检测到结算信息，显示原始内容'}
         </small>
       </div>
 
+      {/* 调试信息 */}
+      {process.env.NODE_ENV === 'development' && (
+        <details style={{ marginBottom: '1rem', border: '1px solid #ccc', padding: '0.5rem', borderRadius: '4px' }}>
+          <summary>调试信息</summary>
+          <div style={{ fontSize: '0.8rem', background: '#f5f5f5', padding: '0.5rem' }}>
+            <p><strong>批次数量:</strong> {pageData.bet_batches?.length || 0}</p>
+            <p><strong>增强内容长度:</strong> {pageData.enhanced_content?.length || 0}</p>
+            <p><strong>原始内容长度:</strong> {pageData.email_content?.length || 0}</p>
+            <p><strong>彩票结果:</strong> {Object.keys(pageData.latest_lottery_results || {}).length} 种</p>
+          </div>
+        </details>
+      )}
+
       <hr />
 
       {/* 内容显示区域 */}
-      <div style={{ 
-        border: '1px solid #e0e0e0', 
-        borderRadius: '8px', 
+      <div style={{
+        border: '1px solid #e0e0e0',
+        borderRadius: '8px',
         padding: '1rem',
         backgroundColor: '#fafafa',
         marginBottom: '1rem',
@@ -338,7 +344,7 @@ function EmailDetailPage() {
         <>
           <h3>AI解析结果</h3>
           {renderSettlementCards()}
-        </> 
+        </>
       )}
 
       <hr style={{ border: 'none', borderTop: '2px solid #ccc', margin: '2rem 0' }} />
@@ -350,27 +356,27 @@ function EmailDetailPage() {
         <hr />
         <p>
           <strong>赔率 45:</strong> 总盈亏{' '}
-          <span style={{ 
-            fontWeight: 'bold', 
-            color: globalTotals.netProfit45 >= 0 ? 'red' : 'blue' 
+          <span style={{
+            fontWeight: 'bold',
+            color: globalTotals.netProfit45 >= 0 ? 'red' : 'blue'
           }}>
             {globalTotals.netProfit45 >= 0 ? '+' : ''}{globalTotals.netProfit45} 元
           </span>
         </p>
         <p>
           <strong>赔率 46:</strong> 总盈亏{' '}
-          <span style={{ 
-            fontWeight: 'bold', 
-            color: globalTotals.netProfit46 >= 0 ? 'red' : 'blue' 
+          <span style={{
+            fontWeight: 'bold',
+            color: globalTotals.netProfit46 >= 0 ? 'red' : 'blue'
           }}>
             {globalTotals.netProfit46 >= 0 ? '+' : ''}{globalTotals.netProfit46} 元
           </span>
         </p>
         <p>
           <strong>赔率 47:</strong> 总盈亏{' '}
-          <span style={{ 
-            fontWeight: 'bold', 
-            color: globalTotals.netProfit47 >= 0 ? 'red' : 'blue' 
+          <span style={{
+            fontWeight: 'bold',
+            color: globalTotals.netProfit47 >= 0 ? 'red' : 'blue'
           }}>
             {globalTotals.netProfit47 >= 0 ? '+' : ''}{globalTotals.netProfit47} 元
           </span>
