@@ -1,5 +1,5 @@
 <?php
-// File: backend/auth/get_email_details.php (完整版 - 直接使用彩票号码结算)
+// File: backend/auth/get_email_details.php (完整修复版)
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -62,10 +62,20 @@ try {
     $latest_results = [];
     foreach ($latest_results_raw as $row) {
         foreach(['winning_numbers', 'zodiac_signs', 'colors'] as $key) {
-            $row[$key] = json_decode($row[$key]) ?: [];
+            // 确保正确解码 JSON
+            $decoded = json_decode($row[$key], true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $row[$key] = $decoded;
+            } else {
+                // 如果解码失败，尝试其他方式
+                $row[$key] = is_string($row[$key]) ? json_decode($row[$key]) : $row[$key];
+            }
         }
         $latest_results[$row['lottery_type']] = $row;
     }
+
+    // 记录获取到的开奖结果用于调试
+    error_log("Latest lottery results: " . json_encode(array_keys($latest_results)));
 
     // --- 4. 处理下注批次 ---
     foreach ($bet_batches_raw as $batch) {
@@ -145,7 +155,10 @@ function calculateBatchSettlement(array $batchData, ?array $lotteryResult = null
         'net_profits' => [],
         'summary' => '',
         'timestamp' => date('Y-m-d H:i:s'),
-        'has_lottery_data' => !is_null($lotteryResult)
+        'has_lottery_data' => !is_null($lotteryResult) && 
+                             isset($lotteryResult['winning_numbers']) && 
+                             is_array($lotteryResult['winning_numbers']) &&
+                             !empty($lotteryResult['winning_numbers'])
     ];
 
     if (!isset($batchData['bets']) || !is_array($batchData['bets'])) {
@@ -165,14 +178,14 @@ function calculateBatchSettlement(array $batchData, ?array $lotteryResult = null
             foreach ($targets as $target) {
                 $totalBet += $amount;
 
-                // 如果有开奖结果，进行实际结算计算
-                if ($lotteryResult && isset($lotteryResult['winning_numbers']) && is_array($lotteryResult['winning_numbers'])) {
+                // 如果有有效的开奖结果，进行实际结算计算
+                if ($settlement['has_lottery_data']) {
                     $winningNumbers = $lotteryResult['winning_numbers'];
                     
                     if ($betType === '特码' || $betType === '号码') {
                         // 特码玩法：只对比特码（最后一个号码）
                         $specialNumber = end($winningNumbers);
-                        if (strval($target) === strval($specialNumber)) {
+                        if (strval(trim($target)) === strval(trim($specialNumber))) {
                             $winningBets[] = [
                                 'number' => $target,
                                 'amount' => $amount,
@@ -182,7 +195,8 @@ function calculateBatchSettlement(array $batchData, ?array $lotteryResult = null
                         }
                     } elseif ($betType === '平码') {
                         // 平码玩法：对比所有号码
-                        if (in_array(strval($target), array_map('strval', $winningNumbers))) {
+                        $winningNumbersStr = array_map('strval', array_map('trim', $winningNumbers));
+                        if (in_array(strval(trim($target)), $winningNumbersStr)) {
                             $winningBets[] = [
                                 'number' => $target,
                                 'amount' => $amount,
@@ -193,14 +207,17 @@ function calculateBatchSettlement(array $batchData, ?array $lotteryResult = null
                     } elseif ($betType === '生肖') {
                         // 生肖玩法：根据号码对应的生肖来判断
                         $targetZodiac = getZodiacByNumber($target);
-                        if ($targetZodiac && in_array($targetZodiac, $lotteryResult['zodiac_signs'] ?? [])) {
-                            $winningBets[] = [
-                                'number' => $target,
-                                'amount' => $amount,
-                                'odds' => 45,
-                                'bet_type' => $betType,
-                                'zodiac' => $targetZodiac
-                            ];
+                        if ($targetZodiac && isset($lotteryResult['zodiac_signs']) && is_array($lotteryResult['zodiac_signs'])) {
+                            $zodiacsStr = array_map('strval', array_map('trim', $lotteryResult['zodiac_signs']));
+                            if (in_array($targetZodiac, $zodiacsStr)) {
+                                $winningBets[] = [
+                                    'number' => $target,
+                                    'amount' => $amount,
+                                    'odds' => 45,
+                                    'bet_type' => $betType,
+                                    'zodiac' => $targetZodiac
+                                ];
+                            }
                         }
                     }
                 }
@@ -227,8 +244,9 @@ function calculateBatchSettlement(array $batchData, ?array $lotteryResult = null
     }
 
     $winCount = count($winningBets);
-    if ($lotteryResult) {
-        $settlement['summary'] = "总下注 {$totalBet} 元，中奖 {$winCount} 注";
+    if ($settlement['has_lottery_data']) {
+        $specialNumber = end($lotteryResult['winning_numbers']);
+        $settlement['summary'] = "总下注 {$totalBet} 元，中奖 {$winCount} 注，特码: {$specialNumber}";
     } else {
         $settlement['summary'] = "总下注 {$totalBet} 元（等待开奖数据）";
     }
@@ -243,7 +261,7 @@ function parseBetManually(string $text): array {
     $bets = [];
     $totalAmount = 0;
     
-    // 解析澳门号码下注
+    // 解析澳门号码下注 - 第一条
     if (preg_match('/澳门(.+?)各(\d+)#/', $text, $matches)) {
         $numbersText = $matches[1];
         $amount = intval($matches[2]);
@@ -255,30 +273,32 @@ function parseBetManually(string $text): array {
         foreach ($numbers as $number) {
             $bets[] = [
                 'bet_type' => '号码',
-                'targets' => [$number],
+                'targets' => [trim($number)],
                 'amount' => $amount,
-                'raw_text' => "澳门{$number}各{$amount}#"
+                'raw_text' => "澳门{$number}各{$amount}#",
+                'lottery_type' => '澳门六合彩'
             ];
             $totalAmount += $amount;
         }
     }
     
-    // 解析生肖下注
-    if (preg_match('/([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)[，,]\s*([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)数各(\d+)元/', $text, $matches)) {
-        $zodiac1 = $matches[1];
-        $zodiac2 = $matches[2];
+    // 解析生肖下注 - 第二条
+    if (preg_match('/([鼠牛虎兔龙蛇马羊猴鸡狗猪])[，,]\s*([鼠牛虎兔龙蛇马羊猴鸡狗猪])数各(\d+)元/', $text, $matches)) {
+        $zodiac1 = trim($matches[1]);
+        $zodiac2 = trim($matches[2]);
         $amount = intval($matches[3]);
         
         $bets[] = [
             'bet_type' => '生肖',
             'targets' => [$zodiac1, $zodiac2],
             'amount' => $amount,
-            'raw_text' => "{$zodiac1}，{$zodiac2}数各{$amount}元"
+            'raw_text' => "{$zodiac1}，{$zodiac2}数各{$amount}元",
+            'lottery_type' => '澳门六合彩'
         ];
         $totalAmount += $amount * 2;
     }
     
-    // 解析香港号码下注
+    // 解析香港号码下注 - 第三条
     if (preg_match('/香港：(.+?)各(\d+)块/', $text, $matches)) {
         $numbersText = $matches[1];
         $amount = intval($matches[2]);
@@ -294,7 +314,8 @@ function parseBetManually(string $text): array {
                 'bet_type' => '号码',
                 'targets' => [trim($number)],
                 'amount' => $amount,
-                'raw_text' => "香港号码{$number}各{$amount}块"
+                'raw_text' => "香港号码{$number}各{$amount}块",
+                'lottery_type' => '香港六合彩'
             ];
             $totalAmount += $amount;
         }
@@ -318,10 +339,9 @@ function calculateManualSettlement(array $manualData, array $latestResults): arr
         'net_profits' => [],
         'summary' => '',
         'timestamp' => date('Y-m-d H:i:s'),
-        'has_lottery_data' => false
+        'has_lottery_data' => !empty($latestResults)
     ];
 
-    $totalWin = 0;
     $winningBets = [];
 
     // 使用所有彩票类型的结果进行结算
@@ -329,44 +349,52 @@ function calculateManualSettlement(array $manualData, array $latestResults): arr
         $amount = $bet['amount'];
         $betType = $bet['bet_type'];
         $targets = $bet['targets'];
+        $lotteryType = $bet['lottery_type'] ?? '香港六合彩';
+
+        // 选择对应的开奖结果
+        $result = null;
+        if (isset($latestResults[$lotteryType])) {
+            $result = $latestResults[$lotteryType];
+        } elseif ($lotteryType === '澳门六合彩' && isset($latestResults['新澳门六合彩'])) {
+            $result = $latestResults['新澳门六合彩'];
+        } elseif ($lotteryType === '澳门六合彩' && isset($latestResults['老澳门六合彩'])) {
+            $result = $latestResults['老澳门六合彩'];
+        } else {
+            // 如果没有对应的开奖结果，使用第一个可用的结果
+            $result = reset($latestResults) ?: null;
+        }
 
         foreach ($targets as $target) {
-            // 检查所有彩票类型是否中奖
-            foreach ($latestResults as $lotteryType => $result) {
-                if (!isset($result['winning_numbers']) || !is_array($result['winning_numbers'])) {
-                    continue;
-                }
-
+            if ($result && isset($result['winning_numbers']) && is_array($result['winning_numbers'])) {
                 $winningNumbers = $result['winning_numbers'];
                 
                 if ($betType === '号码') {
                     // 特码玩法：对比特码（最后一个号码）
                     $specialNumber = end($winningNumbers);
-                    if (strval($target) === strval($specialNumber)) {
+                    if (strval(trim($target)) === strval(trim($specialNumber))) {
                         $winningBets[] = [
                             'number' => $target,
                             'amount' => $amount,
                             'odds' => 45,
                             'bet_type' => $betType,
-                            'lottery_type' => $lotteryType
+                            'lottery_type' => $result['lottery_type']
                         ];
-                        $totalWin += $amount * 45;
-                        break; // 中奖后跳出彩票类型循环
                     }
                 } elseif ($betType === '生肖') {
                     // 生肖玩法：根据号码对应的生肖来判断
                     $targetZodiac = getZodiacByNumber($target);
-                    if ($targetZodiac && in_array($targetZodiac, $result['zodiac_signs'] ?? [])) {
-                        $winningBets[] = [
-                            'number' => $target,
-                            'amount' => $amount,
-                            'odds' => 45,
-                            'bet_type' => $betType,
-                            'zodiac' => $targetZodiac,
-                            'lottery_type' => $lotteryType
-                        ];
-                        $totalWin += $amount * 45;
-                        break; // 中奖后跳出彩票类型循环
+                    if ($targetZodiac && isset($result['zodiac_signs']) && is_array($result['zodiac_signs'])) {
+                        $zodiacsStr = array_map('strval', array_map('trim', $result['zodiac_signs']));
+                        if (in_array($targetZodiac, $zodiacsStr)) {
+                            $winningBets[] = [
+                                'number' => $target,
+                                'amount' => $amount,
+                                'odds' => 45,
+                                'bet_type' => $betType,
+                                'zodiac' => $targetZodiac,
+                                'lottery_type' => $result['lottery_type']
+                            ];
+                        }
                     }
                 }
             }
@@ -374,18 +402,17 @@ function calculateManualSettlement(array $manualData, array $latestResults): arr
     }
 
     $settlement['winning_details'] = $winningBets;
-    $settlement['has_lottery_data'] = !empty($latestResults);
 
     // 计算不同赔率下的净收益
     $oddsList = [45, 46, 47];
     foreach ($oddsList as $odds) {
-        $totalWinForOdds = 0;
+        $totalWin = 0;
         foreach ($winningBets as $win) {
-            $totalWinForOdds += $win['amount'] * $odds;
+            $totalWin += $win['amount'] * $odds;
         }
-        $netProfit = $totalWinForOdds - $manualData['total_amount'];
+        $netProfit = $totalWin - $manualData['total_amount'];
         $settlement['net_profits'][$odds] = [
-            'total_win' => $totalWinForOdds,
+            'total_win' => $totalWin,
             'net_profit' => $netProfit,
             'is_profit' => $netProfit >= 0
         ];
@@ -393,6 +420,7 @@ function calculateManualSettlement(array $manualData, array $latestResults): arr
 
     $winCount = count($winningBets);
     if (!empty($latestResults)) {
+        $lotteryTypes = array_keys($latestResults);
         $settlement['summary'] = "总下注 {$manualData['total_amount']} 元，中奖 {$winCount} 注";
     } else {
         $settlement['summary'] = "总下注 {$manualData['total_amount']} 元（等待开奖数据）";
@@ -420,7 +448,7 @@ function getZodiacByNumber($number): ?string {
         '12' => '猪', '24' => '猪', '36' => '猪', '48' => '猪'
     ];
     
-    $numberPadded = str_pad(strval($number), 2, '0', STR_PAD_LEFT);
+    $numberPadded = str_pad(strval(trim($number)), 2, '0', STR_PAD_LEFT);
     return $zodiacMap[$numberPadded] ?? null;
 }
 
@@ -501,6 +529,11 @@ function buildSettlementHtml(array $settlement, int $batchId): string {
         $netAmount = abs($result['net_profit']);
 
         $html .= "{$emoji} 赔率 {$odds}: <span style='color: {$color}; font-weight: bold;'>{$profitText} {$netAmount} 元</span>\n";
+    }
+
+    // 添加开奖数据信息
+    if (!$settlement['has_lottery_data']) {
+        $html .= "\n⚠️  <span style='color: orange; font-weight: bold;'>注意: 当前无开奖数据，以上为模拟结算结果</span>\n";
     }
 
     $html .= str_repeat("=", 50) . "\n";
