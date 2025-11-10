@@ -41,16 +41,14 @@ function EmailDetailPage() {
       .finally(() => setLoading(false));
   };
 
-  // 重新解析邮件 - 修复版
+  // 重新解析邮件
   const handleReanalyze = async () => {
     setReanalyzing(true);
     try {
-      // 使用 apiService 而不是直接 fetch，确保认证信息正确传递
       const result = await apiService.reanalyzeEmail(parseInt(emailId));
       
       if (result.status === 'success') {
         alert('重新解析成功！');
-        // 重新加载数据
         fetchEmailDetails();
       } else {
         alert('重新解析失败: ' + result.message);
@@ -97,12 +95,30 @@ function EmailDetailPage() {
     };
   }, [pageData]);
 
-  // 渲染内容
+  // 渲染内容 - 修复版：正确处理HTML内容
   const renderContent = () => {
-    const content = viewMode === 'enhanced' ?
-      pageData.enhanced_content :
-      pageData.email_content;
+    const content = viewMode === 'enhanced' && pageData.enhanced_content 
+      ? pageData.enhanced_content 
+      : pageData.email_content;
 
+    // 如果是增强内容且包含HTML，使用dangerouslySetInnerHTML
+    if (viewMode === 'enhanced' && pageData.enhanced_content && pageData.enhanced_content.includes('<span')) {
+      return (
+        <div
+          className="email-content-background"
+          style={{
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            lineHeight: '1.5',
+            fontSize: '14px',
+            fontFamily: 'inherit'
+          }}
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
+      );
+    }
+
+    // 普通文本内容
     return (
       <pre
         className="email-content-background"
@@ -311,19 +327,6 @@ function EmailDetailPage() {
             ' - 未检测到结算信息，显示原始内容'}
         </small>
       </div>
-
-      {/* 调试信息 */}
-      {process.env.NODE_ENV === 'development' && (
-        <details style={{ marginBottom: '1rem', border: '1px solid #ccc', padding: '0.5rem', borderRadius: '4px' }}>
-          <summary>调试信息</summary>
-          <div style={{ fontSize: '0.8rem', background: '#f5f5f5', padding: '0.5rem' }}>
-            <p><strong>批次数量:</strong> {pageData.bet_batches?.length || 0}</p>
-            <p><strong>增强内容长度:</strong> {pageData.enhanced_content?.length || 0}</p>
-            <p><strong>原始内容长度:</strong> {pageData.email_content?.length || 0}</p>
-            <p><strong>彩票结果:</strong> {Object.keys(pageData.latest_lottery_results || {}).length} 种</p>
-          </div>
-        </details>
-      )}
 
       <hr />
 
