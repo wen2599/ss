@@ -3,13 +3,10 @@ import { useParams } from 'react-router-dom';
 import { apiService } from '../api';
 import SettlementCard from '../components/SettlementCard';
 
-/**
- * EmailDetailPage 组件 - 修复版
- * 确保正确显示嵌入结算内容的邮件
- */
 function EmailDetailPage() {
   const { emailId } = useParams();
   const [loading, setLoading] = useState(true);
+  const [reanalyzing, setReanalyzing] = useState(false);
   const [error, setError] = useState(null);
   const [pageData, setPageData] = useState({
     email_content: '',
@@ -17,17 +14,21 @@ function EmailDetailPage() {
     bet_batches: [],
     latest_lottery_results: {}
   });
-  const [viewMode, setViewMode] = useState('enhanced'); // 'original' 或 'enhanced'
+  const [viewMode, setViewMode] = useState('enhanced');
 
   // 数据获取
   useEffect(() => {
+    fetchEmailDetails();
+  }, [emailId]);
+
+  const fetchEmailDetails = () => {
     setLoading(true);
     setError(null);
     
     apiService.getEmailDetails(emailId)
       .then(res => {
         if (res.status === 'success') {
-          console.log('获取到的数据:', res.data); // 调试日志
+          console.log('获取到的数据:', res.data);
           setPageData(res.data);
         } else {
           setError({ message: res.message || '获取数据失败' });
@@ -38,7 +39,36 @@ function EmailDetailPage() {
         setError({ message: err.message || '网络请求失败' });
       })
       .finally(() => setLoading(false));
-  }, [emailId]);
+  };
+
+  // 重新解析邮件
+  const handleReanalyze = async () => {
+    setReanalyzing(true);
+    try {
+      const response = await fetch('/api/reanalyze_email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email_id: parseInt(emailId) }),
+        credentials: 'include'
+      });
+      
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        alert('重新解析成功！');
+        // 重新加载数据
+        fetchEmailDetails();
+      } else {
+        alert('重新解析失败: ' + result.message);
+      }
+    } catch (error) {
+      alert('重新解析请求失败: ' + error.message);
+    } finally {
+      setReanalyzing(false);
+    }
+  };
 
   // 处理批次更新
   const handleBatchUpdate = (batchId, updatedData) => {
@@ -74,45 +104,26 @@ function EmailDetailPage() {
     };
   }, [pageData]);
 
-  // 渲染内容 - 修复HTML渲染问题
+  // 渲染内容
   const renderContent = () => {
     const content = viewMode === 'enhanced' ? 
       pageData.enhanced_content : 
       pageData.email_content;
 
-    // 检查内容是否包含HTML标签
-    const hasHtmlTags = /<[^>]*>/.test(content);
-    
-    if (hasHtmlTags) {
-      // 如果包含HTML，使用dangerouslySetInnerHTML
-      return (
-        <div 
-          className="email-content-background"
-          style={{ 
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            lineHeight: '1.5',
-            fontSize: '14px'
-          }}
-          dangerouslySetInnerHTML={{ __html: content }}
-        />
-      );
-    } else {
-      // 如果不包含HTML，使用pre标签
-      return (
-        <pre 
-          className="email-content-background"
-          style={{ 
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            lineHeight: '1.5',
-            fontSize: '14px'
-          }}
-        >
-          {content}
-        </pre>
-      );
-    }
+    return (
+      <pre 
+        className="email-content-background"
+        style={{ 
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          lineHeight: '1.5',
+          fontSize: '14px',
+          fontFamily: 'inherit'
+        }}
+      >
+        {content}
+      </pre>
+    );
   };
 
   // 渲染结算卡片
@@ -124,11 +135,26 @@ function EmailDetailPage() {
           borderRadius: '8px',
           margin: '1rem 0',
           padding: '1rem',
-          backgroundColor: '#fff3cd'
+          backgroundColor: '#fff3cd',
+          textAlign: 'center'
         }}>
-          <p style={{ textAlign: 'center', color: '#856404', margin: 0 }}>
+          <p style={{ color: '#856404', margin: '0 0 1rem 0' }}>
             📝 未检测到AI解析的下注信息
           </p>
+          <button 
+            onClick={handleReanalyze}
+            disabled={reanalyzing}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: reanalyzing ? '#6c757d' : '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: reanalyzing ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {reanalyzing ? '解析中...' : '重新解析邮件'}
+          </button>
         </div>
       );
     }
@@ -146,10 +172,6 @@ function EmailDetailPage() {
       );
     });
   };
-
-  // 检查是否有增强内容
-  const hasEnhancedContent = pageData.enhanced_content && 
-                            pageData.enhanced_content !== pageData.email_content;
 
   if (loading) {
     return (
@@ -176,17 +198,32 @@ function EmailDetailPage() {
         <h3>加载失败</h3>
         <p>错误: {error.message}</p>
         <button 
-          onClick={() => window.location.reload()}
+          onClick={fetchEmailDetails}
           style={{
             padding: '0.5rem 1rem',
             backgroundColor: '#007bff',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            marginRight: '0.5rem'
           }}
         >
           重新加载
+        </button>
+        <button 
+          onClick={handleReanalyze}
+          disabled={reanalyzing}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: reanalyzing ? '#6c757d' : '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: reanalyzing ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {reanalyzing ? '解析中...' : '强制重新解析'}
         </button>
       </div>
     );
@@ -199,7 +236,6 @@ function EmailDetailPage() {
         <div>
           <button 
             onClick={() => setViewMode('original')}
-            className={viewMode === 'original' ? 'active' : ''}
             style={{ 
               marginRight: '0.5rem',
               padding: '0.5rem 1rem',
@@ -214,7 +250,6 @@ function EmailDetailPage() {
           </button>
           <button 
             onClick={() => setViewMode('enhanced')}
-            className={viewMode === 'enhanced' ? 'active' : ''}
             style={{ 
               padding: '0.5rem 1rem',
               backgroundColor: viewMode === 'enhanced' ? '#007bff' : '#f8f9fa',
@@ -229,6 +264,46 @@ function EmailDetailPage() {
         </div>
       </div>
 
+      {/* 操作按钮 */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '0.5rem', 
+        marginBottom: '1rem',
+        padding: '0.5rem',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '4px'
+      }}>
+        <button 
+          onClick={handleReanalyze}
+          disabled={reanalyzing}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: reanalyzing ? '#6c757d' : '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: reanalyzing ? 'not-allowed' : 'pointer',
+            fontSize: '0.9rem'
+          }}
+        >
+          {reanalyzing ? '🔄 解析中...' : '🔄 重新解析邮件'}
+        </button>
+        <button 
+          onClick={fetchEmailDetails}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: '#17a2b8',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '0.9rem'
+          }}
+        >
+          🔄 刷新数据
+        </button>
+      </div>
+
       {/* 视图模式提示 */}
       <div style={{ 
         padding: '0.5rem', 
@@ -239,7 +314,7 @@ function EmailDetailPage() {
       }}>
         <small>
           当前模式: <strong>{viewMode === 'enhanced' ? '结算视图' : '原始内容'}</strong>
-          {viewMode === 'enhanced' && !hasEnhancedContent && 
+          {viewMode === 'enhanced' && pageData.enhanced_content === pageData.email_content && 
             ' - 未检测到结算信息，显示原始内容'}
         </small>
       </div>
@@ -263,7 +338,7 @@ function EmailDetailPage() {
         <>
           <h3>AI解析结果</h3>
           {renderSettlementCards()}
-        </>
+        </> 
       )}
 
       <hr style={{ border: 'none', borderTop: '2px solid #ccc', margin: '2rem 0' }} />
@@ -301,26 +376,6 @@ function EmailDetailPage() {
           </span>
         </p>
       </div>
-
-      {/* 调试信息（开发时可见） */}
-      {process.env.NODE_ENV === 'development' && (
-        <details style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#666' }}>
-          <summary>调试信息</summary>
-          <div style={{ 
-            backgroundColor: '#f8f9fa', 
-            padding: '1rem', 
-            borderRadius: '4px',
-            marginTop: '0.5rem',
-            fontFamily: 'monospace'
-          }}>
-            <p>原始内容长度: {pageData.email_content?.length || 0}</p>
-            <p>增强内容长度: {pageData.enhanced_content?.length || 0}</p>
-            <p>批次数量: {pageData.bet_batches?.length || 0}</p>
-            <p>视图模式: {viewMode}</p>
-            <p>有增强内容: {hasEnhancedContent ? '是' : '否'}</p>
-          </div>
-        </details>
-      )}
     </div>
   );
 }

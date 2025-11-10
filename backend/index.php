@@ -42,7 +42,8 @@ $routes = [
     'get_emails'            => 'auth/get_emails.php',
     'get_email_details'     => 'auth/get_email_details.php',
     'update_bet_batch'      => 'auth/update_bet_batch.php',
-    
+    'reanalyze_email'       => 'auth/reanalyze_email.php', // 新增：重新解析邮件
+
     // Lottery related endpoints
     'get_lottery_results'       => 'lottery/get_results.php',
     'get_lottery_result_by_issue' => 'lottery/get_result_by_issue.php',
@@ -63,3 +64,17 @@ if (isset($routes[$endpoint])) {
     http_response_code(404); // Not Found
     echo json_encode(['status' => 'error', 'message' => 'Endpoint not found.']);
 }
+
+// --- 5. Log the request for debugging ---
+// 记录请求日志，便于调试
+if (defined('MAIL_LOG_FILE')) {
+    $log_message = sprintf(
+        "API Request: %s %s - Endpoint: %s - User: %s\n",
+        $_SERVER['REQUEST_METHOD'],
+        $_SERVER['REQUEST_URI'],
+        $endpoint ?? 'none',
+        $_SESSION['user_id'] ?? 'guest'
+    );
+    error_log($log_message, 3, MAIL_LOG_FILE);
+}
+?>
