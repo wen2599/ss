@@ -1,0 +1,1199 @@
+File: frontend/index.html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="data:,">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>邮件处理系统</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+---
+File: frontend/package.json
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.23.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.0.3",
+    "vite": "^4.4.5"
+  }
+}
+
+---
+File: frontend/public/_worker.js
+// File: frontend/public/_worker.js
+
+export default {
+  /**
+   * @param {Request} request
+   * @param {object} env
+   * @param {object} ctx
+   */
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    // Only proxy requests that start with /api/
+    if (url.pathname.startsWith('/api/')) {
+      // Extract the endpoint from the path, e.g., /api/register -> register
+      const endpoint = url.pathname.substring(5);
+
+      // Construct the new backend URL
+      // Example: https://wenge.cloudns.ch/index.php?endpoint=register
+      const backendUrl = `https://wenge.cloudns.ch/index.php?endpoint=${endpoint}${url.search}`;
+
+      // Create a new request to the backend, copying the original request's properties.
+      // This is a robust way to forward the request, including method, headers, and body.
+      const backendRequest = new Request(backendUrl, request);
+
+      // Forward the request to the backend and return the response.
+      try {
+        return await fetch(backendRequest);
+      } catch (e) {
+        // If the backend is unreachable, return a 503 error.
+        return new Response(`Backend server is unreachable: ${e.message}`, { status: 503 });
+      }
+    }
+
+    // For all other requests, serve the static assets from Cloudflare Pages.
+    return env.ASSETS.fetch(request);
+  },
+};
+
+---
+File: frontend/src/App.jsx
+// File: frontend/src/App.jsx (Simplified Routes)
+
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+
+import Navbar from './components/Navbar';
+import RequireAuth from './components/RequireAuth';
+
+import HomePage from './pages/HomePage';
+import AuthPage from './pages/AuthPage';
+import EmailsListPage from './pages/EmailsListPage'; // Renamed for clarity
+import EmailDetailPage from './pages/EmailDetailPage'; // This is now the core workbench
+
+function App() {
+  return (
+    <AuthProvider>
+      <Navbar />
+      <main className="container">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/auth" element={<AuthPage />} />
+
+          <Route
+            path="/emails"
+            element={<RequireAuth><EmailsListPage /></RequireAuth>}
+          />
+          <Route
+            path="/emails/:emailId"
+            element={<RequireAuth><EmailDetailPage /></RequireAuth>}
+          />
+
+          <Route path="*" element={
+            <div className="card"><h1>404 - 页面未找到</h1></div>
+          } />
+        </Routes>
+      </main>
+    </AuthProvider>
+  );
+}
+
+export default App;
+
+---
+File: frontend/src/index.css
+/* src/index.css (Fully Responsive Version) */
+
+/* --- Global & Layout --- */
+:root {
+  --primary-color: #007bff;
+  --danger-color: #dc3545;
+  --success-color: #28a745;
+  --info-color: #17a2b8;
+  --background-color: #f4f7f9;
+  --card-background: #ffffff;
+  --text-color: #333;
+  --text-light: #666;
+  --border-color: #e0e0e0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  margin: 0;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main.container {
+  flex-grow: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+/* --- Navbar --- */
+.navbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: var(--card-background);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border-bottom: 1px solid var(--border-color);
+  gap: 1rem;
+}
+.nav-brand a { font-weight: bold; font-size: 1.5rem; color: var(--text-color); }
+.nav-links { list-style: none; display: flex; gap: 1.5rem; margin: 0; padding: 0; }
+.nav-links a { color: var(--text-light); }
+.nav-links a.active { color: var(--primary-color); font-weight: bold; }
+.nav-auth { display: flex; align-items: center; gap: 1rem; }
+.nav-auth span { font-weight: 500; }
+
+/* --- General Elements & Cards --- */
+.card {
+  background-color: var(--card-background);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  margin-bottom: 20px;
+}
+a { text-decoration: none; color: var(--primary-color); }
+
+
+/* --- Lottery Banner Styles --- */
+.lottery-banners-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.lottery-banner {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--card-background);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  overflow: hidden;
+}
+
+.banner-header {
+  padding: 0.75rem 1.5rem;
+  background-color: #f9fafb;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.banner-header h3 { margin: 0; font-size: 1.2rem; }
+.banner-header p { margin: 0; font-size: 0.9rem; color: var(--text-light); }
+
+.numbers-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr) 0.5fr 1fr;
+  gap: 10px;
+  padding: 1.5rem;
+  align-items: center;
+}
+
+.number-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+  font-size: clamp(1rem, 4vw, 1.75rem);
+}
+
+.number-cell:nth-child(7) {
+  grid-column: 8;
+}
+
+.color-red { background: linear-gradient(145deg, #f85032, #e73827); }
+.color-green { background: linear-gradient(145deg, #56ab2f, #a8e063); }
+.color-blue { background: linear-gradient(145deg, #2196F3, #4FC3F7); }
+.color-unknown { background: linear-gradient(145deg, #868e96, #adb5bd); }
+
+/* --- Settlement & Email Page Styles --- */
+.settlement-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin: 2rem 0;
+  padding: 1rem;
+}
+
+.settlement-details {
+  background-color: #fff8e1;
+  border: 1px solid #ffecb3;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-top: 1rem;
+}
+
+.settlement-details p {
+  margin: 0.5rem 0;
+  font-size: 1.15rem;
+  color: #c51162;
+}
+
+.settlement-details p strong {
+  color: #333;
+}
+
+.email-content-background {
+  white-space: pre-wrap;
+  word-break: break-all;
+  background-color: #f9f9f9;
+  padding: 1rem;
+  border-radius: 4px;
+}
+
+.global-totals-card {
+  background-color: #e3f2fd;
+  border: 1px solid #bbdefb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+  font-size: 1.2rem;
+}
+
+.global-totals-card p {
+  margin: 0.75rem 0;
+}
+
+.global-totals-card hr {
+  border: none;
+  border-top: 1px dashed #90caf9;
+  margin: 1rem 0;
+}
+
+/* --- Media Queries for Responsive Design --- */
+@media (max-width: 768px) {
+  main.container {
+    margin: 1rem auto;
+    padding: 0 0.5rem;
+  }
+  .navbar {
+    padding: 1rem;
+    justify-content: center;
+  }
+  .banner-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  .numbers-grid {
+    padding: 1rem;
+    gap: 5px;
+    grid-template-columns: repeat(6, 1fr) 0.3fr 1fr;
+  }
+}
+
+---
+File: frontend/src/main.jsx
+// src/main.jsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App.jsx';
+import './index.css';
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+);
+
+---
+File: frontend/src/api/index.js
+// File: frontend/src/api/index.js
+
+const API_BASE_URL = 'https://wenge.cloudns.ch/index.php';
+
+async function request(endpoint, options = {}, queryParams = '') {
+  options.credentials = 'include';
+  const url = `${API_BASE_URL}?endpoint=${endpoint}${queryParams}`;
+
+  try {
+    const response = await fetch(url, options);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || `Error ${response.status}`);
+    }
+    return data;
+  } catch (error) {
+    console.error(`API request to ${endpoint} failed:`, error);
+    throw error;
+  }
+}
+
+export const apiService = {
+  // Auth
+  register(email, password) {
+    return request('register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+  },
+  login(email, password) {
+    return request('login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+  },
+  logout() {
+    return request('logout', { method: 'POST' });
+  },
+  checkSession() {
+    return request('check_session');
+  },
+
+  // Lottery
+  getLotteryResults() {
+    return request('get_lottery_results');
+  },
+  getLotteryResultByIssue(type, issue) {
+    return request('get_lottery_result_by_issue', {}, `&type=${encodeURIComponent(type)}&issue=${issue}`);
+  },
+
+  // Mails
+  getEmails() {
+    return request('get_emails');
+  },
+
+  /**
+   * Fetches the full content of a single email by its ID.
+   */
+  getEmailContent(id) {
+    return request('get_email_content', {}, `&id=${id}`);
+  },
+
+  getEmailDetails(id) {
+    return request('get_email_details', {}, `&id=${id}`);
+  },
+
+  updateBetBatch(batchId, data) {
+    return request('update_bet_batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ batch_id: batchId, data: data }),
+    });
+  },
+
+  // Settlements (模拟数据)
+  getSettlements() {
+    return Promise.resolve({
+        status: 'success',
+        data: [ { id: 1, bet_id: 101, total_win: 500, created_at: new Date().toISOString() } ]
+    });
+  },
+};
+
+---
+File: frontend/src/components/AuthForm.jsx
+// frontend/src/components/AuthForm.jsx
+import React, { useState } from 'react';
+import { apiService } from '../api';
+
+function AuthForm({ onAuthSuccess }) {
+  const [isLogin, setIsLogin] = useState(true);
+  // ... form state: email, password, message, loading ...
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    // setLoading(true); setMessage('');
+    try {
+      if (isLogin) {
+        // await apiService.login(email, password);
+        alert('登录成功 (模拟)'); // Placeholder
+        onAuthSuccess();
+      } else {
+        const data = await apiService.register(email, password);
+        // setMessage(data.message); setIsLogin(true);
+        alert(data.message); // Simple feedback
+      }
+    } catch (error) {
+      // setMessage(error.message);
+      alert(error.message);
+    } finally {
+      // setLoading(false);
+    }
+  };
+
+  // ... return JSX form with inputs and buttons ...
+  return (/* ... your form JSX here ... */);
+}
+export default AuthForm;
+
+---
+File: frontend/src/components/LotteryResults.jsx
+// src/components/LotteryResults.jsx (Banner Version)
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../api';
+
+// 定义彩票类型和它们的顺序
+const LOTTERY_TYPES = ['香港六合彩', '新澳门六合彩', '老澳门六合彩'];
+
+// 波色文字到 CSS 类名的映射
+const colorClassMap = {
+  '红波': 'color-red',
+  '绿波': 'color-green',
+  '蓝波': 'color-blue',
+};
+
+// 单个开奖号码格子的组件
+const NumberCell = ({ number, color }) => {
+  const bgColorClass = colorClassMap[color] || 'color-unknown';
+  return (
+    <div className={`number-cell ${bgColorClass}`}>
+      {number}
+    </div>
+  );
+};
+
+// 单个横幅的组件
+const LotteryBanner = ({ type, data }) => {
+  if (!data) {
+    return (
+      <div className="lottery-banner">
+        <div className="banner-header">
+          <h3>{type}</h3>
+          <p>等待开奖...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="lottery-banner">
+      <div className="banner-header">
+        <h3>{type}</h3>
+        <p>第 {data.issue_number} 期 - {data.drawing_date}</p>
+      </div>
+      <div className="numbers-grid">
+        {data.winning_numbers.map((number, index) => (
+          <NumberCell key={index} number={number} color={data.colors[index]} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+
+// 主组件
+function LotteryResults() {
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = () => {
+        apiService.getLotteryResults()
+        .then(response => {
+          if (response.status === 'success') {
+            setResults(response.data);
+          } else {
+            setError(response.message || 'Failed to load data');
+          }
+        })
+        .catch(err => setError(err.message))
+        .finally(() => setLoading(false));
+    };
+
+    fetchData();
+    // 设置一个定时器，每30秒自动刷新一次数据
+    const intervalId = setInterval(fetchData, 30000);
+
+    // 组件卸载时清除定时器
+    return () => clearInterval(intervalId);
+  }, []);
+
+  if (loading) return <p>正在加载开奖记录...</p>;
+  if (error) return <p style={{ color: 'red' }}>错误: {error}</p>;
+  if (!results) return <p>无法加载数据结构。</p>;
+
+  return (
+    <div className="lottery-banners-container">
+      {LOTTERY_TYPES.map(type => (
+        <LotteryBanner key={type} type={type} data={results[type]} />
+      ))}
+    </div>
+  );
+}
+
+export default LotteryResults;
+
+---
+File: frontend/src/components/Navbar.jsx
+// File: frontend/src/components/Navbar.jsx (Simplified)
+
+import React from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+function Navbar() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/');
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
+  return (
+    <nav className="navbar">
+      <div className="nav-brand">
+        <NavLink to="/">结算系统</NavLink>
+      </div>
+      <ul className="nav-links">
+        <li><NavLink to="/">开奖记录</NavLink></li>
+        {user && <li><NavLink to="/emails">邮件原文</NavLink></li>}
+      </ul>
+      <div className="nav-auth">
+        {user ? (
+          <>
+            <span>欢迎, {user.email}</span>
+            <button onClick={handleLogout}>退出登录</button>
+          </>
+        ) : (
+          <NavLink to="/auth">注册/登录</NavLink>
+        )}
+      </div>
+    </nav>
+  );
+}
+
+export default Navbar;
+
+---
+File: frontend/src/components/RequireAuth.jsx
+// src/components/RequireAuth.jsx
+import React from 'react';
+import { useLocation, Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+function RequireAuth({ children }) {
+  const { user } = useAuth();
+  const location = useLocation();
+
+  if (!user) {
+    // 如果未登录，重定向到登录页，并记录从哪个页面来的
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  return children;
+}
+
+export default RequireAuth;
+
+---
+File: frontend/src/components/SettlementCard.jsx
+import React, { useState, useMemo } from 'react';
+import { apiService } from '../api';
+
+/**
+ * SettlementCard 组件
+ * 负责展示单个下注批次的识别概要、结算结果，并提供编辑功能。
+ * @param {object} batch - 从后端获取的单个下注批次数据。
+ * @param {object} lotteryResult - 与此批次彩票类型匹配的最新开奖结果。
+ * @param {function} onUpdate - 当用户保存修改时调用的回调函数。
+ */
+const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
+  const { batch_id, data } = batch;
+
+  // --- State for Edit Mode ---
+  const [isEditing, setIsEditing] = useState(false);
+  // 将 data.bets 格式化为可读的 JSON 字符串，用于 textarea
+  const [editableData, setEditableData] = useState(JSON.stringify(data.bets, null, 2));
+  const [isSaving, setIsSaving] = useState(false);
+
+  // --- Calculation Logic using useMemo for performance ---
+  // 只有当 data.bets 或 lotteryResult 变化时，才会重新计算
+  const { totalBetAmount, winningBets, summaryText } = useMemo(() => {
+    let total = 0;
+    const winners = [];
+    const specialNumber = lotteryResult?.winning_numbers[6]; // 第7个号码是特码
+    const betSummary = {}; // 用于生成概要文本, e.g., { '10': 2, '5': 6 }
+
+    if (Array.isArray(data.bets)) {
+      data.bets.forEach(bet => {
+        const amount = Number(bet.amount) || 0;
+        // 目前只计算 '号码' 或 '特码' 玩法
+        if ((bet.bet_type === '号码' || bet.bet_type === '特码') && Array.isArray(bet.targets)) {
+          bet.targets.forEach(targetNumber => {
+            total += amount;
+
+            // 累加金额概要
+            betSummary[amount] = (betSummary[amount] || 0) + 1;
+
+            // 检查是否中奖
+            if (lotteryResult && specialNumber && String(targetNumber).trim() === String(specialNumber).trim()) {
+              winners.push({ number: targetNumber, amount: amount });
+            }
+          });
+        }
+        // TODO: 在此可以添加对 '生肖' 等其他玩法的计算逻辑
+      });
+    }
+
+    // 生成概要文本
+    const summaryParts = Object.entries(betSummary).map(([amount, count]) => `${amount}元x${count}个`);
+    const summary = `总下注 ${total} 元 (${summaryParts.join(', ')})`;
+
+    return { totalBetAmount: total, winningBets: winners, summaryText: summary };
+  }, [data.bets, lotteryResult]);
+
+  // --- Event Handlers ---
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const updatedBets = JSON.parse(editableData);
+      // 检查解析出的数据是否是数组
+      if (!Array.isArray(updatedBets)) {
+          throw new Error("JSON 格式必须是一个数组 [...]");
+      }
+
+      const updatedBatchData = { ...data, bets: updatedBets };
+
+      await apiService.updateBetBatch(batch_id, updatedBatchData);
+
+      // 调用父组件的回调函数，将更新后的数据传回父组件
+      onUpdate(batch_id, updatedBatchData);
+
+      setIsEditing(false);
+      alert('修改已保存！');
+    } catch (e) {
+      alert("JSON 格式错误或保存失败: " + e.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // --- Rendering Functions ---
+  const renderWinningDetails = (odds) => {
+    if (!lotteryResult) {
+      return <span>等待开奖号码...</span>;
+    }
+    if (winningBets.length === 0) {
+      return <span style={{ fontWeight: 'bold', color: 'green' }}>未中奖 | 净亏 {totalBetAmount} 元</span>;
+    }
+
+    const totalWinAmount = winningBets.reduce((sum, bet) => sum + (bet.amount * odds), 0);
+    const netProfit = totalWinAmount - totalBetAmount;
+
+    return (
+      <>
+        <span style={{ color: 'blue', fontWeight: 'bold' }}>中 {winningBets.length} 注, 赢 {totalWinAmount}元</span> |{' '}
+        <span style={{ fontWeight: 'bold', color: netProfit >= 0 ? 'red' : 'green' }}>
+          净{netProfit >= 0 ? '赢' : '亏'} {Math.abs(netProfit)} 元
+        </span>
+      </>
+    );
+  };
+
+  return (
+    <div className="settlement-card">
+      <p style={{ whiteSpace: 'pre-wrap', borderBottom: '1px solid #eee', paddingBottom: '1rem', margin: '0 0 1rem 0', fontFamily: 'monospace' }}>
+        {data.raw_text}
+      </p>
+
+      <div className="settlement-details">
+        {/* AI 识别概要 */}
+        <p style={{ color: '#c51162', fontSize: '1.2rem', margin: '0.5rem 0', fontWeight: 'bold' }}>
+          {summaryText}
+        </p>
+
+        {/* 结算结果 */}
+        <div className="results-grid">
+          <p style={{ color: 'blue', fontSize: '1.2rem', margin: '0.5rem 0' }}>
+            <strong>中奖详情:</strong> {winningBets.map(b => `${b.number}(${b.amount}元)`).join(', ') || '无'}
+          </p>
+          <p style={{ color: '#c51162', fontSize: '1.2rem', margin: '0.5rem 0' }}>
+            <strong>赔率 45:</strong> {renderWinningDetails(45)}
+          </p>
+          <p style={{ color: '#c51162', fontSize: '1.2rem', margin: '0.5rem 0' }}>
+            <strong>赔率 46:</strong> {renderWinningDetails(46)}
+          </p>
+          <p style={{ color: '#c51162', fontSize: '1.2rem', margin: '0.5rem 0' }}>
+            <strong>赔率 47:</strong> {renderWinningDetails(47)}
+          </p>
+        </div>
+
+        {/* 修改按钮 */}
+        <button onClick={() => setIsEditing(!isEditing)} className="link-button" style={{ marginTop: '0.5rem', fontSize: '1rem' }}>
+          {isEditing ? '取消修改' : '修改AI识别结果'}
+        </button>
+      </div>
+
+      {/* 编辑模式下的文本域 */}
+      {isEditing && (
+        <div className="edit-mode" style={{ marginTop: '1rem' }}>
+          <p style={{fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0'}}>请直接编辑以下代表下注内容的 JSON 数据：</p>
+          <textarea
+            value={editableData}
+            onChange={(e) => setEditableData(e.target.value)}
+            style={{
+              width: '98%',
+              height: '150px',
+              fontFamily: 'monospace',
+              fontSize: '0.9rem',
+              border: '1px solid #ccc',
+              padding: '5px'
+            }}
+          />
+          <button onClick={handleSave} disabled={isSaving} style={{ marginTop: '0.5rem' }}>
+            {isSaving ? '保存中...' : '保存修改'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SettlementCard;
+
+---
+File: frontend/src/context/AuthContext.jsx
+// src/context/AuthContext.jsx
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { apiService } from '../api';
+
+const AuthContext = createContext(null);
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // 应用加载时，检查后端 session
+    apiService.checkSession()
+      .then(data => {
+        if (data.status === 'success' && data.isAuthenticated) {
+          setUser(data.user);
+        }
+      })
+      .catch(() => setUser(null)) // 如果请求失败，则视为未登录
+      .finally(() => setLoading(false));
+  }, []);
+
+  const login = async (email, password) => {
+    const data = await apiService.login(email, password);
+    if (data.status === 'success') {
+      setUser(data.user);
+    }
+    return data; // 返回整个响应给组件处理
+  };
+
+  const register = (email, password) => {
+    return apiService.register(email, password);
+  };
+
+  const logout = async () => {
+    await apiService.logout();
+    setUser(null);
+  };
+
+  const value = { user, loading, login, register, logout };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {!loading && children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  return useContext(AuthContext);
+};
+
+---
+File: frontend/src/pages/AuthPage.jsx
+// src/pages/AuthPage.jsx
+import React, { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+function AuthPage() {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const { login, register } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/emails';
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+    setIsSuccess(false);
+    try {
+      if (isLogin) {
+        await login(email, password);
+        navigate(from, { replace: true });
+      } else {
+        const response = await register(email, password);
+        setMessage(response.message + " 现在可以登录了。");
+        setIsSuccess(true);
+        setIsLogin(true);
+      }
+    } catch (error) {
+      setMessage(error.message);
+      setIsSuccess(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="card" style={{ maxWidth: '400px', margin: 'auto', marginTop: '4rem' }}>
+      <h2>{isLogin ? '登录' : '注册'}</h2>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="email">邮箱地址</label>
+          <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" disabled={loading} />
+        </div>
+        <div>
+          <label htmlFor="password">密码</label>
+          <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required autoComplete={isLogin ? "current-password" : "new-password"} disabled={loading} />
+        </div>
+        <button type="submit" disabled={loading}>{loading ? '处理中...' : (isLogin ? '登录' : '注册')}</button>
+      </form>
+      <p>
+        {isLogin ? '还没有账户?' : '已有账户?'}
+        <button onClick={() => { setIsLogin(!isLogin); setMessage(''); }} className="link-button" disabled={loading}>
+          切换到{isLogin ? '注册' : '登录'}
+        </button>
+      </p>
+      {message && <p className={`message ${isSuccess ? 'success' : ''}`}>{message}</p>}
+    </div>
+  );
+}
+
+export default AuthPage;
+
+---
+File: frontend/src/pages/EmailDetailPage.jsx
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
+import { apiService } from '../api';
+import SettlementCard from '../components/SettlementCard'; // <-- 【关键】在这里正确导入 SettlementCard 组件
+
+/**
+ * EmailDetailPage 组件
+ * 作为“智能核算面板”，负责展示邮件原文、加载 AI 解析的下注批次，
+ * 并自动匹配最新开奖结果，进行即时结算演算和汇总。
+ */
+function EmailDetailPage() {
+  const { emailId } = useParams();
+
+  // --- State Management ---
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [pageData, setPageData] = useState({
+    email_content: '',
+    bet_batches: [],
+    latest_lottery_results: {}
+  });
+
+  // --- Data Fetching ---
+  useEffect(() => {
+    setLoading(true);
+    // 页面加载时，调用后端的“超级接口”一次性获取所有需要的数据
+    apiService.getEmailDetails(emailId)
+      .then(res => {
+        if (res.status === 'success') {
+          setPageData(res.data);
+        } else {
+          setError({ message: res.message });
+        }
+      })
+      .catch(setError)
+      .finally(() => setLoading(false));
+  }, [emailId]); // 当 emailId 变化时（例如从一个详情页跳转到另一个），重新获取数据
+
+  // --- Event Handlers ---
+  // 当子组件 SettlementCard 保存修改后，此函数被调用以更新整个页面的状态
+  const handleBatchUpdate = (batchId, updatedData) => {
+    setPageData(prevData => ({
+      ...prevData,
+      bet_batches: prevData.bet_batches.map(b =>
+        b.batch_id === batchId ? { ...b, data: updatedData } : b
+      )
+    }));
+  };
+
+  // --- Global Totals Calculation ---
+  const globalTotals = useMemo(() => {
+    let totalBet = 0;
+    let totalWin45 = 0, totalWin46 = 0, totalWin47 = 0;
+
+    if (pageData && Array.isArray(pageData.bet_batches)) {
+        pageData.bet_batches.forEach(batch => {
+            // 确保 batch.data 和 batch.data.bets 存在且是数组
+            if (batch.data && Array.isArray(batch.data.bets)) {
+                // 为当前批次找到对应的开奖结果
+                const lotteryResult = pageData.latest_lottery_results[batch.data.lottery_type];
+                const specialNumber = lotteryResult?.winning_numbers[6];
+
+                batch.data.bets.forEach(bet => {
+                    const amount = Number(bet.amount) || 0;
+                    if ((bet.bet_type === '号码' || bet.bet_type === '特码') && Array.isArray(bet.targets)) {
+                        bet.targets.forEach(targetNumber => {
+                            totalBet += amount;
+                            // 只有在开奖结果存在时才计算中奖
+                            if (lotteryResult && specialNumber && String(targetNumber).trim() === String(specialNumber).trim()) {
+                                totalWin45 += amount * 45;
+                                totalWin46 += amount * 46;
+                                totalWin47 += amount * 47;
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    }
+    return {
+        totalBet,
+        netProfit45: totalWin45 - totalBet,
+        netProfit46: totalWin46 - totalBet,
+        netProfit47: totalWin47 - totalBet,
+    };
+  }, [pageData]); // 只有当 pageData 变化时（加载完成或用户修改），才重新计算总计
+
+  // --- Rendering Logic ---
+  if (loading) {
+    return <div className="card"><p>正在加载智能核算面板...</p></div>;
+  }
+  if (error) {
+    return <div className="card" style={{color: 'red'}}><p>错误: {error.message}</p></div>;
+  }
+
+  // 将邮件原文与结算卡片交错渲染的函数
+  const renderContentWithCards = () => {
+    let remainingContent = pageData.email_content;
+    const elements = [];
+
+    pageData.bet_batches.forEach((batch, index) => {
+      // AI 返回的原始文本可能包含特殊字符，需要一个稳健的查找方式
+      const rawText = batch.data.raw_text;
+      if (!rawText) return; // 如果没有原始文本，无法定位，跳过
+
+      const position = remainingContent.indexOf(rawText);
+
+      if (position !== -1) {
+        // 添加原始文本之前的部分
+        elements.push(<span key={`text-${index}`}>{remainingContent.substring(0, position)}</span>);
+
+        // 找到与当前批次匹配的开奖结果
+        const lotteryResult = pageData.latest_lottery_results[batch.data.lottery_type];
+
+        // 添加结算卡片
+        elements.push(<SettlementCard key={batch.batch_id} batch={batch} lotteryResult={lotteryResult} onUpdate={handleBatchUpdate} />);
+
+        // 更新剩余内容
+        remainingContent = remainingContent.substring(position + rawText.length);
+      }
+    });
+
+    // 添加最后剩余的文本
+    elements.push(<span key="text-last">{remainingContent}</span>);
+
+    // 使用 pre 标签来保留原文的换行和空格
+    return <pre className="email-content-background">{elements}</pre>;
+  };
+
+  return (
+    <div className="card">
+      <h2>智能核算面板 (邮件ID: {emailId})</h2>
+      <hr />
+
+      {/* 渲染邮件原文和嵌入的卡片 */}
+      {renderContentWithCards()}
+
+      <hr style={{ border: 'none', borderTop: '2px solid #ccc', margin: '2rem 0' }} />
+
+      <h3>全局合计</h3>
+      <div className="global-totals-card">
+        <p><strong>总下注金额: {globalTotals.totalBet} 元</strong></p>
+        <hr />
+        <p><strong>赔率 45:</strong> 总盈亏 <span style={{ fontWeight: 'bold', color: globalTotals.netProfit45 >= 0 ? 'red' : 'green' }}>{globalTotals.netProfit45 >= 0 ? '+' : ''}{globalTotals.netProfit45} 元</span></p>
+        <p><strong>赔率 46:</strong> 总盈亏 <span style={{ fontWeight: 'bold', color: globalTotals.netProfit46 >= 0 ? 'red' : 'green' }}>{globalTotals.netProfit46 >= 0 ? '+' : ''}{globalTotals.netProfit46} 元</span></p>
+        <p><strong>赔率 47:</strong> 总盈亏 <span style={{ fontWeight: 'bold', color: globalTotals.netProfit47 >= 0 ? 'red' : 'green' }}>{globalTotals.netProfit47 >= 0 ? '+' : ''}{globalTotals.netProfit47} 元</span></p>
+      </div>
+    </div>
+  );
+}
+
+export default EmailDetailPage;
+
+---
+File: frontend/src/pages/EmailsListPage.jsx
+// File: frontend/pages/EmailsListPage.jsx (Was EmailsPage.jsx)
+
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { apiService } from '../api';
+
+const StatusBadge = ({ status }) => {
+    const statusStyles = {
+        pending: { backgroundColor: '#ffc107', color: '#333' },
+        processed: { backgroundColor: '#28a745', color: 'white' },
+        failed: { backgroundColor: '#dc3545', color: 'white' },
+    };
+    const style = { padding: '0.25rem 0.5rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', ...statusStyles[status] };
+    return <span style={style}>{status.toUpperCase()}</span>;
+};
+
+function EmailsListPage() {
+  const [emails, setEmails] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    apiService.getEmails()
+      .then(response => {
+        if (response.status === 'success') setEmails(response.data);
+        else setError(response.message);
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const renderContent = () => {
+    if (loading) return <p>正在加载邮件列表...</p>;
+    if (error) return <p style={{ color: 'red' }}>错误: {error}</p>;
+    if (emails.length === 0) return <p>没有找到任何邮件。</p>;
+
+    return (
+      <table>
+        <thead>
+          <tr>
+            <th>邮件 ID</th>
+            <th>处理状态</th>
+            <th>接收时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {emails.map(email => (
+            <tr key={email.id}>
+              <td>#{email.id}</td>
+              <td><StatusBadge status={email.status} /></td>
+              <td>{new Date(email.received_at).toLocaleString()}</td>
+              <td>
+                <Link to={`/emails/${email.id}`} className="button-link">
+                  查看原文与结算
+                </Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
+  return (
+    <div className="card">
+      <h2>邮件列表</h2>
+      {renderContent()}
+    </div>
+  );
+}
+
+export default EmailsListPage;
+
+---
+File: frontend/src/pages/HomePage.jsx
+// src/pages/HomePage.jsx
+import React from 'react';
+import LotteryResults from '../components/LotteryResults';
+
+function HomePage() {
+  return (
+    <div>
+      <h1>开奖中心</h1>
+      <LotteryResults />
+    </div>
+  );
+}
+export default HomePage;
+
+---
+File: frontend/src/pages/SettlementsPage.jsx
+// src/pages/SettlementsPage.jsx
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../api';
+
+function SettlementsPage() {
+    const [settlements, setSettlements] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        apiService.getSettlements()
+            .then(data => setSettlements(data.data))
+            .finally(() => setLoading(false));
+    }, []);
+
+    if (loading) return <p>正在加载结算单...</p>;
+
+    return (
+        <div className="card">
+            <h2>结算表单</h2>
+            <table>
+                <thead>
+                    <tr><th>ID</th><th>投注ID</th><th>总赢/亏</th><th>创建时间</th></tr>
+                </thead>
+                <tbody>
+                    {settlements.map(item => (
+                        <tr key={item.id}>
+                            <td>{item.id}</td>
+                            <td>{item.bet_id}</td>
+                            <td style={{ color: item.total_win > 0 ? 'green' : 'red' }}>{item.total_win}</td>
+                            <td>{new Date(item.created_at).toLocaleString()}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+export default SettlementsPage;
