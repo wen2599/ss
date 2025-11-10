@@ -1,28 +1,44 @@
 <?php
-// File: backend/setup_bot.php (Final version, points to Cloudflare Worker)
+// File: backend/setup_bot.php (Final version that reads from .env)
 
-// 加载配置以获取 token
-require_once __DIR__ . '/config.php';
+// --- 独立的 .env 加载器 (和 receiver.php 中那个一样) ---
+function load_env_for_setup() {
+    $envPath = __DIR__ . '/.env';
+    if (!file_exists($envPath)) {
+        die("Error: .env file not found in " . __DIR__);
+    }
+    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if (!$lines) {
+        die("Error: Could not read .env file.");
+    }
+    foreach ($lines as $line) {
+        if (strpos(trim($line), ';') === 0) continue;
+        if (strpos($line, ';') !== false) $line = substr($line, 0, strpos($line, ';'));
+        if (strpos($line, '=') !== false) {
+            list($name, $value) = explode('=', $line, 2);
+            // 这里我们只需要 getenv 能工作就行
+            putenv(trim($name) . "=" . trim(trim($value), "\"'"));
+        }
+    }
+}
 
-$bot_token = config('TELEGRAM_BOT_TOKEN');
+// 加载配置
+load_env_for_setup();
 
-// 【关键】将此 URL 替换为你自己的 Cloudflare Worker 的 URL
-// 它应该看起来像 https://<你的Worker名字>.<你的Cloudflare子域>.workers.dev
-$worker_url = "https://ssgamil.wenge666.workers.dev"; // <-- ！！！请务必替换这里！！！
+$bot_token = getenv('TELEGRAM_BOT_TOKEN');
+$webhook_secret = getenv('TELEGRAM_WEBHOOK_SECRET'); // 从 .env 读取新密钥
 
-// 构建 Telegram API URL for setWebhook
-$api_url = "https://api.telegram.org/bot{$bot_token}/setWebhook?url=" . urlencode($worker_url);
+if (!$bot_token || !$webhook_secret) {
+    die("Error: TELEGRAM_BOT_TOKEN or TELEGRAM_WEBHOOK_SECRET not found in .env file.");
+}
+
+// 直接指向我们轻量级的 receiver.php
+$webhook_url = "https://wenge.cloudns.ch/telegram/receiver.php?secret=" . urlencode($webhook_secret);
+
+$api_url = "https://api.telegram.org/bot{$bot_token}/setWebhook?url=" . urlencode($webhook_url);
 
 // 调用 API 并显示结果
-try {
-    $response = file_get_contents($api_url);
-    if ($response === false) {
-        throw new Exception("file_get_contents failed to fetch the Telegram API URL.");
-    }
-    header('Content-Type: application/json');
-    echo $response;
-} catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['ok' => false, 'error' => 'Failed to set webhook', 'details' => $e->getMessage()]);
-}
+$response = file_get_contents($api_url);
+header('Content-Type: application/json');
+echo $response;
 ?>

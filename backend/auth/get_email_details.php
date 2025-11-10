@@ -1,5 +1,5 @@
 <?php
-// File: backend/auth/get_email_details.php
+// File: backend/auth/get_email_details.php (Upgraded with Auto Lottery Matching)
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -30,16 +30,14 @@ try {
         exit;
     }
     
-    // 引入解析器并获取干净的邮件正文
     require_once __DIR__ . '/../helpers/mail_parser.php';
     $clean_content = parse_email_body($raw_content);
 
-    // --- 2. 获取所有关联的、AI已解析的下注批次 ---
+    // --- 2. 获取所有关联的下注批次 ---
     $stmt_bets = $pdo->prepare("SELECT id, bet_data_json FROM parsed_bets WHERE email_id = ? ORDER BY id ASC");
     $stmt_bets->execute([$email_id]);
     $bet_batches_raw = $stmt_bets->fetchAll(PDO::FETCH_ASSOC);
     
-    // 解码 JSON
     $bet_batches = array_map(function($batch) {
         return [
             'batch_id' => $batch['id'],
@@ -47,18 +45,40 @@ try {
         ];
     }, $bet_batches_raw);
 
-    // --- 3. 组合并返回数据 ---
+    // --- 3. 【核心新增】获取所有彩种的最新开奖结果 ---
+    $sql_latest_results = "
+        SELECT r1.*
+        FROM lottery_results r1
+        JOIN (
+            SELECT lottery_type, MAX(id) AS max_id
+            FROM lottery_results
+            GROUP BY lottery_type
+        ) r2 ON r1.lottery_type = r2.lottery_type AND r1.id = r2.max_id
+    ";
+    $stmt_latest = $pdo->query($sql_latest_results);
+    $latest_results_raw = $stmt_latest->fetchAll(PDO::FETCH_ASSOC);
+    
+    $latest_results = [];
+    foreach ($latest_results_raw as $row) {
+        foreach(['winning_numbers', 'zodiac_signs', 'colors'] as $key) {
+            $row[$key] = json_decode($row[$key]) ?: [];
+        }
+        $latest_results[$row['lottery_type']] = $row;
+    }
+
+    // --- 4. 组合并返回一个包含所有信息的“大礼包” ---
     http_response_code(200);
     echo json_encode([
         'status' => 'success',
         'data' => [
             'email_content' => $clean_content,
-            'bet_batches' => $bet_batches
+            'bet_batches' => $bet_batches,
+            'latest_lottery_results' => $latest_results // 将最新开奖结果一并返回
         ]
     ]);
 
 } catch (Throwable $e) {
-    error_log("Error in get_email_details.php: " . $e->getMessage());
+    error_log("Error in get_email_details.php for email_id {$email_id}: " . $e->getMessage());
     http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => 'Internal Server Error.']);
 }

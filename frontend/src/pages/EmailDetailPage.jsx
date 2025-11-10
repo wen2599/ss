@@ -1,16 +1,123 @@
-// File: frontend/pages/EmailDetailPage.jsx (Final Version)
+// File: frontend/pages/EmailDetailPage.jsx (Final Intelligent Workbench Version)
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiService } from '../api';
-import SettlementCard from '../components/SettlementCard'; // 引入新的子组件
+import SettlementCard from '../components/SettlementCard';
+// #region --- 子组件: SettlementCard ---
+const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
+  const { batch_id, data } = batch;
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableData, setEditableData] = useState(JSON.stringify(data.bets, null, 2));
+  const [isSaving, setIsSaving] = useState(false);
 
+  // 使用 useMemo 进行性能优化，只有在数据变化时才重新计算
+  const { totalBetAmount, winningBets } = useMemo(() => {
+    let total = 0;
+    const winners = [];
+    const specialNumber = lotteryResult?.winning_numbers[6];
+
+    if (Array.isArray(data.bets)) {
+      data.bets.forEach(bet => {
+        const amount = Number(bet.amount) || 0;
+        if ((bet.bet_type === '号码' || bet.bet_type === '特码') && Array.isArray(bet.targets)) {
+          bet.targets.forEach(targetNumber => {
+            total += amount;
+            if (lotteryResult && specialNumber && String(targetNumber) === String(specialNumber)) {
+              winners.push({ number: targetNumber, amount: amount });
+            }
+          });
+        }
+        // TODO: 在此添加对'生肖'等其他玩法的计算逻辑
+      });
+    }
+    return { totalBetAmount: total, winningBets: winners };
+  }, [data.bets, lotteryResult]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const updatedBets = JSON.parse(editableData);
+      const updatedBatchData = { ...data, bets: updatedBets };
+      await apiService.updateBetBatch(batch_id, updatedBatchData);
+      onUpdate(batch_id, updatedBatchData);
+      setIsEditing(false);
+      alert('修改已保存！');
+    } catch (e) {
+      alert("JSON 格式错误或保存失败: " + e.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const renderWinningDetails = (odds) => {
+    if (!lotteryResult) return <span>等待开奖号码...</span>;
+    if (winningBets.length === 0) {
+      return <span style={{ fontWeight: 'bold', color: 'green' }}>未中奖 | 净亏 {totalBetAmount} 元</span>;
+    }
+    
+    const totalWinAmount = winningBets.reduce((sum, bet) => sum + (bet.amount * odds), 0);
+    const netProfit = totalWinAmount - totalBetAmount;
+
+    return (
+      <>
+        <span style={{ color: 'blue', fontWeight: 'bold' }}>中 {winningBets.length} 注, 赢 {totalWinAmount}元</span> |{' '}
+        <span style={{ fontWeight: 'bold', color: netProfit >= 0 ? 'red' : 'green' }}>
+          净{netProfit >= 0 ? '赢' : '亏'} {Math.abs(netProfit)} 元
+        </span>
+      </>
+    );
+  };
+
+  return (
+    <div className="settlement-card">
+      <p style={{ whiteSpace: 'pre-wrap', borderBottom: '1px solid #eee', paddingBottom: '1rem', margin: '0 0 1rem 0', fontFamily: 'monospace' }}>
+        {data.raw_text}
+      </p>
+      
+      <div className="settlement-details">
+        <p><strong>AI识别概要:</strong> 总下注 {totalBetAmount} 元</p>
+        
+        <div className="results-grid">
+          <p><strong>赔率 45:</strong> {renderWinningDetails(45)}</p>
+          <p><strong>赔率 46:</strong> {renderWinningDetails(46)}</p>
+          <p><strong>赔率 47:</strong> {renderWinningDetails(47)}</p>
+        </div>
+
+        <button onClick={() => setIsEditing(!isEditing)} className="link-button" style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+          {isEditing ? '取消修改' : '修改AI识别结果'}
+        </button>
+      </div>
+      
+      {isEditing && (
+        <div className="edit-mode" style={{ marginTop: '1rem' }}>
+          <p style={{fontSize: '0.9rem', color: '#666'}}>请直接编辑以下代表下注内容的 JSON 数据：</p>
+          <textarea 
+            value={editableData} 
+            onChange={(e) => setEditableData(e.target.value)} 
+            style={{ width: '98%', height: '150px', fontFamily: 'monospace', fontSize: '0.9rem' }}
+          />
+          <button onClick={handleSave} disabled={isSaving} style={{ marginTop: '0.5rem' }}>
+            {isSaving ? '保存中...' : '保存修改'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+// #endregion --- 子组件: SettlementCard ---
+
+
+// #region --- 页面主组件 ---
 function EmailDetailPage() {
   const { emailId } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [pageData, setPageData] = useState({ email_content: '', bet_batches: [] });
-  const [lotteryResult, setLotteryResult] = useState(null);
-  const [issueInput, setIssueInput] = useState({ type: '香港六合彩', issue: '' });
+  const [pageData, setPageData] = useState({
+    email_content: '',
+    bet_batches: [],
+    latest_lottery_results: {}
+  });
 
   useEffect(() => {
     setLoading(true);
@@ -35,38 +142,28 @@ function EmailDetailPage() {
     }));
   };
   
-  const handleFetchLottery = () => {
-    if (!issueInput.issue) { alert('请输入期号'); return; }
-    setLotteryResult(null);
-    apiService.getLotteryResultByIssue(issueInput.type, issueInput.issue)
-      .then(res => {
-        if (res.status === 'success') setLotteryResult(res.data);
-        else alert(res.message);
-      })
-      .catch(err => alert(err.message));
-  };
-
   // --- 全局合计计算 ---
   const globalTotals = useMemo(() => {
     let totalBet = 0;
     let totalWin45 = 0, totalWin46 = 0, totalWin47 = 0;
 
-    if (lotteryResult && Array.isArray(pageData.bet_batches)) {
-        const specialNumber = lotteryResult.winning_numbers[6];
+    if (pageData && Array.isArray(pageData.bet_batches)) {
         pageData.bet_batches.forEach(batch => {
-            if(Array.isArray(batch.data.bets)) {
+            if (batch.data && Array.isArray(batch.data.bets)) {
+                const lotteryResult = pageData.latest_lottery_results[batch.data.lottery_type];
+                const specialNumber = lotteryResult?.winning_numbers[6];
+
                 batch.data.bets.forEach(bet => {
-                    if (bet.bet_type === '号码' || bet.bet_type === '特码') {
-                        if (Array.isArray(bet.targets)) {
-                            bet.targets.forEach(targetNumber => {
-                                totalBet += (bet.amount || 0);
-                                if (targetNumber === specialNumber) {
-                                    totalWin45 += (bet.amount || 0) * 45;
-                                    totalWin46 += (bet.amount || 0) * 46;
-                                    totalWin47 += (bet.amount || 0) * 47;
-                                }
-                            });
-                        }
+                    const amount = Number(bet.amount) || 0;
+                    if ((bet.bet_type === '号码' || bet.bet_type === '特码') && Array.isArray(bet.targets)) {
+                        bet.targets.forEach(targetNumber => {
+                            totalBet += amount;
+                            if (lotteryResult && specialNumber && String(targetNumber) === String(specialNumber)) {
+                                totalWin45 += amount * 45;
+                                totalWin46 += amount * 46;
+                                totalWin47 += amount * 47;
+                            }
+                        });
                     }
                 });
             }
@@ -78,34 +175,46 @@ function EmailDetailPage() {
         netProfit46: totalWin46 - totalBet,
         netProfit47: totalWin47 - totalBet,
     };
-  }, [pageData.bet_batches, lotteryResult]);
+  }, [pageData]);
 
-
-  if (loading) return <p>正在加载结算详情...</p>;
+  // --- 渲染逻辑 ---
+  if (loading) return <p>正在加载智能核算面板...</p>;
   if (error) return <p style={{color: 'red'}}>错误: {error.message}</p>;
+
+  // 将邮件原文与结算卡片交错渲染
+  const renderContentWithCards = () => {
+    let remainingContent = pageData.email_content;
+    const elements = [];
+    
+    pageData.bet_batches.forEach((batch, index) => {
+      // 查找原始文本在邮件内容中的位置
+      const rawText = batch.data.raw_text;
+      const position = remainingContent.indexOf(rawText);
+      
+      if (position !== -1) {
+        // 添加原始文本之前的部分
+        elements.push(<span key={`text-${index}`}>{remainingContent.substring(0, position)}</span>);
+        // 添加结算卡片
+        const lotteryResult = pageData.latest_lottery_results[batch.data.lottery_type];
+        elements.push(<SettlementCard key={batch.batch_id} batch={batch} lotteryResult={lotteryResult} onUpdate={handleBatchUpdate} />);
+        // 更新剩余内容
+        remainingContent = remainingContent.substring(position + rawText.length);
+      }
+    });
+
+    // 添加最后剩余的文本
+    elements.push(<span key="text-last">{remainingContent}</span>);
+    
+    return <pre className="email-content-background">{elements}</pre>;
+  };
 
   return (
     <div className="card">
-      <h2>结算工作台 (基于邮件 ID: {emailId})</h2>
-      
-      <div className="settlement-controls">
-        <select value={issueInput.type} onChange={e => setIssueInput({ ...issueInput, type: e.target.value })}>
-          <option>香港六合彩</option>
-          <option>新澳门六合彩</option>
-          <option>老澳门六合彩</option>
-        </select>
-        <input type="text" placeholder="输入期号以进行结算" value={issueInput.issue} onChange={e => setIssueInput({ ...issueInput, issue: e.target.value })} />
-        <button onClick={handleFetchLottery}>加载开奖号码</button>
-        {lotteryResult && <p><strong>当前特码:</strong> <span style={{ color: 'red', fontSize: '1.2rem' }}>{lotteryResult.winning_numbers[6]}</span></p>}
-      </div>
-      
+      <h2>智能核算面板 (邮件ID: {emailId})</h2>
       <hr />
       
-      <pre className="email-content-background">{pageData.email_content}</pre>
-
-      {pageData.bet_batches.map(batch => (
-        <SettlementCard key={batch.batch_id} batch={batch} lotteryResult={lotteryResult} onUpdate={handleBatchUpdate} />
-      ))}
+      {/* 渲染邮件原文和嵌入的卡片 */}
+      {renderContentWithCards()}
 
       <hr style={{ border: 'none', borderTop: '2px solid #ccc', margin: '2rem 0' }} />
 
@@ -120,5 +229,6 @@ function EmailDetailPage() {
     </div>
   );
 }
+// #endregion --- 页面主组件 ---
 
 export default EmailDetailPage;
