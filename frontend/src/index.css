@@ -1,4 +1,4 @@
-/* src/index.css (Fully Responsive Version with Enhanced Lottery Display) */
+/* src/index.css (Fully Responsive Version with Extra Large Lottery Numbers) */
 
 /* --- Global & Layout --- */
 :root {
@@ -144,9 +144,10 @@ a:hover {
 .numbers-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr) 0.5fr 1fr;
-  gap: 12px;
-  padding: 1.5rem;
+  gap: 15px;
+  padding: 2rem;
   align-items: center;
+  justify-items: center;
 }
 
 .number-cell {
@@ -157,14 +158,19 @@ a:hover {
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   color: #fff;
-  font-weight: 800; /* 加粗 */
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  font-size: 1.8rem; /* 显著增大字体 */
+  font-weight: 900; /* 极粗 */
+  box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+  font-size: 3.6rem; /* 增大一倍 - 从1.8rem增加到3.6rem */
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-width: 80px;
+  min-height: 80px;
+  width: 100%;
+  max-width: 120px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
 }
 .number-cell:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  transform: scale(1.08);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.4);
 }
 
 .number-cell:nth-child(7) {
@@ -173,19 +179,19 @@ a:hover {
 
 .color-red { 
   background: linear-gradient(145deg, #f85032, #e73827); 
-  border: 2px solid #c62828;
+  border: 3px solid #c62828;
 }
 .color-green { 
   background: linear-gradient(145deg, #56ab2f, #a8e063); 
-  border: 2px solid #2e7d32;
+  border: 3px solid #2e7d32;
 }
 .color-blue { 
   background: linear-gradient(145deg, #2196F3, #4FC3F7); 
-  border: 2px solid #1565c0;
+  border: 3px solid #1565c0;
 }
 .color-unknown { 
   background: linear-gradient(145deg, #868e96, #adb5bd); 
-  border: 2px solid #6c757d;
+  border: 3px solid #6c757d;
 }
 
 /* --- Settlement & Email Page Styles --- */
@@ -371,6 +377,14 @@ tr:hover {
 }
 
 /* --- 响应式设计 --- */
+@media (max-width: 1024px) {
+  .number-cell {
+    font-size: 3rem; /* 在中等屏幕上稍微减小 */
+    min-width: 70px;
+    min-height: 70px;
+  }
+}
+
 @media (max-width: 768px) {
   main.container {
     margin: 1rem auto;
@@ -400,13 +414,15 @@ tr:hover {
   }
   
   .numbers-grid {
-    padding: 1rem;
-    gap: 8px;
+    padding: 1.5rem;
+    gap: 10px;
     grid-template-columns: repeat(4, 1fr) 0.3fr 1fr;
   }
   
   .number-cell {
-    font-size: 1.4rem;
+    font-size: 2.5rem; /* 在平板上保持较大字体 */
+    min-width: 60px;
+    min-height: 60px;
   }
   
   .card {
@@ -422,11 +438,14 @@ tr:hover {
 @media (max-width: 480px) {
   .numbers-grid {
     grid-template-columns: repeat(3, 1fr) 0.3fr 1fr;
-    gap: 6px;
+    gap: 8px;
+    padding: 1rem;
   }
   
   .number-cell {
-    font-size: 1.2rem;
+    font-size: 2rem; /* 在手机上保持可见性 */
+    min-width: 50px;
+    min-height: 50px;
   }
   
   .banner-header h3 {
@@ -521,4 +540,59 @@ tr:hover {
   background-color: #d1ecf1;
   color: #0c5460;
   border: 1px solid #bee5eb;
+}
+
+/* --- 数字球特殊效果 --- */
+.number-cell::after {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 70%);
+  pointer-events: none;
+}
+
+.number-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 旋转动画 */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 调试信息样式 */
+details {
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 0.5rem;
+}
+
+details summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+
+details[open] summary {
+  margin-bottom: 0.5rem;
+}
+
+/* 确保HTML内容正确显示 */
+.email-content-background span {
+  display: inline;
+}
+
+/* 视图模式提示 */
+.view-mode-hint {
+  padding: 0.5rem;
+  background-color: #e7f3ff;
+  border-left: 4px solid #007bff;
+  margin-bottom: 1rem;
+  border-radius: 4px;
 }

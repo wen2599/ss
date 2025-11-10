@@ -1,5 +1,5 @@
 <?php
-// File: backend/auth/get_email_details.php (增强版 - 包含结算嵌入)
+// File: backend/auth/get_email_details.php (修复版)
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -71,7 +71,12 @@ try {
         $bet_batches[] = $batch_info;
     }
 
-    // --- 5. 获取所有彩种的最新开奖结果 ---
+    // --- 5. 如果没有任何批次，确保enhanced_content有内容 ---
+    if (empty($bet_batches)) {
+        $enhanced_content = $clean_content . "\n\n--- 未检测到下注信息 ---\n";
+    }
+
+    // --- 6. 获取所有彩种的最新开奖结果 ---
     $sql_latest_results = "
         SELECT r1.*
         FROM lottery_results r1
@@ -92,7 +97,7 @@ try {
         $latest_results[$row['lottery_type']] = $row;
     }
 
-    // --- 6. 返回增强后的邮件内容 ---
+    // --- 7. 返回增强后的邮件内容 ---
     http_response_code(200);
     echo json_encode([
         'status' => 'success',
@@ -107,7 +112,7 @@ try {
 } catch (Throwable $e) {
     error_log("Error in get_email_details.php for email_id {$email_id}: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'Internal Server Error.']);
+    echo json_encode(['status' => 'error', 'message' => 'Internal Server Error: ' . $e->getMessage()]);
 }
 
 /**
@@ -123,6 +128,7 @@ function calculateBatchSettlement(array $batchData): array {
     ];
     
     if (!isset($batchData['bets']) || !is_array($batchData['bets'])) {
+        $settlement['summary'] = '无下注数据';
         return $settlement;
     }
     
@@ -138,8 +144,7 @@ function calculateBatchSettlement(array $batchData): array {
             foreach ($targets as $target) {
                 $totalBet += $amount;
                 
-                // 这里应该根据实际开奖结果计算
-                // 现在先模拟中奖情况
+                // 模拟中奖情况 - 在实际应用中应该根据开奖结果计算
                 $isWin = false;
                 if ($betType === '特码' || $betType === '号码') {
                     $isWin = rand(0, 10) > 7; // 30%中奖概率模拟
@@ -187,15 +192,19 @@ function calculateBatchSettlement(array $batchData): array {
 function embedSettlementInContent(string $content, array $batchData, array $settlement, int $batchId): string {
     $rawText = $batchData['raw_text'] ?? '';
     
+    // 如果没有原始文本，在内容末尾添加结算信息
     if (empty($rawText)) {
-        return $content;
+        $settlementHtml = buildSettlementHtml($settlement, $batchId);
+        return $content . "\n\n" . $settlementHtml;
     }
     
     // 查找原始文本在内容中的位置
     $position = strpos($content, $rawText);
     
     if ($position === false) {
-        return $content; // 未找到原始文本，返回原内容
+        // 如果找不到原始文本，在内容末尾添加结算信息
+        $settlementHtml = buildSettlementHtml($settlement, $batchId);
+        return $content . "\n\n" . $settlementHtml;
     }
     
     // 构建结算HTML
@@ -211,28 +220,30 @@ function embedSettlementInContent(string $content, array $batchData, array $sett
 }
 
 /**
- * 构建结算HTML
+ * 构建结算HTML - 使用颜色标记
  */
 function buildSettlementHtml(array $settlement, int $batchId): string {
-    $html = "\n\n--- 🎯 结算结果 (批次 {$batchId}) ---\n";
+    $html = "\n\n" . str_repeat("=", 50) . "\n";
+    $html .= "🎯 结算结果 (批次 {$batchId})\n";
+    $html .= str_repeat("=", 50) . "\n";
     
-    // 总下注金额
-    $html .= "💰 <strong>总投注金额:</strong> <span style='color: blue;'>{$settlement['total_bet_amount']} 元</span>\n";
+    // 总下注金额 - 蓝色
+    $html .= "💰 总投注金额: <span style='color: blue; font-weight: bold;'>{$settlement['total_bet_amount']} 元</span>\n";
     
     // 中奖详情
     if (!empty($settlement['winning_details'])) {
-        $html .= "🎊 <strong>中奖详情:</strong>\n";
+        $html .= "🎊 中奖详情:\n";
         foreach ($settlement['winning_details'] as $win) {
-            $html .= "   - 号码 {$win['number']}: <span style='color: green;'>{$win['amount']} 元</span> (赔率 {$win['odds']})\n";
+            $html .= "   - 号码 {$win['number']}: <span style='color: green; font-weight: bold;'>{$win['amount']} 元</span> (赔率 {$win['odds']})\n";
         }
     } else {
-        $html .= "❌ <strong>中奖详情:</strong> <span style='color: red;'>未中奖</span>\n";
+        $html .= "❌ 中奖详情: <span style='color: red; font-weight: bold;'>未中奖</span>\n";
     }
     
-    // 不同赔率结算
-    $html .= "\n📈 <strong>不同赔率结算:</strong>\n";
+    // 不同赔率结算 - 使用红色/蓝色标记盈利/亏损
+    $html .= "\n📈 不同赔率结算:\n";
     foreach ($settlement['net_profits'] as $odds => $result) {
-        $color = $result['is_profit'] ? 'green' : 'red';
+        $color = $result['is_profit'] ? 'red' : 'blue';
         $emoji = $result['is_profit'] ? '🟢' : '🔴';
         $profitText = $result['is_profit'] ? "盈利" : "亏损";
         $netAmount = abs($result['net_profit']);
@@ -240,7 +251,7 @@ function buildSettlementHtml(array $settlement, int $batchId): string {
         $html .= "{$emoji} 赔率 {$odds}: <span style='color: {$color}; font-weight: bold;'>{$profitText} {$netAmount} 元</span>\n";
     }
     
-    $html .= "--- 结算结束 ---\n";
+    $html .= str_repeat("=", 50) . "\n";
     
     return $html;
 }
