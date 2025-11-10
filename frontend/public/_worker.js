@@ -1,37 +1,33 @@
-// File: frontend/public/_worker.js
+// File: frontend/public/_worker.js (修复版)
 
 export default {
-  /**
-   * @param {Request} request
-   * @param {object} env
-   * @param {object} ctx
-   */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // Only proxy requests that start with /api/
+    // Only proxy API requests
     if (url.pathname.startsWith('/api/')) {
-      // Extract the endpoint from the path, e.g., /api/register -> register
       const endpoint = url.pathname.substring(5);
-      
-      // Construct the new backend URL
-      // Example: https://wenge.cloudns.ch/index.php?endpoint=register
       const backendUrl = `https://wenge.cloudns.ch/index.php?endpoint=${endpoint}${url.search}`;
-      
-      // Create a new request to the backend, copying the original request's properties.
-      // This is a robust way to forward the request, including method, headers, and body.
-      const backendRequest = new Request(backendUrl, request);
 
-      // Forward the request to the backend and return the response.
+      // 修复：创建新的请求对象，避免流式 body 问题
+      const backendRequestInit = {
+        method: request.method,
+        headers: new Headers(request.headers),
+        // 对于非 GET 请求，克隆 body 以避免流式问题
+        body: request.method !== 'GET' && request.body ? await request.clone().arrayBuffer() : null,
+        // 添加 duplex 设置
+        duplex: 'half'
+      };
+
       try {
+        const backendRequest = new Request(backendUrl, backendRequestInit);
         return await fetch(backendRequest);
       } catch (e) {
-        // If the backend is unreachable, return a 503 error.
         return new Response(`Backend server is unreachable: ${e.message}`, { status: 503 });
       }
     }
 
-    // For all other requests, serve the static assets from Cloudflare Pages.
+    // Serve static assets
     return env.ASSETS.fetch(request);
   },
 };
