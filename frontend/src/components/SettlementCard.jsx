@@ -2,76 +2,66 @@ import React, { useState, useMemo } from 'react';
 import { apiService } from '../api';
 
 /**
- * SettlementCard 组件
- * 负责展示单个下注批次的识别概要、结算结果，并提供编辑功能。
- * @param {object} batch - 从后端获取的单个下注批次数据。
- * @param {object} lotteryResult - 与此批次彩票类型匹配的最新开奖结果。
- * @param {function} onUpdate - 当用户保存修改时调用的回调函数。
+ * SettlementCard 组件 - 增强版
+ * 显示详细的结算信息并提供编辑功能
  */
 const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
-  const { batch_id, data } = batch;
-
-  // --- State for Edit Mode ---
+  const { batch_id, data, settlement, ai_model } = batch;
   const [isEditing, setIsEditing] = useState(false);
-  // 将 data.bets 格式化为可读的 JSON 字符串，用于 textarea
   const [editableData, setEditableData] = useState(JSON.stringify(data.bets, null, 2));
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- Calculation Logic using useMemo for performance ---
-  // 只有当 data.bets 或 lotteryResult 变化时，才会重新计算
+  // 结算计算
   const { totalBetAmount, winningBets, summaryText } = useMemo(() => {
+    if (settlement) {
+      return {
+        totalBetAmount: settlement.total_bet_amount,
+        winningBets: settlement.winning_details,
+        summaryText: settlement.summary
+      };
+    }
+
+    // 如果没有结算数据，使用前端计算
     let total = 0;
     const winners = [];
-    const specialNumber = lotteryResult?.winning_numbers[6]; // 第7个号码是特码
-    const betSummary = {}; // 用于生成概要文本, e.g., { '10': 2, '5': 6 }
+    const specialNumber = lotteryResult?.winning_numbers[6];
+    const betSummary = {};
 
     if (Array.isArray(data.bets)) {
       data.bets.forEach(bet => {
         const amount = Number(bet.amount) || 0;
-        // 目前只计算 '号码' 或 '特码' 玩法
         if ((bet.bet_type === '号码' || bet.bet_type === '特码') && Array.isArray(bet.targets)) {
           bet.targets.forEach(targetNumber => {
             total += amount;
-
-            // 累加金额概要
             betSummary[amount] = (betSummary[amount] || 0) + 1;
 
-            // 检查是否中奖
             if (lotteryResult && specialNumber && String(targetNumber).trim() === String(specialNumber).trim()) {
               winners.push({ number: targetNumber, amount: amount });
             }
           });
         }
-        // TODO: 在此可以添加对 '生肖' 等其他玩法的计算逻辑
       });
     }
-    
-    // 生成概要文本
+
     const summaryParts = Object.entries(betSummary).map(([amount, count]) => `${amount}元x${count}个`);
     const summary = `总下注 ${total} 元 (${summaryParts.join(', ')})`;
 
     return { totalBetAmount: total, winningBets: winners, summaryText: summary };
-  }, [data.bets, lotteryResult]);
+  }, [data.bets, lotteryResult, settlement]);
 
-  // --- Event Handlers ---
+  // 保存修改
   const handleSave = async () => {
     setIsSaving(true);
     try {
       const updatedBets = JSON.parse(editableData);
-      // 检查解析出的数据是否是数组
       if (!Array.isArray(updatedBets)) {
-          throw new Error("JSON 格式必须是一个数组 [...]");
+        throw new Error("JSON 格式必须是一个数组 [...]");
       }
 
       const updatedBatchData = { ...data, bets: updatedBets };
-      
       await apiService.updateBetBatch(batch_id, updatedBatchData);
-      
-      // 调用父组件的回调函数，将更新后的数据传回父组件
-      onUpdate(batch_id, updatedBatchData); 
-      
+      onUpdate(batch_id, updatedBatchData);
       setIsEditing(false);
-      alert('修改已保存！');
     } catch (e) {
       alert("JSON 格式错误或保存失败: " + e.message);
     } finally {
@@ -79,21 +69,28 @@ const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
     }
   };
 
-  // --- Rendering Functions ---
+  // 渲染中奖详情
   const renderWinningDetails = (odds) => {
     if (!lotteryResult) {
-      return <span>等待开奖号码...</span>;
+      return <span style={{ color: '#666' }}>等待开奖号码...</span>;
     }
     if (winningBets.length === 0) {
-      return <span style={{ fontWeight: 'bold', color: 'green' }}>未中奖 | 净亏 {totalBetAmount} 元</span>;
+      return (
+        <span style={{ fontWeight: 'bold', color: 'green' }}>
+          未中奖 | 净亏 {totalBetAmount} 元
+        </span>
+      );
     }
-    
+
     const totalWinAmount = winningBets.reduce((sum, bet) => sum + (bet.amount * odds), 0);
     const netProfit = totalWinAmount - totalBetAmount;
 
     return (
       <>
-        <span style={{ color: 'blue', fontWeight: 'bold' }}>中 {winningBets.length} 注, 赢 {totalWinAmount}元</span> |{' '}
+        <span style={{ color: 'blue', fontWeight: 'bold' }}>
+          中 {winningBets.length} 注, 赢 {totalWinAmount}元
+        </span>{' '}
+        |{' '}
         <span style={{ fontWeight: 'bold', color: netProfit >= 0 ? 'red' : 'green' }}>
           净{netProfit >= 0 ? '赢' : '亏'} {Math.abs(netProfit)} 元
         </span>
@@ -102,58 +99,157 @@ const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
   };
 
   return (
-    <div className="settlement-card">
-      <p style={{ whiteSpace: 'pre-wrap', borderBottom: '1px solid #eee', paddingBottom: '1rem', margin: '0 0 1rem 0', fontFamily: 'monospace' }}>
+    <div className="settlement-card" style={{ 
+      border: '2px solid #e3f2fd',
+      borderRadius: '8px',
+      margin: '1rem 0',
+      padding: '1rem',
+      backgroundColor: '#f8fdff'
+    }}>
+      {/* 批次头部信息 */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: '1rem',
+        paddingBottom: '0.5rem',
+        borderBottom: '1px solid #e0e0e0'
+      }}>
+        <div>
+          <strong>批次 ID: {batch_id}</strong>
+          <span style={{ marginLeft: '1rem', color: '#666', fontSize: '0.9rem' }}>
+            AI模型: {ai_model}
+          </span>
+        </div>
+        <button 
+          onClick={() => setIsEditing(!isEditing)}
+          style={{
+            padding: '0.25rem 0.5rem',
+            backgroundColor: isEditing ? '#dc3545' : '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '0.8rem'
+          }}
+        >
+          {isEditing ? '取消修改' : '修改识别'}
+        </button>
+      </div>
+
+      {/* 原始文本 */}
+      <div style={{ 
+        whiteSpace: 'pre-wrap',
+        backgroundColor: '#f5f5f5',
+        padding: '0.5rem',
+        borderRadius: '4px',
+        marginBottom: '1rem',
+        fontFamily: 'monospace',
+        fontSize: '0.9rem'
+      }}>
         {data.raw_text}
-      </p>
-      
+      </div>
+
+      {/* 结算详情 */}
       <div className="settlement-details">
         {/* AI 识别概要 */}
-        <p style={{ color: '#c51162', fontSize: '1.2rem', margin: '0.5rem 0', fontWeight: 'bold' }}>
-          {summaryText}
-        </p>
-        
-        {/* 结算结果 */}
-        <div className="results-grid">
-          <p style={{ color: 'blue', fontSize: '1.2rem', margin: '0.5rem 0' }}>
-            <strong>中奖详情:</strong> {winningBets.map(b => `${b.number}(${b.amount}元)`).join(', ') || '无'}
-          </p>
-          <p style={{ color: '#c51162', fontSize: '1.2rem', margin: '0.5rem 0' }}>
-            <strong>赔率 45:</strong> {renderWinningDetails(45)}
-          </p>
-          <p style={{ color: '#c51162', fontSize: '1.2rem', margin: '0.5rem 0' }}>
-            <strong>赔率 46:</strong> {renderWinningDetails(46)}
-          </p>
-          <p style={{ color: '#c51162', fontSize: '1.2rem', margin: '0.5rem 0' }}>
-            <strong>赔率 47:</strong> {renderWinningDetails(47)}
+        <div style={{ 
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          padding: '0.75rem',
+          borderRadius: '4px',
+          marginBottom: '1rem'
+        }}>
+          <p style={{ 
+            color: '#856404', 
+            fontSize: '1.1rem', 
+            margin: '0.5rem 0', 
+            fontWeight: 'bold' 
+          }}>
+            🎯 AI识别概要: {summaryText}
           </p>
         </div>
 
-        {/* 修改按钮 */}
-        <button onClick={() => setIsEditing(!isEditing)} className="link-button" style={{ marginTop: '0.5rem', fontSize: '1rem' }}>
-          {isEditing ? '取消修改' : '修改AI识别结果'}
-        </button>
+        {/* 结算结果 */}
+        <div className="results-grid">
+          <div style={{ marginBottom: '0.5rem' }}>
+            <strong>中奖详情:</strong>{' '}
+            {winningBets.length > 0 ? (
+              <span style={{ color: 'blue' }}>
+                {winningBets.map(b => `${b.number}(${b.amount}元)`).join(', ')}
+              </span>
+            ) : (
+              <span style={{ color: 'green' }}>无</span>
+            )}
+          </div>
+          
+          <div style={{ marginBottom: '0.5rem' }}>
+            <strong>赔率 45:</strong> {renderWinningDetails(45)}
+          </div>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <strong>赔率 46:</strong> {renderWinningDetails(46)}
+          </div>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <strong>赔率 47:</strong> {renderWinningDetails(47)}
+          </div>
+        </div>
       </div>
-      
-      {/* 编辑模式下的文本域 */}
+
+      {/* 编辑模式 */}
       {isEditing && (
-        <div className="edit-mode" style={{ marginTop: '1rem' }}>
-          <p style={{fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0'}}>请直接编辑以下代表下注内容的 JSON 数据：</p>
-          <textarea 
-            value={editableData} 
-            onChange={(e) => setEditableData(e.target.value)} 
-            style={{ 
-              width: '98%', 
-              height: '150px', 
-              fontFamily: 'monospace', 
+        <div style={{ 
+          marginTop: '1rem',
+          padding: '1rem',
+          backgroundColor: '#f8f9fa',
+          border: '1px solid #dee2e6',
+          borderRadius: '4px'
+        }}>
+          <p style={{ fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0' }}>
+            请直接编辑以下代表下注内容的 JSON 数据：
+          </p>
+          <textarea
+            value={editableData}
+            onChange={(e) => setEditableData(e.target.value)}
+            style={{
+              width: '98%',
+              height: '200px',
+              fontFamily: 'monospace',
               fontSize: '0.9rem',
               border: '1px solid #ccc',
-              padding: '5px'
+              padding: '8px',
+              borderRadius: '4px'
             }}
           />
-          <button onClick={handleSave} disabled={isSaving} style={{ marginTop: '0.5rem' }}>
-            {isSaving ? '保存中...' : '保存修改'}
-          </button>
+          <div style={{ marginTop: '0.5rem' }}>
+            <button 
+              onClick={handleSave} 
+              disabled={isSaving}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                marginRight: '0.5rem'
+              }}
+            >
+              {isSaving ? '保存中...' : '保存修改'}
+            </button>
+            <button 
+              onClick={() => setIsEditing(false)}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              取消
+            </button>
+          </div>
         </div>
       )}
     </div>
