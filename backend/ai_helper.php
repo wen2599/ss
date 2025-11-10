@@ -1,5 +1,5 @@
 <?php
-// File: ai_helper.php (修复版 - 改进AI提示词)
+// File: backend/ai_helper.php (修复版 - 改进AI提示词)
 
 require_once __DIR__ . '/helpers/mail_parser.php';
 
@@ -15,13 +15,13 @@ function analyzeBetSlipWithAI(string $emailContent): array {
 
     // 获取AI分析结果
     $aiResult = analyzeWithCloudflareAI($cleanBody);
-    
+
     // 如果AI分析成功，进行结算计算
     if ($aiResult['success'] && isset($aiResult['data'])) {
         $settlementResult = calculateSettlement($aiResult['data']);
         $aiResult['settlement'] = $settlementResult;
     }
-    
+
     return $aiResult;
 }
 
@@ -35,30 +35,30 @@ function calculateSettlement(array $betData): array {
         'net_profits' => [],
         'summary' => ''
     ];
-    
+
     if (!isset($betData['bets']) || !is_array($betData['bets'])) {
         return $settlement;
     }
-    
+
     $totalBet = 0;
     $winningBets = [];
-    
+
     foreach ($betData['bets'] as $bet) {
         $amount = floatval($bet['amount'] ?? 0);
         $betType = $bet['bet_type'] ?? '';
         $targets = $bet['targets'] ?? [];
-        
+
         if ($amount > 0 && is_array($targets)) {
             foreach ($targets as $target) {
                 $totalBet += $amount;
-                
+
                 // 这里简化处理，实际应该根据开奖结果计算
                 // 假设所有下注都是特码玩法
                 if ($betType === '特码' || $betType === '号码' || $betType === '平码') {
                     // 在实际应用中，这里应该与开奖结果对比
                     // 现在先模拟中奖情况
                     $isWin = rand(0, 10) > 7; // 30%中奖概率模拟
-                    
+
                     if ($isWin) {
                         $winningBets[] = [
                             'number' => $target,
@@ -70,10 +70,10 @@ function calculateSettlement(array $betData): array {
             }
         }
     }
-    
+
     $settlement['total_bet_amount'] = $totalBet;
     $settlement['winning_details'] = $winningBets;
-    
+
     // 计算不同赔率下的净收益
     $oddsList = [45, 46, 47];
     foreach ($oddsList as $odds) {
@@ -88,10 +88,10 @@ function calculateSettlement(array $betData): array {
             'is_profit' => $netProfit >= 0
         ];
     }
-    
+
     $winCount = count($winningBets);
     $settlement['summary'] = "总下注 {$totalBet} 元，中奖 {$winCount} 注";
-    
+
     return $settlement;
 }
 
@@ -101,22 +101,22 @@ function calculateSettlement(array $betData): array {
 function analyzeWithCloudflareAI(string $text): array {
     $accountId = config('CLOUDFLARE_ACCOUNT_ID');
     $apiToken = config('CLOUDFLARE_API_TOKEN');
-    
+
     if (!$accountId || !$apiToken) {
         return ['success' => false, 'message' => 'Cloudflare AI credentials not configured.'];
     }
-    
+
     $model = '@cf/meta/llama-3-8b-instruct';
     $url = "https://api.cloudflare.com/client/v4/accounts/{$accountId}/ai/run/{$model}";
-    
+
     // 改进的提示词 - 更具体地针对六合彩下注格式
     $prompt = "你是一个专业的六合彩下注单识别助手。请从以下微信聊天记录中精确识别出下注信息。
 
 特别注意以下常见下注格式：
 1. 号码下注：\"36,48各30#\" 表示号码36和48各下注30元
-2. 生肖下注：\"鼠，鸡数各二十\" 表示鼠和鸡各下注20元  
-3. 多号码下注：\"10.22.34.46.04.16...各5块\" 表示这些号码各下注5元
-4. 澳门/香港区分：注意区分澳门六合彩和香港六合彩
+2. 多号码下注：\"10.22.34.46.04.16...各5块\" 表示这些号码各下注5元
+3. 连续号码：\"04.16.28.40.02.14.26.38.13.25.37.01.23.35.15.27各5块\"
+4. 注意识别所有数字，即使是分散在文本中的
 
 请以严格的JSON格式返回识别结果：
 
@@ -145,78 +145,78 @@ function analyzeWithCloudflareAI(string $text): array {
         ],
         'max_tokens' => 2000
     ];
-    
+
     $headers = [
         'Authorization: Bearer ' . $apiToken,
         'Content-Type: ' . 'application/json',
     ];
-    
+
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-    
+
     $responseBody = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlError = curl_error($ch);
     curl_close($ch);
-    
+
     // 记录AI调用日志
     error_log("AI API Call - HTTP Code: {$httpCode}, Response: {$responseBody}");
-    
+
     if ($httpCode !== 200) {
         return [
-            'success' => false, 
+            'success' => false,
             'message' => "Cloudflare AI API Error (HTTP {$httpCode}): " . $responseBody,
             'curl_error' => $curlError
         ];
     }
-    
+
     $responseData = json_decode($responseBody, true);
     $ai_response_text = $responseData['result']['response'] ?? null;
-    
+
     if (!$ai_response_text) {
         return [
-            'success' => false, 
+            'success' => false,
             'message' => 'Invalid response structure from Cloudflare AI.',
             'raw_response' => $responseBody
         ];
     }
-    
+
     // 记录AI原始响应
     error_log("AI Raw Response: " . $ai_response_text);
-    
+
     // 提取JSON - 更宽松的匹配
     preg_match('/\{(?:[^{}]|(?R))*\}/', $ai_response_text, $matches);
-    
+
     if (empty($matches)) {
         // 尝试更宽松的匹配
         preg_match('/\{[\s\S]*\}/', $ai_response_text, $matches);
     }
-    
+
     if (empty($matches)) {
         return [
-            'success' => false, 
-            'message' => 'AI did not return a valid JSON object.', 
+            'success' => false,
+            'message' => 'AI did not return a valid JSON object.',
             'raw_response' => $ai_response_text
         ];
     }
-    
+
     $bet_data = json_decode($matches[0], true);
-    
+
     if (json_last_error() !== JSON_ERROR_NONE) {
         return [
-            'success' => false, 
-            'message' => 'Failed to decode JSON from AI response: ' . json_last_error_msg(), 
+            'success' => false,
+            'message' => 'Failed to decode JSON from AI response: ' . json_last_error_msg(),
             'raw_json' => $matches[0]
         ];
     }
-    
+
     return [
-        'success' => true, 
-        'data' => $bet_data, 
+        'success' => true,
+        'data' => $bet_data,
         'model' => $model,
         'raw_ai_response' => $ai_response_text
     ];
@@ -229,39 +229,39 @@ function reanalyzeEmailWithAI(int $emailId): array {
     try {
         require_once __DIR__ . '/config.php';
         require_once __DIR__ . '/db_operations.php';
-        
+
         $pdo = get_db_connection();
-        
+
         // 获取邮件内容
         $stmt = $pdo->prepare("SELECT content FROM raw_emails WHERE id = ?");
         $stmt->execute([$emailId]);
         $emailContent = $stmt->fetchColumn();
-        
+
         if (!$emailContent) {
             return ['success' => false, 'message' => 'Email not found'];
         }
-        
+
         // 调用AI分析
         $aiResult = analyzeBetSlipWithAI($emailContent);
-        
+
         if ($aiResult['success']) {
             // 删除旧的解析记录
             $stmtDelete = $pdo->prepare("DELETE FROM parsed_bets WHERE email_id = ?");
             $stmtDelete->execute([$emailId]);
-            
+
             // 插入新的解析记录
             $model_used = $aiResult['model'] ?? 'unknown_model';
             $bet_data_json = json_encode($aiResult['data']);
-            
+
             $stmtInsert = $pdo->prepare("INSERT INTO parsed_bets (email_id, bet_data_json, ai_model_used) VALUES (?, ?, ?)");
             $stmtInsert->execute([$emailId, $bet_data_json, $model_used]);
-            
+
             // 更新邮件状态
             $stmtUpdate = $pdo->prepare("UPDATE raw_emails SET status = 'processed' WHERE id = ?");
             $stmtUpdate->execute([$emailId]);
-            
+
             return [
-                'success' => true, 
+                'success' => true,
                 'message' => '重新解析成功',
                 'batch_id' => $pdo->lastInsertId()
             ];
@@ -269,16 +269,16 @@ function reanalyzeEmailWithAI(int $emailId): array {
             // 更新邮件状态为失败
             $stmtUpdate = $pdo->prepare("UPDATE raw_emails SET status = 'failed' WHERE id = ?");
             $stmtUpdate->execute([$emailId]);
-            
+
             return [
-                'success' => false, 
+                'success' => false,
                 'message' => 'AI解析失败: ' . ($aiResult['message'] ?? '未知错误')
             ];
         }
-        
+
     } catch (Exception $e) {
         return [
-            'success' => false, 
+            'success' => false,
             'message' => '重新解析过程中出错: ' . $e->getMessage()
         ];
     }
