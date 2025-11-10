@@ -1,5 +1,5 @@
 <?php
-// File: backend/ai_helper.php (修复版 - 改进AI提示词)
+// File: backend/ai_helper.php (针对你的下注格式优化)
 
 require_once __DIR__ . '/helpers/mail_parser.php';
 
@@ -96,7 +96,7 @@ function calculateSettlement(array $betData): array {
 }
 
 /**
- * 使用 Cloudflare AI 进行分析 - 改进提示词
+ * 使用 Cloudflare AI 进行分析 - 针对你的下注格式优化
  */
 function analyzeWithCloudflareAI(string $text): array {
     $accountId = config('CLOUDFLARE_ACCOUNT_ID');
@@ -109,14 +109,13 @@ function analyzeWithCloudflareAI(string $text): array {
     $model = '@cf/meta/llama-3-8b-instruct';
     $url = "https://api.cloudflare.com/client/v4/accounts/{$accountId}/ai/run/{$model}";
 
-    // 改进的提示词 - 更具体地针对六合彩下注格式
+    // 针对你的下注格式优化的提示词
     $prompt = "你是一个专业的六合彩下注单识别助手。请从以下微信聊天记录中精确识别出下注信息。
 
-特别注意以下常见下注格式：
-1. 号码下注：\"36,48各30#\" 表示号码36和48各下注30元
-2. 多号码下注：\"10.22.34.46.04.16...各5块\" 表示这些号码各下注5元
-3. 连续号码：\"04.16.28.40.02.14.26.38.13.25.37.01.23.35.15.27各5块\"
-4. 注意识别所有数字，即使是分散在文本中的
+特别注意以下下注格式：
+1. \"澳门36,48各30#，12,24各10#\" → 表示澳门六合彩，号码36和48各下注30元，号码12和24各下注10元
+2. \"鼠，鸡数各二十，兔，马数各五元\" → 表示生肖鼠和鸡各下注20元，生肖兔和马各下注5元
+3. \"香港：10.22.34.46.04.16.28.40.02.14.26.38.13.25.37.01.23.35.15.27各5块\" → 表示香港六合彩，这些号码各下注5元
 
 请以严格的JSON格式返回识别结果：
 
@@ -140,7 +139,7 @@ function analyzeWithCloudflareAI(string $text): array {
 
     $payload = [
         'messages' => [
-            ['role' => 'system', 'content' => '你是一个只输出严格JSON格式的助手，必须按照指定的JSON格式返回数据。'],
+            ['role' => 'system', 'content' => '你是一个只输出严格JSON格式的助手，必须按照指定的JSON格式返回数据。请准确识别六合彩下注信息。'],
             ['role' => 'user', 'content' => $prompt]
         ],
         'max_tokens' => 2000
