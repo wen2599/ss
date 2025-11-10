@@ -1,5 +1,5 @@
 <?php
-// File: backend/auth/get_email_details.php (完整修复版)
+// File: backend/auth/get_email_details.php (使用正确的生肖号码映射)
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -255,7 +255,7 @@ function calculateBatchSettlement(array $batchData, ?array $lotteryResult = null
 }
 
 /**
- * 手动解析下注信息
+ * 手动解析下注信息 - 使用正确的生肖号码映射
  */
 function parseBetManually(string $text): array {
     $bets = [];
@@ -282,20 +282,40 @@ function parseBetManually(string $text): array {
         }
     }
     
-    // 解析生肖下注 - 第二条
+    // 解析生肖下注 - 第二条（使用正确的生肖号码映射）
     if (preg_match('/([鼠牛虎兔龙蛇马羊猴鸡狗猪])[，,]\s*([鼠牛虎兔龙蛇马羊猴鸡狗猪])数各(\d+)元/', $text, $matches)) {
         $zodiac1 = trim($matches[1]);
         $zodiac2 = trim($matches[2]);
         $amount = intval($matches[3]);
         
-        $bets[] = [
-            'bet_type' => '生肖',
-            'targets' => [$zodiac1, $zodiac2],
-            'amount' => $amount,
-            'raw_text' => "{$zodiac1}，{$zodiac2}数各{$amount}元",
-            'lottery_type' => '澳门六合彩'
-        ];
-        $totalAmount += $amount * 2;
+        // 获取每个生肖对应的号码（使用正确的映射）
+        $zodiac1Numbers = getNumbersByZodiac($zodiac1);
+        $zodiac2Numbers = getNumbersByZodiac($zodiac2);
+        
+        // 为每个号码创建下注记录
+        foreach ($zodiac1Numbers as $number) {
+            $bets[] = [
+                'bet_type' => '生肖',
+                'targets' => [$number],
+                'amount' => $amount,
+                'raw_text' => "{$zodiac1}号码{$number}各{$amount}元",
+                'lottery_type' => '澳门六合彩',
+                'zodiac' => $zodiac1
+            ];
+            $totalAmount += $amount;
+        }
+        
+        foreach ($zodiac2Numbers as $number) {
+            $bets[] = [
+                'bet_type' => '生肖',
+                'targets' => [$number],
+                'amount' => $amount,
+                'raw_text' => "{$zodiac2}号码{$number}各{$amount}元",
+                'lottery_type' => '澳门六合彩',
+                'zodiac' => $zodiac2
+            ];
+            $totalAmount += $amount;
+        }
     }
     
     // 解析香港号码下注 - 第三条
@@ -327,6 +347,51 @@ function parseBetManually(string $text): array {
         'bets' => $bets,
         'total_amount' => $totalAmount
     ];
+}
+
+/**
+ * 根据生肖获取对应的号码（使用正确的映射）
+ */
+function getNumbersByZodiac(string $zodiac): array {
+    $zodiacMap = [
+        '鼠' => ['06', '18', '30', '42'],
+        '牛' => ['05', '17', '29', '41'],
+        '虎' => ['04', '16', '28', '40'],
+        '兔' => ['03', '15', '27', '39'],
+        '龙' => ['02', '14', '26', '38'],
+        '蛇' => ['01', '13', '25', '37', '49'], // 蛇有5个号码
+        '马' => ['12', '24', '36', '48'],
+        '羊' => ['11', '23', '35', '47'],
+        '猴' => ['10', '22', '34', '46'],
+        '鸡' => ['09', '21', '33', '45'],
+        '狗' => ['08', '20', '32', '44'],
+        '猪' => ['07', '19', '31', '43']
+    ];
+    
+    return $zodiacMap[$zodiac] ?? [];
+}
+
+/**
+ * 根据号码获取生肖（使用正确的映射）
+ */
+function getZodiacByNumber($number): ?string {
+    $zodiacMap = [
+        '01' => '蛇', '13' => '蛇', '25' => '蛇', '37' => '蛇', '49' => '蛇',
+        '02' => '龙', '14' => '龙', '26' => '龙', '38' => '龙',
+        '03' => '兔', '15' => '兔', '27' => '兔', '39' => '兔',
+        '04' => '虎', '16' => '虎', '28' => '虎', '40' => '虎',
+        '05' => '牛', '17' => '牛', '29' => '牛', '41' => '牛',
+        '06' => '鼠', '18' => '鼠', '30' => '鼠', '42' => '鼠',
+        '07' => '猪', '19' => '猪', '31' => '猪', '43' => '猪',
+        '08' => '狗', '20' => '狗', '32' => '狗', '44' => '狗',
+        '09' => '鸡', '21' => '鸡', '33' => '鸡', '45' => '鸡',
+        '10' => '猴', '22' => '猴', '34' => '猴', '46' => '猴',
+        '11' => '羊', '23' => '羊', '35' => '羊', '47' => '羊',
+        '12' => '马', '24' => '马', '36' => '马', '48' => '马'
+    ];
+    
+    $numberPadded = str_pad(strval(trim($number)), 2, '0', STR_PAD_LEFT);
+    return $zodiacMap[$numberPadded] ?? null;
 }
 
 /**
@@ -368,33 +433,19 @@ function calculateManualSettlement(array $manualData, array $latestResults): arr
             if ($result && isset($result['winning_numbers']) && is_array($result['winning_numbers'])) {
                 $winningNumbers = $result['winning_numbers'];
                 
-                if ($betType === '号码') {
+                if ($betType === '号码' || $betType === '生肖') {
                     // 特码玩法：对比特码（最后一个号码）
                     $specialNumber = end($winningNumbers);
                     if (strval(trim($target)) === strval(trim($specialNumber))) {
+                        $zodiacInfo = isset($bet['zodiac']) ? " [{$bet['zodiac']}]" : "";
                         $winningBets[] = [
                             'number' => $target,
                             'amount' => $amount,
                             'odds' => 45,
                             'bet_type' => $betType,
-                            'lottery_type' => $result['lottery_type']
+                            'lottery_type' => $result['lottery_type'],
+                            'zodiac' => $bet['zodiac'] ?? null
                         ];
-                    }
-                } elseif ($betType === '生肖') {
-                    // 生肖玩法：根据号码对应的生肖来判断
-                    $targetZodiac = getZodiacByNumber($target);
-                    if ($targetZodiac && isset($result['zodiac_signs']) && is_array($result['zodiac_signs'])) {
-                        $zodiacsStr = array_map('strval', array_map('trim', $result['zodiac_signs']));
-                        if (in_array($targetZodiac, $zodiacsStr)) {
-                            $winningBets[] = [
-                                'number' => $target,
-                                'amount' => $amount,
-                                'odds' => 45,
-                                'bet_type' => $betType,
-                                'zodiac' => $targetZodiac,
-                                'lottery_type' => $result['lottery_type']
-                            ];
-                        }
                     }
                 }
             }
@@ -427,29 +478,6 @@ function calculateManualSettlement(array $manualData, array $latestResults): arr
     }
 
     return $settlement;
-}
-
-/**
- * 根据号码获取生肖
- */
-function getZodiacByNumber($number): ?string {
-    $zodiacMap = [
-        '01' => '鼠', '13' => '鼠', '25' => '鼠', '37' => '鼠', '49' => '鼠',
-        '02' => '牛', '14' => '牛', '26' => '牛', '38' => '牛',
-        '03' => '虎', '15' => '虎', '27' => '虎', '39' => '虎',
-        '04' => '兔', '16' => '兔', '28' => '兔', '40' => '兔',
-        '05' => '龙', '17' => '龙', '29' => '龙', '41' => '龙',
-        '06' => '蛇', '18' => '蛇', '30' => '蛇', '42' => '蛇',
-        '07' => '马', '19' => '马', '31' => '马', '43' => '马',
-        '08' => '羊', '20' => '羊', '32' => '羊', '44' => '羊',
-        '09' => '猴', '21' => '猴', '33' => '猴', '45' => '猴',
-        '10' => '鸡', '22' => '鸡', '34' => '鸡', '46' => '鸡',
-        '11' => '狗', '23' => '狗', '35' => '狗', '47' => '狗',
-        '12' => '猪', '24' => '猪', '36' => '猪', '48' => '猪'
-    ];
-    
-    $numberPadded = str_pad(strval(trim($number)), 2, '0', STR_PAD_LEFT);
-    return $zodiacMap[$numberPadded] ?? null;
 }
 
 /**
