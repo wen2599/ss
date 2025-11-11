@@ -1,4 +1,5 @@
---- FILE: frontend/src/api/index.js ---
+File: frontend/src/api/index.js
+---
 // File: frontend/src/api/index.js (Complete Version)
 
 const API_BASE_URL = 'https://wenge.cloudns.ch/index.php';
@@ -190,7 +191,7 @@ export const apiService = {
   },
 
   /**
-   * 重新解析邮件
+   * 重新解析邮件 - 新增方法
    * @param {number} emailId - 邮件ID
    * @returns {Promise}
    */
@@ -340,7 +341,11 @@ export function debounceApiCall(apiCall, delay = 300) {
 
 // 默认导出API服务
 export default apiService;
---- FILE: frontend/src/index.css ---
+
+---
+
+File: frontend/src/index.css
+---
 /* src/index.css (Fully Responsive Version with Extra Large Lottery Numbers) */
 
 /* --- Global & Layout --- */
@@ -940,7 +945,10 @@ details[open] summary {
   border-radius: 4px;
 }
 
---- FILE: frontend/src/pages/EmailDetailPage.jsx ---
+---
+
+File: frontend/src/pages/EmailDetailPage.jsx
+---
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiService } from '../api';
@@ -988,16 +996,7 @@ function EmailDetailPage() {
   const handleReanalyze = async () => {
     setReanalyzing(true);
     try {
-      const response = await fetch('/api/reanalyze_email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email_id: parseInt(emailId) }),
-        credentials: 'include'
-      });
-
-      const result = await response.json();
+      const result = await apiService.reanalyzeEmail(parseInt(emailId));
 
       if (result.status === 'success') {
         alert('重新解析成功！');
@@ -1007,6 +1006,7 @@ function EmailDetailPage() {
         alert('重新解析失败: ' + result.message);
       }
     } catch (error) {
+      console.error('重新解析错误:', error);
       alert('重新解析请求失败: ' + error.message);
     } finally {
       setReanalyzing(false);
@@ -1047,11 +1047,11 @@ function EmailDetailPage() {
     };
   }, [pageData]);
 
-  // 渲染内容
+  // 渲染内容 - 修复版：正确处理HTML内容
   const renderContent = () => {
-    const content = viewMode === 'enhanced' ?
-      pageData.enhanced_content :
-      pageData.email_content;
+    const content = viewMode === 'enhanced' && pageData.enhanced_content
+      ? pageData.enhanced_content
+      : pageData.email_content;
 
     return (
       <pre
@@ -1061,12 +1061,33 @@ function EmailDetailPage() {
           wordBreak: 'break-word',
           lineHeight: '1.5',
           fontSize: '14px',
-          fontFamily: 'inherit'
+          fontFamily: 'inherit',
+          backgroundColor: '#f9f9f9',
+          padding: '1rem',
+          borderRadius: '8px',
+          border: '1px solid #e0e0e0'
         }}
-      >
-        {content}
-      </pre>
+        dangerouslySetInnerHTML={{ __html: formatContentForDisplay(content) }}
+      />
     );
+  };
+
+  // 格式化内容显示 - 处理HTML实体和换行
+  const formatContentForDisplay = (content) => {
+    if (!content) return '';
+
+    // 替换HTML实体
+    let formatted = content
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'");
+
+    // 确保换行正确显示
+    formatted = formatted.replace(/\n/g, '<br/>');
+
+    return formatted;
   };
 
   // 渲染结算卡片
@@ -1262,16 +1283,31 @@ function EmailDetailPage() {
         </small>
       </div>
 
+      {/* 调试信息 */}
+      {process.env.NODE_ENV === 'development' && (
+        <details style={{ marginBottom: '1rem', border: '1px solid #ccc', padding: '0.5rem', borderRadius: '4px' }}>
+          <summary>调试信息</summary>
+          <div style={{ fontSize: '0.8rem', background: '#f5f5f5', padding: '0.5rem' }}>
+            <p><strong>批次数量:</strong> {pageData.bet_batches?.length || 0}</p>
+            <p><strong>增强内容长度:</strong> {pageData.enhanced_content?.length || 0}</p>
+            <p><strong>原始内容长度:</strong> {pageData.email_content?.length || 0}</p>
+            <p><strong>彩票结果:</strong> {Object.keys(pageData.latest_lottery_results || {}).length} 种</p>
+            <p><strong>增强内容预览:</strong> {pageData.enhanced_content?.substring(0, 100)}...</p>
+          </div>
+        </details>
+      )}
+
       <hr />
 
       {/* 内容显示区域 */}
       <div style={{
         border: '1px solid #e0e0e0',
         borderRadius: '8px',
-        padding: '1rem',
+        padding: '0',
         backgroundColor: '#fafafa',
         marginBottom: '1rem',
-        minHeight: '200px'
+        minHeight: '200px',
+        overflow: 'auto'
       }}>
         {renderContent()}
       </div>
@@ -1337,7 +1373,11 @@ styleSheet.innerText = styles;
 document.head.appendChild(styleSheet);
 
 export default EmailDetailPage;
---- FILE: frontend/src/pages/HomePage.jsx ---
+
+---
+
+File: frontend/src/pages/HomePage.jsx
+---
 // src/pages/HomePage.jsx
 import React from 'react';
 import LotteryResults from '../components/LotteryResults';
@@ -1351,7 +1391,10 @@ function HomePage() {
   );
 }
 export default HomePage;
---- FILE: frontend/src/pages/SettlementsPage.jsx ---
+---
+
+File: frontend/src/pages/SettlementsPage.jsx
+---
 // src/pages/SettlementsPage.jsx
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../api';
@@ -1391,7 +1434,10 @@ function SettlementsPage() {
 }
 
 export default SettlementsPage;
---- FILE: frontend/src/pages/AuthPage.jsx ---
+---
+
+File: frontend/src/pages/AuthPage.jsx
+---
 // src/pages/AuthPage.jsx
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -1459,7 +1505,10 @@ function AuthPage() {
 }
 
 export default AuthPage;
---- FILE: frontend/src/pages/EmailsListPage.jsx ---
+---
+
+File: frontend/src/pages/EmailsListPage.jsx
+---
 // File: frontend/pages/EmailsListPage.jsx (Was EmailsPage.jsx)
 
 import React, { useState, useEffect } from 'react';
@@ -1534,7 +1583,10 @@ function EmailsListPage() {
 
 export default EmailsListPage;
 
---- FILE: frontend/src/main.jsx ---
+---
+
+File: frontend/src/main.jsx
+---
 // src/main.jsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -1549,7 +1601,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>
 );
---- FILE: frontend/src/App.jsx ---
+---
+
+File: frontend/src/App.jsx
+---
 // File: frontend/src/App.jsx (Simplified Routes)
 
 import React from 'react';
@@ -1593,7 +1648,10 @@ function App() {
 
 export default App;
 
---- FILE: frontend/src/context/AuthContext.jsx ---
+---
+
+File: frontend/src/context/AuthContext.jsx
+---
 // src/context/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { apiService } from '../api';
@@ -1645,12 +1703,15 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   return useContext(AuthContext);
 };
---- FILE: frontend/src/components/SettlementCard.jsx ---
+---
+
+File: frontend/src/components/SettlementCard.jsx
+---
 import React, { useState, useMemo } from 'react';
 import { apiService } from '../api';
 
 /**
- * SettlementCard 组件 - 增强版
+ * SettlementCard 组件 - 修复版
  * 显示详细的结算信息并提供编辑功能
  */
 const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
@@ -1659,7 +1720,7 @@ const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
   const [editableData, setEditableData] = useState(JSON.stringify(data.bets, null, 2));
   const [isSaving, setIsSaving] = useState(false);
 
-  // 结算计算
+  // 结算计算 - 修复版
   const { totalBetAmount, winningBets, summaryText } = useMemo(() => {
     if (settlement) {
       return {
@@ -1672,19 +1733,39 @@ const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
     // 如果没有结算数据，使用前端计算
     let total = 0;
     const winners = [];
-    const specialNumber = lotteryResult?.winning_numbers[6];
     const betSummary = {};
 
     if (Array.isArray(data.bets)) {
       data.bets.forEach(bet => {
         const amount = Number(bet.amount) || 0;
-        if ((bet.bet_type === '号码' || bet.bet_type === '特码') && Array.isArray(bet.targets)) {
+        if ((bet.bet_type === '号码' || bet.bet_type === '特码' || bet.bet_type === '平码') && Array.isArray(bet.targets)) {
           bet.targets.forEach(targetNumber => {
             total += amount;
             betSummary[amount] = (betSummary[amount] || 0) + 1;
 
-            if (lotteryResult && specialNumber && String(targetNumber).trim() === String(specialNumber).trim()) {
-              winners.push({ number: targetNumber, amount: amount });
+            // 如果有开奖结果，进行实际结算
+            if (lotteryResult && Array.isArray(lotteryResult.winning_numbers)) {
+              // 特码玩法：只对比特码（最后一个号码）
+              if (bet.bet_type === '特码' || bet.bet_type === '号码') {
+                const specialNumber = lotteryResult.winning_numbers[lotteryResult.winning_numbers.length - 1];
+                if (String(targetNumber).trim() === String(specialNumber).trim()) {
+                  winners.push({
+                    number: targetNumber,
+                    amount: amount,
+                    bet_type: bet.bet_type
+                  });
+                }
+              }
+              // 平码玩法：对比所有号码
+              else if (bet.bet_type === '平码') {
+                if (lotteryResult.winning_numbers.includes(String(targetNumber).trim())) {
+                  winners.push({
+                    number: targetNumber,
+                    amount: amount,
+                    bet_type: bet.bet_type
+                  });
+                }
+              }
             }
           });
         }
@@ -1717,33 +1798,63 @@ const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
     }
   };
 
-  // 渲染中奖详情
+  // 渲染中奖详情 - 修复版
   const renderWinningDetails = (odds) => {
-    if (!lotteryResult) {
-      return <span style={{ color: '#666' }}>等待开奖号码...</span>;
-    }
-    if (winningBets.length === 0) {
+    // 如果没有开奖结果，显示提示信息
+    if (!lotteryResult || !Array.isArray(lotteryResult.winning_numbers)) {
       return (
-        <span style={{ fontWeight: 'bold', color: 'green' }}>
-          未中奖 | 净亏 {totalBetAmount} 元
-        </span>
+        <div style={{ color: '#666', fontStyle: 'italic' }}>
+          暂无开奖数据，无法计算中奖情况
+          {lotteryResult && (
+            <div style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
+              最新开奖期号: {lotteryResult.issue_number}
+            </div>
+          )}
+        </div>
       );
     }
 
+    // 如果有开奖结果但未中奖
+    if (winningBets.length === 0) {
+      const totalWinAmount = 0;
+      const netProfit = -totalBetAmount;
+
+      return (
+        <>
+          <span style={{ color: 'green', fontWeight: 'bold' }}>
+            未中奖
+          </span>{' '}
+          |{' '}
+          <span style={{ fontWeight: 'bold', color: netProfit >= 0 ? 'red' : 'blue' }}>
+            净亏 {Math.abs(netProfit)} 元
+          </span>
+        </>
+      );
+    }
+
+    // 计算中奖金额
     const totalWinAmount = winningBets.reduce((sum, bet) => sum + (bet.amount * odds), 0);
     const netProfit = totalWinAmount - totalBetAmount;
 
     return (
       <>
-        <span style={{ color: 'blue', fontWeight: 'bold' }}>
+        <span style={{ color: 'red', fontWeight: 'bold' }}>
           中 {winningBets.length} 注, 赢 {totalWinAmount}元
         </span>{' '}
         |{' '}
-        <span style={{ fontWeight: 'bold', color: netProfit >= 0 ? 'red' : 'green' }}>
+        <span style={{ fontWeight: 'bold', color: netProfit >= 0 ? 'red' : 'blue' }}>
           净{netProfit >= 0 ? '赢' : '亏'} {Math.abs(netProfit)} 元
         </span>
       </>
     );
+  };
+
+  // 获取特码号码
+  const getSpecialNumber = () => {
+    if (!lotteryResult || !Array.isArray(lotteryResult.winning_numbers)) {
+      return '暂无';
+    }
+    return lotteryResult.winning_numbers[lotteryResult.winning_numbers.length - 1];
   };
 
   return (
@@ -1798,6 +1909,27 @@ const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
         {data.raw_text}
       </div>
 
+      {/* 开奖信息 */}
+      {lotteryResult && (
+        <div style={{
+          backgroundColor: '#e8f5e8',
+          border: '1px solid #4caf50',
+          padding: '0.75rem',
+          borderRadius: '4px',
+          marginBottom: '1rem'
+        }}>
+          <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', color: '#2e7d32' }}>
+            🎯 开奖信息: {lotteryResult.lottery_type} 第 {lotteryResult.issue_number} 期
+          </p>
+          <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
+            <strong>开奖号码:</strong> {lotteryResult.winning_numbers?.join(', ') || '暂无'}
+          </p>
+          <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
+            <strong>特码:</strong> <span style={{ color: 'red', fontWeight: 'bold' }}>{getSpecialNumber()}</span>
+          </p>
+        </div>
+      )}
+
       {/* 结算详情 */}
       <div className="settlement-details">
         {/* AI 识别概要 */}
@@ -1823,11 +1955,13 @@ const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
           <div style={{ marginBottom: '0.5rem' }}>
             <strong>中奖详情:</strong>{' '}
             {winningBets.length > 0 ? (
-              <span style={{ color: 'blue' }}>
+              <span style={{ color: 'red', fontWeight: 'bold' }}>
                 {winningBets.map(b => `${b.number}(${b.amount}元)`).join(', ')}
               </span>
+            ) : lotteryResult ? (
+              <span style={{ color: 'green' }}>无中奖</span>
             ) : (
-              <span style={{ color: 'green' }}>无</span>
+              <span style={{ color: '#666' }}>等待开奖数据...</span>
             )}
           </div>
 
@@ -1900,12 +2034,28 @@ const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
           </div>
         </div>
       )}
+
+      {/* 调试信息 */}
+      {process.env.NODE_ENV === 'development' && (
+        <details style={{ marginTop: '1rem', fontSize: '0.8rem' }}>
+          <summary>调试信息</summary>
+          <div style={{ background: '#f5f5f5', padding: '0.5rem', borderRadius: '4px' }}>
+            <p><strong>批次数据:</strong> {JSON.stringify(data, null, 2)}</p>
+            <p><strong>开奖结果:</strong> {JSON.stringify(lotteryResult, null, 2)}</p>
+            <p><strong>中奖注数:</strong> {winningBets.length}</p>
+          </div>
+        </details>
+      )}
     </div>
   );
 };
 
 export default SettlementCard;
---- FILE: frontend/src/components/AuthForm.jsx ---
+
+---
+
+File: frontend/src/components/AuthForm.jsx
+---
 // frontend/src/components/AuthForm.jsx
 import React, { useState } from 'react';
 import { apiService } from '../api';
@@ -1939,7 +2089,10 @@ function AuthForm({ onAuthSuccess }) {
   return (/* ... your form JSX here ... */);
 }
 export default AuthForm;
---- FILE: frontend/src/components/Navbar.jsx ---
+---
+
+File: frontend/src/components/Navbar.jsx
+---
 // File: frontend/src/components/Navbar.jsx (Simplified)
 
 import React from 'react';
@@ -1984,7 +2137,10 @@ function Navbar() {
 
 export default Navbar;
 
---- FILE: frontend/src/components/RequireAuth.jsx ---
+---
+
+File: frontend/src/components/RequireAuth.jsx
+---
 // src/components/RequireAuth.jsx
 import React from 'react';
 import { useLocation, Navigate } from 'react-router-dom';
@@ -2003,7 +2159,10 @@ function RequireAuth({ children }) {
 }
 
 export default RequireAuth;
---- FILE: frontend/src/components/LotteryResults.jsx ---
+---
+
+File: frontend/src/components/LotteryResults.jsx
+---
 // src/components/LotteryResults.jsx (Banner Version)
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../api';
@@ -2099,7 +2258,10 @@ function LotteryResults() {
 }
 
 export default LotteryResults;
---- FILE: frontend/package.json ---
+---
+
+File: frontend/package.json
+---
 {
   "name": "frontend",
   "private": true,
@@ -2120,7 +2282,10 @@ export default LotteryResults;
     "vite": "^4.4.5"
   }
 }
---- FILE: frontend/index.html ---
+---
+
+File: frontend/index.html
+---
 <!doctype html>
 <html lang="en">
   <head>
@@ -2134,41 +2299,42 @@ export default LotteryResults;
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
---- FILE: frontend/public/_worker.js ---
-// File: frontend/public/_worker.js
+---
+
+File: frontend/public/_worker.js
+---
+// File: frontend/public/_worker.js (修复版)
 
 export default {
-  /**
-   * @param {Request} request
-   * @param {object} env
-   * @param {object} ctx
-   */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // Only proxy requests that start with /api/
+    // Only proxy API requests
     if (url.pathname.startsWith('/api/')) {
-      // Extract the endpoint from the path, e.g., /api/register -> register
       const endpoint = url.pathname.substring(5);
-
-      // Construct the new backend URL
-      // Example: https://wenge.cloudns.ch/index.php?endpoint=register
       const backendUrl = `https://wenge.cloudns.ch/index.php?endpoint=${endpoint}${url.search}`;
 
-      // Create a new request to the backend, copying the original request's properties.
-      // This is a robust way to forward the request, including method, headers, and body.
-      const backendRequest = new Request(backendUrl, request);
+      // 修复：创建新的请求对象，避免流式 body 问题
+      const backendRequestInit = {
+        method: request.method,
+        headers: new Headers(request.headers),
+        // 对于非 GET 请求，克隆 body 以避免流式问题
+        body: request.method !== 'GET' && request.body ? await request.clone().arrayBuffer() : null,
+        // 添加 duplex 设置
+        duplex: 'half'
+      };
 
-      // Forward the request to the backend and return the response.
       try {
+        const backendRequest = new Request(backendUrl, backendRequestInit);
         return await fetch(backendRequest);
       } catch (e) {
-        // If the backend is unreachable, return a 503 error.
         return new Response(`Backend server is unreachable: ${e.message}`, { status: 503 });
       }
     }
 
-    // For all other requests, serve the static assets from Cloudflare Pages.
+    // Serve static assets
     return env.ASSETS.fetch(request);
   },
 };
+
+---
