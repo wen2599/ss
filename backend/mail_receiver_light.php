@@ -1,5 +1,5 @@
 <?php
-// File: mail_receiver_light.php (完全简化版 - 无频率检查)
+// File: mail_receiver_light.php (添加自动清理功能)
 
 // --- 独立的日志系统 ---
 define('MAIL_LOG_FILE', __DIR__ . '/mail_debug.log');
@@ -7,12 +7,12 @@ function log_mail_debug($message) {
     error_log(date('[Y-m-d H:i:s] ') . $message . "\n", 3, MAIL_LOG_FILE);
 }
 
-log_mail_debug("=== 邮件接收器开始 (简化版) ===");
+log_mail_debug("=== 邮件接收器开始 (自动清理版) ===");
 
 try {
     // --- 1. 加载所有核心依赖 ---
     require_once __DIR__ . '/config.php';
-    require_once __DIR__ . '/ai_helper.php'; 
+    require_once __DIR__ . '/ai_helper.php';
     log_mail_debug("依赖加载完成");
 
     // --- 2. 安全验证 (Bearer Token) ---
@@ -20,7 +20,7 @@ try {
     if (!$secret) {
         throw new Exception("EMAIL_WORKER_SECRET 未配置");
     }
-    
+
     $auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
     $token = str_replace('Bearer ', '', $auth_header);
 
@@ -31,21 +31,21 @@ try {
         exit;
     }
     log_mail_debug("安全检查通过");
-    
+
     // --- 3. 获取并验证输入 (JSON格式) ---
     $json_input = file_get_contents('php://input');
     if (empty($json_input)) {
         throw new Exception("空的 JSON 输入");
     }
-    
+
     $input = json_decode($json_input, true);
     if ($input === null) {
         throw new Exception("无效的 JSON 数据");
     }
-    
+
     $sender_email = $input['sender'] ?? null;
     $raw_content = $input['raw_content'] ?? null;
-    
+
     if (empty($sender_email) || empty($raw_content)) {
         throw new Exception("缺少 'sender' 或 'raw_content' 字段");
     }
@@ -67,6 +67,37 @@ try {
     if ($user_id) {
         log_mail_debug("找到用户 ID: " . $user_id);
 
+        // --- 6. 自动清理：检查并删除超出10封限制的邮件 ---
+        $stmt_count = $pdo->prepare("SELECT COUNT(*) FROM raw_emails WHERE user_id = ?");
+        $stmt_count->execute([$user_id]);
+        $email_count = $stmt_count->fetchColumn();
+        
+        if ($email_count >= 10) {
+            log_mail_debug("用户邮件数量: {$email_count}, 开始自动清理...");
+            
+            // 找出最早的邮件ID进行删除
+            $stmt_oldest = $pdo->prepare("
+                SELECT id FROM raw_emails 
+                WHERE user_id = ? 
+                ORDER BY received_at ASC 
+                LIMIT 1
+            ");
+            $stmt_oldest->execute([$user_id]);
+            $oldest_email_id = $stmt_oldest->fetchColumn();
+            
+            if ($oldest_email_id) {
+                // 先删除相关的parsed_bets记录（外键约束）
+                $stmt_delete_bets = $pdo->prepare("DELETE FROM parsed_bets WHERE email_id = ?");
+                $stmt_delete_bets->execute([$oldest_email_id]);
+                
+                // 再删除邮件记录
+                $stmt_delete_email = $pdo->prepare("DELETE FROM raw_emails WHERE id = ?");
+                $stmt_delete_email->execute([$oldest_email_id]);
+                
+                log_mail_debug("已自动删除最旧邮件 ID: " . $oldest_email_id);
+            }
+        }
+
         // --- 步骤 A: 存入原始邮件 ---
         $stmt_insert_raw = $pdo->prepare("INSERT INTO raw_emails (user_id, content, status) VALUES (?, ?, 'pending')");
         $stmt_insert_raw->execute([$user_id, $raw_content]);
@@ -86,16 +117,16 @@ try {
             // 存入 parsed_bets 表
             $stmt_insert_parsed = $pdo->prepare("INSERT INTO parsed_bets (email_id, bet_data_json, ai_model_used) VALUES (?, ?, ?)");
             $stmt_insert_parsed->execute([$email_id, $bet_data_json, $model_used]);
-            
+
             // 更新 raw_emails 状态为 processed
             $stmt_update_status = $pdo->prepare("UPDATE raw_emails SET status = 'processed' WHERE id = ?");
             $stmt_update_status->execute([$email_id]);
             log_mail_debug("解析数据已存储，状态更新为 processed");
-            
+
             http_response_code(200);
             echo json_encode([
-                'status' => 'success', 
-                'message' => '邮件处理完成', 
+                'status' => 'success',
+                'message' => '邮件处理完成',
                 'ai_status' => 'success',
                 'email_id' => $email_id,
                 'model_used' => $model_used
@@ -104,15 +135,15 @@ try {
             // AI 分析失败
             $error_message = $ai_result['message'] ?? '未知 AI 错误';
             log_mail_debug("AI 分析失败。原因: " . $error_message);
-            
+
             // 更新 raw_emails 状态为 failed
             $stmt_update_status = $pdo->prepare("UPDATE raw_emails SET status = 'failed' WHERE id = ?");
             $stmt_update_status->execute([$email_id]);
-            
+
             http_response_code(200);
             echo json_encode([
-                'status' => 'success', 
-                'message' => '邮件已保存但 AI 分析失败', 
+                'status' => 'success',
+                'message' => '邮件已保存但 AI 分析失败',
                 'ai_status' => 'failed',
                 'email_id' => $email_id,
                 'ai_error' => $error_message
