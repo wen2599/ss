@@ -1,4 +1,4 @@
-// File: frontend/src/components/Navbar.jsx (Simplified)
+// File: frontend/src/components/Navbar.jsx
 
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
@@ -25,6 +25,7 @@ function Navbar() {
       <ul className="nav-links">
         <li><NavLink to="/">开奖记录</NavLink></li>
         {user && <li><NavLink to="/emails">邮件原文</NavLink></li>}
+        {user && <li><NavLink to="/odds-template">赔率设置</NavLink></li>}
       </ul>
       <div className="nav-auth">
         {user ? (
