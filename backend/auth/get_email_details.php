@@ -8,11 +8,6 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
-// 获取用户赔率模板
-$stmt_odds = $pdo->prepare("SELECT * FROM user_odds_templates WHERE user_id = ?");
-$stmt_odds->execute([$user_id]);
-$userOddsTemplate = $stmt_odds->fetch(PDO::FETCH_ASSOC);
-
 $email_id = $_GET['id'] ?? null;
 
 if (empty($email_id)) {
@@ -23,6 +18,11 @@ if (empty($email_id)) {
 
 try {
     $pdo = get_db_connection();
+
+    // --- 获取用户赔率模板 ---
+    $stmt_odds = $pdo->prepare("SELECT * FROM user_odds_templates WHERE user_id = ?");
+    $stmt_odds->execute([$user_id]);
+    $userOddsTemplate = $stmt_odds->fetch(PDO::FETCH_ASSOC);
 
     // --- 1. 获取原始邮件内容 ---
     $stmt_email = $pdo->prepare("SELECT content FROM raw_emails WHERE id = ? AND user_id = ?");
@@ -82,11 +82,11 @@ try {
             'ai_model' => $batch['ai_model_used']
         ];
 
-        // --- 5. 为每个批次计算结算（使用实际开奖结果）---
+        // --- 5. 为每个批次计算结算（使用实际开奖结果和用户赔率模板）---
         if (isset($batch_data['bets']) && is_array($batch_data['bets'])) {
             $lottery_type = $batch_data['lottery_type'] ?? '香港六合彩';
             $lottery_result = $latest_results[$lottery_type] ?? null;
-            
+
             $settlement_data = calculateBatchSettlement($batch_data, $lottery_result, $userOddsTemplate);
             $batch_info['settlement'] = $settlement_data;
 
@@ -104,18 +104,19 @@ try {
 
     // --- 7. 如果没有任何批次，使用手动解析 ---
     if (empty($bet_batches)) {
+        require_once __DIR__ . '/../helpers/manual_parser.php';
         $manual_data = parseBetManually($clean_content);
         if (!empty($manual_data['bets'])) {
             // 为手动解析的数据计算结算
             $settlement_data = calculateManualSettlement($manual_data, $latest_results, $userOddsTemplate);
-            
+
             $batch_info = [
                 'batch_id' => 0,
                 'data' => $manual_data,
                 'ai_model' => 'manual_parser',
                 'settlement' => $settlement_data
             ];
-            
+
             $bet_batches[] = $batch_info;
             $enhanced_content = embedManualSettlement($clean_content, $manual_data, $settlement_data);
         } else {
@@ -137,6 +138,7 @@ try {
 
 } catch (Throwable $e) {
     error_log("Error in get_email_details.php for email_id {$email_id}: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
     http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => 'Internal Server Error: ' . $e->getMessage()]);
 }
@@ -290,146 +292,6 @@ function getUserOddsForBetType(string $betType, ?array $userOddsTemplate): ?floa
 }
 
 /**
- * 手动解析下注信息 - 使用正确的生肖号码映射
- */
-function parseBetManually(string $text): array {
-    $bets = [];
-    $totalAmount = 0;
-    
-    // 解析澳门号码下注 - 第一条
-    if (preg_match('/澳门(.+?)各(\d+)#/', $text, $matches)) {
-        $numbersText = $matches[1];
-        $amount = intval($matches[2]);
-        
-        // 提取号码
-        preg_match_all('/\d+/', $numbersText, $numberMatches);
-        $numbers = $numberMatches[0];
-        
-        foreach ($numbers as $number) {
-            $bets[] = [
-                'bet_type' => '号码',
-                'targets' => [trim($number)],
-                'amount' => $amount,
-                'raw_text' => "澳门{$number}各{$amount}#",
-                'lottery_type' => '澳门六合彩'
-            ];
-            $totalAmount += $amount;
-        }
-    }
-    
-    // 解析生肖下注 - 第二条（使用正确的生肖号码映射）
-    if (preg_match('/([鼠牛虎兔龙蛇马羊猴鸡狗猪])[，,]\\s*([鼠牛虎兔龙蛇马羊猴鸡狗猪])数各(\\d+)元/', $text, $matches)) {
-        $zodiac1 = trim($matches[1]);
-        $zodiac2 = trim($matches[2]);
-        $amount = intval($matches[3]);
-        
-        // 获取每个生肖对应的号码（使用正确的映射）
-        $zodiac1Numbers = getNumbersByZodiac($zodiac1);
-        $zodiac2Numbers = getNumbersByZodiac($zodiac2);
-        
-        // 为每个号码创建下注记录
-        foreach ($zodiac1Numbers as $number) {
-            $bets[] = [
-                'bet_type' => '生肖',
-                'targets' => [$number],
-                'amount' => $amount,
-                'raw_text' => "{$zodiac1}号码{$number}各{$amount}元",
-                'lottery_type' => '澳门六合彩',
-                'zodiac' => $zodiac1
-            ];
-            $totalAmount += $amount;
-        }
-        
-        foreach ($zodiac2Numbers as $number) {
-            $bets[] = [
-                'bet_type' => '生肖',
-                'targets' => [$number],
-                'amount' => $amount,
-                'raw_text' => "{$zodiac2}号码{$number}各{$amount}元",
-                'lottery_type' => '澳门六合彩',
-                'zodiac' => $zodiac2
-            ];
-            $totalAmount += $amount;
-        }
-    }
-    
-    // 解析香港号码下注 - 第三条
-    if (preg_match('/香港：(.+?)各(\\d+)块/', $text, $matches)) {
-        $numbersText = $matches[1];
-        $amount = intval($matches[2]);
-        
-        // 提取号码（用点号分隔）
-        $numbers = explode('.', $numbersText);
-        $numbers = array_filter($numbers, function($num) {
-            return !empty(trim($num));
-        });
-        
-        foreach ($numbers as $number) {
-            $bets[] = [
-                'bet_type' => '号码',
-                'targets' => [trim($number)],
-                'amount' => $amount,
-                'raw_text' => "香港号码{$number}各{$amount}块",
-                'lottery_type' => '香港六合彩'
-            ];
-            $totalAmount += $amount;
-        }
-    }
-    
-    return [
-        'lottery_type' => '混合',
-        'issue_number' => '',
-        'bets' => $bets,
-        'total_amount' => $totalAmount
-    ];
-}
-
-/**
- * 根据生肖获取对应的号码（使用正确的映射）
- */
-function getNumbersByZodiac(string $zodiac): array {
-    $zodiacMap = [
-        '鼠' => ['06', '18', '30', '42'],
-        '牛' => ['05', '17', '29', '41'],
-        '虎' => ['04', '16', '28', '40'],
-        '兔' => ['03', '15', '27', '39'],
-        '龙' => ['02', '14', '26', '38'],
-        '蛇' => ['01', '13', '25', '37', '49'], // 蛇有5个号码
-        '马' => ['12', '24', '36', '48'],
-        '羊' => ['11', '23', '35', '47'],
-        '猴' => ['10', '22', '34', '46'],
-        '鸡' => ['09', '21', '33', '45'],
-        '狗' => ['08', '20', '32', '44'],
-        '猪' => ['07', '19', '31', '43']
-    ];
-    
-    return $zodiacMap[$zodiac] ?? [];
-}
-
-/**
- * 根据号码获取生肖（使用正确的映射）
- */
-function getZodiacByNumber($number): ?string {
-    $zodiacMap = [
-        '01' => '蛇', '13' => '蛇', '25' => '蛇', '37' => '蛇', '49' => '蛇',
-        '02' => '龙', '14' => '龙', '26' => '龙', '38' => '龙',
-        '03' => '兔', '15' => '兔', '27' => '兔', '39' => '兔',
-        '04' => '虎', '16' => '虎', '28' => '虎', '40' => '虎',
-        '05' => '牛', '17' => '牛', '29' => '牛', '41' => '牛',
-        '06' => '鼠', '18' => '鼠', '30' => '鼠', '42' => '鼠',
-        '07' => '猪', '19' => '猪', '31' => '猪', '43' => '猪',
-        '08' => '狗', '20' => '狗', '32' => '狗', '44' => '狗',
-        '09' => '鸡', '21' => '鸡', '33' => '鸡', '45' => '鸡',
-        '10' => '猴', '22' => '猴', '34' => '猴', '46' => '猴',
-        '11' => '羊', '23' => '羊', '35' => '羊', '47' => '羊',
-        '12' => '马', '24' => '马', '36' => '马', '48' => '马'
-    ];
-    
-    $numberPadded = str_pad(strval(trim($number)), 2, '0', STR_PAD_LEFT);
-    return $zodiacMap[$numberPadded] ?? null;
-}
-
-/**
  * 计算手动解析的结算
  */
 function calculateManualSettlement(array $manualData, array $latestResults, ?array $userOddsTemplate = null): array {
@@ -465,19 +327,15 @@ function calculateManualSettlement(array $manualData, array $latestResults, ?arr
             $result = reset($latestResults) ?: null;
         }
 
+        // 获取用户设置的赔率
+        $odds = getUserOddsForBetType($betType, $userOddsTemplate);
+        $settlement['used_odds'] = $odds;
+
         foreach ($targets as $target) {
             if ($result && isset($result['winning_numbers']) && is_array($result['winning_numbers'])) {
                 $winningNumbers = $result['winning_numbers'];
-                
-                // 根据下注类型获取对应的赔率
-                $odds = getUserOddsForBetType($betType, $userOddsTemplate);
-                $settlement['used_odds'] = $odds;
 
-                if ($odds === null) {
-                    continue; // 如果没有设置该玩法的赔率，跳过结算
-                }
-
-                if ($betType === '号码' || $betType === '生肖') {
+                if ($betType === '号码' || $betType === '特码' || $betType === '生肖') {
                     // 特码玩法：对比特码（最后一个号码）
                     $specialNumber = end($winningNumbers);
                     if (strval(trim($target)) === strval(trim($specialNumber))) {
@@ -485,7 +343,7 @@ function calculateManualSettlement(array $manualData, array $latestResults, ?arr
                         $winningBets[] = [
                             'number' => $target,
                             'amount' => $amount,
-                            'odds' => $odds,
+                            'odds' => $odds ?: 45, // 如果没有设置赔率，使用默认45
                             'bet_type' => $betType,
                             'lottery_type' => $result['lottery_type'],
                             'zodiac' => $bet['zodiac'] ?? null
@@ -498,7 +356,7 @@ function calculateManualSettlement(array $manualData, array $latestResults, ?arr
 
     $settlement['winning_details'] = $winningBets;
 
-    // 计算净收益（使用用户设置的单一赔率）
+    // 计算净收益
     $totalWin = 0;
     foreach ($winningBets as $win) {
         $totalWin += $win['amount'] * $win['odds'];
@@ -514,7 +372,6 @@ function calculateManualSettlement(array $manualData, array $latestResults, ?arr
 
     $winCount = count($winningBets);
     if (!empty($latestResults)) {
-        $lotteryTypes = array_keys($latestResults);
         $oddsInfo = $settlement['used_odds'] ? " (赔率: {$settlement['used_odds']})" : "";
         $settlement['summary'] = "总下注 {$manualData['total_amount']} 元，中奖 {$winCount} 注{$oddsInfo}";
     } else {
@@ -526,7 +383,30 @@ function calculateManualSettlement(array $manualData, array $latestResults, ?arr
 }
 
 /**
- * 将结算结果嵌入邮件内容 - 修复版：确保嵌入到正确位置
+ * 根据号码获取生肖
+ */
+function getZodiacByNumber($number): ?string {
+    $zodiacMap = [
+        '01' => '蛇', '13' => '蛇', '25' => '蛇', '37' => '蛇', '49' => '蛇',
+        '02' => '龙', '14' => '龙', '26' => '龙', '38' => '龙',
+        '03' => '兔', '15' => '兔', '27' => '兔', '39' => '兔',
+        '04' => '虎', '16' => '虎', '28' => '虎', '40' => '虎',
+        '05' => '牛', '17' => '牛', '29' => '牛', '41' => '牛',
+        '06' => '鼠', '18' => '鼠', '30' => '鼠', '42' => '鼠',
+        '07' => '猪', '19' => '猪', '31' => '猪', '43' => '猪',
+        '08' => '狗', '20' => '狗', '32' => '狗', '44' => '狗',
+        '09' => '鸡', '21' => '鸡', '33' => '鸡', '45' => '鸡',
+        '10' => '猴', '22' => '猴', '34' => '猴', '46' => '猴',
+        '11' => '羊', '23' => '羊', '35' => '羊', '47' => '羊',
+        '12' => '马', '24' => '马', '36' => '马', '48' => '马'
+    ];
+
+    $numberPadded = str_pad(strval(trim($number)), 2, '0', STR_PAD_LEFT);
+    return $zodiacMap[$numberPadded] ?? null;
+}
+
+/**
+ * 将结算结果嵌入邮件内容
  */
 function embedSettlementInContent(string $content, array $batchData, array $settlement, int $batchId): string {
     $rawText = $batchData['raw_text'] ?? '';
@@ -546,7 +426,7 @@ function embedSettlementInContent(string $content, array $batchData, array $sett
         return $content . "\n\n" . $settlementHtml;
     }
 
-    // 构建结算HTML - 使用纯文本格式，避免HTML标签
+    // 构建结算HTML
     $settlementHtml = buildPlainSettlementHtml($settlement, $batchId);
 
     // 在原始文本后插入结算信息
@@ -567,51 +447,50 @@ function embedManualSettlement(string $content, array $manualData, array $settle
 }
 
 /**
- * 构建纯文本结算HTML - 避免HTML标签问题
+ * 构建纯文本结算HTML
  */
 function buildPlainSettlementHtml(array $settlement, int $batchId): string {
     $html = "\n\n" . str_repeat("=", 50) . "\n";
-    $html .= "🎯 结算结果 (批次 {$batchId})\\n";
+    $html .= "🎯 结算结果 (批次 {$batchId})\n";
     $html .= str_repeat("=", 50) . "\n";
 
     // 总下注金额
-    $html .= "💰 总投注金额: {$settlement['total_bet_amount']} 元\\n";
+    $html .= "💰 总投注金额: {$settlement['total_bet_amount']} 元\n";
 
     // 中奖详情
     if (!empty($settlement['winning_details'])) {
-        $html .= "🎊 中奖详情:\\n";
+        $html .= "🎊 中奖详情:\n";
         foreach ($settlement['winning_details'] as $win) {
             $lotteryTypeInfo = isset($win['lottery_type']) ? " ({$win['lottery_type']})" : "";
             $zodiacInfo = isset($win['zodiac']) ? " [{$win['zodiac']}]" : "";
-            $html .= "   - 号码 {$win['number']}{$zodiacInfo}: {$win['amount']} 元 (赔率 {$win['odds']}){$lotteryTypeInfo}\\n";
+            $oddsInfo = isset($win['odds']) ? " (赔率 {$win['odds']})" : "";
+            $html .= "   - 号码 {$win['number']}{$zodiacInfo}: {$win['amount']} 元{$oddsInfo}{$lotteryTypeInfo}\n";
         }
     } else {
         if ($settlement['has_lottery_data']) {
-            $html .= "❌ 中奖详情: 未中奖\\n";
+            $html .= "❌ 中奖详情: 未中奖\n";
         } else {
-            $html .= "⏳ 中奖详情: 等待开奖数据\\n";
+            $html .= "⏳ 中奖详情: 等待开奖数据\n";
         }
     }
 
-    // 净收益
-    if (isset($settlement['net_profits']['net_profit'])) {
+    // 结算结果
+    $html .= "\n📈 结算结果:\n";
+    if ($settlement['net_profits'] && isset($settlement['net_profits']['net_profit'])) {
         $netProfit = $settlement['net_profits']['net_profit'];
         $isProfit = $settlement['net_profits']['is_profit'];
-        $oddsUsed = $settlement['net_profits']['odds'];
-
+        $oddsInfo = $settlement['used_odds'] ? " (赔率: {$settlement['used_odds']})" : "";
+        
         $emoji = $isProfit ? '🟢' : '🔴';
         $profitText = $isProfit ? "盈利" : "亏损";
         $netAmount = abs($netProfit);
-        $oddsDisplay = $oddsUsed ? " (赔率: {$oddsUsed})" : "";
 
-        $html .= "\n📈 净收益{$oddsDisplay}: {$emoji} {$profitText} {$netAmount} 元\\n";
-    } else {
-        $html .= "\n📈 净收益: 无法计算（缺少赔率信息）\\n";
+        $html .= "{$emoji} {$profitText} {$netAmount} 元{$oddsInfo}\n";
     }
 
     // 添加开奖数据信息
     if (!$settlement['has_lottery_data']) {
-        $html .= "\n⚠️  注意: 当前无开奖数据，以上为模拟结算结果\\n";
+        $html .= "\n⚠️  注意: 当前无开奖数据，以上为模拟结算结果\n";
     }
 
     $html .= str_repeat("=", 50) . "\n";

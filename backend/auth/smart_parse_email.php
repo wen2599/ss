@@ -1,6 +1,5 @@
 <?php
 // File: backend/auth/smart_parse_email.php
-require_once __DIR__ . '/../db_operations.php';
 
 // 1. 身份验证
 if (!isset($_SESSION['user_id'])) {
@@ -53,6 +52,7 @@ try {
     $clean_content = parse_email_body($email['content']);
     
     // 获取最新开奖结果
+    $placeholders = implode(',', array_fill(0, count($lottery_types), '?'));
     $sql_latest_results = "
         SELECT r1.*
         FROM lottery_results r1
@@ -61,7 +61,7 @@ try {
             FROM lottery_results
             GROUP BY lottery_type
         ) r2 ON r1.lottery_type = r2.lottery_type AND r1.id = r2.max_id
-        WHERE r1.lottery_type IN (" . implode(',', array_fill(0, count($lottery_types), '?')) . ")
+        WHERE r1.lottery_type IN ($placeholders)
     ";
     $stmt_latest = $pdo->prepare($sql_latest_results);
     $stmt_latest->execute($lottery_types);
@@ -129,6 +129,7 @@ try {
 
 } catch (Throwable $e) {
     error_log("Error in smart_parse_email for email {$email_id}: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
     http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => '解析失败: ' . $e->getMessage()]);
 }
