@@ -7,6 +7,7 @@ function EmailDetailPage() {
   const { emailId } = useParams();
   const [loading, setLoading] = useState(true);
   const [reanalyzing, setReanalyzing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
   const [pageData, setPageData] = useState({
     email_content: '',
@@ -46,7 +47,7 @@ function EmailDetailPage() {
     setReanalyzing(true);
     try {
       const result = await apiService.reanalyzeEmail(parseInt(emailId));
-      
+
       if (result.status === 'success') {
         alert('重新解析成功！');
         // 重新加载数据
@@ -59,6 +60,36 @@ function EmailDetailPage() {
       alert('重新解析请求失败: ' + error.message);
     } finally {
       setReanalyzing(false);
+    }
+  };
+
+  // 下载结算文件
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const blob = await apiService.downloadSettlement(parseInt(emailId));
+      
+      // 创建下载链接
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      
+      // 使用日期时间作为文件名
+      const filename = `${new Date().toISOString().replace(/[:.]/g, '-').split('T')[0]}_${new Date().toISOString().replace(/[:.]/g, '-').split('T')[1].split('.')[0]}_settlement.txt`;
+      a.download = filename;
+      
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      console.log('文件下载成功');
+    } catch (error) {
+      console.error('下载失败:', error);
+      alert('下载失败: ' + error.message);
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -98,8 +129,8 @@ function EmailDetailPage() {
 
   // 渲染内容 - 修复版：正确处理HTML内容
   const renderContent = () => {
-    const content = viewMode === 'enhanced' && pageData.enhanced_content 
-      ? pageData.enhanced_content 
+    const content = viewMode === 'enhanced' && pageData.enhanced_content
+      ? pageData.enhanced_content
       : pageData.email_content;
 
     return (
@@ -124,7 +155,7 @@ function EmailDetailPage() {
   // 格式化内容显示 - 处理HTML实体和换行
   const formatContentForDisplay = (content) => {
     if (!content) return '';
-    
+
     // 替换HTML实体
     let formatted = content
       .replace(/&amp;/g, '&')
@@ -132,10 +163,10 @@ function EmailDetailPage() {
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#039;/g, "'");
-    
+
     // 确保换行正确显示
     formatted = formatted.replace(/\n/g, '<br/>');
-    
+
     return formatted;
   };
 
@@ -314,6 +345,21 @@ function EmailDetailPage() {
           }}
         >
           🔄 刷新数据
+        </button>
+        <button
+          onClick={handleDownload}
+          disabled={downloading}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: downloading ? '#6c757d' : '#dc3545',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: downloading ? 'not-allowed' : 'pointer',
+            fontSize: '0.9rem'
+          }}
+        >
+          {downloading ? '📥 下载中...' : '📥 下载结算文件'}
         </button>
       </div>
 
