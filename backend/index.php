@@ -1,5 +1,5 @@
 <?php
-// File: backend/index.php (Final Version)
+// File: backend/index.php (添加下载路由)
 
 /**
  * Main API Entry Point.
@@ -42,15 +42,12 @@ $routes = [
     'get_emails'            => 'auth/get_emails.php',
     'get_email_details'     => 'auth/get_email_details.php',
     'update_bet_batch'      => 'auth/update_bet_batch.php',
-    'reanalyze_email'       => 'auth/reanalyze_email.php', // 新增：重新解析邮件
+    'reanalyze_email'       => 'auth/reanalyze_email.php',
+    'download_settlement'   => 'auth/download_settlement.php', // 新增：下载结算文件
 
     // Lottery related endpoints
     'get_lottery_results'       => 'lottery/get_results.php',
     'get_lottery_result_by_issue' => 'lottery/get_result_by_issue.php',
-
-    // Settlement related endpoints (Placeholder for future)
-    // 'run_settlement'      => 'settlement/run.php',
-    // 'get_settlements'     => 'settlement/get_list.php',
 ];
 
 
