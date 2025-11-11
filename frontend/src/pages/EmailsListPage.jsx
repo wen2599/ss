@@ -1,4 +1,4 @@
-// File: frontend/pages/EmailsListPage.jsx (Was EmailsPage.jsx)
+// File: frontend/pages/EmailsListPage.jsx (添加邮件数量显示)
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -22,8 +22,11 @@ function EmailsListPage() {
   useEffect(() => {
     apiService.getEmails()
       .then(response => {
-        if (response.status === 'success') setEmails(response.data);
-        else setError(response.message);
+        if (response.status === 'success') {
+          setEmails(response.data);
+        } else {
+          setError(response.message);
+        }
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
@@ -35,30 +38,47 @@ function EmailsListPage() {
     if (emails.length === 0) return <p>没有找到任何邮件。</p>;
 
     return (
-      <table>
-        <thead>
-          <tr>
-            <th>邮件 ID</th>
-            <th>处理状态</th>
-            <th>接收时间</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {emails.map(email => (
-            <tr key={email.id}>
-              <td>#{email.id}</td>
-              <td><StatusBadge status={email.status} /></td>
-              <td>{new Date(email.received_at).toLocaleString()}</td>
-              <td>
-                <Link to={`/emails/${email.id}`} className="button-link">
-                  查看原文与结算
-                </Link>
-              </td>
+      <div>
+        <div style={{
+          backgroundColor: '#e7f3ff',
+          border: '1px solid #b3d9ff',
+          borderRadius: '8px',
+          padding: '1rem',
+          marginBottom: '1rem'
+        }}>
+          <p style={{ margin: 0, fontWeight: 'bold', color: '#0066cc' }}>
+            📧 系统自动维护：最多保存最近10封邮件，新邮件会自动替换旧邮件
+          </p>
+          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem', color: '#666' }}>
+            当前邮件数量: {emails.length} / 10
+          </p>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>邮件 ID</th>
+              <th>处理状态</th>
+              <th>接收时间</th>
+              <th>操作</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {emails.map(email => (
+              <tr key={email.id}>
+                <td>#{email.id}</td>
+                <td><StatusBadge status={email.status} /></td>
+                <td>{new Date(email.received_at).toLocaleString()}</td>
+                <td>
+                  <Link to={`/emails/${email.id}`} className="button-link">
+                    查看原文与结算
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     );
   };
 
