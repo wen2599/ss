@@ -214,6 +214,28 @@ export const apiService = {
     return request('download_settlement', {}, `&id=${emailId}`);
   },
 
+  // ==================== 赔率模板相关 ====================
+
+  /**
+   * 获取赔率模板
+   * @returns {Promise}
+   */
+  getOddsTemplate() {
+    return request('odds_template');
+  },
+
+  /**
+   * 更新赔率模板
+   * @param {object} templateData - 模板数据
+   * @returns {Promise}
+   */
+  updateOddsTemplate(templateData) {
+    return request('odds_template', {
+      method: 'POST',
+      body: JSON.stringify(templateData)
+    });
+  },
+
   // ==================== 结算相关 ====================
 
   /**
