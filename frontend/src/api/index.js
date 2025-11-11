@@ -1,4 +1,4 @@
-// File: frontend/src/api/index.js (Complete Version)
+// File: frontend/src/api/index.js (添加下载功能)
 
 const API_BASE_URL = 'https://wenge.cloudns.ch/index.php';
 
@@ -58,6 +58,11 @@ async function request(endpoint, options = {}, queryParams = '') {
       }
 
       throw new Error(errorMessage);
+    }
+
+    // 对于下载请求，返回blob
+    if (endpoint === 'download_settlement') {
+      return response.blob();
     }
 
     // 解析响应数据
@@ -189,7 +194,7 @@ export const apiService = {
   },
 
   /**
-   * 重新解析邮件 - 新增方法
+   * 重新解析邮件
    * @param {number} emailId - 邮件ID
    * @returns {Promise}
    */
@@ -198,6 +203,15 @@ export const apiService = {
       method: 'POST',
       body: JSON.stringify({ email_id: emailId })
     });
+  },
+
+  /**
+   * 下载结算文件
+   * @param {number} emailId - 邮件ID
+   * @returns {Promise}
+   */
+  downloadSettlement(emailId) {
+    return request('download_settlement', {}, `&id=${emailId}`);
   },
 
   // ==================== 结算相关 ====================
