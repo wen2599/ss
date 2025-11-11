@@ -1,5 +1,6 @@
 <?php
 // File: backend/auth/odds_template.php
+require_once __DIR__ . '/../db_operations.php';
 
 // 1. 身份验证
 if (!isset($_SESSION['user_id'])) {
@@ -41,12 +42,17 @@ try {
         // 更新用户赔率模板
         $input = json_decode(file_get_contents('php://input'), true);
         
-        $special_code_odds = $input['special_code_odds'] ?? null;
-        $flat_special_odds = $input['flat_special_odds'] ?? null;
-        $serial_code_odds = $input['serial_code_odds'] ?? null;
-        $even_xiao_odds = $input['even_xiao_odds'] ?? null;
-        $six_xiao_odds = $input['six_xiao_odds'] ?? null;
-        $size_single_double_odds = $input['size_single_double_odds'] ?? null;
+        // 验证输入数据
+        if (!$input) {
+            throw new Exception('Invalid JSON data');
+        }
+        
+        $special_code_odds = isset($input['special_code_odds']) && $input['special_code_odds'] !== '' ? floatval($input['special_code_odds']) : null;
+        $flat_special_odds = isset($input['flat_special_odds']) && $input['flat_special_odds'] !== '' ? floatval($input['flat_special_odds']) : null;
+        $serial_code_odds = isset($input['serial_code_odds']) && $input['serial_code_odds'] !== '' ? floatval($input['serial_code_odds']) : null;
+        $even_xiao_odds = isset($input['even_xiao_odds']) && $input['even_xiao_odds'] !== '' ? floatval($input['even_xiao_odds']) : null;
+        $six_xiao_odds = isset($input['six_xiao_odds']) && $input['six_xiao_odds'] !== '' ? floatval($input['six_xiao_odds']) : null;
+        $size_single_double_odds = isset($input['size_single_double_odds']) && $input['size_single_double_odds'] !== '' ? floatval($input['size_single_double_odds']) : null;
 
         // 检查是否已存在模板
         $stmt_check = $pdo->prepare("SELECT id FROM user_odds_templates WHERE user_id = ?");
@@ -58,10 +64,11 @@ try {
             $stmt = $pdo->prepare("
                 UPDATE user_odds_templates 
                 SET special_code_odds = ?, flat_special_odds = ?, serial_code_odds = ?, 
-                    even_xiao_odds = ?, six_xiao_odds = ?, size_single_double_odds = ?
+                    even_xiao_odds = ?, six_xiao_odds = ?, size_single_double_odds = ?,
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE user_id = ?
             ");
-            $stmt->execute([
+            $result = $stmt->execute([
                 $special_code_odds, $flat_special_odds, $serial_code_odds,
                 $even_xiao_odds, $six_xiao_odds, $size_single_double_odds,
                 $user_id
@@ -74,22 +81,34 @@ try {
                  even_xiao_odds, six_xiao_odds, size_single_double_odds)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmt->execute([
+            $result = $stmt->execute([
                 $user_id, $special_code_odds, $flat_special_odds, $serial_code_odds,
                 $even_xiao_odds, $six_xiao_odds, $size_single_double_odds
             ]);
         }
 
-        http_response_code(200);
-        echo json_encode([
-            'status' => 'success',
-            'message' => '赔率模板保存成功'
-        ]);
+        if ($result) {
+            http_response_code(200);
+            echo json_encode([
+                'status' => 'success',
+                'message' => '赔率模板保存成功'
+            ]);
+        } else {
+            throw new Exception('Failed to save template');
+        }
     }
 
-} catch (Throwable $e) {
-    error_log("Odds template error for user {$user_id}: " . $e->getMessage());
+} catch (PDOException $e) {
+    error_log("Database error in odds_template: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => '服务器内部错误']);
+    echo json_encode(['status' => 'error', 'message' => '数据库错误: ' . $e->getMessage()]);
+} catch (Exception $e) {
+    error_log("General error in odds_template: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => '服务器错误: ' . $e->getMessage()]);
+} catch (Throwable $e) {
+    error_log("Unexpected error in odds_template: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => '未知错误: ' . $e->getMessage()]);
 }
 ?>

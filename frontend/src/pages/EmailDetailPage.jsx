@@ -2,13 +2,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiService } from '../api';
 import SettlementCard from '../components/SettlementCard';
+import LotteryTypeModal from '../components/LotteryTypeModal';
 
 function EmailDetailPage() {
   const { emailId } = useParams();
   const [loading, setLoading] = useState(true);
-  const [reanalyzing, setReanalyzing] = useState(false);
+  const [parsing, setParsing] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [showLotteryModal, setShowLotteryModal] = useState(false);
   const [error, setError] = useState(null);
+  const [parseMethod, setParseMethod] = useState(null);
   const [pageData, setPageData] = useState({
     email_content: '',
     enhanced_content: '',
@@ -42,24 +45,27 @@ function EmailDetailPage() {
       .finally(() => setLoading(false));
   };
 
-  // 重新解析邮件
-  const handleReanalyze = async () => {
-    setReanalyzing(true);
+  // 智能解析邮件
+  const handleSmartParse = async (lotteryTypes) => {
+    setParsing(true);
+    setShowLotteryModal(false);
+    
     try {
-      const result = await apiService.reanalyzeEmail(parseInt(emailId));
+      const result = await apiService.smartParseEmail(parseInt(emailId), lotteryTypes);
 
       if (result.status === 'success') {
-        alert('重新解析成功！');
+        setParseMethod(result.parse_method);
+        alert(`解析完成！使用方式: ${result.parse_method === 'ai' ? 'AI解析' : '模板解析'}`);
         // 重新加载数据
         fetchEmailDetails();
       } else {
-        alert('重新解析失败: ' + result.message);
+        alert('解析失败: ' + result.message);
       }
     } catch (error) {
-      console.error('重新解析错误:', error);
-      alert('重新解析请求失败: ' + error.message);
+      console.error('智能解析错误:', error);
+      alert('解析请求失败: ' + error.message);
     } finally {
-      setReanalyzing(false);
+      setParsing(false);
     }
   };
 
@@ -106,28 +112,25 @@ function EmailDetailPage() {
   // 全局总计计算
   const globalTotals = useMemo(() => {
     let totalBet = 0;
-    let totalWin45 = 0, totalWin46 = 0, totalWin47 = 0;
+    let totalWin = 0;
 
     if (pageData && Array.isArray(pageData.bet_batches)) {
       pageData.bet_batches.forEach(batch => {
         if (batch.settlement) {
           totalBet += batch.settlement.total_bet_amount || 0;
-          totalWin45 += batch.settlement.net_profits?.[45]?.total_win || 0;
-          totalWin46 += batch.settlement.net_profits?.[46]?.total_win || 0;
-          totalWin47 += batch.settlement.net_profits?.[47]?.total_win || 0;
+          totalWin += batch.settlement.net_profits?.total_win || 0;
         }
       });
     }
 
     return {
       totalBet,
-      netProfit45: totalWin45 - totalBet,
-      netProfit46: totalWin46 - totalBet,
-      netProfit47: totalWin47 - totalBet,
+      totalWin,
+      netProfit: totalWin - totalBet,
     };
   }, [pageData]);
 
-  // 渲染内容 - 修复版：正确处理HTML内容
+  // 渲染内容
   const renderContent = () => {
     const content = viewMode === 'enhanced' && pageData.enhanced_content
       ? pageData.enhanced_content
@@ -152,11 +155,10 @@ function EmailDetailPage() {
     );
   };
 
-  // 格式化内容显示 - 处理HTML实体和换行
+  // 格式化内容显示
   const formatContentForDisplay = (content) => {
     if (!content) return '';
 
-    // 替换HTML实体
     let formatted = content
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
@@ -164,9 +166,7 @@ function EmailDetailPage() {
       .replace(/&quot;/g, '"')
       .replace(/&#039;/g, "'");
 
-    // 确保换行正确显示
     formatted = formatted.replace(/\n/g, '<br/>');
-
     return formatted;
   };
 
@@ -183,21 +183,21 @@ function EmailDetailPage() {
           textAlign: 'center'
         }}>
           <p style={{ color: '#856404', margin: '0 0 1rem 0' }}>
-            📝 未检测到AI解析的下注信息
+            📝 未检测到解析的下注信息
           </p>
           <button
-            onClick={handleReanalyze}
-            disabled={reanalyzing}
+            onClick={() => setShowLotteryModal(true)}
+            disabled={parsing}
             style={{
               padding: '0.5rem 1rem',
-              backgroundColor: reanalyzing ? '#6c757d' : '#007bff',
+              backgroundColor: parsing ? '#6c757d' : '#007bff',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              cursor: reanalyzing ? 'not-allowed' : 'pointer'
+              cursor: parsing ? 'not-allowed' : 'pointer'
             }}
           >
-            {reanalyzing ? '解析中...' : '重新解析邮件'}
+            {parsing ? '解析中...' : '手动解析邮件'}
           </button>
         </div>
       );
@@ -256,18 +256,18 @@ function EmailDetailPage() {
           重新加载
         </button>
         <button
-          onClick={handleReanalyze}
-          disabled={reanalyzing}
+          onClick={() => setShowLotteryModal(true)}
+          disabled={parsing}
           style={{
             padding: '0.5rem 1rem',
-            backgroundColor: reanalyzing ? '#6c757d' : '#28a745',
+            backgroundColor: parsing ? '#6c757d' : '#28a745',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
-            cursor: reanalyzing ? 'not-allowed' : 'pointer'
+            cursor: parsing ? 'not-allowed' : 'pointer'
           }}
         >
-          {reanalyzing ? '解析中...' : '强制重新解析'}
+          {parsing ? '解析中...' : '手动解析'}
         </button>
       </div>
     );
@@ -318,19 +318,19 @@ function EmailDetailPage() {
         borderRadius: '4px'
       }}>
         <button
-          onClick={handleReanalyze}
-          disabled={reanalyzing}
+          onClick={() => setShowLotteryModal(true)}
+          disabled={parsing}
           style={{
             padding: '0.5rem 1rem',
-            backgroundColor: reanalyzing ? '#6c757d' : '#28a745',
+            backgroundColor: parsing ? '#6c757d' : '#28a745',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
-            cursor: reanalyzing ? 'not-allowed' : 'pointer',
+            cursor: parsing ? 'not-allowed' : 'pointer',
             fontSize: '0.9rem'
           }}
         >
-          {reanalyzing ? '🔄 解析中...' : '🔄 重新解析邮件'}
+          {parsing ? '🔄 解析中...' : '🔄 手动解析邮件'}
         </button>
         <button
           onClick={fetchEmailDetails}
@@ -363,6 +363,21 @@ function EmailDetailPage() {
         </button>
       </div>
 
+      {/* 解析方式提示 */}
+      {parseMethod && (
+        <div style={{
+          padding: '0.5rem',
+          backgroundColor: parseMethod === 'template' ? '#d4edda' : '#d1ecf1',
+          borderLeft: `4px solid ${parseMethod === 'template' ? '#28a745' : '#17a2b8'}`,
+          marginBottom: '1rem',
+          borderRadius: '4px'
+        }}>
+          <small>
+            解析方式: <strong>{parseMethod === 'template' ? '模板解析' : 'AI解析'}</strong>
+          </small>
+        </div>
+      )}
+
       {/* 视图模式提示 */}
       <div style={{
         padding: '0.5rem',
@@ -377,20 +392,6 @@ function EmailDetailPage() {
             ' - 未检测到结算信息，显示原始内容'}
         </small>
       </div>
-
-      {/* 调试信息 */}
-      {process.env.NODE_ENV === 'development' && (
-        <details style={{ marginBottom: '1rem', border: '1px solid #ccc', padding: '0.5rem', borderRadius: '4px' }}>
-          <summary>调试信息</summary>
-          <div style={{ fontSize: '0.8rem', background: '#f5f5f5', padding: '0.5rem' }}>
-            <p><strong>批次数量:</strong> {pageData.bet_batches?.length || 0}</p>
-            <p><strong>增强内容长度:</strong> {pageData.enhanced_content?.length || 0}</p>
-            <p><strong>原始内容长度:</strong> {pageData.email_content?.length || 0}</p>
-            <p><strong>彩票结果:</strong> {Object.keys(pageData.latest_lottery_results || {}).length} 种</p>
-            <p><strong>增强内容预览:</strong> {pageData.enhanced_content?.substring(0, 100)}...</p>
-          </div>
-        </details>
-      )}
 
       <hr />
 
@@ -410,7 +411,7 @@ function EmailDetailPage() {
       {/* 在原始视图下显示结算卡片 */}
       {viewMode === 'original' && (
         <>
-          <h3>AI解析结果</h3>
+          <h3>解析结果</h3>
           {renderSettlementCards()}
         </>
       )}
@@ -421,35 +422,26 @@ function EmailDetailPage() {
       <h3>全局结算汇总</h3>
       <div className="global-totals-card">
         <p><strong>总下注金额: {globalTotals.totalBet} 元</strong></p>
+        <p><strong>总中奖金额: {globalTotals.totalWin} 元</strong></p>
         <hr />
         <p>
-          <strong>赔率 45:</strong> 总盈亏{' '}
+          <strong>净盈亏:</strong>{' '}
           <span style={{
             fontWeight: 'bold',
-            color: globalTotals.netProfit45 >= 0 ? 'red' : 'blue'
+            color: globalTotals.netProfit >= 0 ? 'red' : 'blue'
           }}>
-            {globalTotals.netProfit45 >= 0 ? '+' : ''}{globalTotals.netProfit45} 元
-          </span>
-        </p>
-        <p>
-          <strong>赔率 46:</strong> 总盈亏{' '}
-          <span style={{
-            fontWeight: 'bold',
-            color: globalTotals.netProfit46 >= 0 ? 'red' : 'blue'
-          }}>
-            {globalTotals.netProfit46 >= 0 ? '+' : ''}{globalTotals.netProfit46} 元
-          </span>
-        </p>
-        <p>
-          <strong>赔率 47:</strong> 总盈亏{' '}
-          <span style={{
-            fontWeight: 'bold',
-            color: globalTotals.netProfit47 >= 0 ? 'red' : 'blue'
-          }}>
-            {globalTotals.netProfit47 >= 0 ? '+' : ''}{globalTotals.netProfit47} 元
+            {globalTotals.netProfit >= 0 ? '+' : ''}{globalTotals.netProfit} 元
           </span>
         </p>
       </div>
+
+      {/* 彩票类型选择弹窗 */}
+      <LotteryTypeModal
+        isOpen={showLotteryModal}
+        onClose={() => setShowLotteryModal(false)}
+        onConfirm={handleSmartParse}
+        loading={parsing}
+      />
     </div>
   );
 }

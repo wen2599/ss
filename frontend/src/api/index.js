@@ -214,6 +214,22 @@ export const apiService = {
     return request('download_settlement', {}, `&id=${emailId}`);
   },
 
+  /**
+   * 智能解析邮件（模板优先 + AI降级）
+   * @param {number} emailId - 邮件ID
+   * @param {array} lotteryTypes - 彩票类型数组
+   * @returns {Promise}
+   */
+  smartParseEmail(emailId, lotteryTypes) {
+    return request('smart_parse_email', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        email_id: emailId, 
+        lottery_types: lotteryTypes 
+      })
+    });
+  },
+
   // ==================== 赔率模板相关 ====================
 
   /**

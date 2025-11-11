@@ -1,5 +1,5 @@
 <?php
-// File: mail_receiver_light.php (添加自动清理功能)
+// File: mail_receiver_light.php (修改为仅接收，不自动解析)
 
 // --- 独立的日志系统 ---
 define('MAIL_LOG_FILE', __DIR__ . '/mail_debug.log');
@@ -7,12 +7,11 @@ function log_mail_debug($message) {
     error_log(date('[Y-m-d H:i:s] ') . $message . "\n", 3, MAIL_LOG_FILE);
 }
 
-log_mail_debug("=== 邮件接收器开始 (自动清理版) ===");
+log_mail_debug("=== 邮件接收器开始 (仅接收模式) ===");
 
 try {
-    // --- 1. 加载所有核心依赖 ---
+    // --- 1. 加载核心依赖 ---
     require_once __DIR__ . '/config.php';
-    require_once __DIR__ . '/ai_helper.php';
     log_mail_debug("依赖加载完成");
 
     // --- 2. 安全验证 (Bearer Token) ---
@@ -98,57 +97,19 @@ try {
             }
         }
 
-        // --- 步骤 A: 存入原始邮件 ---
+        // --- 步骤 A: 存入原始邮件（不自动解析）---
         $stmt_insert_raw = $pdo->prepare("INSERT INTO raw_emails (user_id, content, status) VALUES (?, ?, 'pending')");
         $stmt_insert_raw->execute([$user_id, $raw_content]);
         $email_id = $pdo->lastInsertId();
         log_mail_debug("邮件存入 raw_emails，ID: " . $email_id);
 
-        // --- 步骤 B: 调用 AI 分析 ---
-        log_mail_debug("调用 AI 分析邮件内容...");
-        $ai_result = analyzeBetSlipWithAI($raw_content);
-
-        if ($ai_result['success']) {
-            // AI 分析成功
-            $model_used = $ai_result['model'] ?? 'unknown_model';
-            log_mail_debug("AI 分析成功。模型: " . $model_used);
-            $bet_data_json = json_encode($ai_result['data']);
-
-            // 存入 parsed_bets 表
-            $stmt_insert_parsed = $pdo->prepare("INSERT INTO parsed_bets (email_id, bet_data_json, ai_model_used) VALUES (?, ?, ?)");
-            $stmt_insert_parsed->execute([$email_id, $bet_data_json, $model_used]);
-
-            // 更新 raw_emails 状态为 processed
-            $stmt_update_status = $pdo->prepare("UPDATE raw_emails SET status = 'processed' WHERE id = ?");
-            $stmt_update_status->execute([$email_id]);
-            log_mail_debug("解析数据已存储，状态更新为 processed");
-
-            http_response_code(200);
-            echo json_encode([
-                'status' => 'success',
-                'message' => '邮件处理完成',
-                'ai_status' => 'success',
-                'email_id' => $email_id,
-                'model_used' => $model_used
-            ]);
-        } else {
-            // AI 分析失败
-            $error_message = $ai_result['message'] ?? '未知 AI 错误';
-            log_mail_debug("AI 分析失败。原因: " . $error_message);
-
-            // 更新 raw_emails 状态为 failed
-            $stmt_update_status = $pdo->prepare("UPDATE raw_emails SET status = 'failed' WHERE id = ?");
-            $stmt_update_status->execute([$email_id]);
-
-            http_response_code(200);
-            echo json_encode([
-                'status' => 'success',
-                'message' => '邮件已保存但 AI 分析失败',
-                'ai_status' => 'failed',
-                'email_id' => $email_id,
-                'ai_error' => $error_message
-            ]);
-        }
+        // 不再自动调用AI解析，等待用户手动解析
+        http_response_code(200);
+        echo json_encode([
+            'status' => 'success',
+            'message' => '邮件接收成功，请手动解析',
+            'email_id' => $email_id
+        ]);
 
     } else {
         log_mail_debug("用户 '{$sender_email}' 未找到或未激活。忽略邮件");
