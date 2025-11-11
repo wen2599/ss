@@ -1,4 +1,4 @@
-// File: frontend/src/App.jsx (Simplified Routes)
+// File: frontend/src/App.jsx
 
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
@@ -9,8 +9,9 @@ import RequireAuth from './components/RequireAuth';
 
 import HomePage from './pages/HomePage';
 import AuthPage from './pages/AuthPage';
-import EmailsListPage from './pages/EmailsListPage'; // Renamed for clarity
-import EmailDetailPage from './pages/EmailDetailPage'; // This is now the core workbench
+import EmailsListPage from './pages/EmailsListPage';
+import EmailDetailPage from './pages/EmailDetailPage';
+import OddsTemplatePage from './pages/OddsTemplatePage'; // 新增
 
 function App() {
   return (
@@ -21,15 +22,19 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/auth" element={<AuthPage />} />
 
-          <Route 
-            path="/emails" 
-            element={<RequireAuth><EmailsListPage /></RequireAuth>} 
+          <Route
+            path="/emails"
+            element={<RequireAuth><EmailsListPage /></RequireAuth>}
           />
-          <Route 
-            path="/emails/:emailId" 
-            element={<RequireAuth><EmailDetailPage /></RequireAuth>} 
+          <Route
+            path="/emails/:emailId"
+            element={<RequireAuth><EmailDetailPage /></RequireAuth>}
           />
-          
+          <Route
+            path="/odds-template"
+            element={<RequireAuth><OddsTemplatePage /></RequireAuth>}
+          />
+
           <Route path="*" element={
             <div className="card"><h1>404 - 页面未找到</h1></div>
           } />
