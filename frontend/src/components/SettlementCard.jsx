@@ -257,13 +257,20 @@ const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
           </div>
 
           <div style={{ marginBottom: '0.5rem' }}>
-            <strong>赔率 45:</strong> {renderWinningDetails(45)}
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>赔率 46:</strong> {renderWinningDetails(46)}
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>赔率 47:</strong> {renderWinningDetails(47)}
+            <strong>结算结果:</strong>{' '}
+            {settlement.net_profits && settlement.net_profits.odds ? (
+              <>
+                <span style={{ 
+                  color: settlement.net_profits.is_profit ? 'red' : 'blue', 
+                  fontWeight: 'bold' 
+                }}>
+                  {settlement.net_profits.is_profit ? '盈利' : '亏损'} {Math.abs(settlement.net_profits.net_profit)} 元
+                </span>
+                {' '}(赔率: {settlement.net_profits.odds})
+              </>
+            ) : (
+              <span style={{ color: '#666' }}>未设置该玩法的赔率</span>
+            )}
           </div>
         </div>
       </div>
