@@ -43,11 +43,14 @@ $routes = [
     'get_email_details'     => 'auth/get_email_details.php',
     'update_bet_batch'      => 'auth/update_bet_batch.php',
     'reanalyze_email'       => 'auth/reanalyze_email.php',
-    'download_settlement'   => 'auth/download_settlement.php', // 新增：下载结算文件
+    'download_settlement'   => 'auth/download_settlement.php',
 
     // Lottery related endpoints
     'get_lottery_results'       => 'lottery/get_results.php',
     'get_lottery_result_by_issue' => 'lottery/get_result_by_issue.php',
+
+    // Odds template endpoints
+    'odds_template'         => 'auth/odds_template.php', // 新增赔率模板接口
 ];
 
 
