@@ -1,4 +1,4 @@
-// File: frontend/src/pages/EmailDetailPage.jsx (带调试信息)
+// File: frontend/src/pages/EmailDetailPage.jsx (添加批量重新解析功能)
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { apiService } from '../api';
@@ -14,6 +14,8 @@ function EmailDetailPage() {
     lines: []
   });
   const [hasOddsTemplate, setHasOddsTemplate] = useState(true);
+  const [reparsing, setReparsing] = useState(false);
+  const [showReparseModal, setShowReparseModal] = useState(false);
 
   useEffect(() => {
     fetchEmailLines();
@@ -39,11 +41,11 @@ function EmailDetailPage() {
     setLoading(true);
     setError(null);
 
-    console.log('正在获取邮件ID:', emailId); // 调试信息
+    console.log('正在获取邮件ID:', emailId);
 
     apiService.splitEmailLines(emailId)
       .then(res => {
-        console.log('拆分结果:', res); // 调试信息
+        console.log('拆分结果:', res);
         if (res.status === 'success') {
           setPageData(res.data);
         } else {
@@ -60,16 +62,16 @@ function EmailDetailPage() {
   const handleLineUpdate = (lineNumber, updateData) => {
     setPageData(prev => ({
       ...prev,
-      lines: prev.lines.map(line => 
-        line.line_number === lineNumber 
-          ? { 
-              ...line, 
-              is_parsed: true, 
+      lines: prev.lines.map(line =>
+        line.line_number === lineNumber
+          ? {
+              ...line,
+              is_parsed: true,
               batch_data: {
                 batch_id: updateData.batch_id,
                 data: updateData.parse_result
               }
-            } 
+            }
           : line
       )
     }));
@@ -78,12 +80,78 @@ function EmailDetailPage() {
   const handleLineDelete = (lineNumber) => {
     setPageData(prev => ({
       ...prev,
-      lines: prev.lines.map(line => 
-        line.line_number === lineNumber 
-          ? { ...line, is_parsed: false, batch_data: null } 
+      lines: prev.lines.map(line =>
+        line.line_number === lineNumber
+          ? { ...line, is_parsed: false, batch_data: null }
           : line
       )
     }));
+  };
+
+  // 批量重新解析所有行
+  const handleBatchReparse = async (selectedTypes) => {
+    if (!selectedTypes || selectedTypes.length === 0) {
+      alert('请选择至少一种彩票类型');
+      return;
+    }
+
+    setReparsing(true);
+    setShowReparseModal(false);
+
+    const lotteryType = selectedTypes[0]; // 使用第一个选择的类型
+
+    try {
+      // 批量解析所有未解析的行
+      const unparsedLines = pageData.lines.filter(line => !line.is_parsed);
+      
+      if (unparsedLines.length === 0) {
+        alert('所有行都已解析完成！');
+        setReparsing(false);
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      // 顺序执行解析，避免并发问题
+      for (const line of unparsedLines) {
+        try {
+          const numericEmailId = parseInt(emailId, 10);
+          if (isNaN(numericEmailId)) {
+            throw new Error('无效的邮件ID');
+          }
+
+          const result = await apiService.parseSingleBet(
+            numericEmailId,
+            line.text,
+            line.line_number,
+            lotteryType
+          );
+
+          if (result.status === 'success') {
+            handleLineUpdate(line.line_number, result.data);
+            successCount++;
+          } else {
+            console.error(`解析第${line.line_number}行失败:`, result.message);
+            errorCount++;
+          }
+        } catch (error) {
+          console.error(`解析第${line.line_number}行时发生错误:`, error);
+          errorCount++;
+        }
+
+        // 添加小延迟，避免请求过于频繁
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      alert(`批量解析完成！成功: ${successCount} 条，失败: ${errorCount} 条`);
+      
+    } catch (error) {
+      console.error('批量解析失败:', error);
+      alert('批量解析失败: ' + error.message);
+    } finally {
+      setReparsing(false);
+    }
   };
 
   const globalStats = pageData.lines.reduce((stats, line) => {
@@ -158,11 +226,25 @@ function EmailDetailPage() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h2>智能解析面板 (邮件ID: {emailId})</h2>
-        <div>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={() => setShowReparseModal(true)}
+            disabled={reparsing}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: reparsing ? '#6c757d' : '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: reparsing ? 'not-allowed' : 'pointer',
+              fontSize: '0.9rem'
+            }}
+          >
+            {reparsing ? '批量解析中...' : '批量重新解析'}
+          </button>
           <button
             onClick={() => setViewMode('original')}
             style={{
-              marginRight: '0.5rem',
               padding: '0.5rem 1rem',
               backgroundColor: viewMode === 'original' ? '#007bff' : '#f8f9fa',
               color: viewMode === 'original' ? 'white' : '#333',
@@ -202,6 +284,9 @@ function EmailDetailPage() {
           </div>
           <div>
             <strong>已解析:</strong> {globalStats.parsedCount}
+          </div>
+          <div>
+            <strong>未解析:</strong> {pageData.lines.length - globalStats.parsedCount}
           </div>
           <div>
             <strong>总下注:</strong> {globalStats.totalBet} 元
@@ -244,7 +329,7 @@ function EmailDetailPage() {
             marginBottom: '1rem'
           }}>
             <small>
-              💡 提示：系统已自动识别并拆分出 {pageData.lines.length} 条独立下注单，请逐条解析查看结果
+              💡 提示：系统已自动识别并拆分出 {pageData.lines.length} 条独立下注单，已解析 {globalStats.parsedCount} 条，未解析 {pageData.lines.length - globalStats.parsedCount} 条
             </small>
           </div>
 
@@ -255,10 +340,142 @@ function EmailDetailPage() {
               emailId={emailId}
               onUpdate={handleLineUpdate}
               onDelete={handleLineDelete}
+              showParseButton={false} // 隐藏单条解析按钮
             />
           ))}
         </div>
       )}
+
+      {/* 批量重新解析模态框 */}
+      {showReparseModal && (
+        <BatchReparseModal
+          isOpen={showReparseModal}
+          onClose={() => setShowReparseModal(false)}
+          onConfirm={handleBatchReparse}
+          loading={reparsing}
+          unparsedCount={pageData.lines.length - globalStats.parsedCount}
+        />
+      )}
+    </div>
+  );
+}
+
+// 批量重新解析模态框组件
+function BatchReparseModal({ isOpen, onClose, onConfirm, loading, unparsedCount }) {
+  const [selectedTypes, setSelectedTypes] = useState([]);
+
+  const lotteryTypes = [
+    { value: '香港六合彩', label: '香港六合彩 (周二、四、六开奖)' },
+    { value: '新澳门六合彩', label: '新澳门六合彩 (每日开奖)' },
+    { value: '老澳门六合彩', label: '老澳门六合彩 (每日开奖)' }
+  ];
+
+  const handleTypeToggle = (type) => {
+    setSelectedTypes([type]); // 单选，只允许选择一个
+  };
+
+  const handleConfirm = () => {
+    if (selectedTypes.length === 0) {
+      alert('请选择一种彩票类型');
+      return;
+    }
+    onConfirm(selectedTypes);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        padding: '2rem',
+        borderRadius: '8px',
+        minWidth: '400px',
+        maxWidth: '500px'
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>批量重新解析</h3>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <p><strong>未解析行数:</strong> {unparsedCount}</p>
+          <p style={{ fontSize: '0.9rem', color: '#666' }}>
+            系统将自动解析所有未解析的下注单行
+          </p>
+        </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+            选择彩票类型:
+          </label>
+          {lotteryTypes.map(type => (
+            <div key={type.value} style={{ marginBottom: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="batchLotteryType"
+                  checked={selectedTypes.includes(type.value)}
+                  onChange={() => handleTypeToggle(type.value)}
+                  style={{ marginRight: '0.5rem' }}
+                />
+                {type.label}
+              </label>
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: '4px',
+          padding: '1rem',
+          marginBottom: '1.5rem'
+        }}>
+          <p style={{ margin: 0, color: '#856404', fontSize: '0.9rem' }}>
+            💡 提示：批量解析将自动处理所有未解析的下注单，解析过程可能需要一些时间
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            取消
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={loading || selectedTypes.length === 0}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: loading ? '#6c757d' : '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: (loading || selectedTypes.length === 0) ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? '解析中...' : '开始批量解析'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

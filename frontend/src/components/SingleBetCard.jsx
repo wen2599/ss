@@ -1,9 +1,8 @@
-// File: frontend/src/components/SingleBetCard.jsx (添加彩票类型选择)
-
+// File: frontend/src/components/SingleBetCard.jsx (隐藏单条解析按钮)
 import React, { useState } from 'react';
 import { apiService } from '../api';
 
-function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
+function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton = true }) {
   const [isParsing, setIsParsing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editableData, setEditableData] = useState('');
@@ -24,12 +23,12 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
       }
 
       const result = await apiService.parseSingleBet(
-        numericEmailId, 
-        lineData.text, 
+        numericEmailId,
+        lineData.text,
         lineData.line_number,
         lotteryTypes[0] // 使用第一个选择的彩票类型
       );
-      
+
       if (result.status === 'success') {
         onUpdate(lineData.line_number, result.data);
       } else {
@@ -43,7 +42,7 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
     }
   };
 
-  // ... 其他函数保持不变 ...
+  // 其他函数保持不变...
 
   return (
     <div style={{
@@ -56,14 +55,14 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
       {/* 行号标识 */}
       <div style={{
         display: 'inline-block',
-        backgroundColor: '#007bff',
+        backgroundColor: lineData.is_parsed ? '#28a745' : '#6c757d',
         color: 'white',
         borderRadius: '12px',
         padding: '0.25rem 0.5rem',
         fontSize: '0.8rem',
         marginBottom: '0.5rem'
       }}>
-        第 {lineData.line_number} 条
+        第 {lineData.line_number} 条 {lineData.is_parsed ? '✅ 已解析' : '❌ 未解析'}
       </div>
 
       {/* 原始文本 */}
@@ -79,61 +78,63 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
         {lineData.text}
       </div>
 
-      {/* 操作按钮 */}
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-        {!lineData.is_parsed ? (
-          <button
-            onClick={handleParse}
-            disabled={isParsing}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: isParsing ? '#6c757d' : '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: isParsing ? 'not-allowed' : 'pointer',
-              fontSize: '0.9rem'
-            }}
-          >
-            {isParsing ? '解析中...' : '解析此条'}
-          </button>
-        ) : (
-          <>
+      {/* 操作按钮 - 根据 showParseButton 参数决定是否显示 */}
+      {showParseButton && (
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {!lineData.is_parsed ? (
             <button
-              onClick={() => setIsEditing(true)}
+              onClick={handleParse}
+              disabled={isParsing}
               style={{
                 padding: '0.5rem 1rem',
-                backgroundColor: '#007bff',
+                backgroundColor: isParsing ? '#6c757d' : '#28a745',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: 'pointer',
+                cursor: isParsing ? 'not-allowed' : 'pointer',
                 fontSize: '0.9rem'
               }}
             >
-              修改识别
+              {isParsing ? '解析中...' : '解析此条'}
             </button>
-            <button
-              onClick={() => {
-                if (window.confirm('确定要删除这条解析结果吗？')) {
-                  onDelete(lineData.line_number);
-                }
-              }}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: '#dc3545',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '0.9rem'
-              }}
-            >
-              删除解析
-            </button>
-          </>
-        )}
-      </div>
+          ) : (
+            <>
+              <button
+                onClick={() => setIsEditing(true)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                修改识别
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm('确定要删除这条解析结果吗？')) {
+                    onDelete(lineData.line_number);
+                  }
+                }}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                删除解析
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* 彩票类型选择弹窗 */}
       {showLotteryModal && (
@@ -157,10 +158,10 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
             <h4 style={{ margin: '0 0 0.5rem 0', color: '#2e7d32' }}>
               ✅ 解析结果
             </h4>
-            
+
             {/* 显示彩票类型 */}
             {lineData.batch_data.data.lottery_type && (
-              <div style={{ 
+              <div style={{
                 marginBottom: '0.5rem',
                 padding: '0.25rem 0.5rem',
                 backgroundColor: '#d4edda',
@@ -170,20 +171,22 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
                 <strong>彩票类型:</strong> {lineData.batch_data.data.lottery_type}
               </div>
             )}
-            
-            {lineData.batch_data.data.bets?.map((bet, index) => (
-              <div key={index} style={{ 
-                marginBottom: '0.5rem',
-                padding: '0.5rem',
-                backgroundColor: 'white',
-                borderRadius: '4px'
-              }}>
-                <div><strong>玩法:</strong> {bet.bet_type}</div>
-                <div><strong>目标:</strong> {Array.isArray(bet.targets) ? bet.targets.join(', ') : bet.targets}</div>
-                <div><strong>金额:</strong> {bet.amount} 元</div>
-                {bet.lottery_type && <div><strong>彩种:</strong> {bet.lottery_type}</div>}
-              </div>
-            ))}
+
+            {/* 合并显示所有下注信息 */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'auto 1fr auto',
+              gap: '0.5rem',
+              alignItems: 'center'
+            }}>
+              {lineData.batch_data.data.bets?.map((bet, index) => (
+                <React.Fragment key={index}>
+                  <div style={{ fontWeight: 'bold' }}>{bet.bet_type}:</div>
+                  <div>{Array.isArray(bet.targets) ? bet.targets.join(', ') : bet.targets}</div>
+                  <div style={{ textAlign: 'right' }}>{bet.amount} 元</div>
+                </React.Fragment>
+              ))}
+            </div>
 
             {/* 结算信息 */}
             {lineData.batch_data.data.settlement && (
@@ -196,7 +199,7 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
                 <div><strong>总下注:</strong> {lineData.batch_data.data.settlement.total_bet_amount} 元</div>
                 <div><strong>中奖注数:</strong> {lineData.batch_data.data.settlement.winning_details?.length || 0}</div>
                 {lineData.batch_data.data.settlement.net_profits && (
-                  <div style={{ 
+                  <div style={{
                     color: lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? 'red' : 'blue',
                     fontWeight: 'bold'
                   }}>
@@ -261,7 +264,7 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
   );
 }
 
-// 彩票类型选择弹窗组件
+// LotteryTypeModal 组件保持不变...
 function LotteryTypeModal({ isOpen, onClose, onConfirm, loading }) {
   const [selectedTypes, setSelectedTypes] = useState([]);
 
