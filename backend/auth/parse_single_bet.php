@@ -1,5 +1,5 @@
 <?php
-// File: backend/auth/parse_single_bet.php (修复参数验证)
+// File: backend/auth/parse_single_bet.php (修复版，支持彩票类型参数)
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -11,8 +11,9 @@ $input = json_decode(file_get_contents('php://input'), true);
 $email_id = $input['email_id'] ?? null;
 $bet_text = $input['bet_text'] ?? null;
 $line_number = $input['line_number'] ?? null;
+$lottery_type = $input['lottery_type'] ?? '香港六合彩'; // 新增参数
 
-// 更严格的参数验证
+// 参数验证
 if (empty($email_id) || !is_numeric($email_id)) {
     http_response_code(400);
     echo json_encode(['status' => 'error', 'message' => 'Valid Email ID is required.']);
@@ -22,13 +23,6 @@ if (empty($email_id) || !is_numeric($email_id)) {
 if (empty($bet_text) || !is_string($bet_text)) {
     http_response_code(400);
     echo json_encode(['status' => 'error', 'message' => 'Valid bet text is required.']);
-    exit;
-}
-
-// line_number 可以为空，但如果有值必须是数字
-if ($line_number !== null && !is_numeric($line_number)) {
-    http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => 'Line number must be numeric.']);
     exit;
 }
 
@@ -74,7 +68,7 @@ try {
     }
 
     // 解析单条下注
-    $parse_result = parseSingleBetText($bet_text, $latest_results, $userOddsTemplate);
+    $parse_result = parseSingleBetText($bet_text, $latest_results, $userOddsTemplate, $lottery_type);
 
     // 保存到数据库
     $bet_data_json = json_encode([
@@ -112,5 +106,34 @@ try {
     echo json_encode(['status' => 'error', 'message' => '解析失败: ' . $e->getMessage()]);
 }
 
-// parseSingleBetText 函数保持不变...
-?>
+function parseSingleBetText(string $text, array $latest_results, ?array $userOddsTemplate = null, string $lottery_type = '香港六合彩'): array {
+    require_once __DIR__ . '/../helpers/manual_parser.php';
+    
+    // 先尝试手动解析
+    $manual_data = parseBetManually($text);
+    
+    // 如果手动解析没有结果，尝试AI解析
+    if (empty($manual_data['bets'])) {
+        require_once __DIR__ . '/../ai_helper.php';
+        // 使用专门的单条下注AI解析函数
+        $ai_result = analyzeSingleBetWithAI($text, $lottery_type);
+        
+        if ($ai_result['success'] && isset($ai_result['data'])) {
+            $manual_data = $ai_result['data'];
+        }
+    }
+
+    // 确保彩票类型正确设置
+    $manual_data['lottery_type'] = $lottery_type;
+
+    // 计算结算
+    $settlement_data = calculateManualSettlementDirect($manual_data, $latest_results, $userOddsTemplate);
+
+    return [
+        'bets' => $manual_data['bets'] ?? [],
+        'total_amount' => $manual_data['total_amount'] ?? 0,
+        'lottery_type' => $manual_data['lottery_type'] ?? $lottery_type,
+        'settlement' => $settlement_data,
+        'raw_text' => $text
+    ];
+}

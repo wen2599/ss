@@ -1,3 +1,4 @@
+
 // File: frontend/src/api/index.js (添加拆分邮件和单条解析功能)
 
 const API_BASE_URL = 'https://wenge.cloudns.ch/index.php';
@@ -194,15 +195,17 @@ export const apiService = {
    * @param {number} emailId - 邮件ID
    * @param {string} betText - 下注文本
    * @param {number} lineNumber - 行号
+   * @param {string} lotteryType - 彩票类型
    * @returns {Promise}
    */
-  parseSingleBet(emailId, betText, lineNumber) {
+  parseSingleBet(emailId, betText, lineNumber, lotteryType = '香港六合彩') {
     return request('parse_single_bet', {
       method: 'POST',
       body: JSON.stringify({
         email_id: emailId,
         bet_text: betText,
-        line_number: lineNumber
+        line_number: lineNumber,
+        lottery_type: lotteryType  // 新增参数
       })
     });
   },
