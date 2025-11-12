@@ -1,26 +1,25 @@
-// File: frontend/src/pages/EmailDetailPage.jsx (修改版)
+// File: frontend/src/pages/EmailDetailPage.jsx (带调试信息)
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom'; // 添加 Link
+import { useParams, Link } from 'react-router-dom';
 import { apiService } from '../api';
 import SingleBetCard from '../components/SingleBetCard';
 
 function EmailDetailPage() {
   const { emailId } = useParams();
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('split'); // 'split' 或 'original'
+  const [viewMode, setViewMode] = useState('split');
   const [error, setError] = useState(null);
   const [pageData, setPageData] = useState({
     email_content: '',
     lines: []
   });
-  const [hasOddsTemplate, setHasOddsTemplate] = useState(true); // 新增 state
+  const [hasOddsTemplate, setHasOddsTemplate] = useState(true);
 
   useEffect(() => {
     fetchEmailLines();
-    checkOddsTemplate(); // 新增调用
+    checkOddsTemplate();
   }, [emailId]);
 
-  // 新增函数：检查赔率模板
   const checkOddsTemplate = async () => {
     try {
       const response = await apiService.getOddsTemplate();
@@ -32,7 +31,7 @@ function EmailDetailPage() {
       }
     } catch (error) {
       console.error('检查赔率模板失败:', error);
-      setHasOddsTemplate(false); // 出错时也假设没有模板
+      setHasOddsTemplate(false);
     }
   };
 
@@ -40,8 +39,11 @@ function EmailDetailPage() {
     setLoading(true);
     setError(null);
 
+    console.log('正在获取邮件ID:', emailId); // 调试信息
+
     apiService.splitEmailLines(emailId)
       .then(res => {
+        console.log('拆分结果:', res); // 调试信息
         if (res.status === 'success') {
           setPageData(res.data);
         } else {
@@ -84,7 +86,6 @@ function EmailDetailPage() {
     }));
   };
 
-  // 计算全局统计
   const globalStats = pageData.lines.reduce((stats, line) => {
     if (line.is_parsed && line.batch_data?.data?.settlement) {
       const settlement = line.batch_data.data.settlement;
@@ -138,7 +139,6 @@ function EmailDetailPage() {
 
   return (
     <div className="card">
-      {/* 新增赔率模板提示 */}
       {!hasOddsTemplate && (
         <div style={{
           backgroundColor: '#fff3cd',
@@ -189,7 +189,6 @@ function EmailDetailPage() {
         </div>
       </div>
 
-      {/* 统计信息 */}
       <div style={{
         backgroundColor: '#e7f3ff',
         border: '1px solid #b3d9ff',
@@ -220,7 +219,6 @@ function EmailDetailPage() {
         </div>
       </div>
 
-      {/* 视图内容 */}
       {viewMode === 'original' ? (
         <div>
           <h3>原始邮件内容</h3>

@@ -1,4 +1,4 @@
-// File: frontend/src/components/SingleBetCard.jsx
+// File: frontend/src/components/SingleBetCard.jsx (修复版)
 import React, { useState } from 'react';
 import { apiService } from '../api';
 
@@ -10,14 +10,22 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
   const handleParse = async () => {
     setIsParsing(true);
     try {
+      // 确保 emailId 是数字类型
+      const numericEmailId = parseInt(emailId, 10);
+      if (isNaN(numericEmailId)) {
+        throw new Error('无效的邮件ID');
+      }
+
       const result = await apiService.parseSingleBet(
-        parseInt(emailId), 
+        numericEmailId, 
         lineData.text, 
         lineData.line_number
       );
       
       if (result.status === 'success') {
         onUpdate(lineData.line_number, result.data);
+      } else {
+        alert('解析失败: ' + (result.message || '未知错误'));
       }
     } catch (error) {
       console.error('解析失败:', error);
