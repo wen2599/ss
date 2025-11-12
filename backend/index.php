@@ -45,6 +45,8 @@ $routes = [
     'reanalyze_email'       => 'auth/reanalyze_email.php',
     'download_settlement'   => 'auth/download_settlement.php',
     'smart_parse_email'     => 'auth/smart_parse_email.php', // 新增智能解析
+    'parse_single_bet'    => 'auth/parse_single_bet.php',
+    'split_email_lines'   => 'auth/split_email_lines.php',
 
     // Lottery related endpoints
     'get_lottery_results'       => 'lottery/get_results.php',

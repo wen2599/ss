@@ -230,6 +230,33 @@ export const apiService = {
     });
   },
 
+/**
+ * 拆分邮件内容为多行
+ * @param {number} emailId - 邮件ID
+ * @returns {Promise}
+ */
+splitEmailLines(emailId) {
+  return request('split_email_lines', {}, `&id=${emailId}`);
+},
+
+/**
+ * 解析单条下注文本
+ * @param {number} emailId - 邮件ID
+ * @param {string} betText - 下注文本
+ * @param {number} lineNumber - 行号
+ * @returns {Promise}
+ */
+parseSingleBet(emailId, betText, lineNumber) {
+  return request('parse_single_bet', {
+    method: 'POST',
+    body: JSON.stringify({
+      email_id: emailId,
+      bet_text: betText,
+      line_number: lineNumber
+    })
+  });
+},
+
   // ==================== 赔率模板相关 ====================
 
   /**
