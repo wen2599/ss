@@ -1,4 +1,4 @@
-// File: frontend/src/api/index.js (添加下载功能)
+// File: frontend/src/api/index.js (添加拆分邮件和单条解析功能)
 
 const API_BASE_URL = 'https://wenge.cloudns.ch/index.php';
 
@@ -181,6 +181,33 @@ export const apiService = {
   },
 
   /**
+   * 拆分邮件内容为多行下注单
+   * @param {number} emailId - 邮件ID
+   * @returns {Promise}
+   */
+  splitEmailLines(emailId) {
+    return request('split_email_lines', {}, `&id=${emailId}`);
+  },
+
+  /**
+   * 解析单条下注文本
+   * @param {number} emailId - 邮件ID
+   * @param {string} betText - 下注文本
+   * @param {number} lineNumber - 行号
+   * @returns {Promise}
+   */
+  parseSingleBet(emailId, betText, lineNumber) {
+    return request('parse_single_bet', {
+      method: 'POST',
+      body: JSON.stringify({
+        email_id: emailId,
+        bet_text: betText,
+        line_number: lineNumber
+      })
+    });
+  },
+
+  /**
    * 更新下注批次
    * @param {number} batchId - 批次ID
    * @param {object} data - 下注数据
@@ -190,6 +217,18 @@ export const apiService = {
     return request('update_bet_batch', {
       method: 'POST',
       body: JSON.stringify({ batch_id: batchId, data: data })
+    });
+  },
+
+  /**
+   * 删除下注批次
+   * @param {number} batchId - 批次ID
+   * @returns {Promise}
+   */
+  deleteBetBatch(batchId) {
+    return request('delete_bet_batch', {
+      method: 'POST',
+      body: JSON.stringify({ batch_id: batchId })
     });
   },
 
@@ -223,39 +262,12 @@ export const apiService = {
   smartParseEmail(emailId, lotteryTypes) {
     return request('smart_parse_email', {
       method: 'POST',
-      body: JSON.stringify({ 
-        email_id: emailId, 
-        lottery_types: lotteryTypes 
+      body: JSON.stringify({
+        email_id: emailId,
+        lottery_types: lotteryTypes
       })
     });
   },
-
-/**
- * 拆分邮件内容为多行
- * @param {number} emailId - 邮件ID
- * @returns {Promise}
- */
-splitEmailLines(emailId) {
-  return request('split_email_lines', {}, `&id=${emailId}`);
-},
-
-/**
- * 解析单条下注文本
- * @param {number} emailId - 邮件ID
- * @param {string} betText - 下注文本
- * @param {number} lineNumber - 行号
- * @returns {Promise}
- */
-parseSingleBet(emailId, betText, lineNumber) {
-  return request('parse_single_bet', {
-    method: 'POST',
-    body: JSON.stringify({
-      email_id: emailId,
-      bet_text: betText,
-      line_number: lineNumber
-    })
-  });
-},
 
   // ==================== 赔率模板相关 ====================
 

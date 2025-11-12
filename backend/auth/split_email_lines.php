@@ -1,5 +1,5 @@
 <?php
-// File: backend/auth/split_email_lines.php
+// File: backend/auth/split_email_lines.php (修复版)
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -36,7 +36,7 @@ try {
     // 智能拆分下注单
     $bet_lines = splitBetLines($clean_content);
 
-    // 获取已解析的批次
+    // 获取已解析的批次 - 修复查询
     $stmt_bets = $pdo->prepare("
         SELECT id, bet_data_json, line_number 
         FROM parsed_bets 
@@ -67,7 +67,7 @@ try {
 
         $lines_data[] = [
             'line_number' => $line_number,
-            'text' => $line,
+            'text' => trim($line),
             'is_parsed' => !is_null($existing_batch),
             'batch_data' => $existing_batch
         ];

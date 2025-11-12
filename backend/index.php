@@ -1,5 +1,5 @@
 <?php
-// File: backend/index.php (添加下载路由)
+// File: backend/index.php (路由更新)
 
 /**
  * Main API Entry Point.
@@ -44,9 +44,9 @@ $routes = [
     'update_bet_batch'      => 'auth/update_bet_batch.php',
     'reanalyze_email'       => 'auth/reanalyze_email.php',
     'download_settlement'   => 'auth/download_settlement.php',
-    'smart_parse_email'     => 'auth/smart_parse_email.php', // 新增智能解析
-    'parse_single_bet'    => 'auth/parse_single_bet.php',
-    'split_email_lines'   => 'auth/split_email_lines.php',
+    'smart_parse_email'     => 'auth/smart_parse_email.php',
+    'parse_single_bet'      => 'auth/parse_single_bet.php', // 新增单条解析路由
+    'split_email_lines'     => 'auth/split_email_lines.php', // 新增邮件拆分路由
 
     // Lottery related endpoints
     'get_lottery_results'       => 'lottery/get_results.php',
@@ -60,7 +60,6 @@ $routes = [
 // --- 4. Route the request ---
 if (isset($routes[$endpoint])) {
     // If the endpoint is valid, include the corresponding handler file.
-    // The handler file will then take over and produce the output.
     require_once __DIR__ . '/' . $routes[$endpoint];
 } else {
     // If the endpoint is not found in our map, return a 404 error.
@@ -69,7 +68,6 @@ if (isset($routes[$endpoint])) {
 }
 
 // --- 5. Log the request for debugging ---
-// 记录请求日志，便于调试
 if (defined('MAIL_LOG_FILE')) {
     $log_message = sprintf(
         "API Request: %s %s - Endpoint: %s - User: %s\n",
