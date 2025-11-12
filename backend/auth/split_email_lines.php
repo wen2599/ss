@@ -1,5 +1,5 @@
 <?php
-// File: backend/auth/split_email_lines.php (修复版)
+// File: backend/auth/split_email_lines.php (优化版)
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -33,10 +33,10 @@ try {
     require_once __DIR__ . '/../helpers/mail_parser.php';
     $clean_content = parse_email_body($raw_content);
 
-    // 智能拆分下注单
-    $bet_lines = splitBetLines($clean_content);
+    // 智能拆分下注单 - 使用优化算法
+    $bet_lines = splitBetLinesIntelligently($clean_content);
 
-    // 获取已解析的批次 - 修复查询
+    // 获取已解析的批次
     $stmt_bets = $pdo->prepare("
         SELECT id, bet_data_json, line_number 
         FROM parsed_bets 
@@ -90,39 +90,83 @@ try {
 }
 
 /**
- * 智能拆分下注单行
+ * 智能拆分下注单行 - 优化版
  */
-function splitBetLines(string $content): array {
+function splitBetLinesIntelligently(string $content): array {
     $lines = explode("\n", $content);
     $bet_lines = [];
-    $current_line = '';
-
+    
+    // 定义下注关键词模式
+    $bet_patterns = [
+        // 澳门模式
+        '/澳门[，,].*?\d+.*?(元|块|#)/u',
+        // 香港模式  
+        '/香港[：:].*?\d+.*?(元|块|#)/u',
+        // 号码模式
+        '/\b\d{2}(?:[.,]\d{2})*.*?(各|×|x)\s*\d+\s*(元|块|#)/u',
+        // 生肖模式
+        '/[鼠牛虎兔龙蛇马羊猴鸡狗猪].*?\d+\s*(元|块|闷)/u',
+        // 金额模式
+        '/各\s*\d+\s*(元|块|#|闷)/u',
+        // 六肖模式
+        '/[鼠牛虎兔龙蛇马羊猴鸡狗猪]{2,}.*?\d+\s*(元|块|闷)/u'
+    ];
+    
+    $current_bet = '';
+    
     foreach ($lines as $line) {
         $line = trim($line);
         if (empty($line)) continue;
-
-        // 检测是否为新下注单的开始
-        $is_bet_start = preg_match('/(澳门|香港|鼠|牛|虎|兔|龙|蛇|马|羊|猴|鸡|狗|猪|平特|串码|大小|单双|各\d+(元|块|#))/u', $line);
         
-        if ($is_bet_start && !empty($current_line)) {
-            $bet_lines[] = $current_line;
-            $current_line = $line;
-        } else {
-            if (!empty($current_line)) {
-                $current_line .= ' ' . $line;
-            } else {
-                $current_line = $line;
+        // 跳过聊天记录头部和非下注内容
+        if (preg_match('/^(胜利|微信|聊天记录|—————|\d{4}-\d{2}-\d{2}|老都)/u', $line)) {
+            // 如果当前有累积的下注内容，先保存
+            if (!empty($current_bet)) {
+                $bet_lines[] = $current_bet;
+                $current_bet = '';
+            }
+            continue;
+        }
+        
+        // 检查是否包含下注特征
+        $is_bet_line = false;
+        foreach ($bet_patterns as $pattern) {
+            if (preg_match($pattern, $line)) {
+                $is_bet_line = true;
+                break;
             }
         }
+        
+        if ($is_bet_line) {
+            // 如果当前有累积内容，先保存
+            if (!empty($current_bet)) {
+                $bet_lines[] = $current_bet;
+            }
+            $current_bet = $line;
+        } else if (!empty($current_bet)) {
+            // 如果不是下注行但当前有累积，可能是下注的延续
+            $current_bet .= ' ' . $line;
+        }
     }
-
-    // 添加最后一行
-    if (!empty($current_line)) {
-        $bet_lines[] = $current_line;
+    
+    // 添加最后一条
+    if (!empty($current_bet)) {
+        $bet_lines[] = $current_bet;
     }
-
+    
     return array_filter($bet_lines, function($line) {
-        return !empty(trim($line));
+        $line = trim($line);
+        if (empty($line)) return false;
+        
+        // 最终过滤：必须包含数字和金额单位
+        return preg_match('/\d.*?(元|块|#|闷)|(各|×|x)\s*\d/u', $line);
     });
+}
+
+/**
+ * 旧版拆分函数（保留兼容性）
+ */
+function splitBetLines(string $content): array {
+    return splitBetLinesIntelligently($content);
 }
 ?>

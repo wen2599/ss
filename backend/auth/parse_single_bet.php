@@ -1,5 +1,5 @@
 <?php
-// File: backend/auth/parse_single_bet.php
+// File: backend/auth/parse_single_bet.php (修复版)
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -31,10 +31,15 @@ try {
         exit;
     }
 
-    // 获取用户赔率模板
+    // 获取用户赔率模板 - 修复：处理没有模板的情况
     $stmt_odds = $pdo->prepare("SELECT * FROM user_odds_templates WHERE user_id = ?");
     $stmt_odds->execute([$user_id]);
     $userOddsTemplate = $stmt_odds->fetch(PDO::FETCH_ASSOC);
+
+    // 如果没有赔率模板，设置为空数组而不是false
+    if (!$userOddsTemplate) {
+        $userOddsTemplate = [];
+    }
 
     // 获取最新开奖结果
     $sql_latest_results = "
@@ -63,7 +68,8 @@ try {
         'line_number' => $line_number,
         'bets' => $parse_result['bets'],
         'total_amount' => $parse_result['total_amount'],
-        'lottery_type' => $parse_result['lottery_type']
+        'lottery_type' => $parse_result['lottery_type'],
+        'settlement' => $parse_result['settlement']
     ]);
 
     $stmt_insert = $pdo->prepare("

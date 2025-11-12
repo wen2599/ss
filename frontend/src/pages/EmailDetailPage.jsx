@@ -1,6 +1,6 @@
 // File: frontend/src/pages/EmailDetailPage.jsx (修改版)
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom'; // 添加 Link
 import { apiService } from '../api';
 import SingleBetCard from '../components/SingleBetCard';
 
@@ -13,10 +13,28 @@ function EmailDetailPage() {
     email_content: '',
     lines: []
   });
+  const [hasOddsTemplate, setHasOddsTemplate] = useState(true); // 新增 state
 
   useEffect(() => {
     fetchEmailLines();
+    checkOddsTemplate(); // 新增调用
   }, [emailId]);
+
+  // 新增函数：检查赔率模板
+  const checkOddsTemplate = async () => {
+    try {
+      const response = await apiService.getOddsTemplate();
+      if (response.status === 'success' && response.data) {
+        const hasTemplate = Object.values(response.data).some(value => value !== null && value !== '');
+        setHasOddsTemplate(hasTemplate);
+      } else {
+        setHasOddsTemplate(false);
+      }
+    } catch (error) {
+      console.error('检查赔率模板失败:', error);
+      setHasOddsTemplate(false); // 出错时也假设没有模板
+    }
+  };
 
   const fetchEmailLines = () => {
     setLoading(true);
@@ -120,6 +138,24 @@ function EmailDetailPage() {
 
   return (
     <div className="card">
+      {/* 新增赔率模板提示 */}
+      {!hasOddsTemplate && (
+        <div style={{
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: '4px',
+          padding: '1rem',
+          marginBottom: '1rem'
+        }}>
+          <p style={{ margin: 0, color: '#856404' }}>
+            ⚠️ 您还没有设置赔率模板，结算计算可能不准确。请先{' '}
+            <Link to="/odds-template" style={{ color: '#007bff', fontWeight: 'bold' }}>
+              设置赔率
+            </Link>
+          </p>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h2>智能解析面板 (邮件ID: {emailId})</h2>
         <div>
