@@ -106,18 +106,19 @@ try {
     echo json_encode(['status' => 'error', 'message' => '解析失败: ' . $e->getMessage()]);
 }
 
+// 在 parseSingleBetText 函数中，确保正确计算总下注金额
 function parseSingleBetText(string $text, array $latest_results, ?array $userOddsTemplate = null, string $lottery_type = '香港六合彩'): array {
     require_once __DIR__ . '/../helpers/manual_parser.php';
-    
+
     // 先尝试手动解析
     $manual_data = parseBetManually($text);
-    
+
     // 如果手动解析没有结果，尝试AI解析
     if (empty($manual_data['bets'])) {
         require_once __DIR__ . '/../ai_helper.php';
         // 使用专门的单条下注AI解析函数
         $ai_result = analyzeSingleBetWithAI($text, $lottery_type);
-        
+
         if ($ai_result['success'] && isset($ai_result['data'])) {
             $manual_data = $ai_result['data'];
         }
@@ -125,6 +126,32 @@ function parseSingleBetText(string $text, array $latest_results, ?array $userOdd
 
     // 确保彩票类型正确设置
     $manual_data['lottery_type'] = $lottery_type;
+
+    // 重新计算总下注金额，确保准确性
+    $total_amount = 0;
+    if (isset($manual_data['bets']) && is_array($manual_data['bets'])) {
+        foreach ($manual_data['bets'] as &$bet) {
+            $amount = floatval($bet['amount'] ?? 0);
+            $targets = $bet['targets'] ?? [];
+            
+            if ($amount > 0) {
+                // 对于特码、号码等玩法，每个目标都算一次下注
+                if ($bet['bet_type'] === '特码' || $bet['bet_type'] === '号码' || $bet['bet_type'] === '平码') {
+                    $bet_total = $amount * (is_array($targets) ? count($targets) : 1);
+                } else {
+                    // 对于六肖等组合玩法，只算一次下注
+                    $bet_total = $amount;
+                }
+                $total_amount += $bet_total;
+            }
+            
+            // 确保每个下注都有彩票类型
+            if (!isset($bet['lottery_type'])) {
+                $bet['lottery_type'] = $manual_data['lottery_type'];
+            }
+        }
+        $manual_data['total_amount'] = $total_amount;
+    }
 
     // 计算结算
     $settlement_data = calculateManualSettlementDirect($manual_data, $latest_results, $userOddsTemplate);

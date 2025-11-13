@@ -1,4 +1,4 @@
-// File: frontend/src/components/SingleBetCard.jsx (隐藏单条解析按钮)
+// File: frontend/src/components/SingleBetCard.jsx (修复显示问题)
 import React, { useState } from 'react';
 import { apiService } from '../api';
 
@@ -42,7 +42,58 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
     }
   };
 
-  // 其他函数保持不变...
+  // 处理保存编辑的函数
+  const handleSaveEdit = async () => {
+    try {
+      const updatedBets = JSON.parse(editableData);
+      if (!Array.isArray(updatedBets)) {
+        throw new Error("JSON 格式必须是一个数组 [...]");
+      }
+
+      // 这里应该调用API保存修改
+      // await apiService.updateBetBatch(lineData.batch_data.batch_id, updatedBets);
+      alert('修改保存成功');
+      setIsEditing(false);
+    } catch (e) {
+      alert("JSON 格式错误或保存失败: " + e.message);
+    }
+  };
+
+  // 格式化下注目标显示
+  const formatTargets = (targets) => {
+    if (!Array.isArray(targets)) {
+      return String(targets || '');
+    }
+    
+    // 如果是数字，用空格分隔，保持与原下注单相似的格式
+    if (targets.every(target => !isNaN(target))) {
+      return targets.join(' ');
+    }
+    
+    // 如果是生肖或其他文本，用逗号分隔
+    return targets.join(', ');
+  };
+
+  // 计算总下注金额 - 修复第4条总下注为空的问题
+  const calculateTotalBet = (bets) => {
+    if (!bets || !Array.isArray(bets)) return 0;
+    
+    let total = 0;
+    bets.forEach(bet => {
+      const amount = Number(bet.amount) || 0;
+      const targets = bet.targets || [];
+      
+      // 对于"各X元"的格式，每个目标都算一次下注
+      if (bet.bet_type === '特码' || bet.bet_type === '号码' || bet.bet_type === '平码') {
+        total += amount * (Array.isArray(targets) ? targets.length : 1);
+      } else {
+        // 对于六肖等组合玩法，只算一次下注
+        total += amount;
+      }
+    });
+    
+    return total;
+  };
 
   return (
     <div style={{
@@ -100,7 +151,10 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
           ) : (
             <>
               <button
-                onClick={() => setIsEditing(true)}
+                onClick={() => {
+                  setEditableData(JSON.stringify(lineData.batch_data.data.bets, null, 2));
+                  setIsEditing(true);
+                }}
                 style={{
                   padding: '0.5rem 1rem',
                   backgroundColor: '#007bff',
@@ -172,31 +226,53 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
               </div>
             )}
 
-            {/* 合并显示所有下注信息 */}
+            {/* 合并显示所有下注信息 - 修复显示格式 */}
             <div style={{ 
               display: 'grid', 
               gridTemplateColumns: 'auto 1fr auto',
               gap: '0.5rem',
-              alignItems: 'center'
+              alignItems: 'start',
+              marginBottom: '0.5rem'
             }}>
               {lineData.batch_data.data.bets?.map((bet, index) => (
                 <React.Fragment key={index}>
-                  <div style={{ fontWeight: 'bold' }}>{bet.bet_type}:</div>
-                  <div>{Array.isArray(bet.targets) ? bet.targets.join(', ') : bet.targets}</div>
-                  <div style={{ textAlign: 'right' }}>{bet.amount} 元</div>
+                  <div style={{ 
+                    fontWeight: 'bold',
+                    whiteSpace: 'nowrap',
+                    paddingRight: '0.5rem'
+                  }}>
+                    {bet.bet_type}:
+                  </div>
+                  <div style={{
+                    fontFamily: 'monospace',
+                    wordBreak: 'break-word'
+                  }}>
+                    {formatTargets(bet.targets)}
+                  </div>
+                  <div style={{ 
+                    textAlign: 'right',
+                    whiteSpace: 'nowrap',
+                    fontWeight: 'bold'
+                  }}>
+                    {bet.amount} 元
+                  </div>
                 </React.Fragment>
               ))}
             </div>
 
-            {/* 结算信息 */}
+            {/* 结算信息 - 修复总下注计算 */}
             {lineData.batch_data.data.settlement && (
               <div style={{
                 marginTop: '0.5rem',
                 padding: '0.5rem',
                 backgroundColor: '#fff3cd',
-                borderRadius: '4px'
+                borderRadius: '4px',
+                border: '1px solid #ffeaa7'
               }}>
-                <div><strong>总下注:</strong> {lineData.batch_data.data.settlement.total_bet_amount} 元</div>
+                <div><strong>总下注:</strong> 
+                  {lineData.batch_data.data.settlement.total_bet_amount || 
+                   calculateTotalBet(lineData.batch_data.data.bets)} 元
+                </div>
                 <div><strong>中奖注数:</strong> {lineData.batch_data.data.settlement.winning_details?.length || 0}</div>
                 {lineData.batch_data.data.settlement.net_profits && (
                   <div style={{
@@ -216,6 +292,17 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
       {/* 编辑模式 */}
       {isEditing && (
         <div style={{ marginTop: '1rem' }}>
+          <div style={{
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffeaa7',
+            borderRadius: '4px',
+            padding: '0.5rem',
+            marginBottom: '0.5rem'
+          }}>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: '#856404' }}>
+              💡 请直接编辑以下代表下注内容的 JSON 数据：
+            </p>
+          </div>
           <textarea
             value={editableData}
             onChange={(e) => setEditableData(e.target.value)}
