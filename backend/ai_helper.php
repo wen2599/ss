@@ -245,20 +245,24 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
         $bet_data['lottery_type'] = $lotteryType;
     }
 
-    // 聚合相同金额的下注
+    // 强制聚合相同金额的下注项
     if (isset($bet_data['bets']) && is_array($bet_data['bets'])) {
         $aggregatedBets = [];
-        $betGroups = [];
         
-        // 按玩法和金额分组
+        // 按金额分组聚合
+        $betGroups = [];
         foreach ($bet_data['bets'] as $bet) {
-            $key = $bet['bet_type'] . '|' . ($bet['amount'] ?? 0);
+            $amount = floatval($bet['amount'] ?? 0);
+            $betType = $bet['bet_type'] ?? '特码';
+            
+            $key = $betType . '|' . $amount;
+            
             if (!isset($betGroups[$key])) {
                 $betGroups[$key] = [
-                    'bet_type' => $bet['bet_type'],
-                    'amount' => $bet['amount'] ?? 0,
+                    'bet_type' => $betType,
+                    'amount' => $amount,
                     'targets' => [],
-                    'raw_text' => $bet['raw_text'] ?? '',
+                    'raw_text' => '',
                     'lottery_type' => $bet['lottery_type'] ?? $bet_data['lottery_type']
                 ];
             }
@@ -267,31 +271,32 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
             if (isset($bet['targets']) && is_array($bet['targets'])) {
                 $betGroups[$key]['targets'] = array_merge($betGroups[$key]['targets'], $bet['targets']);
             }
+            
+            // 合并原始文本
+            if (isset($bet['raw_text'])) {
+                $betGroups[$key]['raw_text'] .= ' ' . $bet['raw_text'];
+            }
         }
         
-        // 转换为数组
-        $bet_data['bets'] = array_values($betGroups);
+        // 转换为数组并计算每个组合的总下注
+        foreach ($betGroups as $key => $group) {
+            $targetCount = count($group['targets']);
+            if ($group['bet_type'] === '特码' || $group['bet_type'] === '号码' || $group['bet_type'] === '平码') {
+                $group['total_bet'] = $group['amount'] * $targetCount;
+            } else {
+                $group['total_bet'] = $group['amount']; // 组合玩法只算一次
+            }
+            
+            $aggregatedBets[] = $group;
+        }
+        
+        $bet_data['bets'] = $aggregatedBets;
         
         // 重新计算总金额
         $totalAmount = 0;
-        foreach ($bet_data['bets'] as &$bet) {
-            $amount = floatval($bet['amount'] ?? 0);
-            $targetCount = count($bet['targets'] ?? []);
-            
-            if ($bet['bet_type'] === '特码' || $bet['bet_type'] === '号码' || $bet['bet_type'] === '平码') {
-                $bet['total_bet'] = $amount * $targetCount;
-            } else {
-                $bet['total_bet'] = $amount; // 组合玩法只算一次
-            }
-            
+        foreach ($aggregatedBets as $bet) {
             $totalAmount += $bet['total_bet'];
-            
-            // 确保每个下注都有彩票类型
-            if (!isset($bet['lottery_type'])) {
-                $bet['lottery_type'] = $bet_data['lottery_type'];
-            }
         }
-        
         $bet_data['total_amount'] = $totalAmount;
     }
 
@@ -302,6 +307,7 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
         'raw_ai_response' => $ai_response_text
     ];
 }
+
 
 /**
  * 手动重新解析邮件的函数
@@ -386,12 +392,7 @@ function trainAIWithCorrection($learning_data) {
     
     $prompt = "根据以下修正数据学习如何更好地解析六合彩下注单：
     
-原始文本: {$learning_data['original_text']}
-原始解析金额: {$learning_data['original_parse']['bets'][0]['amount']} 元
-修正后金额: {$learning_data['corrected_parse']['bets'][0]['amount']} 元
-修正原因: {$learning_data['corrected_parse']['correction']['correction_reason']}
-
-请学习这个修正，在将来遇到类似下注单时使用修正后的金额模式。";
+原始文本: {$learning_data['original_text']}\n原始解析金额: {$learning_data['original_parse']['bets'][0]['amount']} 元\n修正后金额: {$learning_data['corrected_parse']['bets'][0]['amount']} 元\n修正原因: {$learning_data['corrected_parse']['correction']['correction_reason']}\n\n请学习这个修正，在将来遇到类似下注单时使用修正后的金额模式。";
 
     $payload = [
         'messages' => [
