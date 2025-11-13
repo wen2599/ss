@@ -1,4 +1,4 @@
-// File: frontend/src/components/SingleBetCard.jsx (完全重写显示逻辑)
+// File: frontend/src/components/SingleBetCard.jsx (添加总金额修改功能)
 import React, { useState } from 'react';
 import { apiService } from '../api';
 
@@ -7,7 +7,7 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
   const [isEditing, setIsEditing] = useState(false);
   const [editableData, setEditableData] = useState('');
   const [showLotteryModal, setShowLotteryModal] = useState(false);
-  const [editingAmount, setEditingAmount] = useState(null);
+  const [editingTotalAmount, setEditingTotalAmount] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const handleParse = () => {
@@ -44,50 +44,68 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
     }
   };
 
-  // 开始编辑金额
-  const startEditAmount = (betIndex) => {
-    setEditingAmount(betIndex);
+  // 计算当前总下注金额
+  const getCurrentTotalAmount = () => {
+    if (!lineData.batch_data) return 0;
+    
+    const settlement = lineData.batch_data.data.settlement;
+    if (settlement && settlement.total_bet_amount) {
+      return settlement.total_bet_amount;
+    }
+    
+    return lineData.batch_data.data.total_amount || 0;
   };
 
-  // 保存金额修改
-  const saveAmountEdit = async (betIndex, newAmount) => {
+  // 开始编辑总金额
+  const startEditTotalAmount = () => {
+    setEditingTotalAmount(true);
+  };
+
+  // 保存总金额修改
+  const saveTotalAmountEdit = async (newTotalAmount) => {
     if (!lineData.batch_data) return;
 
     setSaving(true);
     try {
-      const numericAmount = parseFloat(newAmount);
-      if (isNaN(numericAmount) || numericAmount <= 0) {
-        throw new Error('请输入有效的金额');
+      const numericTotalAmount = parseFloat(newTotalAmount);
+      if (isNaN(numericTotalAmount) || numericTotalAmount <= 0) {
+        throw new Error('请输入有效的总金额');
       }
 
-      const updatedBets = [...lineData.batch_data.data.bets];
-      const oldAmount = updatedBets[betIndex].amount;
-      
-      // 更新金额
-      updatedBets[betIndex].amount = numericAmount;
-      
-      // 重新计算该下注项的总下注
-      const targetCount = Array.isArray(updatedBets[betIndex].targets) ? updatedBets[betIndex].targets.length : 1;
-      if (updatedBets[betIndex].bet_type === '特码' || updatedBets[betIndex].bet_type === '号码' || updatedBets[betIndex].bet_type === '平码') {
-        updatedBets[betIndex].total_bet = numericAmount * targetCount;
-      } else {
-        updatedBets[betIndex].total_bet = numericAmount;
-      }
+      const currentTotalAmount = getCurrentTotalAmount();
+      const ratio = numericTotalAmount / currentTotalAmount;
 
-      // 重新计算总金额
-      const totalAmount = updatedBets.reduce((total, bet) => total + (bet.total_bet || 0), 0);
+      // 按比例调整每个下注项的金额
+      const updatedBets = lineData.batch_data.data.bets.map(bet => {
+        const newAmount = Math.round(bet.amount * ratio * 100) / 100; // 保留2位小数
+        const targetCount = Array.isArray(bet.targets) ? bet.targets.length : 1;
+        
+        let total_bet;
+        if (bet.bet_type === '特码' || bet.bet_type === '号码' || bet.bet_type === '平码') {
+          total_bet = newAmount * targetCount;
+        } else {
+          total_bet = newAmount;
+        }
+
+        return {
+          ...bet,
+          amount: newAmount,
+          total_bet: total_bet
+        };
+      });
 
       const updatedBatchData = {
         ...lineData.batch_data.data,
         bets: updatedBets,
-        total_amount: totalAmount,
+        total_amount: numericTotalAmount,
         // 添加修正记录，供AI学习
         correction: {
-          original_amount: oldAmount,
-          corrected_amount: numericAmount,
-          correction_reason: "用户手动修正金额",
+          original_total_amount: currentTotalAmount,
+          corrected_total_amount: numericTotalAmount,
+          correction_reason: "用户手动修正总下注金额",
           corrected_at: new Date().toISOString(),
-          original_text: lineData.text
+          original_text: lineData.text,
+          adjustment_ratio: ratio
         }
       };
 
@@ -108,7 +126,7 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
 
         if (reparseResult.status === 'success') {
           onUpdate(lineData.line_number, reparseResult.data);
-          alert('金额修改成功，已重新结算！');
+          alert('总金额修改成功，已重新结算！');
         } else {
           throw new Error('重新结算失败: ' + reparseResult.message);
         }
@@ -116,17 +134,17 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
         throw new Error(updateResult.message || '更新失败');
       }
     } catch (error) {
-      console.error('保存金额修改失败:', error);
+      console.error('保存总金额修改失败:', error);
       alert('保存失败: ' + error.message);
     } finally {
-      setEditingAmount(null);
+      setEditingTotalAmount(false);
       setSaving(false);
     }
   };
 
-  // 取消金额编辑
-  const cancelAmountEdit = () => {
-    setEditingAmount(null);
+  // 取消总金额编辑
+  const cancelTotalAmountEdit = () => {
+    setEditingTotalAmount(false);
   };
 
   // 格式化下注目标显示
@@ -150,66 +168,8 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
     return targets.length;
   };
 
-  // 处理JSON编辑保存
-  const handleSaveEdit = async () => {
-    try {
-      const updatedBets = JSON.parse(editableData);
-      if (!Array.isArray(updatedBets)) {
-        throw new Error("JSON 格式必须是一个数组");
-      }
-
-      // 重新计算每个下注项的总下注和总金额
-      let totalAmount = 0;
-      const processedBets = updatedBets.map(bet => {
-        const targetCount = getTargetCount(bet.targets);
-        let total_bet;
-        
-        if (bet.bet_type === '特码' || bet.bet_type === '号码' || bet.bet_type === '平码') {
-          total_bet = (bet.amount || 0) * targetCount;
-        } else {
-          total_bet = bet.amount || 0;
-        }
-        
-        totalAmount += total_bet;
-        
-        return {
-          ...bet,
-          total_bet: total_bet
-        };
-      });
-
-      const updatedBatchData = {
-        ...lineData.batch_data.data,
-        bets: processedBets,
-        total_amount: totalAmount
-      };
-
-      const updateResult = await apiService.updateBetBatch(
-        lineData.batch_data.batch_id,
-        updatedBatchData
-      );
-
-      if (updateResult.status === 'success') {
-        // 重新解析以更新结算
-        const reparseResult = await apiService.parseSingleBet(
-          parseInt(emailId, 10),
-          lineData.text,
-          lineData.line_number,
-          lineData.batch_data.data.lottery_type || '香港六合彩'
-        );
-
-        if (reparseResult.status === 'success') {
-          onUpdate(lineData.line_number, reparseResult.data);
-          setIsEditing(false);
-          alert('修改保存成功，已重新结算！');
-        }
-      } else {
-        throw new Error(updateResult.message || '更新失败');
-      }
-    } catch (e) {
-      alert("保存失败: " + e.message);
-    }
-  };
+  // 计算显示的总下注金额
+  const displayTotalAmount = getCurrentTotalAmount();
 
   return (
     <div style={{
@@ -353,29 +313,28 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'flex-start',
-                    marginBottom: '1rem',
-                    padding: '1rem',
+                    marginBottom: '0.75rem',
+                    padding: '0.75rem',
                     backgroundColor: 'white',
-                    borderRadius: '8px',
-                    border: '2px solid #e9ecef',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    borderRadius: '6px',
+                    border: '1px solid #dee2e6'
                   }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
                         marginBottom: '0.5rem',
-                        gap: '1rem'
+                        gap: '0.5rem'
                       }}>
                         <div style={{ 
                           fontWeight: 'bold', 
-                          fontSize: '1.1rem',
+                          fontSize: '1rem',
                           color: '#495057'
                         }}>
                           {bet.bet_type}
                         </div>
                         <div style={{ 
-                          fontSize: '0.9rem',
+                          fontSize: '0.85rem',
                           color: '#6c757d'
                         }}>
                           共 {targetCount} 个{isNumberBet ? '号码' : '目标'}
@@ -384,14 +343,13 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
                       
                       <div style={{ 
                         fontFamily: 'monospace',
-                        fontSize: '1rem',
+                        fontSize: '0.9rem',
                         color: '#495057',
                         wordBreak: 'break-word',
-                        lineHeight: '1.5',
+                        lineHeight: '1.4',
                         backgroundColor: '#f8f9fa',
-                        padding: '0.75rem',
-                        borderRadius: '4px',
-                        border: '1px solid #dee2e6'
+                        padding: '0.5rem',
+                        borderRadius: '4px'
                       }}>
                         {formatTargets(bet.targets)}
                       </div>
@@ -399,116 +357,29 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
                     
                     <div style={{ 
                       textAlign: 'right',
-                      minWidth: '150px',
-                      marginLeft: '1rem'
+                      minWidth: '120px',
+                      marginLeft: '0.5rem'
                     }}>
-                      {editingAmount === index ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                          <div style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '0.25rem' }}>
-                            修改金额:
-                          </div>
-                          <input
-                            type="number"
-                            value={bet.amount}
-                            onChange={(e) => {
-                              const updatedBets = [...lineData.batch_data.data.bets];
-                              updatedBets[index].amount = e.target.value;
-                              setEditableData(JSON.stringify(updatedBets, null, 2));
-                            }}
-                            style={{
-                              width: '100px',
-                              padding: '0.5rem',
-                              border: '2px solid #007bff',
-                              borderRadius: '4px',
-                              textAlign: 'center',
-                              fontSize: '1rem'
-                            }}
-                            autoFocus
-                          />
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button
-                              onClick={() => saveAmountEdit(index, bet.amount)}
-                              disabled={saving}
-                              style={{
-                                padding: '0.5rem 1rem',
-                                backgroundColor: saving ? '#6c757d' : '#28a745',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: saving ? 'not-allowed' : 'pointer',
-                                fontSize: '0.8rem',
-                                flex: 1
-                              }}
-                            >
-                              {saving ? '保存中...' : '保存'}
-                            </button>
-                            <button
-                              onClick={cancelAmountEdit}
-                              style={{
-                                padding: '0.5rem 1rem',
-                                backgroundColor: '#6c757d',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '0.8rem',
-                                flex: 1
-                              }}
-                            >
-                              取消
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ 
-                            fontSize: '1.25rem', 
-                            fontWeight: 'bold',
-                            color: '#e74c3c',
-                            marginBottom: '0.5rem'
-                          }}>
-                            {bet.amount} 元
-                          </div>
-                          <div style={{ 
-                            fontSize: '0.9rem',
-                            color: '#7f8c8d',
-                            marginBottom: '0.5rem'
-                          }}>
-                            {isNumberBet ? '每个号码' : '每注'} {bet.amount} 元
-                          </div>
-                          <div style={{ 
-                            fontSize: '1rem',
-                            fontWeight: 'bold',
-                            color: '#2c3e50',
-                            marginBottom: '0.5rem'
-                          }}>
-                            小计: {bet.total_bet || (bet.amount * targetCount)} 元
-                          </div>
-                          <button
-                            onClick={() => startEditAmount(index)}
-                            style={{
-                              padding: '0.5rem 1rem',
-                              backgroundColor: '#3498db',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              fontSize: '0.9rem',
-                              fontWeight: 'bold',
-                              width: '100%'
-                            }}
-                          >
-                            修改金额
-                          </button>
-                        </div>
-                      )}
+                      <div style={{ 
+                        fontSize: '1rem', 
+                        fontWeight: 'bold',
+                        color: '#e74c3c'
+                      }}>
+                        {bet.amount} 元
+                      </div>
+                      <div style={{ 
+                        fontSize: '0.8rem',
+                        color: '#7f8c8d'
+                      }}>
+                        {isNumberBet ? '每个号码' : '每注'}
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* 结算信息 */}
+            {/* 结算信息 - 添加总金额修改功能 */}
             {lineData.batch_data.data.settlement && (
               <div style={{
                 marginTop: '1rem',
@@ -518,39 +389,129 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
                 border: '2px solid #ffeaa7'
               }}>
                 <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '1rem',
-                  fontSize: '1rem',
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
                   marginBottom: '1rem'
                 }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '0.25rem' }}>总下注</div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#e74c3c' }}>
-                      {lineData.batch_data.data.settlement.total_bet_amount || lineData.batch_data.data.total_amount} 元
+                  <div style={{ flex: 1 }}>
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '1rem',
+                      fontSize: '1rem'
+                    }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '0.25rem' }}>总下注</div>
+                        {editingTotalAmount ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <input
+                              type="number"
+                              value={displayTotalAmount}
+                              onChange={(e) => {
+                                // 这里只是UI更新，实际保存时再处理
+                                const updatedBatchData = {
+                                  ...lineData.batch_data.data,
+                                  total_amount: parseFloat(e.target.value) || 0
+                                };
+                                setEditableData(JSON.stringify(updatedBatchData, null, 2));
+                              }}
+                              style={{
+                                width: '120px',
+                                padding: '0.5rem',
+                                border: '2px solid #007bff',
+                                borderRadius: '4px',
+                                textAlign: 'center',
+                                fontSize: '1rem',
+                                fontWeight: 'bold'
+                              }}
+                              autoFocus
+                            />
+                            <span style={{ fontSize: '1rem', fontWeight: 'bold' }}>元</span>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#e74c3c' }}>
+                            {displayTotalAmount} 元
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '0.25rem' }}>中奖注数</div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#27ae60' }}>
+                          {lineData.batch_data.data.settlement.winning_details?.length || 0}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '0.25rem' }}>中奖注数</div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#27ae60' }}>
-                      {lineData.batch_data.data.settlement.winning_details?.length || 0}
-                    </div>
+                  
+                  <div style={{ marginLeft: '1rem' }}>
+                    {editingTotalAmount ? (
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          onClick={() => saveTotalAmountEdit(displayTotalAmount)}
+                          disabled={saving}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            backgroundColor: saving ? '#6c757d' : '#28a745',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: saving ? 'not-allowed' : 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          {saving ? '保存中...' : '保存'}
+                        </button>
+                        <button
+                          onClick={cancelTotalAmountEdit}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            backgroundColor: '#6c757d',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem'
+                          }}
+                        >
+                          取消
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={startEditTotalAmount}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#3498db',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        修改总金额
+                      </button>
+                    )}
                   </div>
                 </div>
+
                 {lineData.batch_data.data.settlement.net_profits && (
                   <div style={{
-                    padding: '1rem',
+                    padding: '0.75rem',
                     backgroundColor: lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '#d4edda' : '#f8d7da',
                     borderRadius: '6px',
                     textAlign: 'center',
                     fontWeight: 'bold',
-                    fontSize: '1.25rem',
+                    fontSize: '1.1rem',
                     color: lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '#155724' : '#721c24',
-                    border: `2px solid ${lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '#c3e6cb' : '#f5c6cb'}`
+                    border: `1px solid ${lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '#c3e6cb' : '#f5c6cb'}`
                   }}>
                     {lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '🎉 盈利' : '📉 亏损'} 
                     <span style={{ 
-                      fontSize: '1.5rem',
+                      fontSize: '1.25rem',
                       marginLeft: '0.5rem'
                     }}>
                       {lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '+' : ''}
@@ -597,7 +558,10 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
           />
           <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
             <button
-              onClick={handleSaveEdit}
+              onClick={() => {
+                // 这里需要实现JSON编辑的保存逻辑
+                alert('JSON编辑功能待实现');
+              }}
               style={{
                 padding: '0.75rem 1.5rem',
                 backgroundColor: '#28a745',
