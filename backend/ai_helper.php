@@ -2,6 +2,8 @@
 // File: backend/ai_helper.php (优化版)
 
 require_once __DIR__ . '/helpers/mail_parser.php';
+require_once __DIR__ . '/db_operations.php';
+require_once __DIR__ . '/lottery/rules.php';
 
 /**
  * 分析邮件内容并提取下注信息，同时进行结算计算。
@@ -24,7 +26,7 @@ function analyzeBetSlipWithAI(string $emailContent, string $lotteryType = '香�
         }
         
         $settlementResult = calculateSettlement($aiResult['data']);
-        $aiResult['settlement'] = $settlementResult;
+        $aiResult['data']['settlement'] = $settlementResult;
     }
 
     return $aiResult;
@@ -34,74 +36,115 @@ function analyzeBetSlipWithAI(string $emailContent, string $lotteryType = '香�
  * 计算结算结果
  */
 function calculateSettlement(array $betData): array {
-    $settlement = [
-        'total_bet_amount' => 0,
-        'winning_details' => [],
-        'net_profits' => [],
-        'summary' => ''
-    ];
+    // 引入数据库操作和开奖规则
+    require_once __DIR__ . '/db_operations.php';
+    require_once __DIR__ . '/lottery/rules.php';
 
-    if (!isset($betData['bets']) || !is_array($betData['bets'])) {
-        return $settlement;
+    $lottery_type = $betData['lottery_type'] ?? '香港六合彩';
+    $issue_number = $betData['issue_number'] ?? null;
+
+    if (!$issue_number) {
+        return ['status' => 'error', 'message' => '下注数据中未找到期号，无法结算。'];
     }
 
-    $totalBet = 0;
-    $winningBets = [];
+    try {
+        $pdo = get_db_connection();
+        $stmt = $pdo->prepare("SELECT * FROM lottery_results WHERE lottery_type = ? AND issue_number = ?");
+        $stmt->execute([$lottery_type, $issue_number]);
+        $lottery_result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    foreach ($betData['bets'] as $bet) {
-        $amount = floatval($bet['amount'] ?? 0);
-        $betType = $bet['bet_type'] ?? '';
-        $targets = $bet['targets'] ?? [];
+        if (!$lottery_result) {
+            return ['status' => 'error', 'message' => "未找到彩票类型 '{$lottery_type}' 第 '{$issue_number}' 期的开奖结果。"];
+        }
 
-        if ($amount > 0 && is_array($targets)) {
-            // 计算总下注金额
-            $betTotal = $amount * count($targets);
-            $totalBet += $betTotal;
+        $winning_numbers = json_decode($lottery_result['winning_numbers'], true);
+        $special_number = array_pop($winning_numbers);
+        $normal_numbers = $winning_numbers;
 
-            // 这里简化处理，实际应该根据开奖结果计算
-            // 假设所有下注都是特码玩法
-            if ($betType === '特码' || $betType === '号码' || $betType === '平码') {
-                // 在实际应用中，这里应该与开奖结果对比
-                // 现在先模拟中奖情况
-                $isWin = rand(0, 10) > 7; // 30%中奖概率模拟
+        $total_bet_amount = 0;
+        $total_win_amount = 0;
+        $winning_details = [];
 
-                if ($isWin) {
-                    // 随机选择一些中奖号码
-                    $winningTargets = array_slice($targets, 0, rand(1, min(3, count($targets))));
-                    foreach ($winningTargets as $target) {
-                        $winningBets[] = [
-                            'number' => $target,
-                            'amount' => $amount,
-                            'odds' => 45 // 默认赔率
-                        ];
+        foreach ($betData['bets'] as $bet) {
+            $amount = floatval($bet['amount'] ?? 0);
+            $bet_type = $bet['bet_type'] ?? '';
+            $targets = $bet['targets'] ?? [];
+            
+            $bet_total = 0;
+            if (in_array($bet_type, ['特码', '号码', '平码'])) {
+                $bet_total = $amount * count($targets);
+            } else {
+                $bet_total = $amount; // 组合玩法只算一次
+            }
+            $total_bet_amount += $bet_total;
+
+            switch ($bet_type) {
+                case '特码':
+                case '号码':
+                    foreach ($targets as $target) {
+                        if ($target == $special_number) {
+                            $odds = 45; // 假设赔率
+                            $win_amount = $amount * $odds;
+                            $total_win_amount += $win_amount;
+                            $winning_details[] = ['bet_type' => $bet_type, 'target' => $target, 'amount' => $amount, 'odds' => $odds, 'win_amount' => $win_amount];
+                        }
                     }
-                }
+                    break;
+                
+                case '平码':
+                    foreach ($targets as $target) {
+                        if (in_array($target, $normal_numbers)) {
+                            $odds = 7; // 假设赔率
+                            $win_amount = $amount * $odds;
+                            $total_win_amount += $win_amount;
+                            $winning_details[] = ['bet_type' => $bet_type, 'target' => $target, 'amount' => $amount, 'odds' => $odds, 'win_amount' => $win_amount];
+                        }
+                    }
+                    break;
+
+                case '生肖':
+                    $special_zodiac = get_zodiac_by_number($special_number);
+                    foreach ($targets as $target_zodiac) {
+                        if ($target_zodiac == $special_zodiac) {
+                            $odds = 11; // 假设赔率
+                            $win_amount = $amount * $odds;
+                            $total_win_amount += $win_amount;
+                            $winning_details[] = ['bet_type' => $bet_type, 'target' => $target_zodiac, 'amount' => $amount, 'odds' => $odds, 'win_amount' => $win_amount];
+                        }
+                    }
+                    break;
+
+                case '色波':
+                    $special_color = get_color_by_number($special_number);
+                    foreach ($targets as $target_color) {
+                        if (strpos($special_color, $target_color) !== false) {
+                            $odds = 2.8; // 假设赔率
+                            $win_amount = $amount * $odds;
+                            $total_win_amount += $win_amount;
+                            $winning_details[] = ['bet_type' => $bet_type, 'target' => $target_color, 'amount' => $amount, 'odds' => $odds, 'win_amount' => $win_amount];
+                        }
+                    }
+                    break;
             }
         }
-    }
 
-    $settlement['total_bet_amount'] = $totalBet;
-    $settlement['winning_details'] = $winningBets;
+        $net_profit = $total_win_amount - $total_bet_amount;
 
-    // 计算不同赔率下的净收益
-    $oddsList = [45, 46, 47];
-    foreach ($oddsList as $odds) {
-        $totalWin = 0;
-        foreach ($winningBets as $win) {
-            $totalWin += $win['amount'] * $odds;
-        }
-        $netProfit = $totalWin - $totalBet;
-        $settlement['net_profits'][$odds] = [
-            'total_win' => $totalWin,
-            'net_profit' => $netProfit,
-            'is_profit' => $netProfit >= 0
+        return [
+            'status' => 'success',
+            'total_bet_amount' => $total_bet_amount,
+            'total_win_amount' => $total_win_amount,
+            'net_profit' => $net_profit,
+            'winning_details' => $winning_details,
+            'summary' => "总下注: {$total_bet_amount}元, 总中奖: {$total_win_amount}元, 净利润: {$net_profit}元.",
+            'lottery_result' => $lottery_result
         ];
+
+    } catch (PDOException $e) {
+        return ['status' => 'error', 'message' => '数据库连接失败: ' . $e->getMessage()];
+    } catch (Exception $e) {
+        return ['status' => 'error', 'message' => '结算过程中发生未知错误: ' . $e->getMessage()];
     }
-
-    $winCount = count($winningBets);
-    $settlement['summary'] = "总下注 {$totalBet} 元，中奖 {$winCount} 注";
-
-    return $settlement;
 }
 
 /**
@@ -202,13 +245,54 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
         $bet_data['lottery_type'] = $lotteryType;
     }
 
-    // 确保每个下注都有彩票类型
+    // 聚合相同金额的下注
     if (isset($bet_data['bets']) && is_array($bet_data['bets'])) {
+        $aggregatedBets = [];
+        $betGroups = [];
+        
+        // 按玩法和金额分组
+        foreach ($bet_data['bets'] as $bet) {
+            $key = $bet['bet_type'] . '|' . ($bet['amount'] ?? 0);
+            if (!isset($betGroups[$key])) {
+                $betGroups[$key] = [
+                    'bet_type' => $bet['bet_type'],
+                    'amount' => $bet['amount'] ?? 0,
+                    'targets' => [],
+                    'raw_text' => $bet['raw_text'] ?? '',
+                    'lottery_type' => $bet['lottery_type'] ?? $bet_data['lottery_type']
+                ];
+            }
+            
+            // 合并目标
+            if (isset($bet['targets']) && is_array($bet['targets'])) {
+                $betGroups[$key]['targets'] = array_merge($betGroups[$key]['targets'], $bet['targets']);
+            }
+        }
+        
+        // 转换为数组
+        $bet_data['bets'] = array_values($betGroups);
+        
+        // 重新计算总金额
+        $totalAmount = 0;
         foreach ($bet_data['bets'] as &$bet) {
+            $amount = floatval($bet['amount'] ?? 0);
+            $targetCount = count($bet['targets'] ?? []);
+            
+            if ($bet['bet_type'] === '特码' || $bet['bet_type'] === '号码' || $bet['bet_type'] === '平码') {
+                $bet['total_bet'] = $amount * $targetCount;
+            } else {
+                $bet['total_bet'] = $amount; // 组合玩法只算一次
+            }
+            
+            $totalAmount += $bet['total_bet'];
+            
+            // 确保每个下注都有彩票类型
             if (!isset($bet['lottery_type'])) {
                 $bet['lottery_type'] = $bet_data['lottery_type'];
             }
         }
+        
+        $bet_data['total_amount'] = $totalAmount;
     }
 
     return [
@@ -286,4 +370,53 @@ function reanalyzeEmailWithAI(int $emailId): array {
  */
 function analyzeSingleBetWithAI(string $betText, string $lotteryType = '香港六合彩'): array {
     return analyzeBetSlipWithAI($betText, $lotteryType);
+}
+
+// 在 ai_helper.php 中添加学习函数
+function trainAIWithCorrection($learning_data) {
+    $accountId = config('CLOUDFLARE_ACCOUNT_ID');
+    $apiToken = config('CLOUDFLARE_API_TOKEN');
+    
+    if (!$accountId || !$apiToken) {
+        return false;
+    }
+    
+    $model = '@cf/meta/llama-3-8b-instruct';
+    $url = "https://api.cloudflare.com/client/v4/accounts/{$accountId}/ai/run/{$model}";
+    
+    $prompt = "根据以下修正数据学习如何更好地解析六合彩下注单：
+    
+原始文本: {$learning_data['original_text']}
+原始解析金额: {$learning_data['original_parse']['bets'][0]['amount']} 元
+修正后金额: {$learning_data['corrected_parse']['bets'][0]['amount']} 元
+修正原因: {$learning_data['corrected_parse']['correction']['correction_reason']}
+
+请学习这个修正，在将来遇到类似下注单时使用修正后的金额模式。";
+
+    $payload = [
+        'messages' => [
+            ['role' => 'system', 'content' => '你是一个六合彩下注单解析AI，正在学习用户的修正以提高解析准确性。'],
+            ['role' => 'user', 'content' => $prompt]
+        ],
+        'max_tokens' => 500
+    ];
+    
+    // 发送学习请求
+    $headers = [
+        'Authorization: Bearer ' . $apiToken,
+        'Content-Type: ' . 'application/json',
+    ];
+    
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    
+    $response = curl_exec($ch);
+    curl_close($ch);
+    
+    error_log("AI Learning Response: " . $response);
+    return true;
 }

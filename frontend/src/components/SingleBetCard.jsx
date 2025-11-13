@@ -1,4 +1,3 @@
-// File: frontend/src/components/SingleBetCard.jsx (修复显示问题)
 import React, { useState } from 'react';
 import { apiService } from '../api';
 
@@ -65,16 +64,16 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
       return String(targets || '');
     }
     
-    // 如果是数字，用空格分隔，保持与原下注单相似的格式
+    // 对于数字，用点号分隔，保持与原下注单相似的格式
     if (targets.every(target => !isNaN(target))) {
-      return targets.join(' ');
+      return targets.map(num => num.toString().padStart(2, '0')).join('.');
     }
     
-    // 如果是生肖或其他文本，用逗号分隔
+    // 对于生肖或其他文本，用逗号分隔
     return targets.join(', ');
   };
 
-  // 计算总下注金额 - 修复第4条总下注为空的问题
+  // 计算总下注金额
   const calculateTotalBet = (bets) => {
     if (!bets || !Array.isArray(bets)) return 0;
     
@@ -83,11 +82,9 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
       const amount = Number(bet.amount) || 0;
       const targets = bet.targets || [];
       
-      // 对于"各X元"的格式，每个目标都算一次下注
       if (bet.bet_type === '特码' || bet.bet_type === '号码' || bet.bet_type === '平码') {
         total += amount * (Array.isArray(targets) ? targets.length : 1);
       } else {
-        // 对于六肖等组合玩法，只算一次下注
         total += amount;
       }
     });
@@ -129,7 +126,7 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
         {lineData.text}
       </div>
 
-      {/* 操作按钮 - 根据 showParseButton 参数决定是否显示 */}
+      {/* 操作按钮 */}
       {showParseButton && (
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {!lineData.is_parsed ? (
@@ -202,92 +199,113 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
 
       {/* 解析结果 */}
       {lineData.is_parsed && lineData.batch_data && (
-        <div style={{ marginTop: '1rem' }}>
-          <div style={{
-            backgroundColor: '#e8f5e8',
-            border: '1px solid #4caf50',
-            padding: '0.75rem',
-            borderRadius: '4px'
-          }}>
-            <h4 style={{ margin: '0 0 0.5rem 0', color: '#2e7d32' }}>
-              ✅ 解析结果
-            </h4>
+  <div style={{ marginTop: '1rem' }}>
+    <div style={{
+      backgroundColor: '#e8f5e8',
+      border: '1px solid #4caf50',
+      padding: '0.75rem',
+      borderRadius: '4px'
+    }}>
+      <h4 style={{ margin: '0 0 0.5rem 0', color: '#2e7d32' }}>
+        ✅ 解析结果
+      </h4>
 
-            {/* 显示彩票类型 */}
-            {lineData.batch_data.data.lottery_type && (
-              <div style={{
-                marginBottom: '0.5rem',
-                padding: '0.25rem 0.5rem',
-                backgroundColor: '#d4edda',
-                borderRadius: '4px',
-                display: 'inline-block'
-              }}>
-                <strong>彩票类型:</strong> {lineData.batch_data.data.lottery_type}
-              </div>
-            )}
-
-            {/* 合并显示所有下注信息 - 修复显示格式 */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'auto 1fr auto',
-              gap: '0.5rem',
-              alignItems: 'start',
-              marginBottom: '0.5rem'
-            }}>
-              {lineData.batch_data.data.bets?.map((bet, index) => (
-                <React.Fragment key={index}>
-                  <div style={{ 
-                    fontWeight: 'bold',
-                    whiteSpace: 'nowrap',
-                    paddingRight: '0.5rem'
-                  }}>
-                    {bet.bet_type}:
-                  </div>
-                  <div style={{
-                    fontFamily: 'monospace',
-                    wordBreak: 'break-word'
-                  }}>
-                    {formatTargets(bet.targets)}
-                  </div>
-                  <div style={{ 
-                    textAlign: 'right',
-                    whiteSpace: 'nowrap',
-                    fontWeight: 'bold'
-                  }}>
-                    {bet.amount} 元
-                  </div>
-                </React.Fragment>
-              ))}
-            </div>
-
-            {/* 结算信息 - 修复总下注计算 */}
-            {lineData.batch_data.data.settlement && (
-              <div style={{
-                marginTop: '0.5rem',
-                padding: '0.5rem',
-                backgroundColor: '#fff3cd',
-                borderRadius: '4px',
-                border: '1px solid #ffeaa7'
-              }}>
-                <div><strong>总下注:</strong> 
-                  {lineData.batch_data.data.settlement.total_bet_amount || 
-                   calculateTotalBet(lineData.batch_data.data.bets)} 元
-                </div>
-                <div><strong>中奖注数:</strong> {lineData.batch_data.data.settlement.winning_details?.length || 0}</div>
-                {lineData.batch_data.data.settlement.net_profits && (
-                  <div style={{
-                    color: lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? 'red' : 'blue',
-                    fontWeight: 'bold'
-                  }}>
-                    <strong>净盈亏:</strong> {lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '+' : ''}
-                    {lineData.batch_data.data.settlement.net_profits.net_profit} 元
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+      {/* 显示彩票类型 */}
+      {lineData.batch_data.data.lottery_type && (
+        <div style={{
+          marginBottom: '0.5rem',
+          padding: '0.25rem 0.5rem',
+          backgroundColor: '#d4edda',
+          borderRadius: '4px',
+          display: 'inline-block'
+        }}>
+          <strong>彩票类型:</strong> {lineData.batch_data.data.lottery_type}
         </div>
       )}
+
+      {/* 优化显示格式 - 显示每个下注组合的统计 */}
+      <div style={{ marginBottom: '0.5rem' }}>
+        {lineData.batch_data.data.bets?.map((bet, index) => (
+          <div key={index} style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            marginBottom: '0.5rem',
+            padding: '0.5rem',
+            backgroundColor: 'white',
+            borderRadius: '4px',
+            border: '1px solid #ddd'
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                {bet.bet_type}
+              </div>
+              <div style={{ 
+                fontFamily: 'monospace',
+                fontSize: '0.9rem',
+                color: '#666',
+                wordBreak: 'break-word'
+              }}>
+                {formatTargets(bet.targets)}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.25rem' }}>
+                共 {bet.targets?.length || 0} 个
+              </div>
+            </div>
+            <div style={{ 
+              textAlign: 'right',
+              minWidth: '80px'
+            }}>
+              <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>
+                {bet.amount} 元/{bet.bet_type === '六肖' ? '注' : '个'}
+              </div>
+              {bet.total_bet && bet.total_bet !== bet.amount && (
+                <div style={{ fontSize: '0.8rem', color: '#666' }}>
+                  小计: {bet.total_bet} 元
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 结算信息 */}
+      {lineData.batch_data.data.settlement && (
+        <div style={{
+          marginTop: '0.5rem',
+          padding: '0.75rem',
+          backgroundColor: '#fff3cd',
+          borderRadius: '4px',
+          border: '1px solid #ffeaa7'
+        }}>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr',
+            gap: '0.5rem',
+            fontSize: '0.9rem'
+          }}>
+            <div><strong>总下注:</strong> {lineData.batch_data.data.settlement.total_bet_amount || lineData.batch_data.data.total_amount || calculateTotalBet(lineData.batch_data.data.bets)} 元</div>
+            <div><strong>中奖注数:</strong> {lineData.batch_data.data.settlement.winning_details?.length || 0}</div>
+          </div>
+          {lineData.batch_data.data.settlement.net_profits && (
+            <div style={{
+              marginTop: '0.5rem',
+              padding: '0.5rem',
+              backgroundColor: lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '#d4edda' : '#f8d7da',
+              borderRadius: '4px',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              fontSize: '1.1rem',
+              color: lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '#155724' : '#721c24'
+            }}>
+              {lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '盈利' : '亏损'} {Math.abs(lineData.batch_data.data.settlement.net_profits.net_profit)} 元
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
       {/* 编辑模式 */}
       {isEditing && (
@@ -351,7 +369,6 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
   );
 }
 
-// LotteryTypeModal 组件保持不变...
 function LotteryTypeModal({ isOpen, onClose, onConfirm, loading }) {
   const [selectedTypes, setSelectedTypes] = useState([]);
 
