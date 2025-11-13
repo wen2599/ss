@@ -1,0 +1,3566 @@
+---
+File: frontend/package.json
+```
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.23.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.0.3",
+    "vite": "^4.4.5"
+  }
+}```
+---
+File: frontend/src/pages/HomePage.jsx
+```
+// src/pages/HomePage.jsx
+import React from 'react';
+import LotteryResults from '../components/LotteryResults';
+
+function HomePage() {
+  return (
+    <div>
+      <h1>开奖中心</h1>
+      <LotteryResults />
+    </div>
+  );
+}
+export default HomePage;```
+---
+File: frontend/src/pages/EmailsListPage.jsx
+```
+// File: frontend/pages/EmailsListPage.jsx (添加邮件数量显示)
+
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { apiService } from '../api';
+
+const StatusBadge = ({ status }) => {
+    const statusStyles = {
+        pending: { backgroundColor: '#ffc107', color: '#333' },
+        processed: { backgroundColor: '#28a745', color: 'white' },
+        failed: { backgroundColor: '#dc3545', color: 'white' },
+    };
+    const style = { padding: '0.25rem 0.5rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', ...statusStyles[status] };
+    return <span style={style}>{status.toUpperCase()}</span>;
+};
+
+function EmailsListPage() {
+  const [emails, setEmails] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    apiService.getEmails()
+      .then(response => {
+        if (response.status === 'success') {
+          setEmails(response.data);
+        } else {
+          setError(response.message);
+        }
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const renderContent = () => {
+    if (loading) return <p>正在加载邮件列表...</p>;
+    if (error) return <p style={{ color: 'red' }}>错误: {error}</p>;
+    if (emails.length === 0) return <p>没有找到任何邮件。</p>;
+
+    return (
+      <div>
+        <div style={{
+          backgroundColor: '#e7f3ff',
+          border: '1px solid #b3d9ff',
+          borderRadius: '8px',
+          padding: '1rem',
+          marginBottom: '1rem'
+        }}>
+          <p style={{ margin: 0, fontWeight: 'bold', color: '#0066cc' }}>
+            📧 系统自动维护：最多保存最近10封邮件，新邮件会自动替换旧邮件
+          </p>
+          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem', color: '#666' }}>
+            当前邮件数量: {emails.length} / 10
+          </p>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>邮件 ID</th>
+              <th>处理状态</th>
+              <th>接收时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {emails.map(email => (
+              <tr key={email.id}>
+                <td>#{email.id}</td>
+                <td><StatusBadge status={email.status} /></td>
+                <td>{new Date(email.received_at).toLocaleString()}</td>
+                <td>
+                  <Link to={`/emails/${email.id}`} className="button-link">
+                    查看原文与结算
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  return (
+    <div className="card">
+      <h2>邮件列表</h2>
+      {renderContent()}
+    </div>
+  );
+}
+
+export default EmailsListPage;
+```
+---
+File: frontend/src/pages/AuthPage.jsx
+```
+// src/pages/AuthPage.jsx
+import React, { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+function AuthPage() {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const { login, register } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/emails';
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+    setIsSuccess(false);
+    try {
+      if (isLogin) {
+        await login(email, password);
+        navigate(from, { replace: true });
+      } else {
+        const response = await register(email, password);
+        setMessage(response.message + " 现在可以登录了。");
+        setIsSuccess(true);
+        setIsLogin(true);
+      }
+    } catch (error) {
+      setMessage(error.message);
+      setIsSuccess(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="card" style={{ maxWidth: '400px', margin: 'auto', marginTop: '4rem' }}>
+      <h2>{isLogin ? '登录' : '注册'}</h2>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="email">邮箱地址</label>
+          <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" disabled={loading} />
+        </div>
+        <div>
+          <label htmlFor="password">密码</label>
+          <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required autoComplete={isLogin ? "current-password" : "new-password"} disabled={loading} />
+        </div>
+        <button type="submit" disabled={loading}>{loading ? '处理中...' : (isLogin ? '登录' : '注册')}</button>
+      </form>
+      <p>
+        {isLogin ? '还没有账户?' : '已有账户?'}
+        <button onClick={() => { setIsLogin(!isLogin); setMessage(''); }} className="link-button" disabled={loading}>
+          切换到{isLogin ? '注册' : '登录'}
+        </button>
+      </p>
+      {message && <p className={`message ${isSuccess ? 'success' : ''}`}>{message}</p>}
+    </div>
+  );
+}
+
+export default AuthPage;```
+---
+File: frontend/src/pages/SettlementsPage.jsx
+```
+// src/pages/SettlementsPage.jsx
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../api';
+
+function SettlementsPage() {
+    const [settlements, setSettlements] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        apiService.getSettlements()
+            .then(data => setSettlements(data.data))
+            .finally(() => setLoading(false));
+    }, []);
+
+    if (loading) return <p>正在加载结算单...</p>;
+
+    return (
+        <div className="card">
+            <h2>结算表单</h2>
+            <table>
+                <thead>
+                    <tr><th>ID</th><th>投注ID</th><th>总赢/亏</th><th>创建时间</th></tr>
+                </thead>
+                <tbody>
+                    {settlements.map(item => (
+                        <tr key={item.id}>
+                            <td>{item.id}</td>
+                            <td>{item.bet_id}</td>
+                            <td style={{ color: item.total_win > 0 ? 'green' : 'red' }}>{item.total_win}</td>
+                            <td>{new Date(item.created_at).toLocaleString()}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+export default SettlementsPage;```
+---
+File: frontend/src/pages/EmailDetailPage.jsx
+```
+// File: frontend/src/pages/EmailDetailPage.jsx (添加批量重新解析功能)
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { apiService } from '../api';
+import SingleBetCard from '../components/SingleBetCard';
+
+function EmailDetailPage() {
+  const { emailId } = useParams();
+  const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('split');
+  const [error, setError] = useState(null);
+  const [pageData, setPageData] = useState({
+    email_content: '',
+    lines: []
+  });
+  const [hasOddsTemplate, setHasOddsTemplate] = useState(true);
+  const [reparsing, setReparsing] = useState(false);
+  const [showReparseModal, setShowReparseModal] = useState(false);
+
+  useEffect(() => {
+    fetchEmailLines();
+    checkOddsTemplate();
+  }, [emailId]);
+
+  const checkOddsTemplate = async () => {
+    try {
+      const response = await apiService.getOddsTemplate();
+      if (response.status === 'success' && response.data) {
+        const hasTemplate = Object.values(response.data).some(value => value !== null && value !== '');
+        setHasOddsTemplate(hasTemplate);
+      } else {
+        setHasOddsTemplate(false);
+      }
+    } catch (error) {
+      console.error('检查赔率模板失败:', error);
+      setHasOddsTemplate(false);
+    }
+  };
+
+  const fetchEmailLines = () => {
+    setLoading(true);
+    setError(null);
+
+    console.log('正在获取邮件ID:', emailId);
+
+    apiService.splitEmailLines(emailId)
+      .then(res => {
+        console.log('拆分结果:', res);
+        if (res.status === 'success') {
+          setPageData(res.data);
+        } else {
+          setError({ message: res.message || '获取数据失败' });
+        }
+      })
+      .catch(err => {
+        console.error('获取邮件行数据错误:', err);
+        setError({ message: err.message || '网络请求失败' });
+      })
+      .finally(() => setLoading(false));
+  };
+
+  const handleLineUpdate = (lineNumber, updateData) => {
+    setPageData(prev => ({
+      ...prev,
+      lines: prev.lines.map(line =>
+        line.line_number === lineNumber
+          ? {
+              ...line,
+              is_parsed: true,
+              batch_data: {
+                batch_id: updateData.batch_id,
+                data: updateData.parse_result
+              }
+            }
+          : line
+      )
+    }));
+  };
+
+  const handleLineDelete = (lineNumber) => {
+    setPageData(prev => ({
+      ...prev,
+      lines: prev.lines.map(line =>
+        line.line_number === lineNumber
+          ? { ...line, is_parsed: false, batch_data: null }
+          : line
+      )
+    }));
+  };
+
+  // 批量重新解析所有行
+  const handleBatchReparse = async (selectedTypes) => {
+    if (!selectedTypes || selectedTypes.length === 0) {
+      alert('请选择至少一种彩票类型');
+      return;
+    }
+
+    setReparsing(true);
+    setShowReparseModal(false);
+
+    const lotteryType = selectedTypes[0]; // 使用第一个选择的类型
+
+    try {
+      // 批量解析所有未解析的行
+      const unparsedLines = pageData.lines.filter(line => !line.is_parsed);
+
+      if (unparsedLines.length === 0) {
+        alert('所有行都已解析完成！');
+        setReparsing(false);
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      // 顺序执行解析，避免并发问题
+      for (const line of unparsedLines) {
+        try {
+          const numericEmailId = parseInt(emailId, 10);
+          if (isNaN(numericEmailId)) {
+            throw new Error('无效的邮件ID');
+          }
+
+          const result = await apiService.parseSingleBet(
+            numericEmailId,
+            line.text,
+            line.line_number,
+            lotteryType
+          );
+
+          if (result.status === 'success') {
+            handleLineUpdate(line.line_number, result.data);
+            successCount++;
+          } else {
+            console.error(`解析第${line.line_number}行失败:`, result.message);
+            errorCount++;
+          }
+        } catch (error) {
+          console.error(`解析第${line.line_number}行时发生错误:`, error);
+          errorCount++;
+        }
+
+        // 添加小延迟，避免请求过于频繁
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      alert(`批量解析完成！成功: ${successCount} 条，失败: ${errorCount} 条`);
+
+    } catch (error) {
+      console.error('批量解析失败:', error);
+      alert('批量解析失败: ' + error.message);
+    } finally {
+      setReparsing(false);
+    }
+  };
+
+  const globalStats = pageData.lines.reduce((stats, line) => {
+    if (line.is_parsed && line.batch_data?.data?.settlement) {
+      const settlement = line.batch_data.data.settlement;
+      stats.totalBet += settlement.total_bet_amount || 0;
+      stats.totalWin += settlement.net_profits?.total_win || 0;
+      stats.parsedCount++;
+    }
+    return stats;
+  }, { totalBet: 0, totalWin: 0, parsedCount: 0 });
+
+  if (loading) {
+    return (
+      <div className="card">
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <p>正在拆分邮件内容...</p>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            border: '4px solid #f3f3f3',
+            borderTop: '4px solid #007bff',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto'
+          }}></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="card" style={{ color: 'red', textAlign: 'center' }}>
+        <h3>加载失败</h3>
+        <p>错误: {error.message}</p>
+        <button
+          onClick={fetchEmailLines}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          重新加载
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card">
+      {!hasOddsTemplate && (
+        <div style={{
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: '4px',
+          padding: '1rem',
+          marginBottom: '1rem'
+        }}>
+          <p style={{ margin: 0, color: '#856404' }}>
+            ⚠️ 您还没有设置赔率模板，结算计算可能不准确。请先{' '}
+            <Link to="/odds-template" style={{ color: '#007bff', fontWeight: 'bold' }}>
+              设置赔率
+            </Link>
+          </p>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h2>智能解析面板 (邮件ID: {emailId})</h2>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={() => setShowReparseModal(true)}
+            disabled={reparsing}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: reparsing ? '#6c757d' : '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: reparsing ? 'not-allowed' : 'pointer',
+              fontSize: '0.9rem'
+            }}
+          >
+            {reparsing ? '批量解析中...' : '批量重新解析'}
+          </button>
+          <button
+            onClick={() => setViewMode('original')}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: viewMode === 'original' ? '#007bff' : '#f8f9fa',
+              color: viewMode === 'original' ? 'white' : '#333',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            原始视图
+          </button>
+          <button
+            onClick={() => setViewMode('split')}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: viewMode === 'split' ? '#007bff' : '#f8f9fa',
+              color: viewMode === 'split' ? 'white' : '#333',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            分条解析
+          </button>
+        </div>
+      </div>
+
+      <div style={{
+        backgroundColor: '#e7f3ff',
+        border: '1px solid #b3d9ff',
+        borderRadius: '8px',
+        padding: '1rem',
+        marginBottom: '1.5rem'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div>
+            <strong>总条数:</strong> {pageData.lines.length}
+          </div>
+          <div>
+            <strong>已解析:</strong> {globalStats.parsedCount}
+          </div>
+          <div>
+            <strong>未解析:</strong> {pageData.lines.length - globalStats.parsedCount}
+          </div>
+          <div>
+            <strong>总下注:</strong> {globalStats.totalBet} 元
+          </div>
+          <div>
+            <strong>总中奖:</strong> {globalStats.totalWin} 元
+          </div>
+          <div style={{
+            color: (globalStats.totalWin - globalStats.totalBet) >= 0 ? 'red' : 'blue',
+            fontWeight: 'bold'
+          }}>
+            <strong>净盈亏:</strong> {globalStats.totalWin - globalStats.totalBet >= 0 ? '+' : ''}
+            {globalStats.totalWin - globalStats.totalBet} 元
+          </div>
+        </div>
+      </div>
+
+      {viewMode === 'original' ? (
+        <div>
+          <h3>原始邮件内容</h3>
+          <pre
+            className="email-content-background"
+            style={{
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              lineHeight: '1.5',
+              fontSize: '14px'
+            }}
+          >
+            {pageData.email_content}
+          </pre>
+        </div>
+      ) : (
+        <div>
+          <h3>分条解析 ({pageData.lines.length} 条)</h3>
+          <div style={{
+            padding: '0.5rem',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '4px',
+            marginBottom: '1rem'
+          }}>
+            <small>
+              💡 提示：系统已自动识别并拆分出 {pageData.lines.length} 条独立下注单，已解析 {globalStats.parsedCount} 条，未解析 {pageData.lines.length - globalStats.parsedCount} 条
+            </small>
+          </div>
+
+          {pageData.lines.map(line => (
+            <SingleBetCard
+              key={line.line_number}
+              lineData={line}
+              emailId={emailId}
+              onUpdate={handleLineUpdate}
+              onDelete={handleLineDelete}
+              showParseButton={false} // 隐藏单条解析按钮
+            />
+          ))}
+        </div>
+      )}
+
+      {/* 批量重新解析模态框 */}
+      {showReparseModal && (
+        <BatchReparseModal
+          isOpen={showReparseModal}
+          onClose={() => setShowReparseModal(false)}
+          onConfirm={handleBatchReparse}
+          loading={reparsing}
+          unparsedCount={pageData.lines.length - globalStats.parsedCount}
+        />
+      )}
+    </div>
+  );
+}
+
+// 批量重新解析模态框组件
+function BatchReparseModal({ isOpen, onClose, onConfirm, loading, unparsedCount }) {
+  const [selectedTypes, setSelectedTypes] = useState([]);
+
+  const lotteryTypes = [
+    { value: '香港六合彩', label: '香港六合彩 (周二、四、六开奖)' },
+    { value: '新澳门六合彩', label: '新澳门六合彩 (每日开奖)' },
+    { value: '老澳门六合彩', label: '老澳门六合彩 (每日开奖)' }
+  ];
+
+  const handleTypeToggle = (type) => {
+    setSelectedTypes([type]); // 单选，只允许选择一个
+  };
+
+  const handleConfirm = () => {
+    if (selectedTypes.length === 0) {
+      alert('请选择一种彩票类型');
+      return;
+    }
+    onConfirm(selectedTypes);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        padding: '2rem',
+        borderRadius: '8px',
+        minWidth: '400px',
+        maxWidth: '500px'
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>批量重新解析</h3>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <p><strong>未解析行数:</strong> {unparsedCount}</p>
+          <p style={{ fontSize: '0.9rem', color: '#666' }}>
+            系统将自动解析所有未解析的下注单行
+          </p>
+        </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+            选择彩票类型:
+          </label>
+          {lotteryTypes.map(type => (
+            <div key={type.value} style={{ marginBottom: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="batchLotteryType"
+                  checked={selectedTypes.includes(type.value)}
+                  onChange={() => handleTypeToggle(type.value)}
+                  style={{ marginRight: '0.5rem' }}
+                />
+                {type.label}
+              </label>
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: '4px',
+          padding: '1rem',
+          marginBottom: '1.5rem'
+        }}>
+          <p style={{ margin: 0, color: '#856404', fontSize: '0.9rem' }}>
+            💡 提示：批量解析将自动处理所有未解析的下注单，解析过程可能需要一些时间
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            取消
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={loading || selectedTypes.length === 0}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: loading ? '#6c757d' : '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: (loading || selectedTypes.length === 0) ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? '解析中...' : '开始批量解析'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default EmailDetailPage;```
+---
+File: frontend/src/pages/OddsTemplatePage.jsx
+```
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../api';
+
+function OddsTemplatePage() {
+  const [template, setTemplate] = useState({
+    special_code_odds: '',
+    flat_special_odds: '',
+    serial_code_odds: '',
+    even_xiao_odds: '',
+    six_xiao_odds: '',
+    size_single_double_odds: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  useEffect(() => {
+    fetchTemplate();
+  }, []);
+
+  const fetchTemplate = async () => {
+    setLoading(true);
+    try {
+      const response = await apiService.getOddsTemplate();
+      if (response.status === 'success') {
+        setTemplate(response.data);
+      }
+    } catch (error) {
+      console.error('获取赔率模板失败:', error);
+      setMessage('获取模板失败: ' + error.message);
+      setIsSuccess(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setTemplate(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage('');
+
+    try {
+      const response = await apiService.updateOddsTemplate(template);
+      if (response.status === 'success') {
+        setMessage('赔率模板保存成功！');
+        setIsSuccess(true);
+      } else {
+        setMessage('保存失败: ' + response.message);
+        setIsSuccess(false);
+      }
+    } catch (error) {
+      console.error('保存赔率模板失败:', error);
+      setMessage('保存失败: ' + error.message);
+      setIsSuccess(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="card">
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <p>正在加载赔率模板...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card">
+      <h2>赔率模板设置</h2>
+
+      <div style={{
+        backgroundColor: '#e7f3ff',
+        border: '1px solid #b3d9ff',
+        borderRadius: '8px',
+        padding: '1rem',
+        marginBottom: '1.5rem'
+      }}>
+        <p style={{ margin: 0, fontWeight: 'bold', color: '#0066cc' }}>
+          💡 提示：请设置各种玩法的赔率，邮件结算将使用您设置的赔率进行计算
+        </p>
+      </div>
+
+      <div style={{ display: 'grid', gap: '1rem', maxWidth: '500px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <label style={{ minWidth: '120px', fontWeight: 'bold' }}>特码赔率:</label>
+          <input
+            type="number"
+            step="0.01"
+            value={template.special_code_odds || ''}
+            onChange={(e) => handleInputChange('special_code_odds', e.target.value)}
+            placeholder="请输入特码赔率"
+            style={{ flex: 1, padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <label style={{ minWidth: '120px', fontWeight: 'bold' }}>平特赔率:</label>
+          <input
+            type="number"
+            step="0.01"
+            value={template.flat_special_odds || ''}
+            onChange={(e) => handleInputChange('flat_special_odds', e.target.value)}
+            placeholder="请输入平特赔率"
+            style={{ flex: 1, padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <label style={{ minWidth: '120px', fontWeight: 'bold' }}>串码赔率:</label>
+          <input
+            type="number"
+            step="0.01"
+            value={template.serial_code_odds || ''}
+            onChange={(e) => handleInputChange('serial_code_odds', e.target.value)}
+            placeholder="请输入串码赔率"
+            style={{ flex: 1, padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <label style={{ minWidth: '120px', fontWeight: 'bold' }}>连肖赔率:</label>
+          <input
+            type="number"
+            step="0.01"
+            value={template.even_xiao_odds || ''}
+            onChange={(e) => handleInputChange('even_xiao_odds', e.target.value)}
+            placeholder="请输入连肖赔率"
+            style={{ flex: 1, padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <label style={{ minWidth: '120px', fontWeight: 'bold' }}>六肖赔率:</label>
+          <input
+            type="number"
+            step="0.01"
+            value={template.six_xiao_odds || ''}
+            onChange={(e) => handleInputChange('six_xiao_odds', e.target.value)}
+            placeholder="请输入六肖赔率"
+            style={{ flex: 1, padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <label style={{ minWidth: '120px', fontWeight: 'bold' }}>大小单双赔率:</label>
+          <input
+            type="number"
+            step="0.01"
+            value={template.size_single_double_odds || ''}
+            onChange={(e) => handleInputChange('size_single_double_odds', e.target.value)}
+            placeholder="请输入大小单双赔率"
+            style={{ flex: 1, padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+          />
+        </div>
+      </div>
+
+      <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem' }}>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: saving ? '#6c757d' : '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: saving ? 'not-allowed' : 'pointer',
+            fontSize: '1rem'
+          }}
+        >
+          {saving ? '保存中...' : '保存模板'}
+        </button>
+
+        <button
+          onClick={fetchTemplate}
+          disabled={loading}
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#6c757d',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '1rem'
+          }}
+        >
+          重新加载
+        </button>
+      </div>
+
+      {message && (
+        <div style={{
+          marginTop: '1rem',
+          padding: '0.75rem',
+          borderRadius: '4px',
+          backgroundColor: isSuccess ? '#d4edda' : '#f8d7da',
+          color: isSuccess ? '#155724' : '#721c24',
+          border: `1px solid ${isSuccess ? '#c3e6cb' : '#f5c6cb'}`
+        }}>
+          {message}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default OddsTemplatePage;
+```
+---
+File: frontend/src/index.css
+```
+/* src/index.css (Fully Responsive Version with Extra Large Lottery Numbers) */
+
+/* --- Global & Layout --- */
+:root {
+  --primary-color: #007bff;
+  --danger-color: #dc3545;
+  --success-color: #28a745;
+  --info-color: #17a2b8;
+  --background-color: #f4f7f9;
+  --card-background: #ffffff;
+  --text-color: #333;
+  --text-light: #666;
+  --border-color: #e0e0e0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  margin: 0;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main.container {
+  flex-grow: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+/* --- Navbar --- */
+.navbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: var(--card-background);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border-bottom: 1px solid var(--border-color);
+  gap: 1rem;
+}
+.nav-brand a {
+  font-weight: bold;
+  font-size: 1.5rem;
+  color: var(--text-color);
+  text-decoration: none;
+}
+.nav-links {
+  list-style: none;
+  display: flex;
+  gap: 1.5rem;
+  margin: 0;
+  padding: 0;
+}
+.nav-links a {
+  color: var(--text-light);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+.nav-links a:hover {
+  color: var(--primary-color);
+}
+.nav-links a.active {
+  color: var(--primary-color);
+  font-weight: bold;
+}
+.nav-auth {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.nav-auth span {
+  font-weight: 500;
+}
+
+/* --- General Elements & Cards --- */
+.card {
+  background-color: var(--card-background);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  margin-bottom: 20px;
+}
+a {
+  text-decoration: none;
+  color: var(--primary-color);
+  transition: color 0.3s ease;
+}
+a:hover {
+  color: #0056b3;
+}
+
+/* --- Lottery Banner Styles --- */
+.lottery-banners-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.lottery-banner {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--card-background);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.lottery-banner:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.banner-header {
+  padding: 0.75rem 1.5rem;
+  background-color: #f9fafb;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.banner-header h3 {
+  margin: 0;
+  font-size: 1.5rem; /* 增大字体 */
+  font-weight: 800; /* 加粗 */
+  color: #dc3545; /* 红色字体 */
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+}
+.banner-header p {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+.numbers-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr) 0.5fr 1fr;
+  gap: 15px;
+  padding: 2rem;
+  align-items: center;
+  justify-items: center;
+}
+
+.number-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 900; /* 极粗 */
+  box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+  font-size: 3.6rem; /* 增大一倍 - 从1.8rem增加到3.6rem */
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-width: 80px;
+  min-height: 80px;
+  width: 100%;
+  max-width: 120px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+.number-cell:hover {
+  transform: scale(1.08);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+}
+
+.number-cell:nth-child(7) {
+  grid-column: 8;
+}
+
+.color-red {
+  background: linear-gradient(145deg, #f85032, #e73827);
+  border: 3px solid #c62828;
+}
+.color-green {
+  background: linear-gradient(145deg, #56ab2f, #a8e063);
+  border: 3px solid #2e7d32;
+}
+.color-blue {
+  background: linear-gradient(145deg, #2196F3, #4FC3F7);
+  border: 3px solid #1565c0;
+}
+.color-unknown {
+  background: linear-gradient(145deg, #868e96, #adb5bd);
+  border: 3px solid #6c757d;
+}
+
+/* --- Settlement & Email Page Styles --- */
+.settlement-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin: 2rem 0;
+  padding: 1rem;
+  background-color: #f8fdff;
+  transition: box-shadow 0.3s ease;
+}
+.settlement-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.settlement-details {
+  background-color: #fff8e1;
+  border: 1px solid #ffecb3;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-top: 1rem;
+}
+
+.settlement-details p {
+  margin: 0.5rem 0;
+  font-size: 1.15rem;
+  color: #c51162;
+}
+
+.settlement-details p strong {
+  color: #333;
+}
+
+.email-content-background {
+  white-space: pre-wrap;
+  word-break: break-all;
+  background-color: #f9f9f9;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  margin: 1rem 0;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.global-totals-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-top: 1rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.global-totals-card h3 {
+  margin-top: 0;
+  color: white;
+}
+
+.global-totals-card p {
+  margin: 0.75rem 0;
+  font-size: 1.1rem;
+}
+
+.global-totals-card hr {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.3);
+  margin: 1rem 0;
+}
+
+/* --- 结算相关样式 --- */
+.settlement-highlight {
+  background-color: #fff3cd;
+  border-left: 4px solid #ffc107;
+  padding: 0.5rem 1rem;
+  margin: 0.5rem 0;
+}
+
+.profit-text {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+.loss-text {
+  color: #007bff;
+  font-weight: bold;
+}
+
+/* --- 视图切换按钮 --- */
+.view-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.view-toggle button {
+  padding: 0.5rem 1rem;
+  border: 2px solid #007bff;
+  background: white;
+  color: #007bff;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.view-toggle button.active {
+  background: #007bff;
+  color: white;
+}
+
+.view-toggle button:hover {
+  background: #0056b3;
+  color: white;
+}
+
+/* --- 表单和按钮样式 --- */
+button {
+  padding: 0.5rem 1rem;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s ease;
+}
+button:hover {
+  background-color: #0056b3;
+}
+button:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+/* --- 表格样式 --- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+th, td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #dee2e6;
+}
+th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* --- 加载和错误状态 --- */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+}
+.error {
+  color: var(--danger-color);
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+/* --- 响应式设计 --- */
+@media (max-width: 1024px) {
+  .number-cell {
+    font-size: 3rem; /* 在中等屏幕上稍微减小 */
+    min-width: 70px;
+    min-height: 70px;
+  }
+}
+
+@media (max-width: 768px) {
+  main.container {
+    margin: 1rem auto;
+    padding: 0 0.5rem;
+  }
+
+  .navbar {
+    padding: 1rem;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .nav-links {
+    gap: 1rem;
+  }
+
+  .banner-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .banner-header h3 {
+    font-size: 1.3rem;
+  }
+
+  .numbers-grid {
+    padding: 1.5rem;
+    gap: 10px;
+    grid-template-columns: repeat(4, 1fr) 0.3fr 1fr;
+  }
+
+  .number-cell {
+    font-size: 2.5rem; /* 在平板上保持较大字体 */
+    min-width: 60px;
+    min-height: 60px;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .email-content-background {
+    padding: 1rem;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .numbers-grid {
+    grid-template-columns: repeat(3, 1fr) 0.3fr 1fr;
+    gap: 8px;
+    padding: 1rem;
+  }
+
+  .number-cell {
+    font-size: 2rem; /* 在手机上保持可见性 */
+    min-width: 50px;
+    min-height: 50px;
+  }
+
+  .banner-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .banner-header p {
+    font-size: 0.9rem;
+  }
+}
+
+/* --- 动画效果 --- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes slideIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.slide-in {
+  animation: slideIn 0.5s ease-out;
+}
+
+/* --- 特殊彩票类型标题样式 --- */
+.lottery-banner[data-type="香港六合彩"] .banner-header h3,
+.lottery-banner[data-type="新澳门六合彩"] .banner-header h3,
+.lottery-banner[data-type="老澳门六合彩"] .banner-header h3 {
+  color: #dc3545; /* 红色 */
+  font-size: 1.6rem; /* 增大字体 */
+  font-weight: 900; /* 更加粗重 */
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+}
+
+/* --- 辅助类 --- */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-2 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 1.5rem; }
+.p-1 { padding: 0.5rem; }
+.p-2 { padding: 1rem; }
+.p-3 { padding: 1.5rem; }
+
+/* --- 链接按钮样式 --- */
+.link-button {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+}
+.link-button:hover {
+  color: #0056b3;
+  background: none;
+}
+
+/* --- 消息提示样式 --- */
+.message {
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+.message.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+.message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+.message.warning {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+.message.info {
+  background-color: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+/* --- 数字球特殊效果 --- */
+.number-cell::after {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 70%);
+  pointer-events: none;
+}
+
+.number-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 旋转动画 */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 调试信息样式 */
+details {
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 0.5rem;
+}
+
+details summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+
+details[open] summary {
+  margin-bottom: 0.5rem;
+}
+
+/* 确保HTML内容正确显示 */
+.email-content-background span {
+  display: inline;
+}
+
+/* 视图模式提示 */
+.view-mode-hint {
+  padding: 0.5rem;
+  background-color: #e7f3ff;
+  border-left: 4px solid #007bff;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+}
+```
+---
+File: frontend/src/main.jsx
+```
+// src/main.jsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App.jsx';
+import './index.css';
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+);```
+---
+File: frontend/src/context/AuthContext.jsx
+```
+// src/context/AuthContext.jsx
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { apiService } from '../api';
+
+const AuthContext = createContext(null);
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // 应用加载时，检查后端 session
+    apiService.checkSession()
+      .then(data => {
+        if (data.status === 'success' && data.isAuthenticated) {
+          setUser(data.user);
+        }
+      })
+      .catch(() => setUser(null)) // 如果请求失败，则视为未登录
+      .finally(() => setLoading(false));
+  }, []);
+
+  const login = async (email, password) => {
+    const data = await apiService.login(email, password);
+    if (data.status === 'success') {
+      setUser(data.user);
+    }
+    return data; // 返回整个响应给组件处理
+  };
+
+  const register = (email, password) => {
+    return apiService.register(email, password);
+  };
+
+  const logout = async () => {
+    await apiService.logout();
+    setUser(null);
+  };
+
+  const value = { user, loading, login, register, logout };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {!loading && children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  return useContext(AuthContext);
+};```
+---
+File: frontend/src/components/AuthForm.jsx
+```
+// frontend/src/components/AuthForm.jsx
+import React, { useState } from 'react';
+import { apiService } from '../api';
+
+function AuthForm({ onAuthSuccess }) {
+  const [isLogin, setIsLogin] = useState(true);
+  // ... form state: email, password, message, loading ...
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    // setLoading(true); setMessage('');
+    try {
+      if (isLogin) {
+        // await apiService.login(email, password);
+        alert('登录成功 (模拟)'); // Placeholder
+        onAuthSuccess();
+      } else {
+        const data = await apiService.register(email, password);
+        // setMessage(data.message); setIsLogin(true);
+        alert(data.message); // Simple feedback
+      }
+    } catch (error) {
+      // setMessage(error.message);
+      alert(error.message);
+    } finally {
+      // setLoading(false);
+    }
+  };
+
+  // ... return JSX form with inputs and buttons ...
+  return (/* ... your form JSX here ... */);
+}
+export default AuthForm;```
+---
+File: frontend/src/components/LotteryTypeModal.jsx
+```
+import React, { useState } from 'react';
+
+function LotteryTypeModal({ isOpen, onClose, onConfirm, loading }) {
+  const [selectedTypes, setSelectedTypes] = useState([]);
+
+  const lotteryTypes = [
+    { value: '香港六合彩', label: '香港六合彩 (周二、四、六开奖)' },
+    { value: '新澳门六合彩', label: '新澳门六合彩 (每日开奖)' },
+    { value: '老澳门六合彩', label: '老澳门六合彩 (每日开奖)' }
+  ];
+
+  const handleTypeToggle = (type) => {
+    setSelectedTypes(prev =>
+      prev.includes(type)
+        ? prev.filter(t => t !== type)
+        : [...prev, type]
+    );
+  };
+
+  const handleConfirm = () => {
+    if (selectedTypes.length === 0) {
+      alert('请至少选择一种彩票类型');
+      return;
+    }
+    onConfirm(selectedTypes);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        padding: '2rem',
+        borderRadius: '8px',
+        minWidth: '400px',
+        maxWidth: '500px'
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>选择彩票类型</h3>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          {lotteryTypes.map(type => (
+            <div key={type.value} style={{ marginBottom: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={selectedTypes.includes(type.value)}
+                  onChange={() => handleTypeToggle(type.value)}
+                  style={{ marginRight: '0.5rem' }}
+                />
+                {type.label}
+              </label>
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: '4px',
+          padding: '1rem',
+          marginBottom: '1.5rem'
+        }}>
+          <p style={{ margin: 0, color: '#856404', fontSize: '0.9rem' }}>
+            💡 提示：请查看开奖记录确认开奖号码正确后再进行结算
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            取消
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={loading || selectedTypes.length === 0}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: loading ? '#6c757d' : '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: (loading || selectedTypes.length === 0) ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? '解析中...' : '开始解析'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default LotteryTypeModal;```
+---
+File: frontend/src/components/Navbar.jsx
+```
+// File: frontend/src/components/Navbar.jsx
+
+import React from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+function Navbar() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/');
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
+  return (
+    <nav className="navbar">
+      <div className="nav-brand">
+        <NavLink to="/">结算系统</NavLink>
+      </div>
+      <ul className="nav-links">
+        <li><NavLink to="/">开奖记录</NavLink></li>
+        {user && <li><NavLink to="/emails">邮件原文</NavLink></li>}
+        {user && <li><NavLink to="/odds-template">赔率设置</NavLink></li>}
+      </ul>
+      <div className="nav-auth">
+        {user ? (
+          <>
+            <span>欢迎, {user.email}</span>
+            <button onClick={handleLogout}>退出登录</button>
+          </>
+        ) : (
+          <NavLink to="/auth">注册/登录</NavLink>
+        )}
+      </div>
+    </nav>
+  );
+}
+
+export default Navbar;
+```
+---
+File: frontend/src/components/SingleBetCard.jsx
+```
+// File: frontend/src/components/SingleBetCard.jsx (添加总金额修改功能)
+import React, { useState } from 'react';
+import { apiService } from '../api';
+
+function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton = true }) {
+  const [isParsing, setIsParsing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableData, setEditableData] = useState('');
+  const [showLotteryModal, setShowLotteryModal] = useState(false);
+  const [editingTotalAmount, setEditingTotalAmount] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleParse = () => {
+    setShowLotteryModal(true);
+  };
+
+  const handleConfirmParse = async (lotteryTypes) => {
+    setIsParsing(true);
+    setShowLotteryModal(false);
+
+    try {
+      const numericEmailId = parseInt(emailId, 10);
+      if (isNaN(numericEmailId)) {
+        throw new Error('无效的邮件ID');
+      }
+
+      const result = await apiService.parseSingleBet(
+        numericEmailId,
+        lineData.text,
+        lineData.line_number,
+        lotteryTypes[0]
+      );
+
+      if (result.status === 'success') {
+        onUpdate(lineData.line_number, result.data);
+      } else {
+        alert('解析失败: ' + (result.message || '未知错误'));
+      }
+    } catch (error) {
+      console.error('解析失败:', error);
+      alert('解析失败: ' + error.message);
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  // 计算当前总下注金额
+  const getCurrentTotalAmount = () => {
+    if (!lineData.batch_data) return 0;
+
+    const settlement = lineData.batch_data.data.settlement;
+    if (settlement && settlement.total_bet_amount) {
+      return settlement.total_bet_amount;
+    }
+
+    return lineData.batch_data.data.total_amount || 0;
+  };
+
+  // 开始编辑总金额
+  const startEditTotalAmount = () => {
+    setEditingTotalAmount(true);
+  };
+
+  // 保存总金额修改
+  const saveTotalAmountEdit = async (newTotalAmount) => {
+    if (!lineData.batch_data) return;
+
+    setSaving(true);
+    try {
+      const numericTotalAmount = parseFloat(newTotalAmount);
+      if (isNaN(numericTotalAmount) || numericTotalAmount <= 0) {
+        throw new Error('请输入有效的总金额');
+      }
+
+      const currentTotalAmount = getCurrentTotalAmount();
+      const ratio = numericTotalAmount / currentTotalAmount;
+
+      // 按比例调整每个下注项的金额
+      const updatedBets = lineData.batch_data.data.bets.map(bet => {
+        const newAmount = Math.round(bet.amount * ratio * 100) / 100; // 保留2位小数
+        const targetCount = Array.isArray(bet.targets) ? bet.targets.length : 1;
+
+        let total_bet;
+        if (bet.bet_type === '特码' || bet.bet_type === '号码' || bet.bet_type === '平码') {
+          total_bet = newAmount * targetCount;
+        } else {
+          total_bet = newAmount;
+        }
+
+        return {
+          ...bet,
+          amount: newAmount,
+          total_bet: total_bet
+        };
+      });
+
+      const updatedBatchData = {
+        ...lineData.batch_data.data,
+        bets: updatedBets,
+        total_amount: numericTotalAmount,
+        // 添加修正记录，供AI学习
+        correction: {
+          original_total_amount: currentTotalAmount,
+          corrected_total_amount: numericTotalAmount,
+          correction_reason: "用户手动修正总下注金额",
+          corrected_at: new Date().toISOString(),
+          original_text: lineData.text,
+          adjustment_ratio: ratio
+        }
+      };
+
+      // 调用API更新批次数据
+      const updateResult = await apiService.updateBetBatch(
+        lineData.batch_data.batch_id,
+        updatedBatchData
+      );
+
+      if (updateResult.status === 'success') {
+        // 触发重新结算
+        const reparseResult = await apiService.parseSingleBet(
+          parseInt(emailId, 10),
+          lineData.text,
+          lineData.line_number,
+          lineData.batch_data.data.lottery_type || '香港六合彩'
+        );
+
+        if (reparseResult.status === 'success') {
+          onUpdate(lineData.line_number, reparseResult.data);
+          alert('总金额修改成功，已重新结算！');
+        } else {
+          throw new Error('重新结算失败: ' + reparseResult.message);
+        }
+      } else {
+        throw new Error(updateResult.message || '更新失败');
+      }
+    } catch (error) {
+      console.error('保存总金额修改失败:', error);
+      alert('保存失败: ' + error.message);
+    } finally {
+      setEditingTotalAmount(false);
+      setSaving(false);
+    }
+  };
+
+  // 取消总金额编辑
+  const cancelTotalAmountEdit = () => {
+    setEditingTotalAmount(false);
+  };
+
+  // 格式化下注目标显示
+  const formatTargets = (targets) => {
+    if (!Array.isArray(targets)) {
+      return String(targets || '');
+    }
+
+    // 对于数字，用点号分隔，保持与原下注单相似的格式
+    if (targets.every(target => !isNaN(target))) {
+      return targets.map(num => num.toString().padStart(2, '0')).join('.');
+    }
+
+    // 对于生肖或其他文本，用逗号分隔
+    return targets.join(', ');
+  };
+
+  // 获取目标数量
+  const getTargetCount = (targets) => {
+    if (!Array.isArray(targets)) return 1;
+    return targets.length;
+  };
+
+  // 计算显示的总下注金额
+  const displayTotalAmount = getCurrentTotalAmount();
+
+  return (
+    <div style={{
+      border: '1px solid #e0e0e0',
+      borderRadius: '8px',
+      padding: '1rem',
+      marginBottom: '1rem',
+      backgroundColor: lineData.is_parsed ? '#f8fdff' : '#f9f9f9'
+    }}>
+      {/* 行号标识 */}
+      <div style={{
+        display: 'inline-block',
+        backgroundColor: lineData.is_parsed ? '#28a745' : '#6c757d',
+        color: 'white',
+        borderRadius: '12px',
+        padding: '0.25rem 0.5rem',
+        fontSize: '0.8rem',
+        marginBottom: '0.5rem'
+      }}>
+        第 {lineData.line_number} 条 {lineData.is_parsed ? '✅ 已解析' : '❌ 未解析'}
+      </div>
+
+      {/* 原始文本 */}
+      <div style={{
+        backgroundColor: '#f5f5f5',
+        padding: '0.75rem',
+        borderRadius: '4px',
+        marginBottom: '1rem',
+        fontFamily: 'monospace',
+        fontSize: '0.9rem',
+        whiteSpace: 'pre-wrap'
+      }}>
+        {lineData.text}
+      </div>
+
+      {/* 操作按钮 */}
+      {showParseButton && (
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {!lineData.is_parsed ? (
+            <button
+              onClick={handleParse}
+              disabled={isParsing}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: isParsing ? '#6c757d' : '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: isParsing ? 'not-allowed' : 'pointer',
+                fontSize: '0.9rem'
+              }}
+            >
+              {isParsing ? '解析中...' : '解析此条'}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => {
+                  setEditableData(JSON.stringify(lineData.batch_data.data.bets, null, 2));
+                  setIsEditing(true);
+                }}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                修改识别
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm('确定要删除这条解析结果吗？')) {
+                    onDelete(lineData.line_number);
+                  }
+                }}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                删除解析
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 彩票类型选择弹窗 */}
+      {showLotteryModal && (
+        <LotteryTypeModal
+          isOpen={showLotteryModal}
+          onClose={() => setShowLotteryModal(false)}
+          onConfirm={handleConfirmParse}
+          loading={isParsing}
+        />
+      )}
+
+      {/* 解析结果 - 聚合显示 */}
+      {lineData.is_parsed && lineData.batch_data && (
+        <div style={{ marginTop: '1rem' }}>
+          <div style={{
+            backgroundColor: '#e8f5e8',
+            border: '1px solid #4caf50',
+            padding: '0.75rem',
+            borderRadius: '4px'
+          }}>
+            <h4 style={{ margin: '0 0 0.5rem 0', color: '#2e7d32' }}>
+              ✅ 解析结果
+            </h4>
+
+            {/* 显示彩票类型 */}
+            {lineData.batch_data.data.lottery_type && (
+              <div style={{
+                marginBottom: '1rem',
+                padding: '0.5rem',
+                backgroundColor: '#d4edda',
+                borderRadius: '4px',
+                display: 'inline-block'
+              }}>
+                <strong>彩票类型:</strong> {lineData.batch_data.data.lottery_type}
+              </div>
+            )}
+
+            {/* 下注信息显示 - 聚合显示 */}
+            <div style={{ marginBottom: '1rem' }}>
+              {lineData.batch_data.data.bets?.map((bet, index) => {
+                const targetCount = getTargetCount(bet.targets);
+                const isNumberBet = bet.bet_type === '特码' || bet.bet_type === '号码' || bet.bet_type === '平码';
+
+                return (
+                  <div key={index} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: '0.75rem',
+                    padding: '0.75rem',
+                    backgroundColor: 'white',
+                    borderRadius: '6px',
+                    border: '1px solid #dee2e6'
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        marginBottom: '0.5rem',
+                        gap: '0.5rem'
+                      }}>
+                        <div style={{
+                          fontWeight: 'bold',
+                          fontSize: '1rem',
+                          color: '#495057'
+                        }}>
+                          {bet.bet_type}
+                        </div>
+                        <div style={{
+                          fontSize: '0.85rem',
+                          color: '#6c757d'
+                        }}>
+                          共 {targetCount} 个{isNumberBet ? '号码' : '目标'}
+                        </div>
+                      </div>
+
+                      <div style={{
+                        fontFamily: 'monospace',
+                        fontSize: '0.9rem',
+                        color: '#495057',
+                        wordBreak: 'break-word',
+                        lineHeight: '1.4',
+                        backgroundColor: '#f8f9fa',
+                        padding: '0.5rem',
+                        borderRadius: '4px'
+                      }}>
+                        {formatTargets(bet.targets)}
+                      </div>
+                    </div>
+
+                    <div style={{
+                      textAlign: 'right',
+                      minWidth: '120px',
+                      marginLeft: '0.5rem'
+                    }}>
+                      <div style={{
+                        fontSize: '1rem',
+                        fontWeight: 'bold',
+                        color: '#e74c3c'
+                      }}>
+                        {bet.amount} 元
+                      </div>
+                      <div style={{
+                        fontSize: '0.8rem',
+                        color: '#7f8c8d'
+                      }}>
+                        {isNumberBet ? '每个号码' : '每注'}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 结算信息 - 添加总金额修改功能 */}
+            {lineData.batch_data.data.settlement && (
+              <div style={{
+                marginTop: '1rem',
+                padding: '1rem',
+                backgroundColor: '#fff3cd',
+                borderRadius: '8px',
+                border: '2px solid #ffeaa7'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '1rem'
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '1rem',
+                      fontSize: '1rem'
+                    }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '0.25rem' }}>总下注</div>
+                        {editingTotalAmount ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <input
+                              type="number"
+                              value={displayTotalAmount}
+                              onChange={(e) => {
+                                // 这里只是UI更新，实际保存时再处理
+                                const updatedBatchData = {
+                                  ...lineData.batch_data.data,
+                                  total_amount: parseFloat(e.target.value) || 0
+                                };
+                                setEditableData(JSON.stringify(updatedBatchData, null, 2));
+                              }}
+                              style={{
+                                width: '120px',
+                                padding: '0.5rem',
+                                border: '2px solid #007bff',
+                                borderRadius: '4px',
+                                textAlign: 'center',
+                                fontSize: '1rem',
+                                fontWeight: 'bold'
+                              }}
+                              autoFocus
+                            />
+                            <span style={{ fontSize: '1rem', fontWeight: 'bold' }}>元</span>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#e74c3c' }}>
+                            {displayTotalAmount} 元
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '0.25rem' }}>中奖注数</div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#27ae60' }}>
+                          {lineData.batch_data.data.settlement.winning_details?.length || 0}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginLeft: '1rem' }}>
+                    {editingTotalAmount ? (
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          onClick={() => saveTotalAmountEdit(displayTotalAmount)}
+                          disabled={saving}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            backgroundColor: saving ? '#6c757d' : '#28a745',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: saving ? 'not-allowed' : 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          {saving ? '保存中...' : '保存'}
+                        </button>
+                        <button
+                          onClick={cancelTotalAmountEdit}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            backgroundColor: '#6c757d',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem'
+                          }}
+                        >
+                          取消
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={startEditTotalAmount}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#3498db',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        修改总金额
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {lineData.batch_data.data.settlement.net_profits && (
+                  <div style={{
+                    padding: '0.75rem',
+                    backgroundColor: lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '#d4edda' : '#f8d7da',
+                    borderRadius: '6px',
+                    textAlign: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '1.1rem',
+                    color: lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '#155724' : '#721c24',
+                    border: `1px solid ${lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '#c3e6cb' : '#f5c6cb'}`
+                  }}>
+                    {lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '🎉 盈利' : '📉 亏损'}
+                    <span style={{
+                      fontSize: '1.25rem',
+                      marginLeft: '0.5rem'
+                    }}>
+                      {lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '+' : ''}
+                      {lineData.batch_data.data.settlement.net_profits.net_profit} 元
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* JSON编辑模式 */}
+      {isEditing && (
+        <div style={{ marginTop: '1rem' }}>
+          <div style={{
+            backgroundColor: '#e3f2fd',
+            border: '2px solid #2196f3',
+            borderRadius: '8px',
+            padding: '1rem',
+            marginBottom: '1rem'
+          }}>
+            <p style={{ margin: 0, fontSize: '1rem', color: '#0d47a1', fontWeight: 'bold' }}>
+              💡 JSON 编辑模式
+            </p>
+            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem', color: '#1565c0' }}>
+              请直接编辑以下代表下注内容的 JSON 数据，保存后将自动重新结算
+            </p>
+          </div>
+          <textarea
+            value={editableData}
+            onChange={(e) => setEditableData(e.target.value)}
+            style={{
+              width: '98%',
+              height: '300px',
+              fontFamily: 'monospace',
+              fontSize: '0.9rem',
+              border: '2px solid #ccc',
+              padding: '1rem',
+              borderRadius: '6px',
+              lineHeight: '1.5'
+            }}
+          />
+          <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
+            <button
+              onClick={() => {
+                // 这里需要实现JSON编辑的保存逻辑
+                alert('JSON编辑功能待实现');
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: 'bold'
+              }}
+            >
+              保存修改
+            </button>
+            <button
+              onClick={() => setIsEditing(false)}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// LotteryTypeModal 组件保持不变...
+function LotteryTypeModal({ isOpen, onClose, onConfirm, loading }) {
+  const [selectedTypes, setSelectedTypes] = useState([]);
+
+  const lotteryTypes = [
+    { value: '香港六合彩', label: '香港六合彩 (周二、四、六开奖)' },
+    { value: '新澳门六合彩', label: '新澳门六合彩 (每日开奖)' },
+    { value: '老澳门六合彩', label: '老澳门六合彩 (每日开奖)' }
+  ];
+
+  const handleTypeToggle = (type) => {
+    setSelectedTypes([type]);
+  };
+
+  const handleConfirm = () => {
+    if (selectedTypes.length === 0) {
+      alert('请选择一种彩票类型');
+      return;
+    }
+    onConfirm(selectedTypes);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        padding: '2rem',
+        borderRadius: '12px',
+        minWidth: '400px',
+        maxWidth: '500px',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: '1.5rem', color: '#2c3e50' }}>
+          选择彩票类型
+        </h3>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          {lotteryTypes.map(type => (
+            <div key={type.value} style={{ marginBottom: '0.75rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '0.5rem' }}>
+                <input
+                  type="radio"
+                  name="lotteryType"
+                  checked={selectedTypes.includes(type.value)}
+                  onChange={() => handleTypeToggle(type.value)}
+                  style={{ marginRight: '0.75rem', transform: 'scale(1.2)' }}
+                />
+                <span style={{ fontSize: '1rem' }}>{type.label}</span>
+              </label>
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: '6px',
+          padding: '1rem',
+          marginBottom: '1.5rem'
+        }}>
+          <p style={{ margin: 0, color: '#856404', fontSize: '0.9rem' }}>
+            💡 提示：请根据下注单内容选择对应的彩票类型
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: '1rem'
+            }}
+          >
+            取消
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={loading || selectedTypes.length === 0}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: loading ? '#6c757d' : '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: (loading || selectedTypes.length === 0) ? 'not-allowed' : 'pointer',
+              fontSize: '1rem',
+              fontWeight: 'bold'
+            }}
+          >
+            {loading ? '解析中...' : '开始解析'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default SingleBetCard;
+```
+---
+File: frontend/src/components/RequireAuth.jsx
+```
+// src/components/RequireAuth.jsx
+import React from 'react';
+import { useLocation, Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+function RequireAuth({ children }) {
+  const { user } = useAuth();
+  const location = useLocation();
+
+  if (!user) {
+    // 如果未登录，重定向到登录页，并记录从哪个页面来的
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  return children;
+}
+
+export default RequireAuth;```
+---
+File: frontend/src/components/LotteryResults.jsx
+```
+// src/components/LotteryResults.jsx (Banner Version)
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../api';
+
+// 定义彩票类型和它们的顺序
+const LOTTERY_TYPES = ['香港六合彩', '新澳门六合彩', '老澳门六合彩'];
+
+// 波色文字到 CSS 类名的映射
+const colorClassMap = {
+  '红波': 'color-red',
+  '绿波': 'color-green',
+  '蓝波': 'color-blue',
+};
+
+// 单个开奖号码格子的组件
+const NumberCell = ({ number, color }) => {
+  const bgColorClass = colorClassMap[color] || 'color-unknown';
+  return (
+    <div className={`number-cell ${bgColorClass}`}>
+      {number}
+    </div>
+  );
+};
+
+// 单个横幅的组件
+const LotteryBanner = ({ type, data }) => {
+  if (!data) {
+    return (
+      <div className="lottery-banner">
+        <div className="banner-header">
+          <h3>{type}</h3>
+          <p>等待开奖...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="lottery-banner">
+      <div className="banner-header">
+        <h3>{type}</h3>
+        <p>第 {data.issue_number} 期 - {data.drawing_date}</p>
+      </div>
+      <div className="numbers-grid">
+        {data.winning_numbers.map((number, index) => (
+          <NumberCell key={index} number={number} color={data.colors[index]} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+
+// 主组件
+function LotteryResults() {
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = () => {
+        apiService.getLotteryResults()
+        .then(response => {
+          if (response.status === 'success') {
+            setResults(response.data);
+          } else {
+            setError(response.message || 'Failed to load data');
+          }
+        })
+        .catch(err => setError(err.message))
+        .finally(() => setLoading(false));
+    };
+
+    fetchData();
+    // 设置一个定时器，每30秒自动刷新一次数据
+    const intervalId = setInterval(fetchData, 30000);
+
+    // 组件卸载时清除定时器
+    return () => clearInterval(intervalId);
+  }, []);
+
+  if (loading) return <p>正在加载开奖记录...</p>;
+  if (error) return <p style={{ color: 'red' }}>错误: {error}</p>;
+  if (!results) return <p>无法加载数据结构。</p>;
+
+  return (
+    <div className="lottery-banners-container">
+      {LOTTERY_TYPES.map(type => (
+        <LotteryBanner key={type} type={type} data={results[type]} />
+      ))}
+    </div>
+  );
+}
+
+export default LotteryResults;```
+---
+File: frontend/src/components/SettlementCard.jsx
+```
+import React, { useState, useMemo } from 'react';
+import { apiService } from '../api';
+
+/**
+ * SettlementCard 组件 - 修复版
+ * 显示详细的结算信息并提供编辑功能
+ */
+const SettlementCard = ({ batch, lotteryResult, onUpdate }) => {
+  const { batch_id, data, settlement, ai_model } = batch;
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableData, setEditableData] = useState(JSON.stringify(data.bets, null, 2));
+  const [isSaving, setIsSaving] = useState(false);
+
+  // 结算计算 - 修复版
+  const { totalBetAmount, winningBets, summaryText } = useMemo(() => {
+    if (settlement) {
+      return {
+        totalBetAmount: settlement.total_bet_amount,
+        winningBets: settlement.winning_details,
+        summaryText: settlement.summary
+      };
+    }
+
+    // 如果没有结算数据，使用前端计算
+    let total = 0;
+    const winners = [];
+    const betSummary = {};
+
+    if (Array.isArray(data.bets)) {
+      data.bets.forEach(bet => {
+        const amount = Number(bet.amount) || 0;
+        if ((bet.bet_type === '号码' || bet.bet_type === '特码' || bet.bet_type === '平码') && Array.isArray(bet.targets)) {
+          bet.targets.forEach(targetNumber => {
+            total += amount;
+            betSummary[amount] = (betSummary[amount] || 0) + 1;
+
+            // 如果有开奖结果，进行实际结算
+            if (lotteryResult && Array.isArray(lotteryResult.winning_numbers)) {
+              // 特码玩法：只对比特码（最后一个号码）
+              if (bet.bet_type === '特码' || bet.bet_type === '号码') {
+                const specialNumber = lotteryResult.winning_numbers[lotteryResult.winning_numbers.length - 1];
+                if (String(targetNumber).trim() === String(specialNumber).trim()) {
+                  winners.push({
+                    number: targetNumber,
+                    amount: amount,
+                    bet_type: bet.bet_type
+                  });
+                }
+              }
+              // 平码玩法：对比所有号码
+              else if (bet.bet_type === '平码') {
+                if (lotteryResult.winning_numbers.includes(String(targetNumber).trim())) {
+                  winners.push({
+                    number: targetNumber,
+                    amount: amount,
+                    bet_type: bet.bet_type
+                  });
+                }
+              }
+            }
+          });
+        }
+      });
+    }
+
+    const summaryParts = Object.entries(betSummary).map(([amount, count]) => `${amount}元x${count}个`);
+    const summary = `总下注 ${total} 元 (${summaryParts.join(', ')})`;
+
+    return { totalBetAmount: total, winningBets: winners, summaryText: summary };
+  }, [data.bets, lotteryResult, settlement]);
+
+  // 保存修改
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const updatedBets = JSON.parse(editableData);
+      if (!Array.isArray(updatedBets)) {
+        throw new Error("JSON 格式必须是一个数组 [...]");
+      }
+
+      const updatedBatchData = { ...data, bets: updatedBets };
+      await apiService.updateBetBatch(batch_id, updatedBatchData);
+      onUpdate(batch_id, updatedBatchData);
+      setIsEditing(false);
+    } catch (e) {
+      alert("JSON 格式错误或保存失败: " + e.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 渲染中奖详情 - 修复版
+  const renderWinningDetails = (odds) => {
+    // 如果没有开奖结果，显示提示信息
+    if (!lotteryResult || !Array.isArray(lotteryResult.winning_numbers)) {
+      return (
+        <div style={{ color: '#666', fontStyle: 'italic' }}>
+          暂无开奖数据，无法计算中奖情况
+          {lotteryResult && (
+            <div style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
+              最新开奖期号: {lotteryResult.issue_number}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // 如果有开奖结果但未中奖
+    if (winningBets.length === 0) {
+      const totalWinAmount = 0;
+      const netProfit = -totalBetAmount;
+
+      return (
+        <>
+          <span style={{ color: 'green', fontWeight: 'bold' }}>
+            未中奖
+          </span>{' '}
+          |{' '}
+          <span style={{ fontWeight: 'bold', color: netProfit >= 0 ? 'red' : 'blue' }}>
+            净亏 {Math.abs(netProfit)} 元
+          </span>
+        </>
+      );
+    }
+
+    // 计算中奖金额
+    const totalWinAmount = winningBets.reduce((sum, bet) => sum + (bet.amount * odds), 0);
+    const netProfit = totalWinAmount - totalBetAmount;
+
+    return (
+      <>
+        <span style={{ color: 'red', fontWeight: 'bold' }}>
+          中 {winningBets.length} 注, 赢 {totalWinAmount}元
+        </span>{' '}
+        |{' '}
+        <span style={{ fontWeight: 'bold', color: netProfit >= 0 ? 'red' : 'blue' }}>
+          净{netProfit >= 0 ? '赢' : '亏'} {Math.abs(netProfit)} 元
+        </span>
+      </>
+    );
+  };
+
+  // 获取特码号码
+  const getSpecialNumber = () => {
+    if (!lotteryResult || !Array.isArray(lotteryResult.winning_numbers)) {
+      return '暂无';
+    }
+    return lotteryResult.winning_numbers[lotteryResult.winning_numbers.length - 1];
+  };
+
+  return (
+    <div className="settlement-card" style={{
+      border: '2px solid #e3f2fd',
+      borderRadius: '8px',
+      margin: '1rem 0',
+      padding: '1rem',
+      backgroundColor: '#f8fdff'
+    }}>
+      {/* 批次头部信息 */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '1rem',
+        paddingBottom: '0.5rem',
+        borderBottom: '1px solid #e0e0e0'
+      }}>
+        <div>
+          <strong>批次 ID: {batch_id}</strong>
+          <span style={{ marginLeft: '1rem', color: '#666', fontSize: '0.9rem' }}>
+            AI模型: {ai_model}
+          </span>
+        </div>
+        <button
+          onClick={() => setIsEditing(!isEditing)}
+          style={{
+            padding: '0.25rem 0.5rem',
+            backgroundColor: isEditing ? '#dc3545' : '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '0.8rem'
+          }}
+        >
+          {isEditing ? '取消修改' : '修改识别'}
+        </button>
+      </div>
+
+      {/* 原始文本 */}
+      <div style={{
+        whiteSpace: 'pre-wrap',
+        backgroundColor: '#f5f5f5',
+        padding: '0.5rem',
+        borderRadius: '4px',
+        marginBottom: '1rem',
+        fontFamily: 'monospace',
+        fontSize: '0.9rem'
+      }}>
+        {data.raw_text}
+      </div>
+
+      {/* 开奖信息 */}
+      {lotteryResult && (
+        <div style={{
+          backgroundColor: '#e8f5e8',
+          border: '1px solid #4caf50',
+          padding: '0.75rem',
+          borderRadius: '4px',
+          marginBottom: '1rem'
+        }}>
+          <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', color: '#2e7d32' }}>
+            🎯 开奖信息: {lotteryResult.lottery_type} 第 {lotteryResult.issue_number} 期
+          </p>
+          <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
+            <strong>开奖号码:</strong> {lotteryResult.winning_numbers?.join(', ') || '暂无'}
+          </p>
+          <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
+            <strong>特码:</strong> <span style={{ color: 'red', fontWeight: 'bold' }}>{getSpecialNumber()}</span>
+          </p>
+        </div>
+      )}
+
+      {/* 结算详情 */}
+      <div className="settlement-details">
+        {/* AI 识别概要 */}
+        <div style={{
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          padding: '0.75rem',
+          borderRadius: '4px',
+          marginBottom: '1rem'
+        }}>
+          <p style={{
+            color: '#856404',
+            fontSize: '1.1rem',
+            margin: '0.5rem 0',
+            fontWeight: 'bold'
+          }}>
+            🎯 AI识别概要: {summaryText}
+          </p>
+        </div>
+
+        {/* 结算结果 */}
+        <div className="results-grid">
+          <div style={{ marginBottom: '0.5rem' }}>
+            <strong>中奖详情:</strong>{' '}
+            {winningBets.length > 0 ? (
+              <span style={{ color: 'red', fontWeight: 'bold' }}>
+                {winningBets.map(b => `${b.number}(${b.amount}元)`).join(', ')}
+              </span>
+            ) : lotteryResult ? (
+              <span style={{ color: 'green' }}>无中奖</span>
+            ) : (
+              <span style={{ color: '#666' }}>等待开奖数据...</span>
+            )}
+          </div>
+
+          <div style={{ marginBottom: '0.5rem' }}>
+            <strong>结算结果:</strong>{' '}
+            {settlement.net_profits && settlement.net_profits.odds ? (
+              <>
+                <span style={{
+                  color: settlement.net_profits.is_profit ? 'red' : 'blue',
+                  fontWeight: 'bold'
+                }}>
+                  {settlement.net_profits.is_profit ? '盈利' : '亏损'} {Math.abs(settlement.net_profits.net_profit)} 元
+                </span>
+                {' '}(赔率: {settlement.net_profits.odds})
+              </>
+            ) : (
+              <span style={{ color: '#666' }}>未设置该玩法的赔率</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 编辑模式 */}
+      {isEditing && (
+        <div style={{
+          marginTop: '1rem',
+          padding: '1rem',
+          backgroundColor: '#f8f9fa',
+          border: '1px solid #dee2e6',
+          borderRadius: '4px'
+        }}>
+          <p style={{ fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0' }}>
+            请直接编辑以下代表下注内容的 JSON 数据：
+          </p>
+          <textarea
+            value={editableData}
+            onChange={(e) => setEditableData(e.target.value)}
+            style={{
+              width: '98%',
+              height: '200px',
+              fontFamily: 'monospace',
+              fontSize: '0.9rem',
+              border: '1px solid #ccc',
+              padding: '8px',
+              borderRadius: '4px'
+            }}
+          />
+          <div style={{ marginTop: '0.5rem' }}>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                marginRight: '0.5rem'
+              }}
+            >
+              {isSaving ? '保存中...' : '保存修改'}
+            </button>
+            <button
+              onClick={() => setIsEditing(false)}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 调试信息 */}
+      {process.env.NODE_ENV === 'development' && (
+        <details style={{ marginTop: '1rem', fontSize: '0.8rem' }}>
+          <summary>调试信息</summary>
+          <div style={{ background: '#f5f5f5', padding: '0.5rem', borderRadius: '4px' }}>
+            <p><strong>批次数据:</strong> {JSON.stringify(data, null, 2)}</p>
+            <p><strong>开奖结果:</strong> {JSON.stringify(lotteryResult, null, 2)}</p>
+            <p><strong>中奖注数:</strong> {winningBets.length}</p>
+          </div>
+        </details>
+      )}
+    </div>
+  );
+};
+
+export default SettlementCard;
+```
+---
+File: frontend/src/api/index.js
+```
+
+// File: frontend/src/api/index.js (添加拆分邮件和单条解析功能)
+
+const API_BASE_URL = 'https://wenge.cloudns.ch/index.php';
+
+/**
+ * 统一的API请求函数
+ * @param {string} endpoint - API端点
+ * @param {object} options - 请求选项
+ * @param {string} queryParams - 查询参数
+ * @returns {Promise} 返回Promise对象
+ */
+async function request(endpoint, options = {}, queryParams = '') {
+  // 设置默认选项
+  const defaultOptions = {
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  };
+
+  // 合并选项
+  const finalOptions = {
+    ...defaultOptions,
+    ...options,
+    headers: {
+      ...defaultOptions.headers,
+      ...options.headers,
+    },
+  };
+
+  const url = `${API_BASE_URL}?endpoint=${endpoint}${queryParams}`;
+
+  try {
+    console.log(`Making API request to: ${endpoint}`);
+    const response = await fetch(url, finalOptions);
+
+    // 检查响应状态
+    if (!response.ok) {
+      // 如果是401未授权，可能是session过期，重定向到登录页
+      if (response.status === 401) {
+        if (typeof window !== 'undefined' && window.location.pathname !== '/auth') {
+          window.location.href = '/auth';
+        }
+        throw new Error('登录已过期，请重新登录');
+      }
+
+      // 尝试解析错误信息
+      let errorMessage = `Error ${response.status}`;
+      try {
+        const errorData = await response.text();
+        if (errorData) {
+          const parsedError = JSON.parse(errorData);
+          errorMessage = parsedError.message || errorMessage;
+        }
+      } catch (e) {
+        // 如果无法解析JSON，使用原始错误文本
+        errorMessage = await response.text() || errorMessage;
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    // 对于下载请求，返回blob
+    if (endpoint === 'download_settlement') {
+      return response.blob();
+    }
+
+    // 解析响应数据
+    const data = await response.json();
+
+    // 记录成功的API调用
+    console.log(`API request to ${endpoint} successful`);
+
+    return data;
+  } catch (error) {
+    console.error(`API request to ${endpoint} failed:`, error);
+
+    // 如果是网络错误，提供更友好的错误信息
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('网络连接失败，请检查网络连接后重试');
+    }
+
+    throw error;
+  }
+}
+
+// API服务对象
+export const apiService = {
+  // ==================== 认证相关 ====================
+
+  /**
+   * 用户注册
+   * @param {string} email - 邮箱
+   * @param {string} password - 密码
+   * @returns {Promise}
+   */
+  register(email, password) {
+    return request('register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    });
+  },
+
+  /**
+   * 用户登录
+   * @param {string} email - 邮箱
+   * @param {string} password - 密码
+   * @returns {Promise}
+   */
+  login(email, password) {
+    return request('login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    });
+  },
+
+  /**
+   * 用户登出
+   * @returns {Promise}
+   */
+  logout() {
+    return request('logout', { method: 'POST' });
+  },
+
+  /**
+   * 检查会话状态
+   * @returns {Promise}
+   */
+  checkSession() {
+    return request('check_session');
+  },
+
+  // ==================== 彩票相关 ====================
+
+  /**
+   * 获取彩票结果
+   * @param {string} type - 彩票类型
+   * @param {number} limit - 限制数量
+   * @returns {Promise}
+   */
+  getLotteryResults(type = 'all', limit = 10) {
+    return request('get_lottery_results', {}, `&type=${encodeURIComponent(type)}&limit=${limit}`);
+  },
+
+  /**
+   * 根据期号获取彩票结果
+   * @param {string} type - 彩票类型
+   * @param {string} issue - 期号
+   * @returns {Promise}
+   */
+  getLotteryResultByIssue(type, issue) {
+    return request('get_lottery_result_by_issue', {}, `&type=${encodeURIComponent(type)}&issue=${issue}`);
+  },
+
+  // ==================== 邮件相关 ====================
+
+  /**
+   * 获取邮件列表
+   * @returns {Promise}
+   */
+  getEmails() {
+    return request('get_emails');
+  },
+
+  /**
+   * 获取邮件内容
+   * @param {number} id - 邮件ID
+   * @returns {Promise}
+   */
+  getEmailContent(id) {
+    return request('get_email_content', {}, `&id=${id}`);
+  },
+
+  /**
+   * 获取邮件详情（包含结算信息）
+   * @param {number} id - 邮件ID
+   * @returns {Promise}
+   */
+  getEmailDetails(id) {
+    return request('get_email_details', {}, `&id=${id}`);
+  },
+
+  /**
+   * 拆分邮件内容为多行下注单
+   * @param {number} emailId - 邮件ID
+   * @returns {Promise}
+   */
+  splitEmailLines(emailId) {
+    return request('split_email_lines', {}, `&id=${emailId}`);
+  },
+
+  /**
+   * 解析单条下注文本
+   * @param {number} emailId - 邮件ID
+   * @param {string} betText - 下注文本
+   * @param {number} lineNumber - 行号
+   * @param {string} lotteryType - 彩票类型
+   * @returns {Promise}
+   */
+  parseSingleBet(emailId, betText, lineNumber, lotteryType = '香港六合彩') {
+    return request('parse_single_bet', {
+      method: 'POST',
+      body: JSON.stringify({
+        email_id: emailId,
+        bet_text: betText,
+        line_number: lineNumber,
+        lottery_type: lotteryType  // 新增参数
+      })
+    });
+  },
+
+  /**
+   * 更新下注批次
+   * @param {number} batchId - 批次ID
+   * @param {object} data - 下注数据
+   * @returns {Promise}
+   */
+  updateBetBatch(batchId, data) {
+    return request('update_bet_batch', {
+      method: 'POST',
+      body: JSON.stringify({ batch_id: batchId, data: data })
+    });
+  },
+
+  /**
+   * 删除下注批次
+   * @param {number} batchId - 批次ID
+   * @returns {Promise}
+   */
+  deleteBetBatch(batchId) {
+    return request('delete_bet_batch', {
+      method: 'POST',
+      body: JSON.stringify({ batch_id: batchId })
+    });
+  },
+
+  /**
+   * 重新解析邮件
+   * @param {number} emailId - 邮件ID
+   * @returns {Promise}
+   */
+  reanalyzeEmail(emailId) {
+    return request('reanalyze_email', {
+      method: 'POST',
+      body: JSON.stringify({ email_id: emailId })
+    });
+  },
+
+  /**
+   * 下载结算文件
+   * @param {number} emailId - 邮件ID
+   * @returns {Promise}
+   */
+  downloadSettlement(emailId) {
+    return request('download_settlement', {}, `&id=${emailId}`);
+  },
+
+  /**
+   * 智能解析邮件（模板优先 + AI降级）
+   * @param {number} emailId - 邮件ID
+   * @param {array} lotteryTypes - 彩票类型数组
+   * @returns {Promise}
+   */
+  smartParseEmail(emailId, lotteryTypes) {
+    return request('smart_parse_email', {
+      method: 'POST',
+      body: JSON.stringify({
+        email_id: emailId,
+        lottery_types: lotteryTypes
+      })
+    });
+  },
+
+  // ==================== 赔率模板相关 ====================
+
+  /**
+   * 获取赔率模板
+   * @returns {Promise}
+   */
+  getOddsTemplate() {
+    return request('odds_template');
+  },
+
+  /**
+   * 更新赔率模板
+   * @param {object} templateData - 模板数据
+   * @returns {Promise}
+   */
+  updateOddsTemplate(templateData) {
+    return request('odds_template', {
+      method: 'POST',
+      body: JSON.stringify(templateData)
+    });
+  },
+
+  // ==================== 结算相关 ====================
+
+  /**
+   * 获取结算列表（模拟数据）
+   * @returns {Promise}
+   */
+  getSettlements() {
+    // 暂时返回模拟数据
+    return Promise.resolve({
+      status: 'success',
+      data: [
+        {
+          id: 1,
+          bet_id: 101,
+          total_win: 500,
+          created_at: new Date().toISOString(),
+          lottery_type: '香港六合彩',
+          issue_number: '2024001'
+        },
+        {
+          id: 2,
+          bet_id: 102,
+          total_win: -200,
+          created_at: new Date(Date.now() - 86400000).toISOString(),
+          lottery_type: '澳门六合彩',
+          issue_number: '2024001'
+        }
+      ]
+    });
+  },
+
+  /**
+   * 运行结算（模拟数据）
+   * @param {number} betId - 下注ID
+   * @param {object} lotteryResult - 开奖结果
+   * @returns {Promise}
+   */
+  runSettlement(betId, lotteryResult) {
+    // 暂时返回模拟数据
+    return Promise.resolve({
+      status: 'success',
+      data: {
+        id: Date.now(),
+        bet_id: betId,
+        total_win: Math.random() > 0.5 ? 450 : -100,
+        created_at: new Date().toISOString(),
+        details: {
+          winning_bets: Math.random() > 0.5 ? 2 : 0,
+          total_bet_amount: 100,
+          net_profit: Math.random() > 0.5 ? 350 : -100
+        }
+      }
+    });
+  }
+};
+
+// ==================== 工具函数 ====================
+
+/**
+ * 处理API错误
+ * @param {Error} error - 错误对象
+ * @param {string} context - 上下文描述
+ */
+export function handleApiError(error, context = '操作') {
+  console.error(`${context}失败:`, error);
+
+  let userMessage = error.message;
+
+  // 根据错误类型提供更友好的错误信息
+  if (error.message.includes('网络连接失败')) {
+    userMessage = '网络连接失败，请检查网络连接';
+  } else if (error.message.includes('登录已过期')) {
+    userMessage = '登录已过期，请重新登录';
+  } else if (error.message.includes('401')) {
+    userMessage = '认证失败，请重新登录';
+  } else if (error.message.includes('403')) {
+    userMessage = '权限不足，无法执行此操作';
+  } else if (error.message.includes('404')) {
+    userMessage = '请求的资源不存在';
+  } else if (error.message.includes('500')) {
+    userMessage = '服务器内部错误，请稍后重试';
+  }
+
+  // 在实际应用中，这里可以集成到通知系统
+  if (typeof window !== 'undefined') {
+    // 可以在这里添加全局通知
+    alert(`${context}失败: ${userMessage}`);
+  }
+
+  return userMessage;
+}
+
+/**
+ * 重试机制
+ * @param {Function} apiCall - API调用函数
+ * @param {number} maxRetries - 最大重试次数
+ * @param {number} delay - 重试延迟(ms)
+ * @returns {Promise}
+ */
+export function withRetry(apiCall, maxRetries = 3, delay = 1000) {
+  return new Promise((resolve, reject) => {
+    const attempt = (retryCount) => {
+      apiCall()
+        .then(resolve)
+        .catch((error) => {
+          if (retryCount < maxRetries) {
+            console.log(`API调用失败，第${retryCount + 1}次重试...`);
+            setTimeout(() => attempt(retryCount + 1), delay * retryCount);
+          } else {
+            reject(error);
+          }
+        });
+    };
+
+    attempt(0);
+  });
+}
+
+/**
+ * 防抖API调用
+ * @param {Function} apiCall - API调用函数
+ * @param {number} delay - 延迟时间(ms)
+ * @returns {Function} 防抖函数
+ */
+export function debounceApiCall(apiCall, delay = 300) {
+  let timeoutId;
+
+  return (...args) => {
+    return new Promise((resolve, reject) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        apiCall(...args).then(resolve).catch(reject);
+      }, delay);
+    });
+  };
+}
+
+// 默认导出API服务
+export default apiService;
+```
+---
+File: frontend/src/App.jsx
+```
+// File: frontend/src/App.jsx
+
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+
+import Navbar from './components/Navbar';
+import RequireAuth from './components/RequireAuth';
+
+import HomePage from './pages/HomePage';
+import AuthPage from './pages/AuthPage';
+import EmailsListPage from './pages/EmailsListPage';
+import EmailDetailPage from './pages/EmailDetailPage';
+import OddsTemplatePage from './pages/OddsTemplatePage'; // 新增
+
+function App() {
+  return (
+    <AuthProvider>
+      <Navbar />
+      <main className="container">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/auth" element={<AuthPage />} />
+
+          <Route
+            path="/emails"
+            element={<RequireAuth><EmailsListPage /></RequireAuth>}
+          />
+          <Route
+            path="/emails/:emailId"
+            element={<RequireAuth><EmailDetailPage /></RequireAuth>}
+          />
+          <Route
+            path="/odds-template"
+            element={<RequireAuth><OddsTemplatePage /></RequireAuth>}
+          />
+
+          <Route path="*" element={
+            <div className="card"><h1>404 - 页面未找到</h1></div>
+          } />
+        </Routes>
+      </main>
+    </AuthProvider>
+  );
+}
+
+export default App;
+```
+---
+File: frontend/public/_worker.js
+```
+// File: frontend/public/_worker.js (修复版)
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    // Only proxy API requests
+    if (url.pathname.startsWith('/api/')) {
+      const endpoint = url.pathname.substring(5);
+      const backendUrl = `https://wenge.cloudns.ch/index.php?endpoint=${endpoint}${url.search}`;
+
+      // 修复：创建新的请求对象，避免流式 body 问题
+      const backendRequestInit = {
+        method: request.method,
+        headers: new Headers(request.headers),
+        // 对于非 GET 请求，克隆 body 以避免流式问题
+        body: request.method !== 'GET' && request.body ? await request.clone().arrayBuffer() : null,
+        // 添加 duplex 设置
+        duplex: 'half'
+      };
+
+      try {
+        const backendRequest = new Request(backendUrl, backendRequestInit);
+        return await fetch(backendRequest);
+      } catch (e) {
+        return new Response(`Backend server is unreachable: ${e.message}`, { status: 503 });
+      }
+    }
+
+    // Serve static assets
+    return env.ASSETS.fetch(request);
+  },
+};
+```
+---
+File: frontend/index.html
+```
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="data:,">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>邮件处理系统</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>```
