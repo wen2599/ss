@@ -47,7 +47,8 @@ $routes = [
     'smart_parse_email'     => 'auth/smart_parse_email.php',
     'parse_single_bet'      => 'auth/parse_single_bet.php',
     'split_email_lines'     => 'auth/split_email_lines.php',
-    'calibrate_ai_parse'    => 'auth/calibrate_ai_parse.php', // <-- 新增AI校准路由
+    'calibrate_ai_parse'    => 'auth/calibrate_ai_parse.php',
+    'quick_calibrate_ai'    => 'auth/quick_calibrate_ai.php', // <-- 新增快速校准路由
 
     // Lottery related endpoints
     'get_lottery_results'       => 'lottery/get_results.php',
