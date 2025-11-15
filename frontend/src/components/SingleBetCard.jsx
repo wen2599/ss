@@ -136,4 +136,62 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete, showParseButton 
                     </div>
                   </div>
                   {lineData.batch_data.data.settlement.net_profits && (
-                    <div style={{ padding: '0.75rem', backgroundColor: lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '#d4edda' : '#f8d7da', borderRadius: '6px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', color: lineData.batch_data.data.settlement.net_profits.net_profit >=.
+                    <div style={{ padding: '0.75rem', backgroundColor: lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '#d4edda' : '#f8d7da', borderRadius: '6px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', color: lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '#155724' : '#721c24' }}>
+                      {lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '🎉 盈利' : '📉 亏损'}
+                      <span style={{ fontSize: '1.25rem', marginLeft: '0.5rem' }}>
+                        {lineData.batch_data.data.settlement.net_profits.net_profit >= 0 ? '+' : ''}{lineData.batch_data.data.settlement.net_profits.net_profit} 元
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 【核心修复】在这里把 emailId 传递给 AiCalibrationModal */}
+      <AiCalibrationModal
+        isOpen={showCalibrationModal}
+        onClose={() => setShowCalibrationModal(false)}
+        lineData={lineData}
+        emailId={emailId} 
+        onUpdate={onUpdate}
+      />
+    </>
+  );
+}
+
+// LotteryTypeModal 保持不变
+function LotteryTypeModal({ isOpen, onClose, onConfirm, loading }) {
+    const [selectedTypes, setSelectedTypes] = useState([]);
+    const lotteryTypes = [
+      { value: '香港六合彩', label: '香港六合彩 (周二、四、六开奖)' },
+      { value: '新澳门六合彩', label: '新澳门六合彩 (每日开奖)' },
+      { value: '老澳门六合彩', label: '老澳门六合彩 (每日开奖)' }
+    ];
+    const handleTypeToggle = (type) => { setSelectedTypes([type]); };
+    const handleConfirm = () => { if (selectedTypes.length === 0) { alert('请选择一种彩票类型'); return; } onConfirm(selectedTypes); };
+    if (!isOpen) return null;
+    return (
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+        <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '12px', minWidth: '400px', maxWidth: '500px' }}>
+          <h3>选择彩票类型</h3>
+          <div style={{ marginBottom: '1.5rem' }}>
+            {lotteryTypes.map(type => (
+              <label key={type.value} style={{ display: 'block', marginBottom: '0.5rem' }}>
+                <input type="radio" name="lotteryType" checked={selectedTypes.includes(type.value)} onChange={() => handleTypeToggle(type.value)} style={{ marginRight: '0.5rem' }}/>
+                {type.label}
+              </label>
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+            <button onClick={onClose} disabled={loading}>取消</button>
+            <button onClick={handleConfirm} disabled={loading || selectedTypes.length === 0}>{loading ? '解析中...' : '开始解析'}</button>
+          </div>
+        </div>
+      </div>
+    );
+}
+
+export default SingleBetCard;
