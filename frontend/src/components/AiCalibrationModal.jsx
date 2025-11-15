@@ -1,4 +1,4 @@
-// File: frontend/src/components/AiCalibrationModal.jsx
+// File: frontend/src/components/AiCalibrationModal.jsx (接收并使用 emailId)
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../api';
 
@@ -12,13 +12,10 @@ function AiCalibrationModal({ isOpen, onClose, lineData, emailId, onUpdate }) {
 
   useEffect(() => {
     if (isOpen && lineData) {
-      // 从原始解析数据中初始化表单
       const initialBet = lineData.batch_data?.data?.bets?.[0] || {};
       setBetType(initialBet.bet_type || '特码');
-
       const initialTargets = Array.isArray(initialBet.targets) ? initialBet.targets.join('.') : '';
       setTargets(initialTargets);
-
       setAmount(initialBet.amount || '');
       setAmountMode('per_target');
       setReason('');
@@ -46,6 +43,14 @@ function AiCalibrationModal({ isOpen, onClose, lineData, emailId, onUpdate }) {
         }
       };
 
+      // 【调试步骤】检查我们即将发送的数据
+      console.log('Sending calibration payload:', payload);
+      
+      // 检查 email_id 是否有效
+      if (!payload.email_id || isNaN(payload.email_id)) {
+        throw new Error('前端错误：Email ID 无效，无法发送请求。');
+      }
+
       const result = await apiService.calibrateAiParse(payload);
       
       if (result.status === 'success') {
@@ -57,6 +62,7 @@ function AiCalibrationModal({ isOpen, onClose, lineData, emailId, onUpdate }) {
       }
 
     } catch (error) {
+      console.error("Calibration failed:", error); // 在控制台打印详细错误
       alert('错误: ' + error.message);
     } finally {
       setIsSaving(false);
@@ -82,7 +88,6 @@ function AiCalibrationModal({ isOpen, onClose, lineData, emailId, onUpdate }) {
               <option value="平码">平码</option>
               <option value="连肖">连肖</option>
               <option value="六肖">六肖</option>
-              {/* 可添加更多 */}
             </select>
           </div>
           <div style={{ marginBottom: '1rem' }}>
