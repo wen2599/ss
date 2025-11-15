@@ -272,6 +272,18 @@ export const apiService = {
     });
   },
 
+  /**
+   * 校准AI解析结果
+   * @param {object} payload - 校准数据
+   * @returns {Promise}
+   */
+  calibrateAiParse(payload) {
+    return request('calibrate_ai_parse', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+  },
+
   // ==================== 赔率模板相关 ====================
 
   /**
