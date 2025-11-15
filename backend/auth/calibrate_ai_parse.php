@@ -1,5 +1,5 @@
 <?php
-// File: backend/auth/calibrate_ai_parse.php
+// File: backend/auth/calibrate_ai_parse.php (修复版)
 
 require_once __DIR__ . '/../ai_helper.php';
 
@@ -14,17 +14,35 @@ $user_id = $_SESSION['user_id'];
 
 // 2. 获取输入数据
 $input = json_decode(file_get_contents('php://input'), true);
-$email_id = $input['email_id'] ?? null;
-$line_number = $input['line_number'] ?? null;
-$batch_id = $input['batch_id'] ?? null;
+
+// 3. 【核心修复】更严格和清晰的输入验证
+$email_id = filter_var($input['email_id'] ?? null, FILTER_VALIDATE_INT);
+$line_number = filter_var($input['line_number'] ?? null, FILTER_VALIDATE_INT);
+$batch_id = filter_var($input['batch_id'] ?? null, FILTER_VALIDATE_INT);
 $correction_data = $input['correction'] ?? null;
 
-// 3. 验证输入
-if (empty($email_id) || empty($line_number) || empty($batch_id) || empty($correction_data)) {
+if ($email_id === false || $email_id <= 0) {
     http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => 'Missing required parameters.']);
+    // 向前端返回更具体的信息，方便调试
+    echo json_encode(['status' => 'error', 'message' => 'Invalid or missing Email ID.']);
     exit;
 }
+if ($line_number === false || $line_number <= 0) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Invalid or missing Line Number.']);
+    exit;
+}
+if ($batch_id === false || $batch_id <= 0) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Invalid or missing Batch ID.']);
+    exit;
+}
+if (empty($correction_data) || !is_array($correction_data)) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Missing correction data.']);
+    exit;
+}
+
 
 try {
     $pdo = get_db_connection();
@@ -48,7 +66,7 @@ try {
 
     // 5. 根据用户的修正，重新构建一个完美的 bet_data_json
     $targets_array = preg_split('/[.,\s]+/', $correction_data['targets']);
-    $targets_array = array_filter($targets_array, 'strlen');
+    $targets_array = array_values(array_filter($targets_array, 'strlen')); // 确保是连续索引数组
 
     $amount_value = floatval($correction_data['amount']);
     $total_amount = 0;
@@ -58,7 +76,7 @@ try {
         'targets' => $targets_array,
         'amount' => $amount_value,
         'raw_text' => $original_text,
-        'lottery_type' => $original_parse['lottery_type'] // 保留原始彩票类型
+        'lottery_type' => $original_parse['lottery_type'] ?? '香港六合彩' // 保留原始彩票类型
     ];
     
     // 根据金额模式计算总金额
@@ -73,17 +91,18 @@ try {
         'line_number' => intval($line_number),
         'bets' => [$bet_entry], // 简化为只包含一个聚合后的bet
         'total_amount' => $total_amount,
-        'lottery_type' => $original_parse['lottery_type']
+        'lottery_type' => $original_parse['lottery_type'] ?? '香港六合彩'
     ];
 
     // 6. 触发AI学习
-    // 注意: trainAIWithCorrection 应设计为异步或快速执行，避免阻塞请求
-    trainAIWithCorrection([
-        'original_text' => $original_text,
-        'original_parse' => $original_parse,
-        'corrected_parse' => $corrected_parse,
-        'correction_reason' => $correction_data['reason']
-    ]);
+    if (function_exists('trainAIWithCorrection')) {
+        trainAIWithCorrection([
+            'original_text' => $original_text,
+            'original_parse' => $original_parse,
+            'corrected_parse' => $corrected_parse,
+            'correction_reason' => $correction_data['reason'] ?? ''
+        ]);
+    }
 
     // 7. 更新数据库中的 bet_data_json
     $stmt_update = $pdo->prepare("UPDATE parsed_bets SET bet_data_json = ? WHERE id = ?");
@@ -123,6 +142,7 @@ try {
         'message' => 'AI校准成功并已重新结算！',
         'data' => [
             'batch_id' => $batch_id,
+            // 【重要】返回的结构要和 parse_single_bet 一致
             'parse_result' => $corrected_parse,
             'line_number' => intval($line_number)
         ]
@@ -132,7 +152,7 @@ try {
     if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    error_log("AI Calibration Error: " . $e->getMessage());
+    error_log("AI Calibration Error: " . $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine());
     http_response_code($e->getCode() == 403 ? 403 : 500);
     echo json_encode(['status' => 'error', 'message' => '校准失败: ' . $e->getMessage()]);
 }
