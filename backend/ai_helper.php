@@ -1,9 +1,11 @@
 <?php
-// File: backend/ai_helper.php (修复JSON提取问题)
+// File: backend/ai_helper.php (修复路径问题)
 
-require_once __DIR__ . '/../helpers/mail_parser.php';
-require_once __DIR__ . '/../db_operations.php';
-require_once __DIR__ . '/../lottery/rules.php';
+// 使用绝对路径引入文件，避免相对路径问题
+$baseDir = dirname(__DIR__);
+require_once $baseDir . '/backend/helpers/mail_parser.php';
+require_once $baseDir . '/backend/db_operations.php';
+require_once $baseDir . '/backend/lottery/rules.php';
 
 function analyzeBetSlipWithAI(string $emailContent, string $lotteryType = '香港六合彩'): array {
     return analyzeSingleBetWithAI($emailContent, $lotteryType, null);
@@ -13,7 +15,9 @@ function analyzeSingleBetWithAI(string $betText, string $lotteryType = '香港�
     return analyzeWithCloudflareAI($betText, $lotteryType, $context);
 }
 
-// 在 backend/ai_helper.php 中确保 extract_json_from_ai_response 函数足够健壮
+/**
+ * 终极防御性解析函数：从AI返回的文本中安全地提取JSON。
+ */
 function extract_json_from_ai_response(string $text): ?string {
     // 记录原始响应用于调试
     error_log("AI Raw Response: " . $text);

@@ -1,5 +1,5 @@
 <?php
-// File: backend/auth/quick_calibrate_ai.php (完整修复版)
+// File: backend/auth/quick_calibrate_ai.php (修复路径问题)
 
 // 启用详细错误日志
 ini_set('display_errors', 0);
@@ -8,13 +8,11 @@ ini_set('error_log', __DIR__ . '/../../debug.log');
 
 // 记录请求开始
 error_log("=== Quick Calibration Request Started ===");
-error_log("Request Time: " . date('Y-m-d H:i:s'));
-error_log("Request Method: " . $_SERVER['REQUEST_METHOD']);
-error_log("Request Headers: " . json_encode(getallheaders()));
 
 try {
-    // 1. 加载依赖
-    require_once __DIR__ . '/../ai_helper.php';
+    // 1. 加载依赖 - 使用绝对路径
+    $baseDir = dirname(__DIR__, 2); // 回到项目根目录
+    require_once $baseDir . '/backend/ai_helper.php';
     error_log("Dependencies loaded successfully");
 
     // 2. 身份验证
@@ -130,9 +128,9 @@ try {
     // 7. 重新结算
     error_log("Starting re-settlement...");
     
-    // 检查结算函数是否存在
+    // 检查结算函数是否存在，使用绝对路径引入
     if (!function_exists('calculateBatchSettlement')) {
-        require_once __DIR__ . '/get_email_details.php';
+        require_once $baseDir . '/backend/auth/get_email_details.php';
     }
 
     // 获取用户赔率模板
@@ -224,11 +222,6 @@ try {
         'status' => 'error',
         'message' => '快速校准失败: ' . $e->getMessage()
     ];
-
-    // 只在开发环境中包含堆栈跟踪
-    if (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false) {
-        $error_response['trace'] = $e->getTraceAsString();
-    }
 
     http_response_code($status_code);
     echo json_encode($error_response);
