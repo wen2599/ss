@@ -13,17 +13,19 @@ function analyzeSingleBetWithAI(string $betText, string $lotteryType = '香港�
     return analyzeWithCloudflareAI($betText, $lotteryType, $context);
 }
 
-/**
- * 终极防御性解析函数：从AI返回的文本中安全地提取JSON。
- */
+// 在 backend/ai_helper.php 中确保 extract_json_from_ai_response 函数足够健壮
 function extract_json_from_ai_response(string $text): ?string {
-    // 0. 首先清理文本，移除可能的控制字符
+    // 记录原始响应用于调试
+    error_log("AI Raw Response: " . $text);
+    
+    // 0. 首先清理文本，移除可能的控制字符和多余空格
     $text = preg_replace('/[[:^print:]]/', '', $text);
     $text = trim($text);
     
     // 1. 尝试直接解码，看它本身是不是一个纯净的JSON
     $decoded = json_decode($text, true);
     if (json_last_error() === JSON_ERROR_NONE) {
+        error_log("Direct JSON parse successful");
         return $text;
     }
 
@@ -32,6 +34,7 @@ function extract_json_from_ai_response(string $text): ?string {
         $candidate = trim($matches[1]);
         $decoded = json_decode($candidate, true);
         if (json_last_error() === JSON_ERROR_NONE) {
+            error_log("JSON code block parse successful");
             return $candidate;
         }
     }
@@ -41,6 +44,7 @@ function extract_json_from_ai_response(string $text): ?string {
         $candidate = trim($matches[1]);
         $decoded = json_decode($candidate, true);
         if (json_last_error() === JSON_ERROR_NONE) {
+            error_log("Generic code block parse successful");
             return $candidate;
         }
     }
@@ -52,12 +56,32 @@ function extract_json_from_ai_response(string $text): ?string {
         $candidate = substr($text, $first_brace, $last_brace - $first_brace + 1);
         $decoded = json_decode($candidate, true);
         if (json_last_error() === JSON_ERROR_NONE) {
+            error_log("Brace matching parse successful");
             return $candidate;
         }
     }
 
-    // 5. 如果所有方法都失败，记录原始文本用于调试
-    error_log("AI响应无法解析为JSON，原始内容: " . $text);
+    // 5. 尝试修复常见的JSON格式问题
+    $fix_attempts = [
+        // 修复单引号
+        function($str) { return str_replace("'", '"', $str); },
+        // 修复未转义的控制字符
+        function($str) { return preg_replace('/[\x00-\x1F\x7F]/', '', $str); },
+        // 修复尾随逗号
+        function($str) { return preg_replace('/,\s*([}\]])/', '$1', $str); }
+    ];
+
+    foreach ($fix_attempts as $fix) {
+        $fixed_text = $fix($text);
+        $decoded = json_decode($fixed_text, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            error_log("JSON fixed with repair function");
+            return $fixed_text;
+        }
+    }
+
+    // 6. 如果所有方法都失败，记录原始文本用于调试
+    error_log("All JSON extraction methods failed. Original content: " . substr($text, 0, 1000));
     return null;
 }
 
