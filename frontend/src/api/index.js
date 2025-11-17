@@ -1,4 +1,4 @@
-// File: frontend/src/api/index.js (修复快速校准API)
+// File: frontend/src/api/index.js (修复响应体多次读取问题)
 
 const API_BASE_URL = 'https://wenge.cloudns.ch/index.php';
 
@@ -35,19 +35,27 @@ async function request(endpoint, options = {}, queryParams = '') {
 
       let errorMessage = `Error ${response.status}`;
       try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
+        // 克隆响应以避免多次读取问题
+        const errorResponse = response.clone();
+        const errorText = await errorResponse.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = errorText || errorMessage;
+        }
       } catch (e) {
-        errorMessage = await response.text() || errorMessage;
+        // 如果无法读取错误响应，使用默认错误信息
+        console.error('Failed to read error response:', e);
       }
 
       throw new Error(errorMessage);
     }
-    
+
     if (endpoint === 'download_settlement') {
         return response.blob();
     }
-    
+
     const data = await response.json();
     console.log(`API request to ${endpoint} successful`);
     return data;
