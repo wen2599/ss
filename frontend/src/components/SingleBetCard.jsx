@@ -75,7 +75,7 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
         </div>
         {lineData.is_parsed && lineData.batch_data && (
           <div style={{ marginTop: '1rem' }}>
-            <div style={{ backgroundColor: '#e8f5e8', border: '1px solid #4caf50', padding: '0.75rem', borderRadius: '4px' }}>
+            <div style={{ backgroundColor: '#e8f5e8', border: '1px solid '#4caf50', padding: '0.75rem', borderRadius: '4px' }}>
               <h4 style={{ margin: '0 0 0.5rem 0', color: '#2e7d32' }}>✅ AI解析结果</h4>
               {lineData.batch_data.data.lottery_type && <div style={{ marginBottom: '1rem', padding: '0.5rem', backgroundColor: '#d4edda', borderRadius: '4px', display: 'inline-block' }}><strong>彩票类型:</strong> {lineData.batch_data.data.lottery_type}</div>}
               <div style={{ marginBottom: '1rem' }}>
@@ -116,8 +116,22 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
           </div>
         )}
       </div>
-      <QuickCalibrationModal isOpen={showCalibrationModal} onClose={() => setShowCalibrationModal(false)} lineData={lineData} emailId={emailId} onUpdate={onUpdate} />
-      <LotteryTypeModal isOpen={showLotteryModal} onClose={() => setShowLotteryModal(false)} onConfirm={handleConfirmParse} loading={isParsing} />
+      
+      {/* 快速校准模态框 - 传递 emailId */}
+      <QuickCalibrationModal 
+        isOpen={showCalibrationModal} 
+        onClose={() => setShowCalibrationModal(false)} 
+        lineData={lineData} 
+        emailId={emailId} 
+        onUpdate={onUpdate} 
+      />
+      
+      <LotteryTypeModal 
+        isOpen={showLotteryModal} 
+        onClose={() => setShowLotteryModal(false)} 
+        onConfirm={handleConfirmParse} 
+        loading={isParsing} 
+      />
     </>
   );
 }
@@ -130,8 +144,16 @@ function LotteryTypeModal({ isOpen, onClose, onConfirm, loading }) {
       { value: '老澳门六合彩', label: '老澳门六合彩 (每日开奖)' }
     ];
     const handleTypeToggle = (type) => { setSelectedTypes([type]); };
-    const handleConfirm = () => { if (selectedTypes.length === 0) { alert('请选择一种彩票类型'); return; } onConfirm(selectedTypes); };
+    const handleConfirm = () => { 
+      if (selectedTypes.length === 0) { 
+        alert('请选择一种彩票类型'); 
+        return; 
+      } 
+      onConfirm(selectedTypes); 
+    };
+    
     if (!isOpen) return null;
+    
     return (
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
         <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '12px', minWidth: '400px', maxWidth: '500px' }}>
@@ -139,14 +161,34 @@ function LotteryTypeModal({ isOpen, onClose, onConfirm, loading }) {
           <div style={{ marginBottom: '1.5rem' }}>
             {lotteryTypes.map(type => (
               <label key={type.value} style={{ display: 'block', marginBottom: '0.5rem' }}>
-                <input type="radio" name="lotteryType" checked={selectedTypes.includes(type.value)} onChange={() => handleTypeToggle(type.value)} style={{ marginRight: '0.5rem' }}/>
+                <input 
+                  type="radio" 
+                  name="lotteryType" 
+                  checked={selectedTypes.includes(type.value)} 
+                  onChange={() => handleTypeToggle(type.value)} 
+                  style={{ marginRight: '0.5rem' }}
+                />
                 {type.label}
               </label>
             ))}
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-            <button onClick={onClose} disabled={loading} style={{ padding: '0.5rem 1rem' }}>取消</button>
-            <button onClick={handleConfirm} disabled={loading || selectedTypes.length === 0} style={{ padding: '0.5rem 1rem' }}>{loading ? '解析中...' : '开始解析'}</button>
+            <button onClick={onClose} disabled={loading} style={{ padding: '0.5rem 1rem', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px' }}>
+              取消
+            </button>
+            <button 
+              onClick={handleConfirm} 
+              disabled={loading || selectedTypes.length === 0} 
+              style={{ 
+                padding: '0.5rem 1rem', 
+                backgroundColor: (loading || selectedTypes.length === 0) ? '#6c757d' : '#007bff', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px' 
+              }}
+            >
+              {loading ? '解析中...' : '开始解析'}
+            </button>
           </div>
         </div>
       </div>
