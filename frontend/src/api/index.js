@@ -1,4 +1,4 @@
-// File: frontend/src/api/index.js (添加快速校准API)
+// File: frontend/src/api/index.js (修复快速校准API)
 
 const API_BASE_URL = 'https://wenge.cloudns.ch/index.php';
 
@@ -160,6 +160,7 @@ export const apiService = {
    * @returns {Promise}
    */
   quickCalibrateAi(payload) {
+    console.log('快速校准API调用，payload:', payload);
     return request('quick_calibrate_ai', {
         method: 'POST',
         body: JSON.stringify(payload)

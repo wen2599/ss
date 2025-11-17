@@ -1,5 +1,5 @@
 <?php
-// File: backend/auth/quick_calibrate_ai.php
+// File: backend/auth/quick_calibrate_ai.php (修复版)
 
 require_once __DIR__ . '/../ai_helper.php';
 
@@ -13,15 +13,44 @@ $user_id = $_SESSION['user_id'];
 
 // 2. 获取并严格验证输入
 $input = json_decode(file_get_contents('php://input'), true);
-$email_id = filter_var($input['email_id'] ?? null, FILTER_VALIDATE_INT);
-$line_number = filter_var($input['line_number'] ?? null, FILTER_VALIDATE_INT);
-$batch_id = filter_var($input['batch_id'] ?? null, FILTER_VALIDATE_INT);
-$corrected_total_amount = filter_var($input['corrected_total_amount'] ?? null, FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+
+// 调试日志
+error_log("Quick Calibration Input: " . print_r($input, true));
+
+// 验证必需的参数
+if (!isset($input['email_id']) || !isset($input['line_number']) || !isset($input['batch_id']) || !isset($input['corrected_total_amount'])) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Missing required parameters: email_id, line_number, batch_id, corrected_total_amount']);
+    exit;
+}
+
+$email_id = filter_var($input['email_id'], FILTER_VALIDATE_INT);
+$line_number = filter_var($input['line_number'], FILTER_VALIDATE_INT);
+$batch_id = filter_var($input['batch_id'], FILTER_VALIDATE_INT);
+$corrected_total_amount = filter_var($input['corrected_total_amount'], FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
 $reason = trim($input['reason'] ?? '');
 
-if (!$email_id || !$line_number || !$batch_id || $corrected_total_amount === false) {
+if (!$email_id || $email_id <= 0) {
     http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => 'Missing or invalid required parameters.']);
+    echo json_encode(['status' => 'error', 'message' => 'Invalid email_id: ' . $input['email_id']]);
+    exit;
+}
+
+if (!$line_number || $line_number <= 0) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Invalid line_number: ' . $input['line_number']]);
+    exit;
+}
+
+if (!$batch_id || $batch_id <= 0) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Invalid batch_id: ' . $input['batch_id']]);
+    exit;
+}
+
+if ($corrected_total_amount === false || $corrected_total_amount < 0) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Invalid corrected_total_amount: ' . $input['corrected_total_amount']]);
     exit;
 }
 
@@ -29,23 +58,25 @@ try {
     $pdo = get_db_connection();
     $pdo->beginTransaction();
 
-    // 3. 获取原始解析数据和单行文本
+    // 3. 获取原始解析数据和单行文本 - 修复查询条件
     $stmt = $pdo->prepare("
-        SELECT bet_data_json FROM parsed_bets pb
+        SELECT pb.bet_data_json, pb.email_id 
+        FROM parsed_bets pb
         JOIN raw_emails re ON pb.email_id = re.id
-        WHERE pb.id = ? AND re.user_id = ?
+        WHERE pb.id = ? AND re.user_id = ? AND re.id = ?
     ");
-    $stmt->execute([$batch_id, $user_id]);
+    $stmt->execute([$batch_id, $user_id, $email_id]);
     $original_bet_json = $stmt->fetchColumn();
 
     if (!$original_bet_json) {
-        throw new Exception("Record not found or access denied.", 403);
+        throw new Exception("Record not found or access denied. Batch ID: $batch_id, User ID: $user_id, Email ID: $email_id", 403);
     }
+    
     $original_parse = json_decode($original_bet_json, true);
     $original_text = $original_parse['raw_text'] ?? '';
     $lottery_type = $original_parse['lottery_type'] ?? '香港六合彩';
 
-    // 4. 调用AI进行带有“提示”的重新解析
+    // 4. 调用AI进行带有"提示"的重新解析
     $ai_result = analyzeSingleBetWithAI($original_text, $lottery_type, [
         'original_parse' => $original_parse,
         'corrected_total_amount' => $corrected_total_amount,
@@ -57,8 +88,8 @@ try {
     }
 
     $new_parse_data = $ai_result['data'];
-    $new_parse_data['line_number'] = $line_number; // 确保line_number在数据中
-    $new_parse_data['raw_text'] = $original_text; // 确保原始文本在数据中
+    $new_parse_data['line_number'] = $line_number;
+    $new_parse_data['raw_text'] = $original_text;
 
     // 5. 重新结算
     require_once __DIR__ . '/get_email_details.php';
@@ -71,10 +102,12 @@ try {
     $latest_results_raw = $stmt_latest->fetchAll(PDO::FETCH_ASSOC);
     $latest_results = [];
     foreach ($latest_results_raw as $row) {
-        foreach(['winning_numbers', 'zodiac_signs', 'colors'] as $key) { $row[$key] = json_decode($row[$key], true) ?: []; }
+        foreach(['winning_numbers', 'zodiac_signs', 'colors'] as $key) { 
+            $row[$key] = json_decode($row[$key], true) ?: []; 
+        }
         $latest_results[$row['lottery_type']] = $row;
     }
-    
+
     $lottery_result_for_settlement = $latest_results[$new_parse_data['lottery_type']] ?? null;
     $settlement_data = calculateBatchSettlement($new_parse_data, $lottery_result_for_settlement, $userOddsTemplate);
     $new_parse_data['settlement'] = $settlement_data;
@@ -103,6 +136,7 @@ try {
         $pdo->rollBack();
     }
     error_log("Quick Calibration Error: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
     http_response_code($e->getCode() == 403 ? 403 : 500);
     echo json_encode(['status' => 'error', 'message' => '快速校准失败: ' . $e->getMessage()]);
 }
