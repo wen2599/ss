@@ -24,9 +24,9 @@ function QuickCalibrationModal({ isOpen, onClose, lineData, emailId, onUpdate })
         throw new Error('请输入有效的总金额');
       }
 
-      // 构建请求负载
+      // 构建请求负载 - 确保 emailId 是数字
       const payload = {
-        email_id: parseInt(emailId, 10),
+        email_id: emailId, // 直接使用数字类型的 emailId
         line_number: lineData.line_number,
         batch_id: lineData.batch_data.batch_id,
         corrected_total_amount: amount,
@@ -37,7 +37,7 @@ function QuickCalibrationModal({ isOpen, onClose, lineData, emailId, onUpdate })
 
       // 验证 email_id 是否有效
       if (!payload.email_id || isNaN(payload.email_id)) {
-        throw new Error('前端错误：Email ID 无效，无法发送请求。');
+        throw new Error(`前端错误：Email ID 无效，无法发送请求。当前值: ${payload.emailId}, 类型: ${typeof payload.emailId}`);
       }
 
       const result = await apiService.quickCalibrateAi(payload);

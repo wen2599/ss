@@ -1,11 +1,10 @@
-// File: frontend/src/pages/EmailDetailPage.jsx (最终修复版)
+// File: frontend/src/pages/EmailDetailPage.jsx (修复 emailId 传递问题)
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { apiService } from '../api';
 import SingleBetCard from '../components/SingleBetCard';
-import QuickCalibrationModal from '../components/QuickCalibrationModal'; // 虽然不由它直接调用，但最好引入
 
-// 批量重新解析模态框组件 (保持不变)
+// 批量重新解析模态框组件
 function BatchReparseModal({ isOpen, onClose, onConfirm, loading, unparsedCount }) {
   const [selectedTypes, setSelectedTypes] = useState([]);
   const lotteryTypes = [
@@ -51,7 +50,6 @@ function BatchReparseModal({ isOpen, onClose, onConfirm, loading, unparsedCount 
   );
 }
 
-
 function EmailDetailPage() {
   const { emailId } = useParams();
   const [loading, setLoading] = useState(true);
@@ -61,6 +59,9 @@ function EmailDetailPage() {
   const [hasOddsTemplate, setHasOddsTemplate] = useState(true);
   const [reparsing, setReparsing] = useState(false);
   const [showReparseModal, setShowReparseModal] = useState(false);
+
+  // 确保 emailId 是数字
+  const numericEmailId = parseInt(emailId, 10);
 
   useEffect(() => {
     fetchEmailLines();
@@ -131,7 +132,7 @@ function EmailDetailPage() {
     let successCount = 0, errorCount = 0;
     for (const line of unparsedLines) {
       try {
-        const result = await apiService.parseSingleBet(parseInt(emailId, 10), line.text, line.line_number, lotteryType);
+        const result = await apiService.parseSingleBet(numericEmailId, line.text, line.line_number, lotteryType);
         if (result.status === 'success') {
           handleLineUpdate(line.line_number, result.data);
           successCount++;
@@ -192,12 +193,10 @@ function EmailDetailPage() {
       ) : (
         <div>
           {pageData.lines.map(line => (
-            // 【【【【【核心修复点】】】】】
-            // 在这里将 emailId 传递给 SingleBetCard
             <SingleBetCard
               key={line.line_number}
               lineData={line}
-              emailId={emailId} // <--- 加上这一行！！！
+              emailId={numericEmailId} // 确保传递数字类型的 emailId
               onUpdate={handleLineUpdate}
               onDelete={handleLineDelete}
             />

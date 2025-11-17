@@ -1,4 +1,4 @@
-// File: frontend/src/components/SingleBetCard.jsx (使用新的快速校准流程)
+// File: frontend/src/components/SingleBetCard.jsx
 import React, { useState, useMemo } from 'react';
 import { apiService } from '../api';
 import QuickCalibrationModal from './QuickCalibrationModal';
@@ -15,7 +15,7 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
     setShowLotteryModal(false);
     try {
       const result = await apiService.parseSingleBet(
-        parseInt(emailId, 10),
+        emailId, // 直接使用数字类型的 emailId
         lineData.text,
         lineData.line_number,
         lotteryTypes[0]
@@ -75,7 +75,7 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
         </div>
         {lineData.is_parsed && lineData.batch_data && (
           <div style={{ marginTop: '1rem' }}>
-            <div style={{ backgroundColor: '#e8f5e8', border: '1px solid '#4caf50', padding: '0.75rem', borderRadius: '4px' }}>
+            <div style={{ backgroundColor: '#e8f5e8', border: '1px solid #4caf50', padding: '0.75rem', borderRadius: '4px' }}>
               <h4 style={{ margin: '0 0 0.5rem 0', color: '#2e7d32' }}>✅ AI解析结果</h4>
               {lineData.batch_data.data.lottery_type && <div style={{ marginBottom: '1rem', padding: '0.5rem', backgroundColor: '#d4edda', borderRadius: '4px', display: 'inline-block' }}><strong>彩票类型:</strong> {lineData.batch_data.data.lottery_type}</div>}
               <div style={{ marginBottom: '1rem' }}>
@@ -117,7 +117,7 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
         )}
       </div>
       
-      {/* 快速校准模态框 - 传递 emailId */}
+      {/* 快速校准模态框 */}
       <QuickCalibrationModal 
         isOpen={showCalibrationModal} 
         onClose={() => setShowCalibrationModal(false)} 
