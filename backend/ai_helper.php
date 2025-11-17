@@ -1,5 +1,5 @@
 <?php
-// File: backend/ai_helper.php (最终加强版 - 修复AI返回非JSON问题)
+// File: backend/ai_helper.php (终极防御性修复版)
 
 require_once __DIR__ . '/helpers/mail_parser.php';
 require_once __DIR__ . '/db_operations.php';
@@ -13,6 +13,32 @@ function analyzeSingleBetWithAI(string $betText, string $lotteryType = '香港�
     return analyzeWithCloudflareAI($betText, $lotteryType, $context);
 }
 
+/**
+ * 终极防御性解析函数：从AI返回的文本中安全地提取JSON。
+ */
+function extract_json_from_ai_response(string $text): ?string {
+    // 1. 尝试直接解码，看它本身是不是一个纯净的JSON
+    json_decode($text);
+    if (json_last_error() === JSON_ERROR_NONE) {
+        return $text;
+    }
+
+    // 2. 尝试从 ```json ... ``` 代码块中提取
+    if (preg_match('/```json\s*([\s\S]*?)\s*```/', $text, $matches)) {
+        return $matches[1];
+    }
+    
+    // 3. 尝试贪婪匹配第一个 { 和最后一个 }
+    $first_brace = strpos($text, '{');
+    $last_brace = strrpos($text, '}');
+    if ($first_brace !== false && $last_brace !== false && $last_brace > $first_brace) {
+        return substr($text, $first_brace, $last_brace - $first_brace + 1);
+    }
+
+    return null; // 所有方法都失败了
+}
+
+
 function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六合彩', ?array $context = null): array {
     $accountId = config('CLOUDFLARE_ACCOUNT_ID');
     $apiToken = config('CLOUDFLARE_API_TOKEN');
@@ -24,6 +50,7 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
     $model = '@cf/meta/llama-3-8b-instruct';
     $url = "https://api.cloudflare.com/client/v4/accounts/{$accountId}/ai/run/{$model}";
 
+    // Prompt 保持不变...
     $prompt = "你是一个专业的六合彩下注单识别助手。请从以下文本中精确识别出下注信息，并以严格的JSON格式返回结果。\n\n";
     if ($context) {
         $prompt .= "--- 用户修正信息 ---\n";
@@ -44,7 +71,7 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
     $prompt .= "{\n    \"lottery_type\": \"{$lotteryType}\",\n    \"bets\": [\n        {\n            \"bet_type\": \"玩法（特码/平码/生肖等）\",\n            \"targets\": [\"号码或目标\"],\n            \"amount\": 金额,\n            \"raw_text\": \"原始下注文本片段\"\n        }\n    ],\n    \"total_amount\": 总下注金额 // 务必精确计算所有下注的总和\n}\n\n";
     $prompt .= "聊天记录原文：\n---\n{$text}\n---";
 
-    $payload = [ 'messages' => [ ['role' => 'system', 'content' => '你是一个只输出严格JSON格式的助手。'], ['role' => 'user', 'content' => $prompt] ] ];
+    $payload = [ 'messages' => [ ['role' => 'system', 'content' => '你是一个只输出严格JSON格式的助手。不要添加任何解释性文字。'], ['role' => 'user', 'content' => $prompt] ] ];
     $headers = [ 'Authorization: Bearer ' . $apiToken, 'Content-Type: application/json' ];
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -56,34 +83,34 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     
-    // 记录原始AI响应，用于调试
-    error_log("AI Raw Response Body: " . $responseBody);
+    $log_file = __DIR__ . '/ai_debug.log';
+    $log_content = "====== AI Request ======\n";
+    $log_content .= "Time: " . date('Y-m-d H:i:s') . "\n";
+    $log_content .= "Prompt Text: " . $text . "\n";
+    $log_content .= "HTTP Code: " . $httpCode . "\n";
+    $log_content .= "Raw Response: " . $responseBody . "\n\n";
+    file_put_contents($log_file, $log_content, FILE_APPEND);
 
     if ($httpCode !== 200) { return ['success' => false, 'message' => "AI API Error (HTTP {$httpCode}): " . $responseBody]; }
     
     $responseData = json_decode($responseBody, true);
     $ai_response_text = $responseData['result']['response'] ?? null;
-    if (!$ai_response_text) { return ['success' => false, 'message' => 'Invalid response structure from AI.']; }
+    if (!$ai_response_text) { return ['success' => false, 'message' => 'AI返回了无效的结构。']; }
 
     // 【【【【【核心修复点】】】】】
-    // 采用更强大的方法从AI返回的文本中提取JSON
-    $json_string = null;
-    $first_brace = strpos($ai_response_text, '{');
-    $last_brace = strrpos($ai_response_text, '}');
-
-    if ($first_brace !== false && $last_brace !== false && $last_brace > $first_brace) {
-        $json_string = substr($ai_response_text, $first_brace, $last_brace - $first_brace + 1);
-    }
+    // 使用新的终极防御性解析函数
+    $json_string = extract_json_from_ai_response($ai_response_text);
     
     if (!$json_string) {
-        return ['success' => false, 'message' => 'AI did not return a valid JSON object.', 'raw_response' => $ai_response_text];
+        return ['success' => false, 'message' => 'AI没有返回有效的JSON内容。原始返回: ' . $ai_response_text];
     }
     
     $bet_data = json_decode($json_string, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
-        return ['success' => false, 'message' => 'Failed to decode JSON from AI response.', 'raw_json' => $json_string];
+        return ['success' => false, 'message' => '从AI响应中提取的内容无法被解析为JSON。提取内容: ' . $json_string];
     }
     
+    // (后续数据处理逻辑保持不变)
     if (isset($bet_data['bets']) && is_array($bet_data['bets'])) {
         $totalAmount = 0;
         foreach ($bet_data['bets'] as $bet) {
@@ -104,17 +131,15 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
     return ['success' => true, 'data' => $bet_data];
 }
 
+// reanalyzeEmailWithAI 和 trainAIWithCorrection 保持不变
 function reanalyzeEmailWithAI(int $emailId): array {
     try {
         $pdo = get_db_connection();
         $stmt = $pdo->prepare("SELECT content FROM raw_emails WHERE id = ?");
         $stmt->execute([$emailId]);
         $emailContent = $stmt->fetchColumn();
-
         if (!$emailContent) return ['success' => false, 'message' => 'Email not found'];
-        
         $aiResult = analyzeBetSlipWithAI($emailContent);
-
         if ($aiResult['success']) {
             $stmtDelete = $pdo->prepare("DELETE FROM parsed_bets WHERE email_id = ?");
             $stmtDelete->execute([$emailId]);
@@ -130,12 +155,10 @@ function reanalyzeEmailWithAI(int $emailId): array {
             $stmtUpdate->execute([$emailId]);
             return ['success' => false, 'message' => 'AI解析失败: ' . ($aiResult['message'] ?? '未知错误')];
         }
-
     } catch (Exception $e) {
         return ['success' => false, 'message' => '重新解析过程中出错: ' . $e->getMessage()];
     }
 }
-
 function trainAIWithCorrection($learning_data) {
     $log_message = "AI Learning Triggered:\n" . json_encode($learning_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n\n";
     error_log($log_message, 3, __DIR__ . '/ai_learning.log');
