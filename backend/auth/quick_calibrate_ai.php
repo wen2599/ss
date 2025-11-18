@@ -1,5 +1,5 @@
 <?php
-// File: backend/auth/quick_calibrate_ai.php (修复路径问题)
+// File: backend/auth/quick_calibrate_ai.php (修复路径和事务问题)
 
 // 启用详细错误日志
 ini_set('display_errors', 0);
@@ -10,9 +10,10 @@ ini_set('error_log', __DIR__ . '/../../debug.log');
 error_log("=== Quick Calibration Request Started ===");
 
 try {
-    // 1. 加载依赖 - 使用绝对路径
-    $baseDir = dirname(__DIR__, 2); // 回到项目根目录
-    require_once $baseDir . '/backend/ai_helper.php';
+    // 1. 加载依赖 - 使用相对路径
+    require_once __DIR__ . '/../config.php';
+    require_once __DIR__ . '/../db_operations.php';
+    require_once __DIR__ . '/../ai_helper.php';
     error_log("Dependencies loaded successfully");
 
     // 2. 身份验证
@@ -25,7 +26,7 @@ try {
     // 3. 获取并验证输入
     $input_json = file_get_contents('php://input');
     error_log("Raw input received: " . $input_json);
-    
+
     if (empty($input_json)) {
         throw new Exception("No input data received", 400);
     }
@@ -76,7 +77,7 @@ try {
 
     // 5. 获取原始解析数据
     $stmt = $pdo->prepare("
-        SELECT pb.bet_data_json, pb.email_id 
+        SELECT pb.bet_data_json, pb.email_id
         FROM parsed_bets pb
         JOIN raw_emails re ON pb.email_id = re.id
         WHERE pb.id = ? AND re.user_id = ? AND re.id = ?
@@ -127,10 +128,10 @@ try {
 
     // 7. 重新结算
     error_log("Starting re-settlement...");
-    
-    // 检查结算函数是否存在，使用绝对路径引入
+
+    // 检查结算函数是否存在，使用相对路径引入
     if (!function_exists('calculateBatchSettlement')) {
-        require_once $baseDir . '/backend/auth/get_email_details.php';
+        require_once __DIR__ . '/get_email_details.php';
     }
 
     // 获取用户赔率模板
@@ -145,28 +146,28 @@ try {
 
     // 获取最新开奖结果
     $sql_latest_results = "
-        SELECT r1.* 
-        FROM lottery_results r1 
+        SELECT r1.*
+        FROM lottery_results r1
         JOIN (
-            SELECT lottery_type, MAX(id) AS max_id 
-            FROM lottery_results 
+            SELECT lottery_type, MAX(id) AS max_id
+            FROM lottery_results
             GROUP BY lottery_type
         ) r2 ON r1.lottery_type = r2.lottery_type AND r1.id = r2.max_id
     ";
     $stmt_latest = $pdo->query($sql_latest_results);
     $latest_results_raw = $stmt_latest->fetchAll(PDO::FETCH_ASSOC);
-    
+
     $latest_results = [];
     foreach ($latest_results_raw as $row) {
-        foreach(['winning_numbers', 'zodiac_signs', 'colors'] as $key) { 
+        foreach(['winning_numbers', 'zodiac_signs', 'colors'] as $key) {
             $decoded = json_decode($row[$key], true);
-            $row[$key] = $decoded ?: []; 
+            $row[$key] = $decoded ?: [];
         }
         $latest_results[$row['lottery_type']] = $row;
     }
 
     $lottery_result_for_settlement = $latest_results[$new_parse_data['lottery_type']] ?? null;
-    
+
     if (!$lottery_result_for_settlement) {
         error_log("Warning: No lottery result found for type: " . $new_parse_data['lottery_type']);
     }
@@ -209,7 +210,7 @@ try {
     // 错误处理
     error_log("Quick Calibration Error: " . $e->getMessage());
     error_log("Stack trace: " . $e->getTraceAsString());
-    
+
     // 回滚事务
     if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();
@@ -217,7 +218,7 @@ try {
     }
 
     $status_code = $e->getCode() >= 400 && $e->getCode() < 600 ? $e->getCode() : 500;
-    
+
     $error_response = [
         'status' => 'error',
         'message' => '快速校准失败: ' . $e->getMessage()

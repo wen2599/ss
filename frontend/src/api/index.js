@@ -175,6 +175,19 @@ export const apiService = {
     });
   },
 
+  /**
+   * 传统校准AI（保留兼容性）
+   * @param {object} payload - 包含详细校准数据的负载
+   * @returns {Promise}
+   */
+  calibrateAiParse(payload) {
+    console.log('传统校准API调用，payload:', payload);
+    return request('calibrate_ai_parse', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+  },
+
   getOddsTemplate() {
     return request('odds_template');
   },

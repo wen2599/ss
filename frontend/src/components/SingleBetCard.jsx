@@ -1,4 +1,4 @@
-// File: frontend/src/components/SingleBetCard.jsx
+// File: frontend/src/components/SingleBetCard.jsx (修复快速校准功能)
 import React, { useState, useMemo } from 'react';
 import { apiService } from '../api';
 import QuickCalibrationModal from './QuickCalibrationModal';
@@ -116,21 +116,21 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
           </div>
         )}
       </div>
-      
+
       {/* 快速校准模态框 */}
-      <QuickCalibrationModal 
-        isOpen={showCalibrationModal} 
-        onClose={() => setShowCalibrationModal(false)} 
-        lineData={lineData} 
-        emailId={emailId} 
-        onUpdate={onUpdate} 
+      <QuickCalibrationModal
+        isOpen={showCalibrationModal}
+        onClose={() => setShowCalibrationModal(false)}
+        lineData={lineData}
+        emailId={emailId}
+        onUpdate={onUpdate}
       />
-      
-      <LotteryTypeModal 
-        isOpen={showLotteryModal} 
-        onClose={() => setShowLotteryModal(false)} 
-        onConfirm={handleConfirmParse} 
-        loading={isParsing} 
+
+      <LotteryTypeModal
+        isOpen={showLotteryModal}
+        onClose={() => setShowLotteryModal(false)}
+        onConfirm={handleConfirmParse}
+        loading={isParsing}
       />
     </>
   );
@@ -144,16 +144,16 @@ function LotteryTypeModal({ isOpen, onClose, onConfirm, loading }) {
       { value: '老澳门六合彩', label: '老澳门六合彩 (每日开奖)' }
     ];
     const handleTypeToggle = (type) => { setSelectedTypes([type]); };
-    const handleConfirm = () => { 
-      if (selectedTypes.length === 0) { 
-        alert('请选择一种彩票类型'); 
-        return; 
-      } 
-      onConfirm(selectedTypes); 
+    const handleConfirm = () => {
+      if (selectedTypes.length === 0) {
+        alert('请选择一种彩票类型');
+        return;
+      }
+      onConfirm(selectedTypes);
     };
-    
+
     if (!isOpen) return null;
-    
+
     return (
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
         <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '12px', minWidth: '400px', maxWidth: '500px' }}>
@@ -161,11 +161,11 @@ function LotteryTypeModal({ isOpen, onClose, onConfirm, loading }) {
           <div style={{ marginBottom: '1.5rem' }}>
             {lotteryTypes.map(type => (
               <label key={type.value} style={{ display: 'block', marginBottom: '0.5rem' }}>
-                <input 
-                  type="radio" 
-                  name="lotteryType" 
-                  checked={selectedTypes.includes(type.value)} 
-                  onChange={() => handleTypeToggle(type.value)} 
+                <input
+                  type="radio"
+                  name="lotteryType"
+                  checked={selectedTypes.includes(type.value)}
+                  onChange={() => handleTypeToggle(type.value)}
                   style={{ marginRight: '0.5rem' }}
                 />
                 {type.label}
@@ -176,15 +176,15 @@ function LotteryTypeModal({ isOpen, onClose, onConfirm, loading }) {
             <button onClick={onClose} disabled={loading} style={{ padding: '0.5rem 1rem', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px' }}>
               取消
             </button>
-            <button 
-              onClick={handleConfirm} 
-              disabled={loading || selectedTypes.length === 0} 
-              style={{ 
-                padding: '0.5rem 1rem', 
-                backgroundColor: (loading || selectedTypes.length === 0) ? '#6c757d' : '#007bff', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '4px' 
+            <button
+              onClick={handleConfirm}
+              disabled={loading || selectedTypes.length === 0}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: (loading || selectedTypes.length === 0) ? '#6c757d' : '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px'
               }}
             >
               {loading ? '解析中...' : '开始解析'}

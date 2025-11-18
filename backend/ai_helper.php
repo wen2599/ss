@@ -1,11 +1,10 @@
 <?php
 // File: backend/ai_helper.php (修复路径问题)
 
-// 使用绝对路径引入文件，避免相对路径问题
-$baseDir = dirname(__DIR__);
-require_once $baseDir . '/backend/helpers/mail_parser.php';
-require_once $baseDir . '/backend/db_operations.php';
-require_once $baseDir . '/backend/lottery/rules.php';
+// 使用相对路径引入文件
+require_once __DIR__ . '/helpers/mail_parser.php';
+require_once __DIR__ . '/db_operations.php';
+require_once __DIR__ . '/lottery/rules.php';
 
 function analyzeBetSlipWithAI(string $emailContent, string $lotteryType = '香港六合彩'): array {
     return analyzeSingleBetWithAI($emailContent, $lotteryType, null);
@@ -21,11 +20,11 @@ function analyzeSingleBetWithAI(string $betText, string $lotteryType = '香港�
 function extract_json_from_ai_response(string $text): ?string {
     // 记录原始响应用于调试
     error_log("AI Raw Response: " . $text);
-    
+
     // 0. 首先清理文本，移除可能的控制字符和多余空格
     $text = preg_replace('/[[:^print:]]/', '', $text);
     $text = trim($text);
-    
+
     // 1. 尝试直接解码，看它本身是不是一个纯净的JSON
     $decoded = json_decode($text, true);
     if (json_last_error() === JSON_ERROR_NONE) {
@@ -122,11 +121,11 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
     $prompt .= "重要：请确保bet_type字段只包含玩法类型（如'特码'、'平码'、'生肖'等），不要包含彩票类型。彩票类型应该在lottery_type字段中。\n\n";
     $prompt .= "聊天记录原文：\n---\n{$text}\n---";
 
-    $payload = [ 
-        'messages' => [ 
-            ['role' => 'system', 'content' => '你是一个只输出严格JSON格式的助手。不要添加任何解释性文字。'], 
-            ['role' => 'user', 'content' => $prompt] 
-        ] 
+    $payload = [
+        'messages' => [
+            ['role' => 'system', 'content' => '你是一个只输出严格JSON格式的助手。不要添加任何解释性文字。'],
+            ['role' => 'user', 'content' => $prompt]
+        ]
     ];
     $headers = [ 'Authorization: Bearer ' . $apiToken, 'Content-Type: application/json' ];
     $ch = curl_init($url);
@@ -147,14 +146,14 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
     $log_content .= "Raw Response: " . $responseBody . "\n\n";
     file_put_contents($log_file, $log_content, FILE_APPEND);
 
-    if ($httpCode !== 200) { 
-        return ['success' => false, 'message' => "AI API Error (HTTP {$httpCode}): " . $responseBody]; 
+    if ($httpCode !== 200) {
+        return ['success' => false, 'message' => "AI API Error (HTTP {$httpCode}): " . $responseBody];
     }
 
     $responseData = json_decode($responseBody, true);
     $ai_response_text = $responseData['result']['response'] ?? null;
-    if (!$ai_response_text) { 
-        return ['success' => false, 'message' => 'AI返回了无效的结构。']; 
+    if (!$ai_response_text) {
+        return ['success' => false, 'message' => 'AI返回了无效的结构。'];
     }
 
     // 使用修复后的解析函数
