@@ -29,6 +29,10 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
     }
   };
 
+  const handleLineUpdate = (lineNumber, data) => {
+    onUpdate(lineNumber, data);
+  };
+
   const formatTargets = (targets) => {
     if (!Array.isArray(targets)) return String(targets || '');
     if (targets.every(t => !isNaN(t))) return targets.map(n => String(n).padStart(2, '0')).join('.');
@@ -122,8 +126,8 @@ function SingleBetCard({ lineData, emailId, onUpdate, onDelete }) {
         isOpen={showCalibrationModal}
         onClose={() => setShowCalibrationModal(false)}
         lineData={lineData}
-        emailId={emailId}
-        onUpdate={onUpdate}
+        emailId={Number(emailId)}
+        onUpdate={handleLineUpdate}
       />
 
       <LotteryTypeModal

@@ -1,5 +1,5 @@
 <?php
-// File: backend/auth/quick_calibrate_ai.php (修复路径和事务问题)
+// File: backend/auth/quick_calibrate_ai.php (完全重写版)
 
 // 启用详细错误日志
 ini_set('display_errors', 0);
@@ -10,10 +10,11 @@ ini_set('error_log', __DIR__ . '/../../debug.log');
 error_log("=== Quick Calibration Request Started ===");
 
 try {
-    // 1. 加载依赖 - 使用相对路径
+    // 1. 加载核心依赖
     require_once __DIR__ . '/../config.php';
     require_once __DIR__ . '/../db_operations.php';
     require_once __DIR__ . '/../ai_helper.php';
+    
     error_log("Dependencies loaded successfully");
 
     // 2. 身份验证
@@ -38,60 +39,57 @@ try {
 
     error_log("Parsed input: " . print_r($input, true));
 
-    // 验证必需参数
-    $required_params = ['email_id', 'line_number', 'batch_id', 'corrected_total_amount'];
-    foreach ($required_params as $param) {
-        if (!isset($input[$param])) {
-            throw new Exception("Missing required parameter: " . $param, 400);
-        }
-    }
-
-    $email_id = filter_var($input['email_id'], FILTER_VALIDATE_INT);
-    $line_number = filter_var($input['line_number'], FILTER_VALIDATE_INT);
-    $batch_id = filter_var($input['batch_id'], FILTER_VALIDATE_INT);
-    $corrected_total_amount = filter_var($input['corrected_total_amount'], FILTER_VALIDATE_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+    // 4. 参数验证 - 更严格的验证
+    $email_id = isset($input['email_id']) ? intval($input['email_id']) : 0;
+    $line_number = isset($input['line_number']) ? intval($input['line_number']) : 0;
+    $batch_id = isset($input['batch_id']) ? intval($input['batch_id']) : 0;
+    $corrected_total_amount = isset($input['corrected_total_amount']) ? floatval($input['corrected_total_amount']) : 0;
     $reason = trim($input['reason'] ?? '');
 
-    // 验证参数有效性
-    if (!$email_id || $email_id <= 0) {
-        throw new Exception("Invalid email_id: " . ($input['email_id'] ?? 'null'), 400);
+    error_log("Validated parameters - email_id: {$email_id}, line_number: {$line_number}, batch_id: {$batch_id}, amount: {$corrected_total_amount}");
+
+    // 检查必需参数
+    if ($email_id <= 0) {
+        throw new Exception("Valid Email ID is required", 400);
     }
-    if (!$line_number || $line_number <= 0) {
-        throw new Exception("Invalid line_number: " . ($input['line_number'] ?? 'null'), 400);
+    if ($line_number <= 0) {
+        throw new Exception("Valid Line Number is required", 400);
     }
-    if (!$batch_id || $batch_id <= 0) {
-        throw new Exception("Invalid batch_id: " . ($input['batch_id'] ?? 'null'), 400);
+    if ($batch_id <= 0) {
+        throw new Exception("Valid Batch ID is required", 400);
     }
-    if ($corrected_total_amount === false || $corrected_total_amount < 0) {
-        throw new Exception("Invalid corrected_total_amount: " . ($input['corrected_total_amount'] ?? 'null'), 400);
+    if ($corrected_total_amount <= 0) {
+        throw new Exception("Valid corrected total amount is required", 400);
     }
 
-    error_log("Parameters validated successfully");
+    error_log("All parameters validated successfully");
 
-    // 4. 数据库操作
+    // 5. 数据库操作
     $pdo = get_db_connection();
     error_log("Database connection established");
 
     $pdo->beginTransaction();
     error_log("Transaction started");
 
-    // 5. 获取原始解析数据
+    // 6. 验证记录所有权和获取原始数据
     $stmt = $pdo->prepare("
-        SELECT pb.bet_data_json, pb.email_id
+        SELECT pb.bet_data_json, pb.email_id, re.user_id
         FROM parsed_bets pb
         JOIN raw_emails re ON pb.email_id = re.id
         WHERE pb.id = ? AND re.user_id = ? AND re.id = ?
     ");
     $stmt->execute([$batch_id, $user_id, $email_id]);
-    $original_bet_json = $stmt->fetchColumn();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$original_bet_json) {
-        throw new Exception("Record not found. Batch ID: $batch_id, User ID: $user_id, Email ID: $email_id", 404);
+    if (!$result) {
+        throw new Exception("Record not found or access denied. Batch ID: $batch_id, User ID: $user_id, Email ID: $email_id", 404);
     }
 
-    error_log("Original bet data retrieved");
+    error_log("Original bet data retrieved and ownership verified");
 
+    $original_bet_json = $result['bet_data_json'];
     $original_parse = json_decode($original_bet_json, true);
+    
     if (json_last_error() !== JSON_ERROR_NONE) {
         throw new Exception("Failed to decode original bet data: " . json_last_error_msg(), 500);
     }
@@ -99,10 +97,10 @@ try {
     $original_text = $original_parse['raw_text'] ?? '';
     $lottery_type = $original_parse['lottery_type'] ?? '香港六合彩';
 
-    error_log("Original text: " . $original_text);
+    error_log("Original text: " . substr($original_text, 0, 100));
     error_log("Lottery type: " . $lottery_type);
 
-    // 6. 调用AI重新解析
+    // 7. 调用AI重新解析
     error_log("Calling AI for re-parsing...");
     $ai_result = analyzeSingleBetWithAI($original_text, $lottery_type, [
         'original_parse' => $original_parse,
@@ -110,7 +108,7 @@ try {
         'reason' => $reason
     ]);
 
-    error_log("AI result: " . print_r($ai_result, true));
+    error_log("AI result success: " . ($ai_result['success'] ? 'true' : 'false'));
 
     if (!$ai_result['success']) {
         throw new Exception("AI re-parsing failed: " . ($ai_result['message'] ?? 'Unknown error'), 500);
@@ -120,16 +118,23 @@ try {
         throw new Exception("AI returned empty data", 500);
     }
 
+    // 8. 准备新的解析数据
     $new_parse_data = $ai_result['data'];
     $new_parse_data['line_number'] = $line_number;
     $new_parse_data['raw_text'] = $original_text;
 
-    error_log("New parse data prepared");
+    // 确保总金额正确
+    if (abs($new_parse_data['total_amount'] - $corrected_total_amount) > 0.01) {
+        error_log("Warning: AI returned amount {$new_parse_data['total_amount']} doesn't match corrected amount {$corrected_total_amount}");
+        $new_parse_data['total_amount'] = $corrected_total_amount;
+    }
 
-    // 7. 重新结算
+    error_log("New parse data prepared with total amount: " . $new_parse_data['total_amount']);
+
+    // 9. 重新结算
     error_log("Starting re-settlement...");
 
-    // 检查结算函数是否存在，使用相对路径引入
+    // 引入结算函数
     if (!function_exists('calculateBatchSettlement')) {
         require_once __DIR__ . '/get_email_details.php';
     }
@@ -178,7 +183,7 @@ try {
 
     error_log("Settlement calculated successfully");
 
-    // 8. 更新数据库
+    // 10. 更新数据库
     $new_bet_json = json_encode($new_parse_data);
     if (json_last_error() !== JSON_ERROR_NONE) {
         throw new Exception("Failed to encode new bet data: " . json_last_error_msg(), 500);
@@ -187,18 +192,21 @@ try {
     $stmt_update = $pdo->prepare("UPDATE parsed_bets SET bet_data_json = ? WHERE id = ?");
     $stmt_update->execute([$new_bet_json, $batch_id]);
 
-    // 9. 提交事务
+    $affected_rows = $stmt_update->rowCount();
+    error_log("Database updated, affected rows: " . $affected_rows);
+
+    // 11. 提交事务
     $pdo->commit();
     error_log("Transaction committed successfully");
 
-    // 10. 返回成功响应
+    // 12. 返回成功响应
     $response = [
         'status' => 'success',
         'message' => 'AI已根据您的提示重新解析并结算！',
         'data' => [
             'batch_id' => $batch_id,
             'parse_result' => $new_parse_data,
-            'line_number' => intval($line_number)
+            'line_number' => $line_number
         ]
     ];
 
