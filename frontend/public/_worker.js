@@ -9,19 +9,19 @@ export default {
       const endpoint = url.pathname.substring(5);
       const backendUrl = `https://wenge.cloudns.ch/index.php?endpoint=${endpoint}${url.search}`;
 
-      // 复制 headers
+      // 创建新的 Headers 对象
       const newHeaders = new Headers(request.headers);
       
       // 【关键修复】删除可能导致 PHP 读取不到 body 的头
-      // 让 fetch 根据实际 body 内容自动重新计算 Content-Length
+      // 这强制 fetch 根据实际内容重新计算 Content-Length
       newHeaders.delete('content-length');
       newHeaders.delete('content-encoding'); 
-      newHeaders.delete('host'); // 通常也建议删除 host，让其自动设置
+      newHeaders.delete('host'); 
 
       const backendRequestInit = {
         method: request.method,
         headers: newHeaders,
-        // 对于非 GET 请求，克隆 body
+        // 对于非 GET 请求，克隆 body 并转换为 ArrayBuffer，防止流被锁定
         body: request.method !== 'GET' && request.body ? await request.clone().arrayBuffer() : null,
         duplex: 'half'
       };

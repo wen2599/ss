@@ -23,14 +23,17 @@ try {
     // 3. 获取并验证输入
     $input_json = file_get_contents('php://input');
     
-    // 【调试】记录收到的原始数据
-    error_log("QuickCalibrate Input: " . ($input_json ? $input_json : "(EMPTY)"));
+    // 【调试日志】记录接收到的原始数据长度和内容前100字符
+    error_log("QuickCalibrate Input Length: " . strlen($input_json));
+    error_log("QuickCalibrate Input Content: " . substr($input_json, 0, 200));
 
     $input = json_decode($input_json, true);
     
-    // 如果 JSON 解析失败，或者是空的
+    // 如果 JSON 解析失败
     if ($input === null) {
-        throw new Exception("接收到的数据为空或 JSON 格式错误", 400);
+        $json_error = json_last_error_msg();
+        error_log("JSON Decode Error: " . $json_error);
+        throw new Exception("无法解析请求数据 (JSON Error: $json_error). 原始数据长度: " . strlen($input_json), 400);
     }
 
     // 4. 参数提取与验证
@@ -42,7 +45,7 @@ try {
 
     // 检查必需参数
     if ($email_id <= 0) {
-        throw new Exception("Email ID is required (received: {$email_id})", 400);
+        throw new Exception("Error: Email ID is required (Received: {$input['email_id']})", 400);
     }
     if ($line_number <= 0) {
         throw new Exception("Line Number is required", 400);
@@ -88,7 +91,7 @@ try {
     $new_parse_data['line_number'] = $line_number;
     $new_parse_data['raw_text'] = $original_text;
 
-    // 强制修正总金额
+    // 强制修正总金额 (如果AI计算有微小误差)
     if (abs($new_parse_data['total_amount'] - $corrected_total_amount) > 0.01) {
         $new_parse_data['total_amount'] = $corrected_total_amount;
     }
@@ -109,7 +112,7 @@ try {
     $latest_results = [];
     foreach ($latest_results_raw as $row) {
         $type = $row['lottery_type'];
-        if (!isset($latest_results[$type])) { // 只取每种类型的最新一期
+        if (!isset($latest_results[$type])) { 
             foreach(['winning_numbers', 'zodiac_signs', 'colors'] as $key) {
                 $decoded = json_decode($row[$key], true);
                 $row[$key] = $decoded ?: [];
