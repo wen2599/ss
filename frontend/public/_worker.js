@@ -1,4 +1,4 @@
-// File: frontend/public/_worker.js (修复版)
+// File: frontend/public/_worker.js
 
 export default {
   async fetch(request, env, ctx) {
@@ -9,13 +9,20 @@ export default {
       const endpoint = url.pathname.substring(5);
       const backendUrl = `https://wenge.cloudns.ch/index.php?endpoint=${endpoint}${url.search}`;
 
-      // 修复：创建新的请求对象，避免流式 body 问题
+      // 复制 headers
+      const newHeaders = new Headers(request.headers);
+      
+      // 【关键修复】删除可能导致 PHP 读取不到 body 的头
+      // 让 fetch 根据实际 body 内容自动重新计算 Content-Length
+      newHeaders.delete('content-length');
+      newHeaders.delete('content-encoding'); 
+      newHeaders.delete('host'); // 通常也建议删除 host，让其自动设置
+
       const backendRequestInit = {
         method: request.method,
-        headers: new Headers(request.headers),
-        // 对于非 GET 请求，克隆 body 以避免流式问题
+        headers: newHeaders,
+        // 对于非 GET 请求，克隆 body
         body: request.method !== 'GET' && request.body ? await request.clone().arrayBuffer() : null,
-        // 添加 duplex 设置
         duplex: 'half'
       };
 
