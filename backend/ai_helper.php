@@ -1,5 +1,5 @@
 <?php
-// File: backend/ai_helper.php (修复路径问题)
+// File: backend/ai_helper.php
 
 // 使用相对路径引入文件
 require_once __DIR__ . '/helpers/mail_parser.php';
@@ -18,17 +18,13 @@ function analyzeSingleBetWithAI(string $betText, string $lotteryType = '香港�
  * 终极防御性解析函数：从AI返回的文本中安全地提取JSON。
  */
 function extract_json_from_ai_response(string $text): ?string {
-    // 记录原始响应用于调试
-    error_log("AI Raw Response: " . $text);
-
-    // 0. 首先清理文本，移除可能的控制字符和多余空格
+    // 0. 首先清理文本，移除可能的控制字符
     $text = preg_replace('/[[:^print:]]/', '', $text);
     $text = trim($text);
 
-    // 1. 尝试直接解码，看它本身是不是一个纯净的JSON
+    // 1. 尝试直接解码
     $decoded = json_decode($text, true);
     if (json_last_error() === JSON_ERROR_NONE) {
-        error_log("Direct JSON parse successful");
         return $text;
     }
 
@@ -37,17 +33,15 @@ function extract_json_from_ai_response(string $text): ?string {
         $candidate = trim($matches[1]);
         $decoded = json_decode($candidate, true);
         if (json_last_error() === JSON_ERROR_NONE) {
-            error_log("JSON code block parse successful");
             return $candidate;
         }
     }
 
-    // 3. 尝试从 ``` ... ``` 代码块中提取（不带json标记）
+    // 3. 尝试从 ``` ... ``` 代码块中提取
     if (preg_match('/```\s*([\s\S]*?)\s*```/', $text, $matches)) {
         $candidate = trim($matches[1]);
         $decoded = json_decode($candidate, true);
         if (json_last_error() === JSON_ERROR_NONE) {
-            error_log("Generic code block parse successful");
             return $candidate;
         }
     }
@@ -59,18 +53,13 @@ function extract_json_from_ai_response(string $text): ?string {
         $candidate = substr($text, $first_brace, $last_brace - $first_brace + 1);
         $decoded = json_decode($candidate, true);
         if (json_last_error() === JSON_ERROR_NONE) {
-            error_log("Brace matching parse successful");
             return $candidate;
         }
     }
 
-    // 5. 尝试修复常见的JSON格式问题
+    // 5. 尝试修复常见的JSON格式问题 (修复单引号等)
     $fix_attempts = [
-        // 修复单引号
         function($str) { return str_replace("'", '"', $str); },
-        // 修复未转义的控制字符
-        function($str) { return preg_replace('/[\x00-\x1F\x7F]/', '', $str); },
-        // 修复尾随逗号
         function($str) { return preg_replace('/,\s*([}\]])/', '$1', $str); }
     ];
 
@@ -78,13 +67,12 @@ function extract_json_from_ai_response(string $text): ?string {
         $fixed_text = $fix($text);
         $decoded = json_decode($fixed_text, true);
         if (json_last_error() === JSON_ERROR_NONE) {
-            error_log("JSON fixed with repair function");
             return $fixed_text;
         }
     }
 
-    // 6. 如果所有方法都失败，记录原始文本用于调试
-    error_log("All JSON extraction methods failed. Original content: " . substr($text, 0, 1000));
+    // 记录失败的原始文本以便调试
+    error_log("JSON extraction failed. Raw text length: " . strlen($text) . " content: " . substr($text, 0, 200) . "...");
     return null;
 }
 
@@ -103,7 +91,7 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
     $prompt = "你是一个专业的六合彩下注单识别助手。请从以下文本中精确识别出下注信息，并以严格的JSON格式返回结果。\n\n";
     if ($context) {
         $prompt .= "--- 用户修正信息 ---\n";
-        $prompt .= "这是我（AI）上次的解析结果: " . json_encode($context['original_parse']) . "\n";
+        $prompt .= "这是我（AI）上次的解析结果: " . json_encode($context['original_parse'], JSON_UNESCAPED_UNICODE) . "\n";
         $prompt .= "用户指出正确的总金额应该是: " . $context['corrected_total_amount'] . "元\n";
         if (!empty($context['reason'])) {
             $prompt .= "用户给出的理由是: '" . $context['reason'] . "'\n";
@@ -116,17 +104,20 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
     $prompt .= "2. \"香港：10.22.34各5块\" → 表示号码10,22,34各下注5元\n";
     $prompt .= "3. \"40x10元\" → 表示号码40下注10元\n";
     $prompt .= "当前默认彩票类型: {$lotteryType}\n\n";
-    $prompt .= "返回的JSON格式必须如下：\n";
-    $prompt .= "{\n    \"lottery_type\": \"彩票类型\",\n    \"bets\": [\n        {\n            \"bet_type\": \"玩法（特码/平码/生肖等）\",\n            \"targets\": [\"号码或目标\"],\n            \"amount\": 金额,\n            \"raw_text\": \"原始下注文本片段\"\n        }\n    ],\n    \"total_amount\": 总下注金额 // 务必精确计算所有下注的总和\n}\n\n";
+    $prompt .= "返回的JSON格式必须如下（不要包含换行符和多余空格，保持紧凑）：\n";
+    $prompt .= "{\"lottery_type\":\"彩票类型\",\"bets\":[{\"bet_type\":\"玩法\",\"targets\":[\"号码\"],\"amount\":金额,\"raw_text\":\"原文\"}],\"total_amount\":总额}\n\n";
     $prompt .= "重要：请确保bet_type字段只包含玩法类型（如'特码'、'平码'、'生肖'等），不要包含彩票类型。彩票类型应该在lottery_type字段中。\n\n";
     $prompt .= "聊天记录原文：\n---\n{$text}\n---";
 
+    // 【修改点】增加 max_tokens 参数，防止长回复被截断
     $payload = [
         'messages' => [
-            ['role' => 'system', 'content' => '你是一个只输出严格JSON格式的助手。不要添加任何解释性文字。'],
+            ['role' => 'system', 'content' => '你是一个只输出严格JSON格式的助手。不要添加任何解释性文字。输出的JSON应尽量紧凑。'],
             ['role' => 'user', 'content' => $prompt]
-        ]
+        ],
+        'max_tokens' => 4096 // 允许更长的输出，解决截断问题
     ];
+    
     $headers = [ 'Authorization: Bearer ' . $apiToken, 'Content-Type: application/json' ];
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -138,12 +129,14 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
+    // 记录日志
     $log_file = __DIR__ . '/ai_debug.log';
     $log_content = "====== AI Request ======\n";
     $log_content .= "Time: " . date('Y-m-d H:i:s') . "\n";
-    $log_content .= "Prompt Text: " . $text . "\n";
     $log_content .= "HTTP Code: " . $httpCode . "\n";
-    $log_content .= "Raw Response: " . $responseBody . "\n\n";
+    // $log_content .= "Prompt: " . $prompt . "\n"; // 可选：记录 prompt
+    $log_content .= "Response Length: " . strlen($responseBody) . "\n";
+    $log_content .= "Raw Response Sample: " . substr($responseBody, 0, 500) . "...\n\n";
     file_put_contents($log_file, $log_content, FILE_APPEND);
 
     if ($httpCode !== 200) {
@@ -152,30 +145,35 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
 
     $responseData = json_decode($responseBody, true);
     $ai_response_text = $responseData['result']['response'] ?? null;
+    
     if (!$ai_response_text) {
         return ['success' => false, 'message' => 'AI返回了无效的结构。'];
     }
 
-    // 使用修复后的解析函数
+    // 使用解析函数
     $json_string = extract_json_from_ai_response($ai_response_text);
 
     if (!$json_string) {
-        return ['success' => false, 'message' => 'AI没有返回有效的JSON内容。原始返回: ' . $ai_response_text];
+        // 如果解析失败，检查是否是因为截断
+        $is_truncated = (substr(trim($ai_response_text), -1) !== '}' && substr(trim($ai_response_text), -1) !== ']');
+        $error_msg = $is_truncated 
+            ? 'AI响应被截断，请尝试减少单次解析的内容量。' 
+            : 'AI没有返回有效的JSON内容。';
+            
+        return ['success' => false, 'message' => $error_msg . ' 原始返回: ' . substr($ai_response_text, 0, 200) . '...'];
     }
 
     $bet_data = json_decode($json_string, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
-        return ['success' => false, 'message' => '从AI响应中提取的内容无法被解析为JSON。提取内容: ' . $json_string . ' 错误: ' . json_last_error_msg()];
+        return ['success' => false, 'message' => 'JSON解析失败: ' . json_last_error_msg()];
     }
 
-    // 修复AI返回的数据：确保bet_type不包含彩票类型
+    // 修复AI返回的数据
     if (isset($bet_data['bets']) && is_array($bet_data['bets'])) {
         foreach ($bet_data['bets'] as &$bet) {
             if (isset($bet['bet_type'])) {
-                // 如果bet_type包含彩票类型，将其移除
                 $bet['bet_type'] = preg_replace('/^(香港|澳门|新澳门|老澳门)六合彩$/', '', $bet['bet_type']);
                 $bet['bet_type'] = trim($bet['bet_type']);
-                // 如果移除后为空，设置为默认值
                 if (empty($bet['bet_type'])) {
                     $bet['bet_type'] = '特码';
                 }
@@ -183,7 +181,7 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
         }
     }
 
-    // 计算总金额（后续数据处理逻辑保持不变）
+    // 计算总金额
     if (isset($bet_data['bets']) && is_array($bet_data['bets'])) {
         $totalAmount = 0;
         foreach ($bet_data['bets'] as $bet) {
@@ -204,7 +202,6 @@ function analyzeWithCloudflareAI(string $text, string $lotteryType = '香港六�
     return ['success' => true, 'data' => $bet_data];
 }
 
-// reanalyzeEmailWithAI 和 trainAIWithCorrection 保持不变
 function reanalyzeEmailWithAI(int $emailId): array {
     try {
         $pdo = get_db_connection();
@@ -238,5 +235,4 @@ function trainAIWithCorrection($learning_data) {
     error_log($log_message, 3, __DIR__ . '/ai_learning.log');
     return true;
 }
-
 ?>
