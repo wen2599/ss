@@ -22,19 +22,19 @@ try {
 
     // 3. 获取并验证输入
     $input_json = file_get_contents('php://input');
-    
-    // 【调试】记录日志，查看是否接收到了数据
+
+    // 【调试】记录接收到的原始数据长度
     error_log("QuickCalibrate Recv Length: " . strlen($input_json));
     
+    // 如果长度为0，说明PHP没读到数据
+    if (strlen($input_json) === 0) {
+        throw new Exception("后端接收到的请求体为空 (Body Length is 0). 请检查前端代理设置。", 400);
+    }
+
     $input = json_decode($input_json, true);
 
     if (json_last_error() !== JSON_ERROR_NONE) {
-        // 如果 JSON 解析失败，抛出详细错误
-        throw new Exception("JSON Decode Error: " . json_last_error_msg() . " (Raw Length: " . strlen($input_json) . ")", 400);
-    }
-    
-    if (!$input) {
-        throw new Exception("接收到的请求体为空 (Body is empty)", 400);
+        throw new Exception("JSON Decode Error: " . json_last_error_msg(), 400);
     }
 
     // 4. 参数提取
@@ -45,12 +45,9 @@ try {
     $reason = trim($input['reason'] ?? '');
 
     // 5. 必需参数验证
-    if ($email_id <= 0) {
-        error_log("Missing email_id. Received keys: " . implode(',', array_keys($input)));
-        throw new Exception("Email ID is required (Received: " . ($input['email_id'] ?? 'null') . ")", 400);
-    }
-    if ($line_number <= 0) throw new Exception("Line Number is required", 400);
-    if ($batch_id <= 0) throw new Exception("Batch ID is required", 400);
+    if ($email_id <= 0) throw new Exception("Error: Email ID is required", 400);
+    if ($line_number <= 0) throw new Exception("Error: Line Number is required", 400);
+    if ($batch_id <= 0) throw new Exception("Error: Batch ID is required", 400);
 
     // 6. 数据库操作
     $pdo = get_db_connection();
