@@ -22,19 +22,19 @@ try {
 
     // 3. 获取并验证输入
     $input_json = file_get_contents('php://input');
-
-    // 【调试】记录接收到的原始数据长度和内容
+    
+    // 【调试】记录日志，查看是否接收到了数据
     error_log("QuickCalibrate Recv Length: " . strlen($input_json));
-    error_log("QuickCalibrate Recv Body: " . $input_json);
-
-    if (empty($input_json)) {
-        throw new Exception("后端接收到的请求体为空 (Body is empty)", 400);
-    }
-
+    
     $input = json_decode($input_json, true);
 
-    if ($input === null) {
-        throw new Exception("JSON 解析失败: " . json_last_error_msg(), 400);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        // 如果 JSON 解析失败，抛出详细错误
+        throw new Exception("JSON Decode Error: " . json_last_error_msg() . " (Raw Length: " . strlen($input_json) . ")", 400);
+    }
+    
+    if (!$input) {
+        throw new Exception("接收到的请求体为空 (Body is empty)", 400);
     }
 
     // 4. 参数提取
@@ -46,14 +46,11 @@ try {
 
     // 5. 必需参数验证
     if ($email_id <= 0) {
-        throw new Exception("Error: Email ID is required (Received: {$input['email_id']})", 400);
+        error_log("Missing email_id. Received keys: " . implode(',', array_keys($input)));
+        throw new Exception("Email ID is required (Received: " . ($input['email_id'] ?? 'null') . ")", 400);
     }
-    if ($line_number <= 0) {
-        throw new Exception("Error: Line Number is required", 400);
-    }
-    if ($batch_id <= 0) {
-        throw new Exception("Error: Batch ID is required", 400);
-    }
+    if ($line_number <= 0) throw new Exception("Line Number is required", 400);
+    if ($batch_id <= 0) throw new Exception("Batch ID is required", 400);
 
     // 6. 数据库操作
     $pdo = get_db_connection();
@@ -70,7 +67,7 @@ try {
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$result) {
-        throw new Exception("找不到该记录或无权访问 (Batch: $batch_id)", 404);
+        throw new Exception("找不到该记录或无权访问", 404);
     }
 
     $original_parse = json_decode($result['bet_data_json'], true);
@@ -102,7 +99,6 @@ try {
         require_once __DIR__ . '/get_email_details.php';
     }
 
-    // 获取赔率模板
     $stmt_odds = $pdo->prepare("SELECT * FROM user_odds_templates WHERE user_id = ?");
     $stmt_odds->execute([$user_id]);
     $userOddsTemplate = $stmt_odds->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -133,7 +129,6 @@ try {
 
     $pdo->commit();
 
-    // 10. 返回成功
     http_response_code(200);
     echo json_encode([
         'status' => 'success',
@@ -150,16 +145,11 @@ try {
         $pdo->rollBack();
     }
     
-    // 记录详细错误堆栈
     error_log("Quick Calibrate Error: " . $e->getMessage());
     
-    $code = $e->getCode();
-    if ($code < 400 || $code > 599) $code = 500;
+    $code = ($e->getCode() >= 400 && $e->getCode() < 600) ? $e->getCode() : 500;
     
     http_response_code($code);
-    echo json_encode([
-        'status' => 'error', 
-        'message' => '快速校准失败: ' . $e->getMessage()
-    ]);
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
 ?>
